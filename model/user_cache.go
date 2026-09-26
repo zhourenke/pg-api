@@ -266,13 +266,3 @@ func updateUserCacheField(userId int, field string, value any) error {
 	}
 	return updateUserCacheFieldAtVersion(userId, field, value, user.AuthVersion)
 }
-
-// GetUserLanguage returns the user's language preference from cache
-// Uses the existing GetUserCache mechanism for efficiency
-func GetUserLanguage(userId int) string {
-	userCache, err := GetUserCache(userId)
-	if err != nil {
-		return ""
-	}
-	return userCache.GetSetting().Language
-}

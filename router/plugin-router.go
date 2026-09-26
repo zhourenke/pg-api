@@ -16,6 +16,7 @@ import (
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/constant"
 	"github.com/zhourenke/pg-api/controller"
+	"github.com/zhourenke/pg-api/i18n"
 	"github.com/zhourenke/pg-api/logger"
 	"github.com/zhourenke/pg-api/middleware"
 	"github.com/zhourenke/pg-api/pkg/jsplugin"
@@ -309,9 +310,7 @@ func importPluginDispatchState() gin.HandlerFunc {
 			if state.requestID != "" {
 				c.Set(common.RequestIdKey, state.requestID)
 			}
-			if state.language != "" {
-				c.Set(string(constant.ContextKeyLanguage), state.language)
-			}
+			c.Set(string(constant.ContextKeyLanguage), i18n.LangZhCN)
 		}
 		c.Set(middleware.RouteTagKey, "relay")
 		c.Next()
@@ -370,7 +369,7 @@ func (d *pluginRouteDispatcher) dispatch(c *gin.Context) {
 	state := &pluginDispatchState{
 		generation: generation,
 		requestID:  c.GetString(common.RequestIdKey),
-		language:   c.GetString(string(constant.ContextKeyLanguage)),
+		language:   i18n.LangZhCN,
 	}
 	gatedWriter := newGatedResponseWriter(c.Writer)
 	state.writer = gatedWriter

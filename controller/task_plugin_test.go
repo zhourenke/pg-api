@@ -993,16 +993,13 @@ func TestUploadTaskPluginLocalizesUnknownMetaField(t *testing.T) {
 		language string
 		message  string
 	}{
-		{"en", `Plugin metadata contains an unknown field "futureField". If this plugin was downloaded from the official marketplace, it may require a newer version of new-api. Try updating new-api and installing the plugin again.`},
 		{"zh-CN", "插件元数据包含未知字段“futureField”。如果插件来自官方市场，可能需要更高版本的 new-api。请尝试更新 new-api 后重新安装插件。"},
-		{"zh-TW", "外掛中繼資料包含未知欄位「futureField」。如果外掛來自官方市集，可能需要較新版本的 new-api。請嘗試更新 new-api 後重新安裝外掛。"},
 	} {
 		t.Run(tc.language, func(t *testing.T) {
 			recorder := httptest.NewRecorder()
 			c, _ := gin.CreateTestContext(recorder)
 			c.Request = httptest.NewRequest(http.MethodPost, "/api/plugin/task", bytes.NewReader(body))
 			c.Request.Header.Set("Content-Type", "application/json")
-			c.Request.Header.Set("Accept-Language", tc.language)
 			UploadTaskPlugin(c)
 			require.Equal(t, http.StatusOK, recorder.Code)
 			var response struct {

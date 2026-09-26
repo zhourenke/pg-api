@@ -776,7 +776,7 @@ func UpdateSelf(c *gin.Context) {
 			recordUserSecurityAudit(c, c.GetInt("id"), "user.password_change", map[string]any{"success": succeeded, "notification_failed": notificationFailed})
 		}()
 	}
-	// 检查是否是用户设置更新请求 (sidebar_modules 或 language)
+	// 检查是否是用户设置更新请求 (sidebar_modules)
 	if sidebarModules, sidebarExists := requestData["sidebar_modules"]; sidebarExists && !passwordRequested {
 		userId := c.GetInt("id")
 		user, err := model.GetUserById(userId, false)
@@ -791,32 +791,6 @@ func UpdateSelf(c *gin.Context) {
 		// 更新sidebar_modules字段
 		if sidebarModulesStr, ok := sidebarModules.(string); ok {
 			currentSetting.SidebarModules = sidebarModulesStr
-		}
-
-		if err := model.UpdateUserSetting(user.Id, currentSetting); err != nil {
-			common.ApiErrorI18n(c, i18n.MsgUpdateFailed)
-			return
-		}
-
-		common.ApiSuccessI18n(c, i18n.MsgUpdateSuccess, nil)
-		return
-	}
-
-	// 检查是否是语言偏好更新请求
-	if language, langExists := requestData["language"]; langExists && !passwordRequested {
-		userId := c.GetInt("id")
-		user, err := model.GetUserById(userId, false)
-		if err != nil {
-			common.ApiError(c, err)
-			return
-		}
-
-		// 获取当前用户设置
-		currentSetting := user.GetSetting()
-
-		// 更新language字段
-		if langStr, ok := language.(string); ok {
-			currentSetting.Language = langStr
 		}
 
 		if err := model.UpdateUserSetting(user.Id, currentSetting); err != nil {

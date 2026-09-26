@@ -27,7 +27,7 @@ This is an AI API gateway/proxy built with Go. It aggregates 40+ upstream AI pro
 
 ### Backend (`i18n/`)
 - Library: `nicksnyder/go-i18n/v2`
-- Languages: en, zh
+- Language: Simplified Chinese only (`i18n/locales/zh-CN.yaml`); `i18n.LangZhCN` is the single language constant. There is no language negotiation: no Accept-Language parsing, no per-user language setting, and `i18n.T` ignores the request. Message keys stay `i18n.Msg*` constants, so add new copy to the single YAML file and its key constant
 
 ### Frontend (`web/src/i18n/`)
 - Library: `i18next` + `react-i18next`

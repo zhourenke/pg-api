@@ -23,7 +23,7 @@ var (
 )
 
 func printHelp() {
-	fmt.Println("pg-api(Based OneAPI) " + Version + " - The next-generation LLM gateway and AI asset management system supports multiple languages.")
+	fmt.Println("pg-api(Based OneAPI) " + Version + " - The next-generation LLM gateway and AI asset management system.")
 	fmt.Println("Original Project: OneAPI by JustSong - https://github.com/songquanpeng/one-api")
 	fmt.Println("Upstream Project: New API by QuantumNous - https://github.com/QuantumNous/new-api")
 	fmt.Println("Maintainer: zhourenke - https://github.com/zhourenke/pg-api")

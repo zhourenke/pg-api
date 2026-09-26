@@ -65,7 +65,8 @@ const (
 	// It is not returned to end users, but can be persisted into consume/error logs for debugging.
 	ContextKeyAdminRejectReason ContextKey = "admin_reject_reason"
 
-	// ContextKeyLanguage stores the user's language preference for i18n
+	// ContextKeyLanguage carries the request's interface language for plugin
+	// routes. This fork ships Simplified Chinese only, so it is always zh-CN.
 	ContextKeyLanguage             ContextKey = "language"
 	ContextKeyIsStream             ContextKey = "is_stream"
 	ContextKeyResponseStreamStatus ContextKey = "response_stream_status"

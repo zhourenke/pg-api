@@ -196,7 +196,6 @@ func main() {
 	//server.Use(gzip.Gzip(gzip.DefaultCompression))
 	server.Use(middleware.RequestId())
 	server.Use(middleware.Version())
-	server.Use(middleware.I18n())
 	middleware.SetUpLogger(server)
 	InjectUmamiAnalytics()
 	InjectGoogleAnalytics()
@@ -363,10 +362,8 @@ func InitResources() error {
 		common.SysError("failed to initialize i18n: " + err.Error())
 		// Don't return error, i18n is not critical
 	} else {
-		common.SysLog("i18n initialized with languages: " + strings.Join(i18n.SupportedLanguages(), ", "))
+		common.SysLog("i18n initialized with language: " + i18n.LangZhCN)
 	}
-	// Register user language loader for lazy loading
-	i18n.SetUserLangLoader(model.GetUserLanguage)
 
 	// Load custom OAuth providers from database
 	err = oauth.LoadCustomProviders()
