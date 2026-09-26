@@ -42,7 +42,7 @@ const { ApiKeyGroupCombobox } = await import('../api-key-group-combobox')
 
 const i18n = createInstance()
 await i18n.use(initReactI18next).init({
-  lng: 'en',
+  lng: 'zhCN',
   resources: {
     en: {
       translation: {

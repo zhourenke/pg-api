@@ -16,9 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { act, render, screen } from '@testing-library/react'
-import i18next from 'i18next'
-import { afterEach, describe, expect, test } from 'vitest'
+import { render, screen } from '@testing-library/react'
+import { describe, expect, test } from 'vitest'
 
 import type { BillingUsageSchema } from '@/features/pricing/types'
 
@@ -37,11 +36,7 @@ const schema: BillingUsageSchema = {
 }
 
 describe('UsageSchemaTable layout', () => {
-  afterEach(async () => {
-    await act(() => i18next.changeLanguage('en'))
-  })
-
-  test('uses localized count unit labels while preserving legacy unit names', async () => {
+  test('uses the shipped-language count unit label while preserving legacy unit names', () => {
     render(
       <UsageSchemaTable
         schema={{
@@ -54,11 +49,8 @@ describe('UsageSchemaTable layout', () => {
         }}
       />
     )
-    expect(screen.getByRole('cell', { name: 'image' })).toBeVisible()
-    expect(screen.getByRole('cell', { name: 'Count' })).toBeVisible()
-    await act(() => i18next.changeLanguage('zhCN'))
     expect(screen.getByRole('cell', { name: '张' })).toBeVisible()
-    expect(screen.getByRole('cell', { name: i18next.t('Count') })).toBeVisible()
+    expect(screen.getByRole('cell', { name: 'Count' })).toBeVisible()
   })
 
   test('given a usage schema, every declaration renders as a five-column table row', () => {
@@ -76,7 +68,7 @@ describe('UsageSchemaTable layout', () => {
       ).toBeInTheDocument()
     }
     expect(
-      screen.getByRole('cell', { name: 'Video duration in seconds.' })
+      screen.getByRole('cell', { name: '视频时长(秒)。' })
     ).toBeInTheDocument()
     expect(
       screen.getByRole('cell', { name: '480p, 720p, 1080p, 4k' })

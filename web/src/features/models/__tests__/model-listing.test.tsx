@@ -194,7 +194,6 @@ beforeEach(() => {
     currency: { ...DEFAULT_CURRENCY_CONFIG, quotaDisplayType: 'USD' },
   })
   vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
-  i18n.addResourceBundle('zhCN', 'translation', zhCN.translation, true, true)
 })
 
 afterEach(async () => {
@@ -204,7 +203,6 @@ afterEach(async () => {
   useSystemConfigStore
     .getState()
     .setConfig({ currency: { ...DEFAULT_CURRENCY_CONFIG } })
-  await i18n.changeLanguage('en')
 })
 
 it('requests channel models and distinguishes catalog policy from availability using compact labels', async () => {
@@ -314,6 +312,7 @@ it('keeps long model names and translated channel labels truncated inside their 
   expect(label).toHaveClass('whitespace-normal', 'sm:truncate')
   expect(label).toHaveAttribute('tabindex', '0')
   await act(async () => {
+    i18n.addResourceBundle('zhCN', 'translation', zhCN.translation, true, true)
     await i18n.changeLanguage('zhCN')
   })
   expect(screen.getByText('缺元数据')).toBeVisible()
@@ -443,6 +442,7 @@ it('uses backend square states for success, warning, hidden, and partial rows in
     )
   }
   await act(async () => {
+    i18n.addResourceBundle('zhCN', 'translation', zhCN.translation, true, true)
     await i18n.changeLanguage('zhCN')
   })
   expect(screen.getByText('无法展示')).toBeVisible()

@@ -65,12 +65,12 @@ it('renders weekday and hour conditions as time windows instead of expression so
     />
   )
   expect(
-    screen.getAllByText('Mon–Fri 09:00–12:00 or 14:00–18:00 (Asia/Shanghai)')
+    screen.getAllByText('周一–周五 09:00–12:00 or 14:00–18:00 (Asia/Shanghai)')
       .length
   ).toBeGreaterThan(0)
   expect(
     screen.getAllByText(
-      'Outside these times: Mon–Fri 09:00–12:00 or 14:00–18:00 (Asia/Shanghai)'
+      'Outside these times: 周一–周五 09:00–12:00 or 14:00–18:00 (Asia/Shanghai)'
     ).length
   ).toBeGreaterThan(0)
   expect(screen.queryByText(/weekday\(/)).not.toBeInTheDocument()
@@ -261,7 +261,7 @@ afterEach(async () => {
   clients.forEach((client) => client.clear())
   clients.length = 0
   vi.restoreAllMocks()
-  await i18next.changeLanguage('en')
+  await i18next.changeLanguage('zhCN')
 })
 
 it('refreshes memoized provider prices when the group or display currency changes', () => {
@@ -326,26 +326,20 @@ it('shows one standard task price and a localized group price without duplicate 
       />
     </QueryClientProvider>
   )
-  expect(
-    screen.getAllByText('Song generation unit price', { exact: false })
-  ).toHaveLength(2)
+  expect(screen.getAllByText('生成歌曲单价', { exact: false })).toHaveLength(2)
   expect(screen.queryByText('Tiered price table')).not.toBeInTheDocument()
   expect(screen.queryByText('Dynamic Pricing')).not.toBeInTheDocument()
   expect(screen.queryByText('music')).not.toBeInTheDocument()
   expect(screen.getByText('$0.22')).toBeVisible()
   expect(screen.getByText('$0.44')).toBeVisible()
-  await act(() => i18next.changeLanguage('zhCN'))
-  expect(screen.getAllByText('生成歌曲单价', { exact: false })).toHaveLength(2)
   await act(() => i18next.changeLanguage('fr'))
   expect(
     screen.getAllByText('Song generation unit price', { exact: false })
   ).toHaveLength(2)
 })
 
-it('labels even a single task price on model cards', async () => {
+it('labels even a single task price on model cards', () => {
   render(<ModelCard model={model} onClick={() => {}} />)
-  expect(screen.getByText('Song generation unit price')).toBeVisible()
-  await act(() => i18next.changeLanguage('zhCN'))
   expect(screen.getByText('生成歌曲单价')).toBeVisible()
 })
 
@@ -435,14 +429,11 @@ it('uses plugin option labels and infers a unique fallback without expanding unr
       usageSchema={videoSchema}
     />
   )
-  expect(screen.getAllByText('No reference video')).toHaveLength(2)
-  expect(screen.getAllByText('With reference video')).toHaveLength(2)
+  expect(screen.getAllByText('无参考视频')).toHaveLength(2)
+  expect(screen.getAllByText('有参考视频')).toHaveLength(2)
   expect(screen.queryByText('Other cases')).not.toBeInTheDocument()
   expect(screen.queryByText('Pricing conditions')).not.toBeInTheDocument()
   expect(screen.queryByText('480p')).not.toBeInTheDocument()
-  await act(() => i18next.changeLanguage('zhCN'))
-  expect(screen.getAllByText('无参考视频')).toHaveLength(2)
-  expect(screen.getAllByText('有参考视频')).toHaveLength(2)
   await act(() => i18next.changeLanguage('ja'))
   expect(screen.getAllByText('With reference video')).toHaveLength(2)
 })
@@ -602,12 +593,12 @@ it('switches provider group prices, localized conditions and examples, and shows
   panel = screen.getByRole('tabpanel', { name: 'Beta' })
   expect(within(panel).getByText('Beta sample')).toBeVisible()
   expect(within(panel).queryByText('Alpha sample')).not.toBeInTheDocument()
-  expect(within(panel).getByText('Professional mode')).toBeVisible()
+  expect(within(panel).getByText('专业模式')).toBeVisible()
   expect(within(panel).getByText('$3')).toBeVisible()
   expect(within(panel).getByText('$6')).toBeVisible()
   await act(() => i18next.changeLanguage('zhCN'))
   expect(within(panel).getByText('专业模式')).toBeVisible()
-  await act(() => i18next.changeLanguage('en'))
+  await act(() => i18next.changeLanguage('zhCN'))
   await user.click(screen.getByRole('tab', { name: 'Gamma' }))
   panel = screen.getByRole('tabpanel', { name: 'Gamma' })
   expect(

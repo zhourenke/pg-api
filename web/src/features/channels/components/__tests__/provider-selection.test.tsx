@@ -128,9 +128,9 @@ test('editing an existing legacy Zhipu channel retains its selectable provider',
 test('Zhipu GLM uses the renamed Chinese label and remains searchable after changing language', async () => {
   const language = createInstance()
   await language.init({
-    lng: 'en',
-    fallbackLng: 'en',
-    resources: { en: { translation: {} }, zh },
+    lng: 'zhCN',
+    fallbackLng: 'zhCN',
+    resources: { zhCN: { translation: {} }, zh },
   })
   const user = userEvent.setup()
   render(
@@ -178,12 +178,12 @@ test('plugin extensions keep built-in and independent plugin choices distinct in
   expect(extension).toHaveTextContent('Sora Video')
   expect(extension).toHaveClass('text-muted-foreground', 'min-w-0')
   expect(within(extension).getByText('Sora Video')).toHaveClass('truncate')
-  expect(extension).toHaveAttribute('title', 'Sora Video · Video generation')
+  expect(extension).toHaveAttribute('title', 'Sora Video · 视频生成')
   expect(
     within(builtin).queryByText('Supports plugin extensions')
   ).not.toBeInTheDocument()
-  expect(builtin).not.toHaveTextContent('Video generation')
-  expect(builtin).toHaveAccessibleDescription(/Sora Video.*Video generation/)
+  expect(builtin).not.toHaveTextContent('视频生成')
+  expect(builtin).toHaveAccessibleDescription(/Sora Video.*视频生成/)
   expect(
     screen.getByRole('option', { name: 'Sora Video Plugin sora' })
   ).toBeVisible()
@@ -413,10 +413,10 @@ test('creation retains complementary built-ins and does not replace a legacy typ
 test('creation searches legacy names and translated names through the replacement plugin', async () => {
   const language = createInstance()
   await language.init({
-    lng: 'en',
-    fallbackLng: 'en',
+    lng: 'zhCN',
+    fallbackLng: 'zhCN',
     resources: {
-      en: { translation: {} },
+      zhCN: { translation: {} },
       zh: { translation: { Doubao: '豆包' } },
     },
   })
@@ -663,9 +663,9 @@ test('removing plugin binding permission returns an active plugin tab to all pro
 test('every built-in provider has a description and Anthropic includes compatible services', async () => {
   const language = createInstance()
   await language.init({
-    lng: 'en',
-    fallbackLng: 'en',
-    resources: { en: { translation: {} }, zhCN: zh },
+    lng: 'zhCN',
+    fallbackLng: 'zhCN',
+    resources: { zhCN: { translation: {} }, zh },
   })
   render(
     <I18nextProvider i18n={language}>
@@ -690,7 +690,7 @@ test('every built-in provider has a description and Anthropic includes compatibl
   expect(anthropic).toHaveAccessibleDescription(
     'Connect to the Anthropic API or compatible services'
   )
-  await act(() => language.changeLanguage('zhCN'))
+  await act(() => language.changeLanguage('zh'))
   expect(anthropic).toHaveAccessibleDescription(
     '接入 Anthropic API 或兼容其接口的服务'
   )
@@ -741,12 +741,12 @@ test('deprecated and flexible integration badges preserve provider selection and
   expect(select).toHaveBeenCalledTimes(2)
 })
 
-test('plugin descriptions follow the current language with an English fallback and remain selectable', async () => {
+test('plugin descriptions use the shipped language with an English fallback and remain selectable', async () => {
   const language = createInstance()
   await language.init({
-    lng: 'en',
-    fallbackLng: 'en',
-    resources: { en: { translation: {} } },
+    lng: 'zhCN',
+    fallbackLng: 'zhCN',
+    resources: { zhCN: { translation: {} } },
   })
   const select = vi.fn()
   const user = userEvent.setup()
@@ -767,19 +767,12 @@ test('plugin descriptions follow the current language with an English fallback a
   const option = screen.getByRole('option', {
     name: 'OpenAI Plugin provider-video',
   })
-  expect(
-    within(option).getByText('Video generation via the vendor API')
-  ).toBeVisible()
-  expect(option).toHaveAccessibleDescription(
-    'Video generation via the vendor API'
-  )
+  expect(within(option).getByText('通过厂商接口生成视频')).toBeVisible()
+  expect(option).toHaveAccessibleDescription('通过厂商接口生成视频')
   expect(
     screen.getByRole('option', { name: 'Video Provider Plugin another-video' })
   ).not.toHaveAccessibleDescription()
 
-  await act(() => language.changeLanguage('zhCN'))
-  expect(within(option).getByText('通过厂商接口生成视频')).toBeVisible()
-  expect(option).toHaveAccessibleDescription('通过厂商接口生成视频')
   await act(() => language.changeLanguage('fr'))
   await user.click(
     within(option).getByText('Video generation via the vendor API')

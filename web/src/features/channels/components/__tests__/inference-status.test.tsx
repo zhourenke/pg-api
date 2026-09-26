@@ -421,7 +421,7 @@ it('keeps SGLang worker values separate and wraps long labels below them', async
   expect(load.getByText('50%')).toBeInTheDocument()
   expect(
     within(screen.getByRole('region', { name: 'Cumulative usage' })).getByText(
-      '2 sec'
+      '2秒'
     )
   ).toBeInTheDocument()
   const workers = within(screen.getByRole('region', { name: 'Worker metrics' }))

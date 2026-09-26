@@ -60,8 +60,8 @@ import { UsersTable } from '../users-table'
 const clients: QueryClient[] = []
 const i18n = createInstance()
 await i18n.init({
-  lng: 'en',
-  resources: { en: { translation: {} } },
+  lng: 'zhCN',
+  resources: { zhCN: { translation: {} } },
   initAsync: false,
 })
 
@@ -353,7 +353,7 @@ it('shows balance above usage on mobile cards in Chinese', async () => {
     expect(within(detail).getByText('0.0022')).toBeInTheDocument()
     await userEvent.keyboard('{Escape}')
   } finally {
-    await i18n.changeLanguage('en')
+    await i18n.changeLanguage('zhCN')
   }
 })
 

@@ -20,7 +20,7 @@ import '@testing-library/jest-dom/vitest'
 import { cleanup, configure } from '@testing-library/react'
 import i18next from 'i18next'
 import { initReactI18next } from 'react-i18next'
-import { afterEach, beforeAll } from 'vitest'
+import { afterEach, beforeAll, beforeEach } from 'vitest'
 
 // The testing-library default of 1000ms for findBy*/waitFor is too tight for
 // this suite on contended CI runners, where a first-in-file test also pays the
@@ -29,15 +29,31 @@ import { afterEach, beforeAll } from 'vitest'
 configure({ asyncUtilTimeout: 5000 })
 
 beforeAll(async () => {
+  // The suite runs in the shipped interface language and keeps its bundle
+  // empty, so `t('English source key')` returns the key itself and assertions
+  // can locate elements by key instead of by translated copy. A test that
+  // asserts the shipped copy loads `zh.json` into the `zhCN` bundle itself.
   await i18next.use(initReactI18next).init({
-    lng: 'en',
-    fallbackLng: 'en',
+    lng: 'zhCN',
+    fallbackLng: 'zhCN',
+    nsSeparator: false,
     resources: {
-      en: {
+      zhCN: {
         translation: {},
       },
     },
   })
+})
+
+beforeEach(async () => {
+  // `addResourceBundle` merges, so a bundle loaded by an earlier test would
+  // otherwise survive into the next one. Remove the namespace first: each test
+  // starts from the empty identity bundle in the shipped language.
+  i18next.removeResourceBundle('zhCN', 'translation')
+  i18next.addResourceBundle('zhCN', 'translation', {}, false, true)
+  if (i18next.language !== 'zhCN') {
+    await i18next.changeLanguage('zhCN')
+  }
 })
 
 afterEach(() => {

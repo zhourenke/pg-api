@@ -36,7 +36,7 @@ const { RedemptionsProvider } = await import('../redemptions-provider')
 const { RedemptionsMutateDrawer } = await import('../redemptions-mutate-drawer')
 
 await i18n.use(initReactI18next).init({
-  lng: 'en',
+  lng: 'zhCN',
   resources: {
     en: {
       translation: {

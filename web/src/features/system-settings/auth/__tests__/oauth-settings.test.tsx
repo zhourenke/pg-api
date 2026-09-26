@@ -104,9 +104,9 @@ async function renderSettings(values?: Partial<typeof defaults>) {
 beforeEach(async () => {
   testI18n = createInstance()
   await testI18n.init({
-    lng: 'en',
-    fallbackLng: 'en',
-    resources: { en: { translation: {} }, zhCN: zh },
+    lng: 'zhCN',
+    fallbackLng: 'zhCN',
+    resources: { zhCN: { translation: {} }, zh },
     interpolation: { escapeValue: false },
   })
   vi.spyOn(api, 'put').mockResolvedValue({ data: { success: true } })

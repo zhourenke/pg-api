@@ -96,7 +96,7 @@ afterEach(async () => {
   clients.forEach((client) => client.clear())
   clients.length = 0
   vi.unstubAllGlobals()
-  await act(() => i18next.changeLanguage('en'))
+  await act(() => i18next.changeLanguage('zhCN'))
 })
 
 test('renders inline formatting and resolves release links against the source instead of the dashboard', async () => {
@@ -121,7 +121,7 @@ test('renders inline formatting and resolves release links against the source in
   expect(source).toHaveAttribute('rel', 'noopener noreferrer')
 })
 
-test('changing language chooses Chinese when declared and otherwise displays English with a fallback notice', async () => {
+test('uses the declared Chinese changelog and falls back to English with a notice for an unsupported language', async () => {
   vi.stubGlobal(
     'fetch',
     vi.fn(
@@ -130,8 +130,6 @@ test('changing language chooses Chinese when declared and otherwise displays Eng
     )
   )
   renderPanel()
-  expect(await screen.findByText('Configure resolution prices.')).toBeVisible()
-  await act(() => i18next.changeLanguage('zhCN'))
   expect(await screen.findByText('配置分辨率价格。')).toBeVisible()
   await act(() => i18next.changeLanguage('fr'))
   expect(

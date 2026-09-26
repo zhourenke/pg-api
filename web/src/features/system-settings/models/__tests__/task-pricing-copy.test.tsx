@@ -54,17 +54,17 @@ function renderPricing(unitLabel?: Record<string, string>) {
 }
 
 afterEach(async () => {
-  await act(() => i18next.changeLanguage('en'))
+  await act(() => i18next.changeLanguage('zhCN'))
 })
 
 it('shows localized schema explanations in the price table and calculator', async () => {
   renderPricing()
   const table = screen.getByRole('table')
-  expect(within(table).getByText('Song generation unit price')).toBeVisible()
-  expect(within(table).getByText('Generate songs or lyrics')).toBeVisible()
+  expect(within(table).getByText('生成歌曲单价')).toBeVisible()
+  expect(within(table).getByText('生成歌曲或歌词')).toBeVisible()
   expect(
     screen.getByRole('spinbutton', {
-      name: 'Usage · Song generation unit price',
+      name: 'Usage · 生成歌曲单价',
     })
   ).toBeVisible()
   expect(
@@ -72,17 +72,15 @@ it('shows localized schema explanations in the price table and calculator', asyn
       'Added to the usage cost. Set to 0 for no additional charge.'
     )
   ).toBeVisible()
-  await act(() => i18next.changeLanguage('zhCN'))
-  expect(within(table).getByText('生成歌曲单价')).toBeVisible()
   expect(screen.getByRole('combobox', { name: '生成歌曲或歌词' })).toBeVisible()
 })
 
 it('uses count unit labels in the price matrix and calculator without changing the charge', async () => {
   renderPricing({ en: 'song', zh: '首' })
-  expect(within(screen.getByRole('table')).getByText('$/song')).toBeVisible()
+  expect(within(screen.getByRole('table')).getByText('$/首')).toBeVisible()
   expect(
     screen.getByText(
-      'Additional charge: $1 + Song generation unit price: 1 song × $11/song = $12'
+      'Additional charge: $1 + 生成歌曲单价: 1 首 × $11/首 = $12'
     )
   ).toBeVisible()
   await act(() => i18next.changeLanguage('zhCN'))
@@ -93,23 +91,21 @@ it('uses count unit labels in the price matrix and calculator without changing t
 
 it('identifies pricing conditions and keeps the additional charge unchanged when sample usage changes', async () => {
   renderPricing()
-  expect(
-    screen.getByText('Current pricing conditions: Generate songs')
-  ).toBeVisible()
+  expect(screen.getByText('Current pricing conditions: 生成歌曲')).toBeVisible()
   expect(
     screen.getByText(
-      'Additional charge: $1 + Song generation unit price: 1 unit × $11/unit = $12'
+      'Additional charge: $1 + 生成歌曲单价: 1 unit × $11/unit = $12'
     )
   ).toBeVisible()
   const user = userEvent.setup()
   const quantity = screen.getByRole('spinbutton', {
-    name: 'Usage · Song generation unit price',
+    name: 'Usage · 生成歌曲单价',
   })
   await user.clear(quantity)
   await user.type(quantity, '2')
   expect(
     screen.getByText(
-      'Additional charge: $1 + Song generation unit price: 2 unit × $11/unit = $23'
+      'Additional charge: $1 + 生成歌曲单价: 2 unit × $11/unit = $23'
     )
   ).toBeVisible()
 })
@@ -117,15 +113,11 @@ it('identifies pricing conditions and keeps the additional charge unchanged when
 it('shows localized enum choices while preserving raw values in generated billing expressions', async () => {
   const onChange = renderPricing()
   const user = userEvent.setup()
-  await user.click(
-    screen.getByRole('combobox', { name: 'Generate songs or lyrics' })
-  )
-  await user.click(screen.getByRole('option', { name: 'Generate lyrics' }))
-  expect(
-    screen.getByText('Current pricing conditions: Generate lyrics')
-  ).toBeVisible()
+  await user.click(screen.getByRole('combobox', { name: '生成歌曲或歌词' }))
+  await user.click(screen.getByRole('option', { name: '生成歌词' }))
+  expect(screen.getByText('Current pricing conditions: 生成歌词')).toBeVisible()
   const price = screen.getByRole('textbox', {
-    name: 'Song generation unit price: Generate lyrics',
+    name: '生成歌曲单价: 生成歌词',
   })
   await user.clear(price)
   await user.type(price, '3')
@@ -342,7 +334,7 @@ it.each(['image', 'video'] as const)(
       screen.queryByRole('spinbutton', { name: `Usage · ${absentLabel}` })
     ).not.toBeInTheDocument()
     if (kind === 'image') {
-      expect(screen.getByText('$/image')).toBeVisible()
+      expect(screen.getByText('$/张')).toBeVisible()
       expect(
         screen.queryByRole('combobox', { name: 'Resolution' })
       ).not.toBeInTheDocument()

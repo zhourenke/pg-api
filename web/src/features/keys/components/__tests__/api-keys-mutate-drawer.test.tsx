@@ -29,8 +29,8 @@ const { ApiKeysMutateDrawer } = await import('../api-keys-mutate-drawer')
 
 const i18n = createInstance()
 await i18n.use(initReactI18next).init({
-  lng: 'en',
-  resources: { en: { translation: {} } },
+  lng: 'zhCN',
+  resources: { zhCN: { translation: {} } },
 })
 
 type ApiMethod = (url: string, data?: unknown) => Promise<{ data: unknown }>

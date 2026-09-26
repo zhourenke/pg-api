@@ -118,9 +118,9 @@ function Fixture(props: {
 beforeEach(async () => {
   testI18n = createInstance()
   await testI18n.init({
-    lng: 'en',
-    fallbackLng: 'en',
-    resources: { en: { translation: {} }, zh },
+    lng: 'zhCN',
+    fallbackLng: 'zhCN',
+    resources: { zhCN: { translation: {} }, zh },
     interpolation: { escapeValue: false },
   })
   localStorage.clear()

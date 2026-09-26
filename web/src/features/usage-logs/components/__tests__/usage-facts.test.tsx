@@ -166,7 +166,7 @@ describe('usage facts billing details', () => {
   })
 
   beforeAll(() => {
-    i18next.addResourceBundle('en', 'translation', i18nKeys)
+    i18next.addResourceBundle('zhCN', 'translation', i18nKeys)
   })
 
   afterEach(() => {

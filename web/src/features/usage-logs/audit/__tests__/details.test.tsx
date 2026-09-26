@@ -241,7 +241,7 @@ it.each([
 
 it('distinguishes unchanged state from missing change metadata', async () => {
   const i18n = createInstance()
-  await i18n.init({ lng: 'en' })
+  await i18n.init({ lng: 'zhCN' })
   const unchanged = buildAuditDetails(
     {
       ...entry,
@@ -567,7 +567,7 @@ it('shows failed quota attempts without claiming a balance change', async () => 
 
 it('distinguishes unchanged zero quota from missing or legacy balance metadata', async () => {
   const i18n = createInstance()
-  await i18n.init({ lng: 'en' })
+  await i18n.init({ lng: 'zhCN' })
   const unchanged = buildAuditDetails(
     {
       ...entry,
@@ -670,7 +670,7 @@ it.each([
 
 it('shows the affected count separately from requested redemption IDs', async () => {
   const i18n = createInstance()
-  await i18n.init({ lng: 'en', resources: {} })
+  await i18n.init({ lng: 'zhCN', resources: {} })
   const detail = buildAuditDetails(
     {
       ...entry,

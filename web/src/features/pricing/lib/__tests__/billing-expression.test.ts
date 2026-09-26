@@ -146,8 +146,8 @@ describe('local billing expression evaluation', () => {
     async (language, source, expected) => {
       const translations = createInstance()
       await translations.init({
-        lng: 'en',
-        resources: { en: { translation: {} } },
+        lng: 'zhCN',
+        resources: { zhCN: { translation: {} } },
       })
       expect(formatBillingCondition(source, translations.t, language)).toBe(
         expected

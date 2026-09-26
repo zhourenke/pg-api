@@ -46,9 +46,9 @@ test('external mapping changes update the editor without emitting an edit', () =
 test('the shipped Chinese copy preserves draft mappings and explains the same direction in JSON mode', async () => {
   const i18n = createInstance()
   await i18n.init({
-    lng: 'en',
-    fallbackLng: 'en',
-    resources: { en: { translation: {} }, zhCN: zh },
+    lng: 'zhCN',
+    fallbackLng: 'zhCN',
+    resources: { zhCN: { translation: {} }, zh },
     keySeparator: false,
     interpolation: { escapeValue: false },
   })
@@ -66,7 +66,7 @@ test('the shipped Chinese copy preserves draft mappings and explains the same di
     'provider-model'
   )
 
-  await act(() => i18n.changeLanguage('zhCN'))
+  await act(() => i18n.changeLanguage('zh'))
   expect(screen.getByText('请求模型名称')).toBeVisible()
   expect(screen.getByText('上游模型名称')).toBeVisible()
   expect(screen.getByDisplayValue('client-alias')).toBeVisible()

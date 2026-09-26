@@ -73,8 +73,8 @@ const key = apiKeySchema.parse({
 })
 const i18n = createInstance()
 await i18n.init({
-  lng: 'en',
-  resources: { en: { translation: {} } },
+  lng: 'zhCN',
+  resources: { zhCN: { translation: {} } },
   initAsync: false,
 })
 const clients: QueryClient[] = []
@@ -475,7 +475,7 @@ it('keeps full mobile information without group or quota section headings', asyn
       screen.getByText(zh.translation['IP Restriction'])
     ).toBeInTheDocument()
   } finally {
-    await i18n.changeLanguage('en')
+    await i18n.changeLanguage('zhCN')
   }
 })
 

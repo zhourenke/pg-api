@@ -92,7 +92,7 @@ afterEach(async () => {
   cleanup()
   client.clear()
   vi.restoreAllMocks()
-  await i18next.changeLanguage('en')
+  await i18next.changeLanguage('zhCN')
 })
 function Workspace() {
   const [container, setContainer] = useState<HTMLDivElement | null>(null)

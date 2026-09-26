@@ -49,7 +49,7 @@ function renderEditor(options: {
 
 describe('PlaygroundMessageEditor leave warning', () => {
   beforeAll(() => {
-    i18next.addResourceBundle('en', 'translation', {
+    i18next.addResourceBundle('zhCN', 'translation', {
       Cancel: 'Cancel',
       Leave: 'Leave',
       Stay: 'Stay',

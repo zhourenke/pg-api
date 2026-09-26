@@ -96,8 +96,8 @@ let client: QueryClient
 const i18n = createInstance()
 beforeEach(async () => {
   await i18n.init({
-    lng: 'en',
-    resources: { en: { translation: {} } },
+    lng: 'zhCN',
+    resources: { zhCN: { translation: {} } },
     interpolation: { escapeValue: false },
   })
   useSystemConfigStore
@@ -309,11 +309,11 @@ test('task log prices use localized unit labels from pricing metadata', async ()
     expr_b64: btoa('tier("images", u("images") * 0.25)'),
     matched_tier: 'images',
   })
-  expect(preview).toHaveTextContent('images · images $0.25/image')
-  await act(() => i18n.changeLanguage('zhCN'))
+  expect(preview).toHaveTextContent('images · images $0.25/张')
+  await act(() => i18n.changeLanguage('en'))
   expect(
     screen.getByRole('button', { name: /images · images/ })
-  ).toHaveTextContent('images · images $0.25/张')
+  ).toHaveTextContent('images · images $0.25/image')
 })
 
 test('task log prices select the executing provider’s schema', () => {

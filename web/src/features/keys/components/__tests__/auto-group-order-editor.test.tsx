@@ -26,7 +26,7 @@ const { AutoGroupOrderEditor } = await import('../auto-group-order-editor')
 
 const i18n = createInstance()
 await i18n.use(initReactI18next).init({
-  lng: 'en',
+  lng: 'zhCN',
   resources: {
     en: {
       translation: {

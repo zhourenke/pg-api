@@ -120,7 +120,7 @@ afterEach(async () => {
   cleanup()
   vi.restoreAllMocks()
   vi.useRealTimers()
-  await i18next.changeLanguage('en')
+  await i18next.changeLanguage('zhCN')
 })
 
 it('applies the selected mobile date range directly and resets pagination while retaining filters', async () => {

@@ -25,18 +25,24 @@ import zhCN from './locales/zh.json'
  * The interface ships in Simplified Chinese only, so `zh.json` is both the key
  * base and the only resource: its keys are the English source strings passed to
  * `t('...')` at the call sites, and its values are the Chinese copy.
+ *
+ * The init stays guarded so importing this module twice — or importing it under
+ * tests, where the harness has already configured the shared instance — cannot
+ * replace the active options or resources.
  */
-i18n.use(initReactI18next).init({
-  resources: { zhCN },
-  lng: 'zhCN',
-  fallbackLng: 'zhCN',
-  supportedLngs: ['zhCN'],
-  load: 'currentOnly',
-  nsSeparator: false, // Allow literal colons in keys (e.g., URLs, labels)
-  debug: import.meta.env.DEV,
-  interpolation: {
-    escapeValue: false, // not needed for react as it escapes by default
-  },
-})
+if (!i18n.isInitialized) {
+  i18n.use(initReactI18next).init({
+    resources: { zhCN },
+    lng: 'zhCN',
+    fallbackLng: 'zhCN',
+    supportedLngs: ['zhCN'],
+    load: 'currentOnly',
+    nsSeparator: false, // Allow literal colons in keys (e.g., URLs, labels)
+    debug: import.meta.env.DEV,
+    interpolation: {
+      escapeValue: false, // not needed for react as it escapes by default
+    },
+  })
+}
 
 export default i18n
