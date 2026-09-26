@@ -22,7 +22,6 @@ import { createInstance } from 'i18next'
 import { I18nextProvider } from 'react-i18next'
 import { expect, test, vi } from 'vitest'
 
-import en from '@/i18n/locales/en.json'
 import zh from '@/i18n/locales/zh.json'
 
 import { ModelMappingEditor } from '../model-mapping-editor'
@@ -44,12 +43,12 @@ test('external mapping changes update the editor without emitting an edit', () =
   expect(onChange).not.toHaveBeenCalled()
 })
 
-test('language changes preserve draft mappings and explain the same direction in JSON mode', async () => {
+test('the shipped Chinese copy preserves draft mappings and explains the same direction in JSON mode', async () => {
   const i18n = createInstance()
   await i18n.init({
     lng: 'en',
     fallbackLng: 'en',
-    resources: { en, zh },
+    resources: { en: { translation: {} }, zhCN: zh },
     keySeparator: false,
     interpolation: { escapeValue: false },
   })
@@ -67,7 +66,7 @@ test('language changes preserve draft mappings and explain the same direction in
     'provider-model'
   )
 
-  await act(() => i18n.changeLanguage('zh'))
+  await act(() => i18n.changeLanguage('zhCN'))
   expect(screen.getByText('请求模型名称')).toBeVisible()
   expect(screen.getByText('上游模型名称')).toBeVisible()
   expect(screen.getByDisplayValue('client-alias')).toBeVisible()

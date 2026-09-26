@@ -27,7 +27,6 @@ import { createInstance } from 'i18next'
 import { I18nextProvider } from 'react-i18next'
 import { afterAll, afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import en from '@/i18n/locales/en.json'
 import {
   DEFAULT_CURRENCY_CONFIG,
   useSystemConfigStore,
@@ -98,7 +97,7 @@ const i18n = createInstance()
 beforeEach(async () => {
   await i18n.init({
     lng: 'en',
-    resources: { en },
+    resources: { en: { translation: {} } },
     interpolation: { escapeValue: false },
   })
   useSystemConfigStore
@@ -311,7 +310,7 @@ test('task log prices use localized unit labels from pricing metadata', async ()
     matched_tier: 'images',
   })
   expect(preview).toHaveTextContent('images · images $0.25/image')
-  await act(() => i18n.changeLanguage('zh-CN'))
+  await act(() => i18n.changeLanguage('zhCN'))
   expect(
     screen.getByRole('button', { name: /images · images/ })
   ).toHaveTextContent('images · images $0.25/张')

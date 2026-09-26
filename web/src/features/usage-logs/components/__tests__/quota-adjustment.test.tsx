@@ -22,7 +22,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { act, render, screen, within } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { createInstance } from 'i18next'
 import { I18nextProvider } from 'react-i18next'
 import {
@@ -35,7 +35,6 @@ import {
   vi,
 } from 'vitest'
 
-import en from '@/i18n/locales/en.json'
 import zh from '@/i18n/locales/zh.json'
 import {
   DEFAULT_CURRENCY_CONFIG,
@@ -100,29 +99,21 @@ const cases = [
       from: 500000,
       to: 1000000,
     },
-    english:
-      'Increase quota for user “quota-owner” (ID: 42) · Requested quota: $1 · $1 → $2',
     chinese: '增加用户「quota-owner」的额度（ID: 42） · 请求数额：$1 · $1 → $2',
   },
   {
     action: 'user.quota_add',
     params: { quota: 500000 },
-    english:
-      'Increase user quota · Target not recorded · Requested quota: $1 · Not recorded → Not recorded',
     chinese: '增加用户额度 · 目标未记录 · 请求数额：$1 · 未记录 → 未记录',
   },
   {
     action: 'user.quota_subtract',
     params: { quota: 500000 },
-    english:
-      'Decrease user quota · Target not recorded · Requested quota: $1 · Not recorded → Not recorded',
     chinese: '减少用户额度 · 目标未记录 · 请求数额：$1 · 未记录 → 未记录',
   },
   {
     action: 'user.quota_override',
     params: { from: 500000, to: 0 },
-    english:
-      'Override user quota · Target not recorded · Requested quota: $0 · $1 → $0',
     chinese: '覆盖用户额度 · 目标未记录 · 请求数额：$0 · $1 → $0',
   },
 ]
@@ -147,13 +138,13 @@ describe('quota adjustment log localization', () => {
   })
 
   test.each(cases)(
-    '$action switches language in the preview and details',
+    '$action renders the adjusted quota in the preview and details',
     async (scenario) => {
       const i18n = createInstance()
       await i18n.init({
-        lng: 'en',
-        fallbackLng: 'en',
-        resources: { en, zh },
+        lng: 'zhCN',
+        fallbackLng: 'zhCN',
+        resources: { zhCN: zh },
         interpolation: { escapeValue: false },
       })
       const log: UsageLog = {
@@ -190,11 +181,6 @@ describe('quota adjustment log localization', () => {
       )
 
       // The modal makes the table preview inert, but both remain rendered.
-      expect(screen.getAllByText(scenario.english)).toHaveLength(2)
-      expect(
-        within(screen.getByRole('dialog')).getByText(scenario.english)
-      ).toBeInTheDocument()
-      await act(() => i18n.changeLanguage('zh'))
       expect(screen.getAllByText(scenario.chinese)).toHaveLength(2)
       expect(
         within(screen.getByRole('dialog')).getByText(scenario.chinese)
@@ -211,7 +197,7 @@ describe('quota adjustment log localization', () => {
 
   test('preserves legacy formatted quota parameters and unknown-action fallback', async () => {
     const i18n = createInstance()
-    await i18n.init({ lng: 'en', resources: { en } })
+    await i18n.init({ lng: 'zhCN', resources: { zhCN: zh } })
     const other: LogOtherData = {
       op: {
         action: 'user.quota_add',
@@ -219,7 +205,7 @@ describe('quota adjustment log localization', () => {
       },
     }
     expect(renderAuditContent(other, i18n.t)).toBe(
-      'Increase user quota · Target not recorded · Requested quota: legacy formatted quota · Not recorded → Not recorded'
+      '增加用户额度 · 目标未记录 · 请求数额：legacy formatted quota · 未记录 → 未记录'
     )
     expect(
       renderAuditContent({ op: { action: 'unknown', params: {} } }, i18n.t)

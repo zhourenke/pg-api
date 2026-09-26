@@ -22,8 +22,6 @@ import { createInstance } from 'i18next'
 import { I18nextProvider } from 'react-i18next'
 import { expect, test, vi } from 'vitest'
 
-import fr from '@/i18n/locales/fr.json'
-
 import { ModelMappingBatchDialog } from '../model-mapping-batch-dialog'
 
 test('creating user aliases starts unselected, previews request-to-upstream pairs, and skips unchanged names', async () => {
@@ -246,7 +244,22 @@ test('cancelling after configuring a rule does not apply mappings', async () => 
 
 test('long translated source labels wrap inside their row without covering the model search', async () => {
   const i18n = createInstance()
-  await i18n.init({ lng: 'fr', resources: { fr }, keySeparator: false })
+  // The contract is that a long translated label wraps inside its row, so the
+  // fixture supplies deliberately long Chinese labels instead of a locale file.
+  await i18n.init({
+    lng: 'zhCN',
+    resources: {
+      zhCN: {
+        translation: {
+          'Select models':
+            '选择需要应用这组映射的上游模型，标签在窄屏下应当换行而不是溢出',
+          'Search models...':
+            '按名称或上游标识搜索模型，提示文案换行时不应遮挡模型列表',
+        },
+      },
+    },
+    keySeparator: false,
+  })
   render(
     <I18nextProvider i18n={i18n}>
       <ModelMappingBatchDialog
@@ -258,12 +271,16 @@ test('long translated source labels wrap inside their row without covering the m
       />
     </I18nextProvider>
   )
-  const tabs = screen.getByRole('tablist', { name: 'Sélectionner les modèles' })
+  const tabs = screen.getByRole('tablist', {
+    name: '选择需要应用这组映射的上游模型，标签在窄屏下应当换行而不是溢出',
+  })
   expect(tabs).toHaveClass('grid-cols-2', 'group-data-horizontal/tabs:h-auto')
   for (const tab of within(tabs).getAllByRole('tab')) {
     expect(tab).toHaveClass('whitespace-normal', 'h-auto')
   }
   expect(
-    screen.getByRole('textbox', { name: 'Rechercher des modèles...' })
+    screen.getByRole('textbox', {
+      name: '按名称或上游标识搜索模型，提示文案换行时不应遮挡模型列表',
+    })
   ).toBeVisible()
 })
