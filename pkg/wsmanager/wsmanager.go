@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
+	"github.com/zhourenke/pg-api/common"
 	"github.com/go-redis/redis/v8"
 )
 

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	kitutil "github.com/QuantumNous/new-api/relaykit/relayconvert/kitutil"
-	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/zhourenke/pg-api/relaykit/dto"
+	kitutil "github.com/zhourenke/pg-api/relaykit/relayconvert/kitutil"
+	"github.com/zhourenke/pg-api/relaykit/types"
 )
 
 func openAIResponsesRequestFromAny(request any) (*dto.OpenAIResponsesRequest, error) {

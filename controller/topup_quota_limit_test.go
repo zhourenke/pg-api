@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/model"
+	"github.com/zhourenke/pg-api/setting/operation_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"github.com/shopspring/decimal"

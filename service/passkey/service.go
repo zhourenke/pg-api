@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/setting/system_setting"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/setting/system_setting"
 
 	"github.com/go-webauthn/webauthn/protocol"
 	webauthn "github.com/go-webauthn/webauthn/webauthn"

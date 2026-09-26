@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/relaykit/dto"
+	"github.com/zhourenke/pg-api/setting/operation_setting"
 )
 
 var reservedBillableToolNames = map[string]struct{}{

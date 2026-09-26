@@ -3,11 +3,11 @@ package service
 import (
 	"net/http"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/pkg/billingexpr"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/pkg/billingexpr"
+	relaycommon "github.com/zhourenke/pg-api/relay/common"
+	"github.com/zhourenke/pg-api/relaykit/dto"
+	"github.com/zhourenke/pg-api/relaykit/types"
 	"github.com/gin-gonic/gin"
 )
 

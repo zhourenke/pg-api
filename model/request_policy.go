@@ -11,10 +11,10 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/setting"
-	"github.com/QuantumNous/new-api/setting/config"
-	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/setting"
+	"github.com/zhourenke/pg-api/setting/config"
+	"github.com/zhourenke/pg-api/setting/operation_setting"
 	"gorm.io/gorm"
 )
 

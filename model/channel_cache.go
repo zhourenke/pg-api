@@ -9,12 +9,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/dto"
-	"github.com/QuantumNous/new-api/logger"
-	kitdto "github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/setting/ratio_setting"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/constant"
+	"github.com/zhourenke/pg-api/dto"
+	"github.com/zhourenke/pg-api/logger"
+	kitdto "github.com/zhourenke/pg-api/relaykit/dto"
+	"github.com/zhourenke/pg-api/setting/ratio_setting"
 )
 
 var group2model2channels map[string]map[string][]int // enabled channel

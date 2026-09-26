@@ -1,6 +1,6 @@
 # 宝塔面板部署教程
 
-本文档提供使用宝塔面板 Docker 功能部署 New API 的图文教程。
+本文档提供使用宝塔面板 Docker 功能部署 pg-api 的图文教程。
 
 > 📖 官方文档：[宝塔面板部署](https://docs.newapi.pro/zh/docs/installation/deployment-methods/bt-docker-installation)
 
@@ -32,7 +32,7 @@
 
 ***
 
-## 步骤三：安装 New API
+## 步骤三：安装 pg-api
 
 ### 方法一：使用宝塔应用商店（推荐）
 
@@ -57,7 +57,7 @@
 version: '3'
 services:
   new-api:
-    image: calciumion/new-api:latest
+    image: zhourenke/pg-api:latest
     container_name: new-api
     restart: always
     ports:
@@ -126,7 +126,7 @@ volumes:
 
 ```bash
 # 拉取最新镜像
-docker pull calciumion/new-api:latest
+docker pull zhourenke/pg-api:latest
 
 # 重启容器
 docker-compose down && docker-compose up -d
@@ -139,7 +139,7 @@ docker-compose down && docker-compose up -d
 - [官方文档](https://docs.newapi.pro/zh/docs/installation)
 - [环境变量配置](https://docs.newapi.pro/zh/docs/installation/config-maintenance/environment-variables)
 - [常见问题](https://docs.newapi.pro/zh/docs/support/faq)
-- [GitHub 仓库](https://github.com/QuantumNous/new-api)
+- [GitHub 仓库](https://github.com/zhourenke/pg-api)
 
 ***
 

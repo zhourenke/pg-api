@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/model"
+	"github.com/zhourenke/pg-api/constant"
+	"github.com/zhourenke/pg-api/model"
 )
 
 func FetchCodexChannelModels(channel *model.Channel) ([]string, error) {

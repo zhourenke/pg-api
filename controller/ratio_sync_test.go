@@ -3,11 +3,11 @@ package controller
 import (
 	"testing"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/setting/billing_setting"
-	"github.com/QuantumNous/new-api/setting/config"
-	"github.com/QuantumNous/new-api/setting/ratio_setting"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/relaykit/dto"
+	"github.com/zhourenke/pg-api/setting/billing_setting"
+	"github.com/zhourenke/pg-api/setting/config"
+	"github.com/zhourenke/pg-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

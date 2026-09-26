@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/model"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/model"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )

@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/middleware"
-	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/oauth"
-	"github.com/QuantumNous/new-api/service"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/middleware"
+	"github.com/zhourenke/pg-api/model"
+	"github.com/zhourenke/pg-api/oauth"
+	"github.com/zhourenke/pg-api/service"
 	"github.com/gin-gonic/gin"
 )
 

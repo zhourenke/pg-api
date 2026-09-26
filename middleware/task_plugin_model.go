@@ -5,7 +5,7 @@ import (
 	"mime"
 	"strings"
 
-	"github.com/QuantumNous/new-api/common"
+	"github.com/zhourenke/pg-api/common"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/sjson"
 )

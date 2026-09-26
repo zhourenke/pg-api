@@ -1,8 +1,8 @@
 package setting
 
 import (
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/constant"
 )
 
 var (

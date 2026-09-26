@@ -7,13 +7,13 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/QuantumNous/new-api/relay/channel"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/relaykit/relayconvert"
-	"github.com/QuantumNous/new-api/relaykit/types"
-	"github.com/QuantumNous/new-api/service"
-	"github.com/QuantumNous/new-api/setting/model_setting"
+	"github.com/zhourenke/pg-api/relay/channel"
+	relaycommon "github.com/zhourenke/pg-api/relay/common"
+	"github.com/zhourenke/pg-api/relaykit/dto"
+	"github.com/zhourenke/pg-api/relaykit/relayconvert"
+	"github.com/zhourenke/pg-api/relaykit/types"
+	"github.com/zhourenke/pg-api/service"
+	"github.com/zhourenke/pg-api/setting/model_setting"
 
 	"github.com/gin-gonic/gin"
 )

@@ -7,12 +7,12 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/QuantumNous/new-api/relay/channel"
-	"github.com/QuantumNous/new-api/relay/channel/openai"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	relayconstant "github.com/QuantumNous/new-api/relay/constant"
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/zhourenke/pg-api/relay/channel"
+	"github.com/zhourenke/pg-api/relay/channel/openai"
+	relaycommon "github.com/zhourenke/pg-api/relay/common"
+	relayconstant "github.com/zhourenke/pg-api/relay/constant"
+	"github.com/zhourenke/pg-api/relaykit/dto"
+	"github.com/zhourenke/pg-api/relaykit/types"
 
 	"github.com/gin-gonic/gin"
 )

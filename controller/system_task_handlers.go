@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/service"
-	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/constant"
+	"github.com/zhourenke/pg-api/model"
+	"github.com/zhourenke/pg-api/service"
+	"github.com/zhourenke/pg-api/setting/operation_setting"
 )
 
 // RegisterScheduledSystemTasks wires the periodic channel test, upstream model

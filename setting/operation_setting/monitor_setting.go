@@ -5,7 +5,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/QuantumNous/new-api/setting/config"
+	"github.com/zhourenke/pg-api/setting/config"
 )
 
 type MonitorSetting struct {

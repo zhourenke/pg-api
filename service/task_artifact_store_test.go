@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/types"
+	"github.com/zhourenke/pg-api/model"
+	"github.com/zhourenke/pg-api/types"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -1,8 +1,10 @@
 <div align="center">
 
-![new-api](/web/public/logo.png)
+![pg-api](/web/public/logo.png)
 
-# New API
+# pg-api
+
+> 本倉庫是 [new-api](https://github.com/QuantumNous/new-api) 的 fork，由 [zhourenke](https://github.com/zhourenke) 維護。保留上游 AGPLv3 授權條款、上游署名以及指向原專案的可見連結。
 
 **連接模型、應用程式與 Agent 的 AI 閘道**
 
@@ -15,13 +17,13 @@
 </p>
 
 <p align="center">
-  <a href="https://raw.githubusercontent.com/Calcium-Ion/new-api/main/LICENSE">
-    <img src="https://img.shields.io/github/license/Calcium-Ion/new-api?color=brightgreen" alt="license">
+  <a href="https://raw.githubusercontent.com/zhourenke/pg-api/main/LICENSE">
+    <img src="https://img.shields.io/github/license/zhourenke/pg-api?color=brightgreen" alt="license">
   </a>
-  <a href="https://github.com/Calcium-Ion/new-api/releases/latest">
-    <img src="https://img.shields.io/github/v/release/Calcium-Ion/new-api?color=brightgreen&include_prereleases" alt="release">
+  <a href="https://github.com/zhourenke/pg-api/releases/latest">
+    <img src="https://img.shields.io/github/v/release/zhourenke/pg-api?color=brightgreen&include_prereleases" alt="release">
   </a>
-  <a href="https://hub.docker.com/r/CalciumIon/new-api">
+  <a href="https://hub.docker.com/r/zhourenke/pg-api">
     <img src="https://img.shields.io/badge/docker-dockerHub-blue" alt="docker">
   </a>
   <a href="https://atomgit.com/QuantumNous/new-api" target="_blank">
@@ -56,7 +58,7 @@
 
 ## 📝 項目說明
 
-New API 是面向應用程式、Agent 和團隊的自託管 AI 閘道。將不同供應商的模型服務接入統一入口，在同一套控制台中管理渠道、存取權限、用量與成本。
+pg-api 是面向應用程式、Agent 和團隊的自託管 AI 閘道。將不同供應商的模型服務接入統一入口，在同一套控制台中管理渠道、存取權限、用量與成本。
 
 你可以用它為團隊分配已授權的模型資源，在切換上游時減少用戶端改動，或建置自己的多模型服務。支援接入 OpenAI、Anthropic、Google Gemini、Azure OpenAI、AWS Bedrock、Vertex AI、DeepSeek、通義千問及其他相容服務。
 
@@ -155,11 +157,11 @@ New API 是面向應用程式、Agent 和團隊的自託管 AI 閘道。將不�
 
 ```bash
 mkdir -p data
-docker run --name new-api -d --restart unless-stopped \
+docker run --name pg-api -d --restart unless-stopped \
   -p 127.0.0.1:3000:3000 \
   -e TZ=Asia/Shanghai \
   -v "$(pwd)/data:/data" \
-  calciumion/new-api:latest
+  zhourenke/pg-api:latest
 ```
 
 開啟 [http://localhost:3000](http://localhost:3000)，依初始化精靈建立管理員帳號。SQLite 資料庫存放在掛載的 `data` 目錄中，更換容器後仍會保留。
@@ -169,7 +171,7 @@ docker run --name new-api -d --restart unless-stopped \
 1. 新增渠道，填寫上游 API Key、可用模型和所屬群組，執行渠道測試。
 2. 設定模型價格，確保呼叫使用者有可用額度或有效訂閱。
 3. 在控制台建立 API Key，確保它能存取對應群組和模型。
-4. 對於 OpenAI 相容用戶端，將 Base URL 設為 `http://localhost:3000/v1`，金鑰使用 **New API 簽發的 Key**。
+4. 對於 OpenAI 相容用戶端，將 Base URL 設為 `http://localhost:3000/v1`，金鑰使用 **pg-api 簽發的 Key**。
 
 在終端機中將 `NEW_API_KEY` 環境變數設為該金鑰，查詢它可以存取的模型：
 
@@ -193,18 +195,18 @@ curl --fail-with-body http://localhost:3000/v1/responses \
 
 ### Docker Compose
 
-儲存庫的 [Compose 設定](./docker-compose.yml) 預設啟動 **New API + PostgreSQL + Redis**，並提供 MySQL 和獨立 ClickHouse 日誌資料庫的設定範例。
+儲存庫的 [Compose 設定](./docker-compose.yml) 預設啟動 **pg-api + PostgreSQL + Redis**，並提供 MySQL 和獨立 ClickHouse 日誌資料庫的設定範例。
 
 ```bash
-git clone https://github.com/QuantumNous/new-api.git
-cd new-api
+git clone https://github.com/zhourenke/pg-api.git
+cd pg-api
 ```
 
 啟動前編輯 `docker-compose.yml`：同時替換資料庫、Redis 服務及對應連線字串中的範例密碼，並設定固定的隨機 `SESSION_SECRET`（可用 `openssl rand -hex 32` 產生）。透過 HTTPS 存取控制台時，設定 `SESSION_COOKIE_SECURE=true`，並在 `SESSION_COOKIE_TRUSTED_URL` 中填寫控制台對外的精確 HTTPS Origin。
 
 ```bash
 docker compose up -d
-docker compose logs -f new-api
+docker compose logs -f pg-api
 ```
 
 ### 儲存與設定
@@ -231,7 +233,7 @@ docker compose logs -f new-api
 
 正式部署時使用 HTTPS，並設定反向代理支援串流回應與 WebSocket 升級。持久化並備份資料庫和掛載資料。多節點必須共用主資料庫和驗證金鑰；獨立 Redis 或記憶體限流器會按節點分別計數。不同拓撲下的工作階段傳播行為見驗證文件。
 
-從[發行頁](https://github.com/QuantumNous/new-api/releases)選擇明確的映像版本，閱讀升級說明並先備份再升級。`latest` 會隨發行建置變動；既有執行個體應依實際版本評估遷移與相容性。
+從[發行頁](https://github.com/zhourenke/pg-api/releases)選擇明確的映像版本，閱讀升級說明並先備份再升級。`latest` 會隨發行建置變動；既有執行個體應依實際版本評估遷移與相容性。
 
 <a id="development"></a>
 
@@ -280,7 +282,7 @@ bun run dev -- --port 5173
 | 官方文件 | [使用指南](https://docs.newapi.ai/zh/docs) · [安裝部署](https://docs.newapi.ai/zh/docs/installation) · [API 參考](https://docs.newapi.ai/zh/docs/api) |
 | 專案導讀 | [DeepWiki](https://deepwiki.com/QuantumNous/new-api) |
 | 使用問題與交流 | [常見問題](https://docs.newapi.ai/zh/docs/support/faq) · [社群管道](https://docs.newapi.ai/zh/docs/support/community-interaction) |
-| 缺陷與功能建議 | [GitHub Issues](https://github.com/QuantumNous/new-api/issues) |
+| 缺陷與功能建議 | [GitHub Issues](https://github.com/zhourenke/pg-api/issues) |
 | 安全漏洞 | 依[安全政策](./.github/SECURITY.md)私下回報 |
 
 回報問題時請附上版本、部署方式、重現步驟及去識別化日誌。歡迎貢獻文件、翻譯、渠道介接和有針對性的回歸測試。
@@ -323,7 +325,7 @@ bun run dev -- --port 5173
 
 <div align="center">
 
-[![Star History Chart](https://api.star-history.com/svg?repos=Calcium-Ion/new-api&type=Date)](https://star-history.com/#Calcium-Ion/new-api&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=zhourenke/pg-api&type=Date)](https://star-history.com/#zhourenke/pg-api&Date)
 
 </div>
 
@@ -331,11 +333,11 @@ bun run dev -- --port 5173
 
 <div align="center">
 
-### 💖 感謝使用 New API
+### 💖 感謝使用 pg-api
 
 如果這個項目對你有幫助，歡迎給我們一個 ⭐️ Star！
 
-**[官方文件](https://docs.newapi.ai/zh/docs)** • **[問題回饋](https://github.com/Calcium-Ion/new-api/issues)** • **[最新發布](https://github.com/Calcium-Ion/new-api/releases)**
+**[官方文件](https://docs.newapi.ai/zh/docs)** • **[問題回饋](https://github.com/zhourenke/pg-api/issues)** • **[最新發布](https://github.com/zhourenke/pg-api/releases)**
 
 <sub>Built with ❤️ by QuantumNous</sub>
 

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/zhourenke/pg-api/relaykit/types"
 )
 
 type ChannelSettings struct {

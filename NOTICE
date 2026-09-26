@@ -1,4 +1,10 @@
-new-api Notices
+pg-api Notices
+
+pg-api is a modified version (fork) of new-api, maintained by zhourenke.
+Fork repository: https://github.com/zhourenke/pg-api
+Upstream project: https://github.com/QuantumNous/new-api
+
+Modifications made by this fork are recorded in the repository's git history.
 
 new-api
 Copyright (c) QuantumNous and contributors.

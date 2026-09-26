@@ -1,8 +1,10 @@
 <div align="center">
 
-![new-api](/web/public/logo.png)
+![pg-api](/web/public/logo.png)
 
-# New API
+# pg-api
+
+> このリポジトリは QuantumNous による [new-api](https://github.com/QuantumNous/new-api) のフォークであり、[zhourenke](https://github.com/zhourenke) が保守しています。上流の AGPLv3 ライセンス、著作者表示、および元プロジェクトへの可視リンクを保持します。
 
 **モデル、アプリケーション、Agent をつなぐ AI ゲートウェイ**
 
@@ -15,13 +17,13 @@
 </p>
 
 <p align="center">
-  <a href="https://raw.githubusercontent.com/Calcium-Ion/new-api/main/LICENSE">
-    <img src="https://img.shields.io/github/license/Calcium-Ion/new-api?color=brightgreen" alt="license">
+  <a href="https://raw.githubusercontent.com/zhourenke/pg-api/main/LICENSE">
+    <img src="https://img.shields.io/github/license/zhourenke/pg-api?color=brightgreen" alt="license">
   </a><!--
-  --><a href="https://github.com/Calcium-Ion/new-api/releases/latest">
-    <img src="https://img.shields.io/github/v/release/Calcium-Ion/new-api?color=brightgreen&include_prereleases" alt="release">
+  --><a href="https://github.com/zhourenke/pg-api/releases/latest">
+    <img src="https://img.shields.io/github/v/release/zhourenke/pg-api?color=brightgreen&include_prereleases" alt="release">
   </a><!--
-  --><a href="https://hub.docker.com/r/CalciumIon/new-api">
+  --><a href="https://hub.docker.com/r/zhourenke/pg-api">
     <img src="https://img.shields.io/badge/docker-dockerHub-blue" alt="docker">
   </a>
   <a href="https://atomgit.com/QuantumNous/new-api" target="_blank">
@@ -57,7 +59,7 @@
 
 ## 📝 プロジェクト説明
 
-New API は、アプリケーション、Agent、チーム向けのセルフホスト型 AI ゲートウェイです。各社のモデルサービスを共通の入口に接続し、ルーティング、アクセス権、使用量、コストを一つの管理画面で扱えます。
+pg-api は、アプリケーション、Agent、チーム向けのセルフホスト型 AI ゲートウェイです。各社のモデルサービスを共通の入口に接続し、ルーティング、アクセス権、使用量、コストを一つの管理画面で扱えます。
 
 チーム内で許可済みのモデルを共有する、クライアントの再設定を減らしてプロバイダーを切り替える、複数モデルを扱うプライベートサービスを構築するといった用途に使えます。OpenAI、Anthropic、Google Gemini、Azure OpenAI、AWS Bedrock、Vertex AI、DeepSeek、Qwen などに対応しています。
 
@@ -156,11 +158,11 @@ SQLite を使う単一インスタンスを、ローカルホスト限定で起�
 
 ```bash
 mkdir -p data
-docker run --name new-api -d --restart unless-stopped \
+docker run --name pg-api -d --restart unless-stopped \
   -p 127.0.0.1:3000:3000 \
   -e TZ=Asia/Shanghai \
   -v "$(pwd)/data:/data" \
-  calciumion/new-api:latest
+  zhourenke/pg-api:latest
 ```
 
 [http://localhost:3000](http://localhost:3000) を開き、初期設定ウィザードで管理者アカウントを作成します。SQLite データベースはマウントした `data` ディレクトリに保存され、コンテナを置き換えても残ります。
@@ -170,7 +172,7 @@ docker run --name new-api -d --restart unless-stopped \
 1. 上流の API キー、利用するモデル、グループを設定してチャネルを追加し、チャネルテストを実行します。
 2. モデルの料金を設定し、ユーザーに利用可能なクォータまたは有効なサブスクリプションがあることを確認します。
 3. 管理画面で、同じグループとモデルにアクセスできる API キーを作成します。
-4. OpenAI 互換クライアントでは Base URL を `http://localhost:3000/v1` に設定し、**New API が発行したキー**を使います。
+4. OpenAI 互換クライアントでは Base URL を `http://localhost:3000/v1` に設定し、**pg-api が発行したキー**を使います。
 
 シェルの `NEW_API_KEY` にそのキーを設定し、アクセス可能なモデルを確認します。
 
@@ -194,18 +196,18 @@ curl --fail-with-body http://localhost:3000/v1/responses \
 
 ### Docker Compose
 
-リポジトリの [Compose 設定](./docker-compose.yml) は、既定で **New API + PostgreSQL + Redis** を起動します。MySQL と独立した ClickHouse ログデータベースの設定例も含まれます。
+リポジトリの [Compose 設定](./docker-compose.yml) は、既定で **pg-api + PostgreSQL + Redis** を起動します。MySQL と独立した ClickHouse ログデータベースの設定例も含まれます。
 
 ```bash
-git clone https://github.com/QuantumNous/new-api.git
-cd new-api
+git clone https://github.com/zhourenke/pg-api.git
+cd pg-api
 ```
 
 起動前に `docker-compose.yml` を編集し、データベースと Redis のサービスおよび接続文字列にあるサンプルパスワードを変更します。永続的に使うランダムな `SESSION_SECRET` も設定してください（`openssl rand -hex 32` で生成可能）。HTTPS の管理画面には `SESSION_COOKIE_SECURE=true` を設定し、公開 HTTPS オリジンを `SESSION_COOKIE_TRUSTED_URL` に正確に指定します。
 
 ```bash
 docker compose up -d
-docker compose logs -f new-api
+docker compose logs -f pg-api
 ```
 
 ### ストレージと設定
@@ -232,7 +234,7 @@ docker compose logs -f new-api
 
 本番環境では HTTPS を使い、リバースプロキシでストリーミングと WebSocket アップグレードを有効にします。データベースとマウントデータを永続化し、バックアップしてください。複数ノードはメインデータベースと認証シークレットを共有します。独立した Redis やメモリ内のレート制限はノードごとに計数します。構成別のセッション伝播については認証の説明を参照してください。
 
-[リリース一覧](https://github.com/QuantumNous/new-api/releases)からイメージのバージョンを固定し、更新内容を読んでバックアップしてからアップグレードしてください。`latest` は公開ビルドに応じて変わります。既存環境の移行と互換性は、利用中のバージョンに応じて確認してください。
+[リリース一覧](https://github.com/zhourenke/pg-api/releases)からイメージのバージョンを固定し、更新内容を読んでバックアップしてからアップグレードしてください。`latest` は公開ビルドに応じて変わります。既存環境の移行と互換性は、利用中のバージョンに応じて確認してください。
 
 <a id="development"></a>
 
@@ -281,7 +283,7 @@ bun run dev -- --port 5173
 | 公式ドキュメント | [ガイド](https://docs.newapi.ai/ja/docs) · [インストール](https://docs.newapi.ai/ja/docs/installation) · [API リファレンス](https://docs.newapi.ai/ja/docs/api) |
 | プロジェクトの解説 | [DeepWiki](https://deepwiki.com/QuantumNous/new-api) |
 | 質問と交流 | [FAQ](https://docs.newapi.ai/ja/docs/support/faq) · [コミュニティ](https://docs.newapi.ai/ja/docs/support/community-interaction) |
-| 不具合と機能提案 | [GitHub Issues](https://github.com/QuantumNous/new-api/issues) |
+| 不具合と機能提案 | [GitHub Issues](https://github.com/zhourenke/pg-api/issues) |
 | 脆弱性 | [セキュリティポリシー](./.github/SECURITY.md)に従って非公開で報告 |
 
 不具合の報告には、バージョン、デプロイ方法、再現手順、機密情報を除いたログを添えてください。ドキュメント、翻訳、プロバイダー連携、対象を絞った回帰テストへの貢献も歓迎します。
@@ -324,7 +326,7 @@ AGPLv3 第 7 条に基づく[追加条項](./NOTICE)が適用されます。変�
 
 <div align="center">
 
-[![スター履歴チャート](https://api.star-history.com/svg?repos=Calcium-Ion/new-api&type=Date)](https://star-history.com/#Calcium-Ion/new-api&Date)
+[![スター履歴チャート](https://api.star-history.com/svg?repos=zhourenke/pg-api&type=Date)](https://star-history.com/#zhourenke/pg-api&Date)
 
 </div>
 
@@ -332,11 +334,11 @@ AGPLv3 第 7 条に基づく[追加条項](./NOTICE)が適用されます。変�
 
 <div align="center">
 
-### 💖 New APIをご利用いただきありがとうございます
+### 💖 pg-apiをご利用いただきありがとうございます
 
 このプロジェクトがあなたのお役に立てたなら、ぜひ ⭐️ スターをください！
 
-**[公式ドキュメント](https://docs.newapi.ai/ja/docs)** • **[問題フィードバック](https://github.com/Calcium-Ion/new-api/issues)** • **[最新リリース](https://github.com/Calcium-Ion/new-api/releases)**
+**[公式ドキュメント](https://docs.newapi.ai/ja/docs)** • **[問題フィードバック](https://github.com/zhourenke/pg-api/issues)** • **[最新リリース](https://github.com/zhourenke/pg-api/releases)**
 
 <sub>❤️ で構築された QuantumNous</sub>
 

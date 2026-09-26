@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/QuantumNous/new-api/common"
+	"github.com/zhourenke/pg-api/common"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )

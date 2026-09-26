@@ -1,0 +1,18 @@
+# File path: /etc/systemd/system/pg-api.service
+# sudo systemctl daemon-reload
+# sudo systemctl start pg-api
+# sudo systemctl enable pg-api
+# sudo systemctl status pg-api
+[Unit]
+Description=pg-api Service
+After=network.target
+
+[Service]
+User=ubuntu  # 注意修改用户名
+WorkingDirectory=/path/to/pg-api  # 注意修改路径
+ExecStart=/path/to/pg-api/pg-api --port 3000 --log-dir /path/to/pg-api/logs  # 注意修改路径和端口号
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

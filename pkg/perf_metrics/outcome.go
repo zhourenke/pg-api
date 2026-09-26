@@ -5,8 +5,8 @@ import (
 	"errors"
 	"strings"
 
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	"github.com/QuantumNous/new-api/relaykit/types"
+	relaycommon "github.com/zhourenke/pg-api/relay/common"
+	"github.com/zhourenke/pg-api/relaykit/types"
 )
 
 type Outcome string

@@ -32,7 +32,7 @@ English template: `.github/PULL_REQUEST_TEMPLATE/en.md`
 
 ## ✅ 提交前检查项 / Checklist
 - [ ] **人工确认:** 无论描述是否由 AI 生成，我已审阅并精炼全文，仅保留可复核的要点，并声明对其准确性与完整性负责。PR 正文及后续评论均未直接粘贴未经人工过滤的大段 AI 文本。
-- [ ] **非重复提交:** 我已搜索现有的 [Issues](https://github.com/QuantumNous/new-api/issues) 与 [PRs](https://github.com/QuantumNous/new-api/pulls)，确认不是重复提交。
+- [ ] **非重复提交:** 我已搜索现有的 [Issues](https://github.com/zhourenke/pg-api/issues) 与 [PRs](https://github.com/zhourenke/pg-api/pulls)，确认不是重复提交。
 - [ ] **新功能关联 Issue:** 若此 PR 标记为 `New feature`，我已关联对应 Issue；若尚无 Issue，我已先自行创建。
 - [ ] **事前沟通:** 若改动较大或涉及方向性变更，已在关联 Issue 中与维护者沟通并达成一致。
 - [ ] **功能范围:** 本 PR 不是 Coding Plan、逆向渠道、第三方封装接口，也不是对 Codex 渠道类型的改动。

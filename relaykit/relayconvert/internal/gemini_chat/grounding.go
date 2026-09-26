@@ -5,8 +5,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	kitutil "github.com/QuantumNous/new-api/relaykit/relayconvert/kitutil"
+	"github.com/zhourenke/pg-api/relaykit/dto"
+	kitutil "github.com/zhourenke/pg-api/relaykit/relayconvert/kitutil"
 )
 
 type geminiGroundingChunk struct {

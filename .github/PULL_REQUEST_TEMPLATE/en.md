@@ -32,7 +32,7 @@ Chinese template: `.github/PULL_REQUEST_TEMPLATE.md`
 
 ## Checklist
 - [ ] **Human review:** Whether or not the description was AI-generated, I have reviewed and condensed the full text, retained only the points needed for review, and take responsibility for its accuracy and completeness. I have not pasted unfiltered AI-generated text in the PR body or in later comments.
-- [ ] **Not a duplicate:** I have searched existing [Issues](https://github.com/QuantumNous/new-api/issues) and [PRs](https://github.com/QuantumNous/new-api/pulls) and confirmed this is not a duplicate.
+- [ ] **Not a duplicate:** I have searched existing [Issues](https://github.com/zhourenke/pg-api/issues) and [PRs](https://github.com/zhourenke/pg-api/pulls) and confirmed this is not a duplicate.
 - [ ] **Feature issue:** If this PR is a New feature, I have linked a corresponding Issue; if none existed, I created one first.
 - [ ] **Prior discussion:** If this is a large or directional change, I have discussed it with maintainers in the linked Issue and reached agreement.
 - [ ] **Scope:** This PR is not a Coding Plan, reverse-engineered channel, third-party API wrapper, or a change to the Codex channel type.

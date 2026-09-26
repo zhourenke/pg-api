@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"sync/atomic"
 
-	"github.com/QuantumNous/new-api/common"
+	"github.com/zhourenke/pg-api/common"
 )
 
 const DefaultMaxTokenAutoGroups = 5

@@ -7,13 +7,13 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/pkg/jsplugin"
-	"github.com/QuantumNous/new-api/setting/billing_setting"
-	"github.com/QuantumNous/new-api/setting/operation_setting"
-	"github.com/QuantumNous/new-api/setting/ratio_setting"
-	hostreasoning "github.com/QuantumNous/new-api/setting/reasoning"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/constant"
+	"github.com/zhourenke/pg-api/pkg/jsplugin"
+	"github.com/zhourenke/pg-api/setting/billing_setting"
+	"github.com/zhourenke/pg-api/setting/operation_setting"
+	"github.com/zhourenke/pg-api/setting/ratio_setting"
+	hostreasoning "github.com/zhourenke/pg-api/setting/reasoning"
 	"github.com/shopspring/decimal"
 )
 

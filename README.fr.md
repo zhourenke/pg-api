@@ -1,8 +1,10 @@
 <div align="center">
 
-![new-api](/web/public/logo.png)
+![pg-api](/web/public/logo.png)
 
-# New API
+# pg-api
+
+> Ce dépôt est un fork de [new-api](https://github.com/QuantumNous/new-api) par QuantumNous, maintenu par [zhourenke](https://github.com/zhourenke). Il conserve la licence AGPLv3, l'attribution d'origine et un lien visible vers le projet original.
 
 **Une passerelle IA pour les modèles, les applications et les agents**
 
@@ -15,13 +17,13 @@
 </p>
 
 <p align="center">
-  <a href="https://raw.githubusercontent.com/Calcium-Ion/new-api/main/LICENSE">
-    <img src="https://img.shields.io/github/license/Calcium-Ion/new-api?color=brightgreen" alt="licence">
+  <a href="https://raw.githubusercontent.com/zhourenke/pg-api/main/LICENSE">
+    <img src="https://img.shields.io/github/license/zhourenke/pg-api?color=brightgreen" alt="licence">
   </a><!--
-  --><a href="https://github.com/Calcium-Ion/new-api/releases/latest">
-    <img src="https://img.shields.io/github/v/release/Calcium-Ion/new-api?color=brightgreen&include_prereleases" alt="version">
+  --><a href="https://github.com/zhourenke/pg-api/releases/latest">
+    <img src="https://img.shields.io/github/v/release/zhourenke/pg-api?color=brightgreen&include_prereleases" alt="version">
   </a><!--
-  --><a href="https://hub.docker.com/r/CalciumIon/new-api">
+  --><a href="https://hub.docker.com/r/zhourenke/pg-api">
     <img src="https://img.shields.io/badge/docker-dockerHub-blue" alt="docker">
   </a>
   <a href="https://atomgit.com/QuantumNous/new-api" target="_blank">
@@ -57,7 +59,7 @@
 
 ## 📝 Description du projet
 
-New API est une passerelle IA auto-hébergée pour les applications, les agents et les équipes. Connectez vos fournisseurs de modèles, exposez une API commune à vos clients et gérez le routage, les accès, les usages et les coûts depuis une même console.
+pg-api est une passerelle IA auto-hébergée pour les applications, les agents et les équipes. Connectez vos fournisseurs de modèles, exposez une API commune à vos clients et gérez le routage, les accès, les usages et les coûts depuis une même console.
 
 Utilisez-la pour partager des accès autorisés au sein d'une équipe, changer de fournisseur sans reconfigurer chaque client ou exploiter un service privé multi-modèles. Les fournisseurs incluent OpenAI, Anthropic, Google Gemini, Azure OpenAI, AWS Bedrock, Vertex AI, DeepSeek, Qwen et d'autres services compatibles.
 
@@ -156,11 +158,11 @@ Cette commande démarre une instance SQLite accessible uniquement depuis la mach
 
 ```bash
 mkdir -p data
-docker run --name new-api -d --restart unless-stopped \
+docker run --name pg-api -d --restart unless-stopped \
   -p 127.0.0.1:3000:3000 \
   -e TZ=Asia/Shanghai \
   -v "$(pwd)/data:/data" \
-  calciumion/new-api:latest
+  zhourenke/pg-api:latest
 ```
 
 Ouvrez [http://localhost:3000](http://localhost:3000) et suivez l'assistant pour créer le compte administrateur. Le répertoire `data` conserve la base SQLite lors du remplacement du conteneur.
@@ -170,7 +172,7 @@ Ouvrez [http://localhost:3000](http://localhost:3000) et suivez l'assistant pour
 1. Ajoutez un canal avec votre clé API amont, ses modèles et son groupe, puis lancez un test du canal.
 2. Configurez les prix des modèles et vérifiez que l'utilisateur dispose d'un quota ou d'un abonnement valide.
 3. Créez une clé API dans la console, autorisée à accéder au même groupe et aux mêmes modèles.
-4. Pour un client compatible OpenAI, utilisez `http://localhost:3000/v1` comme URL de base et la **clé émise par New API**.
+4. Pour un client compatible OpenAI, utilisez `http://localhost:3000/v1` comme URL de base et la **clé émise par pg-api**.
 
 Définissez `NEW_API_KEY` dans votre shell avec cette clé, puis listez les modèles accessibles :
 
@@ -194,18 +196,18 @@ curl --fail-with-body http://localhost:3000/v1/responses \
 
 ### Docker Compose
 
-La [configuration Compose](./docker-compose.yml) du dépôt démarre **New API + PostgreSQL + Redis** par défaut. Elle contient aussi des exemples pour MySQL et une base de journaux ClickHouse distincte.
+La [configuration Compose](./docker-compose.yml) du dépôt démarre **pg-api + PostgreSQL + Redis** par défaut. Elle contient aussi des exemples pour MySQL et une base de journaux ClickHouse distincte.
 
 ```bash
-git clone https://github.com/QuantumNous/new-api.git
-cd new-api
+git clone https://github.com/zhourenke/pg-api.git
+cd pg-api
 ```
 
 Avant de démarrer, modifiez `docker-compose.yml` : remplacez les mots de passe d'exemple de la base et de Redis dans les services et les chaînes de connexion, puis définissez un `SESSION_SECRET` aléatoire et persistant (générable avec `openssl rand -hex 32`). Pour une console HTTPS, définissez `SESSION_COOKIE_SECURE=true` et renseignez son origine HTTPS publique exacte dans `SESSION_COOKIE_TRUSTED_URL`.
 
 ```bash
 docker compose up -d
-docker compose logs -f new-api
+docker compose logs -f pg-api
 ```
 
 ### Stockage et configuration
@@ -232,7 +234,7 @@ Consultez l'[exemple d'environnement](./.env.example), la [référence des varia
 
 En production, utilisez HTTPS et configurez le proxy inverse pour le streaming et WebSocket. Conservez et sauvegardez les bases et les données montées. Tous les nœuds doivent partager la base principale et les secrets d'authentification ; des Redis distincts ou des limiteurs en mémoire comptent les limites séparément par nœud. Le guide des sessions détaille la propagation selon la topologie.
 
-Choisissez une version précise d'image dans les [versions publiées](https://github.com/QuantumNous/new-api/releases), lisez ses notes et sauvegardez avant toute mise à niveau. Le tag `latest` évolue avec les publications ; évaluez les migrations et la compatibilité de votre installation.
+Choisissez une version précise d'image dans les [versions publiées](https://github.com/zhourenke/pg-api/releases), lisez ses notes et sauvegardez avant toute mise à niveau. Le tag `latest` évolue avec les publications ; évaluez les migrations et la compatibilité de votre installation.
 
 <a id="development"></a>
 
@@ -281,7 +283,7 @@ Lisez [AGENTS.md](./AGENTS.md) avant de contribuer. Exécutez les vérifications
 | Documentation officielle | [Guides](https://docs.newapi.ai/en/docs) · [Installation](https://docs.newapi.ai/en/docs/installation) · [Référence API](https://docs.newapi.ai/en/docs/api) |
 | Exploration du projet | [DeepWiki](https://deepwiki.com/QuantumNous/new-api) |
 | Questions et échanges | [FAQ](https://docs.newapi.ai/en/docs/support/faq) · [Communauté](https://docs.newapi.ai/en/docs/support/community-interaction) |
-| Bugs et propositions | [GitHub Issues](https://github.com/QuantumNous/new-api/issues) |
+| Bugs et propositions | [GitHub Issues](https://github.com/zhourenke/pg-api/issues) |
 | Vulnérabilités | Signalement privé selon la [politique de sécurité](./.github/SECURITY.md) |
 
 Pour signaler un bug, indiquez la version, le déploiement, les étapes de reproduction et des journaux expurgés des données sensibles. Les contributions à la documentation, aux traductions, aux intégrations et aux tests de régression ciblés sont les bienvenues.
@@ -324,7 +326,7 @@ Consultez [NOTICE](./NOTICE) et les [licences tierces](./THIRD-PARTY-LICENSES.md
 
 <div align="center">
 
-[![Graphique de l'historique des étoiles](https://api.star-history.com/svg?repos=Calcium-Ion/new-api&type=Date)](https://star-history.com/#Calcium-Ion/new-api&Date)
+[![Graphique de l'historique des étoiles](https://api.star-history.com/svg?repos=zhourenke/pg-api&type=Date)](https://star-history.com/#zhourenke/pg-api&Date)
 
 </div>
 
@@ -332,11 +334,11 @@ Consultez [NOTICE](./NOTICE) et les [licences tierces](./THIRD-PARTY-LICENSES.md
 
 <div align="center">
 
-### 💖 Merci d'utiliser New API
+### 💖 Merci d'utiliser pg-api
 
 Si ce projet vous est utile, bienvenue à nous donner une ⭐️ Étoile！
 
-**[Documentation officielle](https://docs.newapi.ai/en/docs)** • **[Commentaires sur les problèmes](https://github.com/Calcium-Ion/new-api/issues)** • **[Dernière version](https://github.com/Calcium-Ion/new-api/releases)**
+**[Documentation officielle](https://docs.newapi.ai/en/docs)** • **[Commentaires sur les problèmes](https://github.com/zhourenke/pg-api/issues)** • **[Dernière version](https://github.com/zhourenke/pg-api/releases)**
 
 <sub>Construit avec ❤️ par QuantumNous</sub>
 

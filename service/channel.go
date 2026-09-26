@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/relaykit/types"
-	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/model"
+	"github.com/zhourenke/pg-api/relaykit/dto"
+	"github.com/zhourenke/pg-api/relaykit/types"
+	"github.com/zhourenke/pg-api/setting/operation_setting"
 )
 
 func formatNotifyType(channelId int, status int) string {

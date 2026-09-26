@@ -9,11 +9,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/model"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	"github.com/QuantumNous/new-api/relaykit/types"
-	"github.com/QuantumNous/new-api/setting/perf_metrics_setting"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/model"
+	relaycommon "github.com/zhourenke/pg-api/relay/common"
+	"github.com/zhourenke/pg-api/relaykit/types"
+	"github.com/zhourenke/pg-api/setting/perf_metrics_setting"
 
 	"github.com/bytedance/gopkg/util/gopool"
 )

@@ -13,12 +13,12 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/controller"
-	"github.com/QuantumNous/new-api/logger"
-	"github.com/QuantumNous/new-api/middleware"
-	"github.com/QuantumNous/new-api/pkg/jsplugin"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/constant"
+	"github.com/zhourenke/pg-api/controller"
+	"github.com/zhourenke/pg-api/logger"
+	"github.com/zhourenke/pg-api/middleware"
+	"github.com/zhourenke/pg-api/pkg/jsplugin"
 	"github.com/gin-gonic/gin"
 )
 

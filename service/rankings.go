@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/QuantumNous/new-api/model"
+	"github.com/zhourenke/pg-api/model"
 )
 
 const (

@@ -6,14 +6,14 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/QuantumNous/new-api/relay/channel"
-	"github.com/QuantumNous/new-api/relay/channel/openai"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/relaykit/types"
-	"github.com/QuantumNous/new-api/setting/model_setting"
+	"github.com/zhourenke/pg-api/relay/channel"
+	"github.com/zhourenke/pg-api/relay/channel/openai"
+	relaycommon "github.com/zhourenke/pg-api/relay/common"
+	"github.com/zhourenke/pg-api/relaykit/dto"
+	"github.com/zhourenke/pg-api/relaykit/types"
+	"github.com/zhourenke/pg-api/setting/model_setting"
 
-	"github.com/QuantumNous/new-api/relay/constant"
+	"github.com/zhourenke/pg-api/relay/constant"
 
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"

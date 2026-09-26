@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/QuantumNous/new-api/logger"
-	"github.com/QuantumNous/new-api/middleware"
-	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/service"
+	"github.com/zhourenke/pg-api/logger"
+	"github.com/zhourenke/pg-api/middleware"
+	"github.com/zhourenke/pg-api/model"
+	"github.com/zhourenke/pg-api/service"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )

@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/service"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/model"
+	"github.com/zhourenke/pg-api/service"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"

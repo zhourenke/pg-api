@@ -10,13 +10,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/logger"
-	"github.com/QuantumNous/new-api/middleware"
-	"github.com/QuantumNous/new-api/relay"
-	"github.com/QuantumNous/new-api/relay/helper"
-	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/constant"
+	"github.com/zhourenke/pg-api/logger"
+	"github.com/zhourenke/pg-api/middleware"
+	"github.com/zhourenke/pg-api/relay"
+	"github.com/zhourenke/pg-api/relay/helper"
+	"github.com/zhourenke/pg-api/relaykit/types"
 	"github.com/gin-gonic/gin"
 )
 

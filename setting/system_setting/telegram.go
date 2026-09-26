@@ -3,7 +3,7 @@ package system_setting
 import (
 	"strings"
 
-	"github.com/QuantumNous/new-api/setting/config"
+	"github.com/zhourenke/pg-api/setting/config"
 )
 
 type TelegramSettings struct {

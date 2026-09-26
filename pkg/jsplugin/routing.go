@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/QuantumNous/new-api/constant"
+	"github.com/zhourenke/pg-api/constant"
 )
 
 type RouteType string

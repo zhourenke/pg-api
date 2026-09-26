@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/setting/config"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/setting/config"
 )
 
 const defaultGeminiSafetySetting = "OFF"

@@ -3,8 +3,8 @@ package model
 import (
 	"slices"
 
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/dto"
+	"github.com/zhourenke/pg-api/constant"
+	"github.com/zhourenke/pg-api/dto"
 )
 
 var filterEvalOrder = []dto.ChannelFilterKind{

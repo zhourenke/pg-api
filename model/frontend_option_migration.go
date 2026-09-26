@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/setting/console_setting"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/setting/console_setting"
 	"gorm.io/gorm"
 )
 

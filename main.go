@@ -15,24 +15,24 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/controller"
-	"github.com/QuantumNous/new-api/i18n"
-	"github.com/QuantumNous/new-api/logger"
-	"github.com/QuantumNous/new-api/middleware"
-	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/oauth"
-	"github.com/QuantumNous/new-api/pkg/jsplugin"
-	perfmetrics "github.com/QuantumNous/new-api/pkg/perf_metrics"
-	"github.com/QuantumNous/new-api/pkg/wsmanager"
-	"github.com/QuantumNous/new-api/relay"
-	kitutil "github.com/QuantumNous/new-api/relaykit/relayconvert/kitutil"
-	"github.com/QuantumNous/new-api/router"
-	"github.com/QuantumNous/new-api/service"
-	"github.com/QuantumNous/new-api/service/authz"
-	_ "github.com/QuantumNous/new-api/setting/performance_setting"
-	"github.com/QuantumNous/new-api/setting/ratio_setting"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/constant"
+	"github.com/zhourenke/pg-api/controller"
+	"github.com/zhourenke/pg-api/i18n"
+	"github.com/zhourenke/pg-api/logger"
+	"github.com/zhourenke/pg-api/middleware"
+	"github.com/zhourenke/pg-api/model"
+	"github.com/zhourenke/pg-api/oauth"
+	"github.com/zhourenke/pg-api/pkg/jsplugin"
+	perfmetrics "github.com/zhourenke/pg-api/pkg/perf_metrics"
+	"github.com/zhourenke/pg-api/pkg/wsmanager"
+	"github.com/zhourenke/pg-api/relay"
+	kitutil "github.com/zhourenke/pg-api/relaykit/relayconvert/kitutil"
+	"github.com/zhourenke/pg-api/router"
+	"github.com/zhourenke/pg-api/service"
+	"github.com/zhourenke/pg-api/service/authz"
+	_ "github.com/zhourenke/pg-api/setting/performance_setting"
+	"github.com/zhourenke/pg-api/setting/ratio_setting"
 
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-gonic/gin"
@@ -63,7 +63,7 @@ func main() {
 		return
 	}
 
-	common.SysLog("New API " + common.Version + " started")
+	common.SysLog("pg-api " + common.Version + " started")
 	if os.Getenv("GIN_MODE") != "debug" {
 		gin.SetMode(gin.ReleaseMode)
 	}

@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strconv"
 
-	perfmetrics "github.com/QuantumNous/new-api/pkg/perf_metrics"
-	"github.com/QuantumNous/new-api/setting/ratio_setting"
+	perfmetrics "github.com/zhourenke/pg-api/pkg/perf_metrics"
+	"github.com/zhourenke/pg-api/setting/ratio_setting"
 
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"

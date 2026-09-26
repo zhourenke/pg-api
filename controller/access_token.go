@@ -4,11 +4,11 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/i18n"
-	"github.com/QuantumNous/new-api/middleware"
-	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/service"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/i18n"
+	"github.com/zhourenke/pg-api/middleware"
+	"github.com/zhourenke/pg-api/model"
+	"github.com/zhourenke/pg-api/service"
 	"github.com/gin-gonic/gin"
 )
 

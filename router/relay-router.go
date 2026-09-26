@@ -3,11 +3,11 @@ package router
 import (
 	"strings"
 
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/controller"
-	"github.com/QuantumNous/new-api/middleware"
-	"github.com/QuantumNous/new-api/relay"
-	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/zhourenke/pg-api/constant"
+	"github.com/zhourenke/pg-api/controller"
+	"github.com/zhourenke/pg-api/middleware"
+	"github.com/zhourenke/pg-api/relay"
+	"github.com/zhourenke/pg-api/relaykit/types"
 
 	"github.com/gin-gonic/gin"
 )

@@ -7,8 +7,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/setting/config"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/setting/config"
 	"golang.org/x/net/idna"
 	"golang.org/x/net/publicsuffix"
 )

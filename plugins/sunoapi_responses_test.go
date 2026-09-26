@@ -3,10 +3,10 @@ package plugins_test
 import (
 	"testing"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/pkg/jsplugin"
-	builtinplugins "github.com/QuantumNous/new-api/plugins"
-	"github.com/QuantumNous/new-api/relay"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/pkg/jsplugin"
+	builtinplugins "github.com/zhourenke/pg-api/plugins"
+	"github.com/zhourenke/pg-api/relay"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
