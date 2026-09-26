@@ -30,9 +30,10 @@ This is an AI API gateway/proxy built with Go. It aggregates 40+ upstream AI pro
 - Languages: en, zh
 
 ### Frontend (`web/src/i18n/`)
-- Library: `i18next` + `react-i18next` + `i18next-browser-languagedetector`
-- Languages: en (base), zh (fallback), zh-TW, fr, ru, ja, vi
-- Translation files: `web/src/i18n/locales/{lang}.json` — flat JSON, keys are English source strings
+- Library: `i18next` + `react-i18next`
+- Language: Simplified Chinese only. `zh.json` is both the key base and the only locale; there is no language switcher and no language detection
+- The interface language code is `zhCN`, which is not a valid BCP 47 tag; run it through `toIntlLocale()` before any `Intl.*` call
+- Translation files: `web/src/i18n/locales/zh.json` — flat JSON, keys are English source strings
 - Usage: `useTranslation()` hook, call `t('English key')` in components
 - CLI tools: `bun run i18n:sync` (from `web/`)
 

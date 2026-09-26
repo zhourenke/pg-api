@@ -15,7 +15,7 @@
 | 数据与请求 | @tanstack/react-query、axios、Zustand                             |
 | 路由       | @tanstack/react-router                                            |
 | 表格与列表 | @tanstack/react-table、@tanstack/react-virtual                    |
-| 国际化     | i18next、react-i18next、i18next-browser-languagedetector          |
+| 国际化     | i18next、react-i18next                                            |
 | 日期       | Day.js                                                            |
 | UI 与样式  | Base UI、Hugeicons、Tailwind CSS、clsx / class-variance-authority |
 | 表单       | React Hook Form、Zod                                              |
@@ -58,8 +58,8 @@
 
 - **页面文本**：所有面向用户的文案均需支持 i18n，使用 `useTranslation()` 的 `t()` 进行翻译。
 - **使用场景**
-  - **React 组件**：必须使用 `const { t } = useTranslation()`，以保证语言切换时组件会重新渲染。
-  - **非 React 环境**（工具函数、常量、类方法）：可使用 `import { t } from 'i18next'`；此类用法不会随语言切换自动更新，仅在不依赖响应式更新的场景使用。
+  - **React 组件**：必须使用 `const { t } = useTranslation()`，与其它组件保持一致的订阅方式，避免直接读取全局 i18n 实例。
+  - **非 React 环境**（工具函数、常量、类方法）：可使用 `import { t } from 'i18next'`，仅在不依赖响应式更新的场景使用。
   - 即使父组件已使用 `useTranslation()`，子组件仍应自行使用，以保证独立性。
 - **专有名词**：品牌、产品、技术术语等可保留英文（如 API、React、TypeScript）；若有约定俗成的译法则使用翻译。
 - **翻译键**：使用有层级、语义清晰的键名，如 `dashboard.overview.title`，并保持命名一致。
@@ -73,10 +73,10 @@
 **数字格式化与 Intl 语言参数（强制）**
 
 - 普通数字、紧凑数字展示必须优先复用 `@/lib/format` 的 `formatNumber` / `formatCompactNumber`；金额、余额与额度使用已有 `@/lib/currency` 或对应业务封装，保留精度、单位与换算语义。已有封装无法表达的格式选项才可直接使用 `Intl.NumberFormat`，不能为统一调用方式改变数值显示精度。
-- `zhCN` / `zhTW` 是项目的界面语言码，不是合法的 BCP 47 标签。来自界面语言的参数，无论直接引用、解构、变量别名或函数透传，在进入 `Intl.*`、`toLocaleString` / `toLocaleDateString` / `toLocaleTimeString` 或公共格式化函数前，必须使用 `@/i18n/languages` 的 `toIntlLocale()` 转换。禁止自行编写 `zhCN` 等语言码映射；只处理简体中文会遗漏繁体中文。
-- React 组件通过 `useTranslation()` 订阅语言，在渲染时计算 `const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)`，例如 `formatNumber(value, locale)`。不得把当前语言固定在模块常量或初始 state 中；语言切换后格式必须更新。明确使用运行环境默认语言或固定协议语言的场景，可省略 locale、传 `undefined` 或使用合法的固定标签。
+- `zhCN` 是本项目唯一的界面语言码，不是合法的 BCP 47 标签。来自界面语言的参数，无论直接引用、解构、变量别名或函数透传，在进入 `Intl.*`、`toLocaleString` / `toLocaleDateString` / `toLocaleTimeString` 或公共格式化函数前，必须使用 `@/i18n/languages` 的 `toIntlLocale()` 转换。禁止自行编写语言码映射。
+- React 组件通过 `useTranslation()` 订阅语言，在渲染时计算 `const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)`，例如 `formatNumber(value, locale)`。不得把当前语言固定在模块常量或初始 state 中。明确使用运行环境默认语言或固定协议语言的场景，可省略 locale、传 `undefined` 或使用合法的固定标签。
 - `bun run lint` / `bun run lint:fix` 启用 **`project/intl-locale` error**，检查上述调用中的原始 `language` / `resolvedLanguage`、本地变量赋值与解构别名，以及非法固定标签；不得通过 lint-disable 绕过。静态检查不追踪跨函数或跨模块的数据流，调用方仍须遵守转换约定。
-- 修改语言转换或数字格式化时，回归测试必须覆盖 `zhCN`、`zhTW`、其余五种界面语言，以及非法语言的降级；涉及组件语言响应时还须覆盖切换语言。修改 lint 规则须验证违规代码报错且合法转换不误报，类型检查和构建通过不能替代这些验证。
+- 修改语言转换或数字格式化时，回归测试必须覆盖 `zhCN` 与非法语言的降级。修改 lint 规则须验证违规代码报错且合法转换不误报，类型检查和构建通过不能替代这些验证。
 
 ### 3.2 代码风格与类型
 
@@ -185,7 +185,7 @@
 - 布局测试应断言明确且稳定的行为契约，例如固定尺寸、排列方向、溢出策略、滚动目标和降级路径；不要仅断言组件能够渲染，也不要依赖浏览器像素误差、浏览器私有实现或脆弱的完整 class 字符串快照。
 - 组件交互测试应从用户视角查询元素并执行点击、输入、键盘和焦点操作，断言可见结果、可访问状态或对外回调；禁止直接断言组件内部 state、私有函数调用次数或无用户意义的 DOM 层级。
 - 涉及可访问性的组件必须覆盖可访问名称、键盘可操作性，以及 `aria-expanded`、`aria-selected`、`aria-disabled`、`aria-invalid` 等与视觉状态一致的属性。
-- 涉及 i18n 文案的测试优先通过稳定的角色、label 或翻译键语义定位元素，避免将某一种语言的完整展示文案作为与业务无关的脆弱断言；若翻译内容本身是契约，则应明确覆盖语言切换或 fallback 行为。
+- 涉及 i18n 文案的测试优先通过稳定的角色、label 或翻译键语义定位元素，避免将某一种语言的完整展示文案作为与业务无关的脆弱断言；若翻译内容本身是契约，则应明确覆盖 `zh.json` 的实际文案或缺失键时的降级行为。
 - 异步测试必须等待明确的界面状态或 Promise 结果，不得使用固定 `sleep`、依赖执行耗时或制造竞态；定时器、网络请求和浏览器 API 仅在必要边界进行可控 mock，并在每个用例后恢复。
 - 优先测试真实代码路径；只有外部网络、时间、随机数、存储或浏览器 API 等不可控边界可以 mock。禁止 mock 被测模块自身，也不要通过复制生产逻辑到测试中计算期望结果。
 - 测试数据应使用最小且具有业务含义的显式 fixture，测试内部必须独立初始化并清理全局状态、缓存、localStorage、mock 和定时器，确保用例可单独运行且不依赖执行顺序。
@@ -226,3 +226,4 @@
 - **2026-01-31**：在 3.2 中补充「类型检查」要求：改动 TS/TSX 后须执行 typecheck 并修复至无错。
 - **2026-06-21**：在 3.2 中补充「Lint 检查」要求：完成代码改动前须修复所涉及文件的所有 lint error。
 - **2026-09-06**：明确组件复用的强制检索流程、业务封装优先级、新增条件、常用入口及审查要求。
+- **2026-09-26**：界面语言收敛为简体中文（`zh.json`），移除语言切换器、语言偏好卡片、语言检测与其余六种语言，并同步 3.1 与依赖说明。
