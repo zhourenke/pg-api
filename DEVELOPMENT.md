@@ -67,7 +67,7 @@ beforeEach: i18next.removeResourceBundle('zhCN', 'translation')
 | --- | --- |
 | `bun run typecheck` | `tsgo -b`，必须 0 错误 |
 | `bunx oxlint -c .oxlintrc.json <改动文件>` | 改动文件 0 error；warning 单独评估 |
-| `bunx oxfmt --check` | **只能整库运行**（传路径列表无效，仍会扫全库）。仓库有 24 个既有未格式化文件，只要它们与本次改动文件**无交集**即可，不要去格式化它们 |
+| `bunx oxfmt --check <改动文件>` | 在 `web/` 下显式传路径**有效**，只检查列出的文件（实测传 6 个文件时输出 `Finished in 1110ms on 6 files`）。`bun run format:check` 不带路径会整库检查，当前因 20 个**既有**未格式化文件而失败；只要它们与本次改动文件**无交集**即可，不要去格式化它们 |
 | `bun run test` | 全量 166 个文件，本机默认并行约 4 分钟 |
 | `bunx vitest run --maxWorkers=8` | 全量串行度更高（约 4 分钟，20 核机器上 8 worker）；**需要一次稳定全绿时用这个**，见下 |
 | `bunx vitest run <路径...>` | 定向验证，定位失败用这个 |
@@ -116,4 +116,5 @@ beforeEach: i18next.removeResourceBundle('zhCN', 'translation')
 
 ## 6. 相关变更历史
 
+- 2026-09-27：移除版本号与更新检查界面（本 fork 自用，不需要检查上游 Release）。删除页头 Logo 旁的版本号控件（`SystemUpdateAction presentation='version'`，窄屏退化为图标）与维护页「系统维护」小节；删除 `web/src/features/system-update/**`（浏览器直连 `api.github.com/repos/zhourenke/pg-api/releases` 取最新 Release、`parseSystemVersion` 版本比较、忽略版本列表、localStorage 快照）与 `web/src/features/system-settings/maintenance/update-checker-section.tsx`；清理 31 个只服务该功能的 `zh.json` 键。`/api/status` 仍返回 `version` 与 `start_time`，但前端已无消费者。**从上游同步时这些文件会被重新引入，需要按本节再次删除。**
 - 2026-09-26：界面语言收敛为简体中文。前端删除 `en` / `zh-TW` / `fr` / `ja` / `ru` / `vi` 六个语言文件、语言切换器、语言偏好卡片、登录时的语言应用逻辑与 `i18next-browser-languagedetector` 依赖；后端删除多语言协商与用户语言偏好，只留 `zh-CN`；测试基座语言由 `en` 改为 `zhCN`；`common/init.go` 移除多语言横幅。
