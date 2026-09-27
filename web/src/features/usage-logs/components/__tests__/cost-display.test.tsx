@@ -16,8 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { render, screen } from '@testing-library/react'
 import i18next from 'i18next'
 import type React from 'react'
 import {
@@ -31,6 +30,7 @@ import {
 
 import { useSystemConfigStore } from '@/stores/system-config-store'
 
+import type { LogOtherData } from '../../types'
 import { LogCostDisplay } from '../log-cost-display'
 
 function renderCost(
@@ -42,8 +42,6 @@ function renderCost(
 describe('log cost display', () => {
   beforeAll(() => {
     i18next.addResourceBundle('zhCN', 'translation', {
-      Subscription: 'Subscription',
-      Wallet: 'Wallet',
       'Includes tool-call surcharge': 'Includes tool-call surcharge',
     })
   })
@@ -58,83 +56,42 @@ describe('log cost display', () => {
   })
 
   test.each([
-    { consumed: 12500, expected: '$0.025' },
-    { consumed: 0, expected: '$0' },
-    { consumed: 1, expected: '$0.000002' },
-    { consumed: undefined, expected: '$0.01' },
-  ])(
-    'shows subscription deduction $consumed without hover, falling back only when absent',
-    ({ consumed, expected }) => {
-      renderCost({
-        quota: 5000,
-        other: {
-          billing_source: 'subscription',
-          subscription_consumed: consumed,
-        },
-        showBillingSource: true,
-      })
+    { quota: 12500, expected: '$0.025' },
+    { quota: 0, expected: '$0' },
+    { quota: 1, expected: '$0.000002' },
+    { quota: 5000, expected: '$0.01' },
+  ])('renders the wallet quota $quota as $expected', ({ quota, expected }) => {
+    renderCost({ quota, other: null })
 
-      expect(screen.getByText(expected)).toBeVisible()
-      expect(screen.getByRole('img', { name: 'Subscription' })).toBeVisible()
-      expect(screen.queryByText('Subscription')).not.toBeInTheDocument()
-      expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
-    }
-  )
-
-  test('shows wallet cost and source icon without using subscription metadata', () => {
-    renderCost({
-      quota: 5000,
-      other: { billing_source: 'wallet', subscription_consumed: 12500 },
-      showBillingSource: true,
-    })
-
-    expect(screen.getByText('$0.01')).toBeVisible()
-    expect(screen.getByRole('img', { name: 'Wallet' })).toBeVisible()
-    expect(screen.queryByText('Wallet')).not.toBeInTheDocument()
-    expect(screen.queryByText('Subscription')).not.toBeInTheDocument()
+    expect(screen.getByText(expected)).toBeVisible()
   })
 
-  test('hides the wallet icon when subscriptions are unavailable', () => {
-    renderCost({
-      quota: 5000,
-      other: { billing_source: 'wallet' },
-      showBillingSource: false,
-    })
+  test('keeps the wallet cost on a log whose stored metadata still names a subscription', () => {
+    const legacyPayload = {
+      billing_source: 'subscription',
+      subscription_id: '42',
+      subscription_consumed: 12500,
+    } as unknown as LogOtherData
+
+    renderCost({ quota: 5000, other: legacyPayload })
 
     expect(screen.getByText('$0.01')).toBeVisible()
-    expect(screen.queryByText('Wallet')).not.toBeInTheDocument()
+    expect(screen.queryByText('$0.025')).not.toBeInTheDocument()
     expect(screen.queryByRole('img')).not.toBeInTheDocument()
   })
 
-  test('keeps the subscription icon on a subscription-billed log when billing sources are hidden', () => {
+  test('never renders a funding source marker for wallet logs', () => {
     renderCost({
       quota: 5000,
-      other: { billing_source: 'subscription', subscription_consumed: 12500 },
-      showBillingSource: false,
+      other: { billing_source: 'wallet' } as LogOtherData,
     })
 
-    expect(screen.getByText('$0.025')).toBeVisible()
-    expect(screen.getByRole('img', { name: 'Subscription' })).toBeVisible()
-    expect(
-      screen.queryByRole('img', { name: 'Wallet' })
-    ).not.toBeInTheDocument()
-  })
-
-  test('keeps legacy cost visible without inventing a funding source', () => {
-    renderCost({ quota: 5000, other: null })
-
     expect(screen.getByText('$0.01')).toBeVisible()
-    expect(screen.queryByText('Wallet')).not.toBeInTheDocument()
-    expect(screen.queryByText('Subscription')).not.toBeInTheDocument()
     expect(screen.queryByRole('img')).not.toBeInTheDocument()
   })
 
   test('keeps a large amount unabridged in a single-line cost bubble', () => {
-    const rendered = renderCost({
-      quota: 2147483647,
-      other: { billing_source: 'subscription' },
-      showBillingSource: true,
-    })
+    const rendered = renderCost({ quota: 2147483647, other: null })
 
     const amount = screen.getByText('$4,294.9673')
     expect(amount).toBeVisible()
@@ -146,36 +103,7 @@ describe('log cost display', () => {
     )
     expect(rendered.container.firstElementChild).toHaveClass('inline-flex')
     expect(rendered.container.firstElementChild).not.toHaveClass('flex-col')
-    expect(screen.getByRole('img', { name: 'Subscription' })).toBeVisible()
   })
-
-  test.each([
-    { source: 'subscription', label: 'Subscription' },
-    { source: 'wallet', label: 'Wallet' },
-  ])(
-    'reveals the $source label on hover and keyboard focus',
-    async ({ source, label }) => {
-      const user = userEvent.setup()
-      renderCost({
-        quota: 5000,
-        other: { billing_source: source },
-        showBillingSource: true,
-      })
-
-      const marker = screen.getByRole('img', { name: label })
-      expect(screen.queryByText(label)).not.toBeInTheDocument()
-
-      await user.hover(marker)
-      expect(await screen.findByText(label)).toBeVisible()
-      await user.unhover(marker)
-      await waitFor(() =>
-        expect(screen.queryByText(label)).not.toBeInTheDocument()
-      )
-      await user.tab()
-      expect(marker).toHaveFocus()
-      expect(await screen.findByText(label)).toBeVisible()
-    }
-  )
 
   test('keeps the regular cost visible and adds an accessible surcharge marker', () => {
     renderCost({
@@ -191,24 +119,5 @@ describe('log cost display', () => {
     })
     expect(marker).toHaveAttribute('data-tool-surcharge-indicator', 'true')
     expect(marker).toHaveAttribute('tabindex', '0')
-  })
-
-  test('shows subscription cost and source alongside the legacy surcharge marker', () => {
-    renderCost({
-      quota: 5000,
-      other: {
-        billing_source: 'subscription',
-        web_search: true,
-        web_search_call_count: 1,
-        web_search_price: 10,
-      },
-      showBillingSource: true,
-    })
-
-    expect(screen.getByText('$0.01')).toBeVisible()
-    expect(screen.getByRole('img', { name: 'Subscription' })).toBeVisible()
-    expect(
-      screen.getByRole('img', { name: 'Includes tool-call surcharge' })
-    ).toHaveAttribute('data-tool-surcharge-indicator', 'true')
   })
 })

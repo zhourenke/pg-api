@@ -6,21 +6,20 @@ import (
 )
 
 var (
-	WaffoEnabled               bool
-	WaffoApiKey                string
-	WaffoPrivateKey            string
-	WaffoPublicCert            string
-	WaffoSandboxPublicCert     string
-	WaffoSandboxApiKey         string
-	WaffoSandboxPrivateKey     string
-	WaffoSandbox               bool
-	WaffoMerchantId            string
-	WaffoNotifyUrl             string
-	WaffoReturnUrl             string
-	WaffoSubscriptionReturnUrl string
-	WaffoCurrency              string
-	WaffoUnitPrice             float64 = 1.0
-	WaffoMinTopUp              int     = 1
+	WaffoEnabled           bool
+	WaffoApiKey            string
+	WaffoPrivateKey        string
+	WaffoPublicCert        string
+	WaffoSandboxPublicCert string
+	WaffoSandboxApiKey     string
+	WaffoSandboxPrivateKey string
+	WaffoSandbox           bool
+	WaffoMerchantId        string
+	WaffoNotifyUrl         string
+	WaffoReturnUrl         string
+	WaffoCurrency          string
+	WaffoUnitPrice         float64 = 1.0
+	WaffoMinTopUp          int     = 1
 )
 
 // GetWaffoPayMethods 从 options 读取 Waffo 支付方式配置

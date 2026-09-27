@@ -28,7 +28,6 @@ describe('legacy frontend route migration', () => {
       '/console': '/dashboard',
       '/console/models': '/models',
       '/console/deployment': '/models/deployments',
-      '/console/subscription': '/subscriptions',
       '/console/channel': '/channels',
       '/console/token': '/keys',
       '/console/playground': '/playground',
@@ -85,6 +84,8 @@ describe('legacy frontend route migration', () => {
     expect(resolveLegacyRoute('/console/removed?page=2#old')).toBe(
       '/dashboard?page=2#old'
     )
+    // The retired subscription console route has no dedicated target anymore.
+    expect(resolveLegacyRoute('/console/subscription')).toBe('/dashboard')
     expect(resolveLegacyRoute('/dashboard')).toBe(null)
     expect(resolveLegacyRoute('/api/status')).toBe(null)
   })

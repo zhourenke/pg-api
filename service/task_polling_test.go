@@ -321,7 +321,7 @@ func TestUpdateBatchTasksSettlesTieredUsageForTerminalStates(t *testing.T) {
 			seedTaskPollingChannel(t, channelID, true)
 
 			expression := `tier("actual", u("units"))`
-			task := makeTask(userID, channelID, preConsumedQuota, tokenID, BillingSourceWallet, 0)
+			task := makeTask(userID, channelID, preConsumedQuota, tokenID)
 			task.TaskID = "task_batch_tiered_" + string(testCase.status)
 			task.Platform = "batch-plugin"
 			task.PrivateData.UpstreamTaskID = "upstream_batch_tiered_" + string(testCase.status)
@@ -387,7 +387,7 @@ func TestUpdateBatchTasksRefundsFailedTieredTask(t *testing.T) {
 	seedTaskPollingChannel(t, channelID, true)
 
 	expression := `tier("actual", u("units"))`
-	task := makeTask(userID, channelID, preConsumedQuota, tokenID, BillingSourceWallet, 0)
+	task := makeTask(userID, channelID, preConsumedQuota, tokenID)
 	task.TaskID = "task_batch_tiered_refund"
 	task.Platform = "batch-plugin"
 	task.PrivateData.UpstreamTaskID = "upstream_batch_tiered_refund"
@@ -443,7 +443,7 @@ func TestUpdateBatchTasksRefundsFailedTaskWithoutUsageSettlement(t *testing.T) {
 	seedToken(t, tokenID, userID, "sk-batch-refund", tokenRemain)
 	seedTaskPollingChannel(t, channelID, true)
 
-	task := makeTask(userID, channelID, preConsumedQuota, tokenID, BillingSourceWallet, 0)
+	task := makeTask(userID, channelID, preConsumedQuota, tokenID)
 	task.TaskID = "task_batch_refund"
 	task.Platform = "batch-plugin"
 	task.Properties.OriginModelName = "missing-batch-token-price"
@@ -660,7 +660,7 @@ func TestUpdateSunoTasksStalePollsRefundExactlyOnce(t *testing.T) {
 		BaseURL: &baseURL,
 	}).Error)
 
-	task := makeTask(userID, channelID, taskQuota, tokenID, BillingSourceWallet, 0)
+	task := makeTask(userID, channelID, taskQuota, tokenID)
 	task.TaskID = publicTaskID
 	task.Platform = constant.TaskPlatformSuno
 	task.Status = model.TaskStatusInProgress
@@ -707,7 +707,7 @@ func TestRunTaskPollingOnceDoesNotRefundHistoricalFailedTask(t *testing.T) {
 	const userID, initialQuota, taskQuota = 402, 10_000, 1_200
 	seedUser(t, userID, initialQuota)
 
-	task := makeTask(userID, 0, taskQuota, 0, BillingSourceWallet, 0)
+	task := makeTask(userID, 0, taskQuota, 0)
 	task.TaskID = "historical_failed_already_refunded"
 	task.Status = model.TaskStatusFailure
 	task.Progress = "100%"
@@ -740,13 +740,13 @@ func TestSweepTimedOutTasksHonorsRefundRolloutBoundary(t *testing.T) {
 	)
 	seedUser(t, userID, initialQuota)
 
-	legacyTask := makeTask(userID, 0, legacyTaskQuota, 0, BillingSourceWallet, 0)
+	legacyTask := makeTask(userID, 0, legacyTaskQuota, 0)
 	legacyTask.TaskID = "legacy_timeout_without_refund"
 	legacyTask.Progress = "50%"
 	legacyTask.SubmitTime = 1771718399 // 2026-02-21 23:59:59 UTC
 	require.NoError(t, model.DB.Create(legacyTask).Error)
 
-	modernTask := makeTask(userID, 0, modernTaskQuota, 0, BillingSourceWallet, 0)
+	modernTask := makeTask(userID, 0, modernTaskQuota, 0)
 	modernTask.TaskID = "modern_timeout_with_refund"
 	modernTask.Progress = "50%"
 	modernTask.SubmitTime = 1771718400 // 2026-02-22 00:00:00 UTC
@@ -926,7 +926,7 @@ func TestUpdateVideoSingleTaskPollClassification(t *testing.T) {
 				t.Cleanup(func() { constant.TaskPollMaxFailures = previous })
 			}
 
-			task := makeTask(userID, channelID, preConsumed, tokenID, BillingSourceWallet, 0)
+			task := makeTask(userID, channelID, preConsumed, tokenID)
 			task.TaskID = "task_poll_class"
 			task.PrivateData.UpstreamTaskID = "upstream_poll_class"
 			task.PrivateData.PollFailures = testCase.priorFailures
@@ -1008,7 +1008,7 @@ func TestUpdateBatchTasksPollClassification(t *testing.T) {
 			seedToken(t, tokenID, userID, "sk-batch-class", tokenRemain)
 			seedTaskPollingChannel(t, channelID, true)
 
-			task := makeTask(userID, channelID, preConsumed, tokenID, BillingSourceWallet, 0)
+			task := makeTask(userID, channelID, preConsumed, tokenID)
 			task.TaskID = "task_batch_class"
 			task.PrivateData.UpstreamTaskID = "upstream_batch_class"
 			require.NoError(t, model.DB.Create(task).Error)

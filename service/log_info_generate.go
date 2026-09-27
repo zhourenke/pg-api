@@ -127,7 +127,6 @@ func GenerateTextOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, m
 	appendRequestPath(ctx, relayInfo, other)
 	appendRequestConversionChain(relayInfo, other)
 	appendFinalRequestFormat(relayInfo, other)
-	appendBillingInfo(relayInfo, other)
 	appendParamOverrideInfo(relayInfo, other)
 	appendStreamStatus(relayInfo, other)
 	return other
@@ -181,57 +180,6 @@ func appendStreamStatus(relayInfo *relaycommon.RelayInfo, other *model.LogOther)
 		streamInfo["errors"] = messages
 	}
 	other.SetPublic("stream_status", streamInfo)
-}
-
-func appendBillingInfo(relayInfo *relaycommon.RelayInfo, other *model.LogOther) {
-	if relayInfo == nil || other == nil {
-		return
-	}
-	// billing_source: "wallet" or "subscription"
-	if relayInfo.BillingSource != "" {
-		other.SetPublic("billing_source", relayInfo.BillingSource)
-	}
-	if relayInfo.UserSetting.BillingPreference != "" {
-		other.SetPublic("billing_preference", relayInfo.UserSetting.BillingPreference)
-	}
-	if relayInfo.BillingSource == "subscription" {
-		if relayInfo.SubscriptionId != 0 {
-			other.SetPublic("subscription_id", relayInfo.SubscriptionId)
-		}
-		if relayInfo.SubscriptionPreConsumed > 0 {
-			other.SetPublic("subscription_pre_consumed", relayInfo.SubscriptionPreConsumed)
-		}
-		// post_delta: settlement delta applied after actual usage is known (can be negative for refund)
-		if relayInfo.SubscriptionPostDelta != 0 {
-			other.SetPublic("subscription_post_delta", relayInfo.SubscriptionPostDelta)
-		}
-		if relayInfo.SubscriptionPlanId != 0 {
-			other.SetPublic("subscription_plan_id", relayInfo.SubscriptionPlanId)
-		}
-		if relayInfo.SubscriptionPlanTitle != "" {
-			other.SetPublic("subscription_plan_title", relayInfo.SubscriptionPlanTitle)
-		}
-		// Compute "this request" subscription consumed + remaining
-		consumed := relayInfo.SubscriptionPreConsumed + relayInfo.SubscriptionPostDelta
-		usedFinal := relayInfo.SubscriptionAmountUsedAfterPreConsume + relayInfo.SubscriptionPostDelta
-		if consumed < 0 {
-			consumed = 0
-		}
-		if usedFinal < 0 {
-			usedFinal = 0
-		}
-		if relayInfo.SubscriptionAmountTotal > 0 {
-			remain := max(relayInfo.SubscriptionAmountTotal-usedFinal, 0)
-			other.SetPublic("subscription_total", relayInfo.SubscriptionAmountTotal)
-			other.SetPublic("subscription_used", usedFinal)
-			other.SetPublic("subscription_remain", remain)
-		}
-		if consumed > 0 {
-			other.SetPublic("subscription_consumed", consumed)
-		}
-		// Wallet quota is not deducted when billed from subscription.
-		other.SetPublic("wallet_quota_deducted", 0)
-	}
 }
 
 func appendRequestConversionChain(relayInfo *relaycommon.RelayInfo, other *model.LogOther) {

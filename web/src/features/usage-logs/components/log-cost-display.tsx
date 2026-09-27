@@ -16,11 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import {
-  CrownIcon,
-  Wallet01Icon,
-  Wrench01Icon,
-} from '@hugeicons/core-free-icons'
+import { Wrench01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useTranslation } from 'react-i18next'
 
@@ -40,7 +36,6 @@ import type { LogOtherData } from '../types'
 interface LogCostDisplayProps {
   quota: number
   other: LogOtherData | null
-  showBillingSource?: boolean
 }
 
 function ToolSurchargeMarker() {
@@ -79,26 +74,7 @@ function ToolSurchargeMarker() {
 }
 
 export function LogCostDisplay(props: LogCostDisplayProps) {
-  const { t } = useTranslation()
-  const isSubscription = props.other?.billing_source === 'subscription'
   const showToolSurcharge = hasToolSurcharge(props.other)
-  const quota = isSubscription
-    ? (props.other?.subscription_consumed ?? props.quota)
-    : props.quota
-  let source: string | undefined
-
-  // A log billed to a subscription always names its funding source: that
-  // subscription may have expired since, and the viewer may hold no active
-  // plan today. Only the wallet marker is contextual and follows
-  // showBillingSource.
-  if (isSubscription) {
-    source = t('Subscription')
-  } else if (
-    props.showBillingSource &&
-    props.other?.billing_source === 'wallet'
-  ) {
-    source = t('Wallet')
-  }
 
   return (
     <TooltipProvider>
@@ -110,29 +86,9 @@ export function LogCostDisplay(props: LogCostDisplayProps) {
           copyable={false}
           className='border-border/80 bg-muted/60 text-foreground rounded-md border font-semibold tabular-nums'
         >
-          {source ? (
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <span
-                    className='inline-flex shrink-0 cursor-help'
-                    role='img'
-                    aria-label={source}
-                    tabIndex={0}
-                  >
-                    <HugeiconsIcon
-                      icon={isSubscription ? CrownIcon : Wallet01Icon}
-                      className='size-3.5'
-                      strokeWidth={2}
-                      aria-hidden='true'
-                    />
-                  </span>
-                }
-              />
-              <TooltipContent>{source}</TooltipContent>
-            </Tooltip>
-          ) : null}
-          <span className='whitespace-nowrap'>{formatLogQuota(quota)}</span>
+          <span className='whitespace-nowrap'>
+            {formatLogQuota(props.quota)}
+          </span>
         </StatusBadge>
         {showToolSurcharge ? <ToolSurchargeMarker /> : null}
       </div>

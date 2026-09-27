@@ -221,33 +221,6 @@ func ResolveWaffoPancakeTradeNo(event *WaffoPancakeWebhookEvent) (string, error)
 	return tradeNo, nil
 }
 
-// ResolveWaffoPancakeSubscriptionTradeNo is the SubscriptionOrder counterpart
-// of ResolveWaffoPancakeTradeNo.
-func ResolveWaffoPancakeSubscriptionTradeNo(event *WaffoPancakeWebhookEvent) (string, error) {
-	if event == nil {
-		return "", fmt.Errorf("missing webhook event")
-	}
-	tradeNo := strings.TrimSpace(event.Data.OrderMerchantExternalID)
-	if tradeNo == "" {
-		return "", fmt.Errorf("missing webhook orderMerchantExternalId")
-	}
-	order := model.GetSubscriptionOrderByTradeNo(tradeNo)
-	if order == nil || order.PaymentProvider != model.PaymentProviderWaffoPancake {
-		return "", fmt.Errorf("waffo pancake subscription order not found for tradeNo=%s", tradeNo)
-	}
-	expectedIdentity := WaffoPancakeBuyerIdentityFromUserID(order.UserId)
-	actualIdentity := strings.TrimSpace(event.Data.MerchantProvidedBuyerIdentity)
-	if actualIdentity != expectedIdentity {
-		return "", fmt.Errorf(
-			"waffo pancake buyer identity mismatch for subscription tradeNo=%s: expected=%q actual=%q",
-			tradeNo,
-			expectedIdentity,
-			actualIdentity,
-		)
-	}
-	return tradeNo, nil
-}
-
 // Deterministic default names for "+ Create": stable bodies mean stable
 // X-Idempotency-Key, which lets Pancake dedupe retries server-side.
 const (
@@ -269,51 +242,6 @@ func CreateWaffoPancakePrimaryStore(ctx context.Context, merchantID, privateKey 
 		return "", fmt.Errorf("create Waffo Pancake store: %w", err)
 	}
 	return storeRes.Store.ID, nil
-}
-
-// CreateWaffoPancakeProductForPlan mints (and publishes) a Pancake
-// OnetimeProduct priced at `amount` USD, used as a subscription plan's
-// SubscriptionPlan.WaffoPancakeProductId.
-//
-// OnetimeProduct (not SubscriptionProduct) because new-api has no renewal-
-// event handling; Pancake auto-renewing without new-api extending user
-// access would be a UX divergence. Revisit if renewal handling is added.
-func CreateWaffoPancakeProductForPlan(ctx context.Context, merchantID, privateKey, storeID, name, amount, returnURL string) (string, error) {
-	storeID = strings.TrimSpace(storeID)
-	if storeID == "" {
-		return "", fmt.Errorf("store id is required to create a product")
-	}
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return "", fmt.Errorf("plan name is required")
-	}
-	amount = strings.TrimSpace(amount)
-	if amount == "" {
-		return "", fmt.Errorf("plan price is required")
-	}
-	client, err := newWaffoPancakeClientFromCreds(merchantID, privateKey)
-	if err != nil {
-		return "", err
-	}
-	prodRes, err := client.OnetimeProducts.Create(ctx, pancake.CreateOnetimeProductParams{
-		StoreID: storeID,
-		Name:    name,
-		Prices: pancake.Prices{
-			"USD": {
-				Amount:      amount,
-				TaxCategory: pancake.TaxCategory("saas"),
-			},
-		},
-		SuccessURL: optionalString(strings.TrimSpace(returnURL)),
-	})
-	if err != nil {
-		return "", fmt.Errorf("create Waffo Pancake plan product: %w", err)
-	}
-	productID := prodRes.Product.ID
-	if _, err := client.OnetimeProducts.Publish(ctx, pancake.PublishOnetimeProductParams{ID: productID}); err != nil {
-		return "", fmt.Errorf("publish Waffo Pancake plan product: %w", err)
-	}
-	return productID, nil
 }
 
 // CreateWaffoPancakePrimaryProduct mints (and publishes) the wallet-top-up

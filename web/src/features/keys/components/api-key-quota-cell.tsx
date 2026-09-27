@@ -99,7 +99,7 @@ export function ApiKeyQuotaCell(props: ApiKeyQuotaCellProps) {
       description={
         props.apiKey.unlimited_quota
           ? t(
-              'This API key has no quota limit. Requests still require available wallet or subscription quota.'
+              'This API key has no quota limit. Requests still require available wallet quota.'
             )
           : t(
               'Total = used + remaining. It is not an initial allocation or a periodic budget; changing the remaining quota changes the total and percentage.'

@@ -580,7 +580,6 @@ export function buildQueryRequest(){throw new Error("completed submissions must 
 			info.UserGroup = "default"
 			info.UsingGroup = "default"
 			info.IsPlayground = true
-			info.UserSetting.BillingPreference = "wallet_only"
 			info.PublicTaskID = model.GenerateTaskID()
 			info.LockedChannel = &ch
 			outcome, taskErr := executeTaskSubmission(c, info)

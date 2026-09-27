@@ -470,8 +470,7 @@ export function WaffoPancakeSettingsSection({
           {/*
               Operator-facing explainer: why only ONE store + product needs
               to be bound at the gateway level, and what each piece is used
-              for. Subscriptions reuse the same Store but get their own
-              per-plan product, configured in the Subscriptions admin.
+              for.
             */}
           <div className='rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-100'>
             <p className='mb-1 font-medium'>
@@ -480,17 +479,12 @@ export function WaffoPancakeSettingsSection({
             <ul className='list-inside list-disc space-y-1'>
               <li>
                 {t(
-                  'The bound Store is the parent container for every Pancake product new-api creates from this admin — both the wallet top-up product and any subscription-plan products. One store is enough; pin a different one only if you genuinely run separate Pancake catalogs.'
+                  'The bound Store is the parent container for every Pancake product new-api creates from this admin — the wallet top-up product. One store is enough; pin a different one only if you genuinely run separate Pancake catalogs.'
                 )}
               </li>
               <li>
                 {t(
                   'The bound Product powers wallet top-ups: when a user enters any amount, new-api runs the checkout against this single Pancake product and overrides the price per session — no need to pre-create $1 / $5 / $10 SKUs.'
-                )}
-              </li>
-              <li>
-                {t(
-                  'Subscription plans do NOT use the bound Product — each plan has its own dedicated Pancake product, set in the Subscriptions admin (or auto-minted via the "+ Create" button there).'
                 )}
               </li>
             </ul>

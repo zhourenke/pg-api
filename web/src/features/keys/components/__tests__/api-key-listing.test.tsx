@@ -208,7 +208,7 @@ it('shows unlimited with cumulative usage and explains it on demand', async () =
   const detail = await screen.findByRole('dialog')
   expect(within(detail).getByText('120')).toBeInTheDocument()
   expect(detail).toHaveTextContent(
-    'This API key has no quota limit. Requests still require available wallet or subscription quota.'
+    'This API key has no quota limit. Requests still require available wallet quota.'
   )
 })
 

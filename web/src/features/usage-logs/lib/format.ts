@@ -550,10 +550,6 @@ const AUDIT_TEMPLATES: Record<string, string> = {
   'deployment.create': 'Created a deployment',
   'deployment.update': 'Updated a deployment',
   'deployment.delete': 'Deleted a deployment',
-  // Subscriptions
-  'subscription.plan_create': 'Created a subscription plan',
-  'subscription.plan_update': 'Updated a subscription plan',
-  'subscription.bind': 'Bound a subscription',
   // Logs
   'log.clear': 'Cleared historical logs',
   'log.cleanup_start': 'Log cleanup task started.',

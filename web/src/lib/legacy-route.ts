@@ -22,7 +22,6 @@ const legacyConsoleRoutes: Record<string, string> = {
   '/console': '/dashboard',
   '/console/models': '/models',
   '/console/deployment': '/models/deployments',
-  '/console/subscription': '/subscriptions',
   '/console/channel': '/channels',
   '/console/token': '/keys',
   '/console/playground': '/playground',

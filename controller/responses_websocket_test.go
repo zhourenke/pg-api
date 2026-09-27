@@ -165,7 +165,7 @@ func TestResponsesWSRequestRunnerRefreshesBillingContextAndCleansBody(t *testing
 		"remain_quota": 2, "model_limits_enabled": true, "model_limits": "gpt-5.1",
 	}).Error)
 	require.NoError(t, model.DB.Model(user).Updates(map[string]any{
-		"group": "updated", "setting": `{"billing_preference":"wallet_only"}`,
+		"group": "updated", "setting": `{"record_ip_log":true}`,
 	}).Error)
 	request = httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(`{"input":"second"}`))
 	require.Nil(t, runner(request, "ws-second", func(c *gin.Context) *types.NewAPIError {
@@ -176,7 +176,7 @@ func TestResponsesWSRequestRunnerRefreshesBillingContextAndCleansBody(t *testing
 		assert.Equal(t, "updated", common.GetContextKeyString(c, constant.ContextKeyUsingGroup))
 		userSetting, ok := common.GetContextKeyType[dto.UserSetting](c, constant.ContextKeyUserSetting)
 		require.True(t, ok)
-		assert.Equal(t, "wallet_only", userSetting.BillingPreference)
+		assert.True(t, userSetting.RecordIpLog)
 		assert.Equal(t, "ws-second", c.GetString(common.RequestIdKey))
 		_, leaked := c.Get("previous_turn")
 		assert.False(t, leaked)

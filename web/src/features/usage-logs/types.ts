@@ -238,7 +238,6 @@ export interface LogOtherData {
   image_generation_call_count?: number
   is_system_prompt_overwritten?: boolean
   po?: string[]
-  billing_source?: string
   group?: string
   stream_status?: {
     status?: string
@@ -261,15 +260,6 @@ export interface LogOtherData {
   result_discarded?: boolean
   task_id?: string
   reason?: string
-  // Subscription billing fields
-  subscription_plan_id?: string
-  subscription_plan_title?: string
-  subscription_id?: string
-  subscription_pre_consumed?: number
-  subscription_post_delta?: number
-  subscription_consumed?: number
-  subscription_remain?: number
-  subscription_total?: number
 }
 
 /**

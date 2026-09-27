@@ -278,7 +278,6 @@ func TestPreConsumePolicyDatabaseMatrix(t *testing.T) {
 					ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
 					ctx.Set("token_quota", tc.token)
 					info := &relaycommon.RelayInfo{UserId: user.Id, TokenId: token.Id, TokenKey: token.Key, TokenUnlimited: tc.unlimited, ForcePreConsume: tc.force, OriginModelName: "policy-model", UserGroup: "default", UsingGroup: "default", BillingRequestInput: &billingexpr.RequestInput{}}
-					info.UserSetting.BillingPreference = "wallet_only"
 					price, err := helper.ModelPriceHelper(ctx, info, 1000, &types.TokenCountMeta{MaxTokens: 10000})
 					require.NoError(t, err)
 					require.Nil(t, service.PreConsumeBilling(ctx, price.QuotaToPreConsume, info))

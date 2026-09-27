@@ -120,19 +120,6 @@ quota.insufficient: "额度不足"
 quota.warning_invalid: "无效的预警类型"
 quota.threshold_gt_zero: "预警阈值必须大于0"
 
-# Subscription messages
-subscription.not_enabled: "套餐未启用"
-subscription.title_empty: "套餐标题不能为空"
-subscription.price_negative: "价格不能为负数"
-subscription.price_max: "价格不能超过9999"
-subscription.purchase_limit_negative: "购买上限不能为负数"
-subscription.quota_negative: "总额度不能为负数"
-subscription.group_not_exists: "升级分组不存在"
-subscription.reset_cycle_gt_zero: "自定义重置周期需大于0秒"
-subscription.purchase_max: "已达到该套餐购买上限"
-subscription.invalid_id: "无效的订阅ID"
-subscription.invalid_user_id: "无效的用户ID"
-
 # Payment messages
 payment.not_configured: "当前管理员未配置支付信息"
 payment.method_not_exists: "支付方式不存在"
