@@ -1,96 +1,69 @@
 # Security Policy
 
-> [!IMPORTANT]
-> **Bulk Reporting Policy:** If you need to submit multiple vulnerability reports in bulk, **you must contact us first** ([support@quantumnous.com](mailto:support@quantumnous.com)) to coordinate the submission process. Uncoordinated bulk submissions have caused significant disruption to our team, and we will take the following actions:
->
-> 1. **All uncoordinated bulk reports will be closed without review.**
-> 2. **Repeated offenders may be blocked** from further submissions.
->
-> We welcome thorough security research, but please reach out before submitting multiple reports.
+This repository is a personal, single-maintainer downstream fork of
+[new-api](https://github.com/QuantumNous/new-api). It is not the upstream project and it
+is not a distribution or support channel for it.
 
-## Supported Versions
+## Reporting a vulnerability
 
-We provide security updates for the following versions:
+This fork has no security advisories channel, no issue tracker and no pull request flow,
+and it runs no response desk: there is no acknowledgement window, no disclosure timeline
+and no credit programme. Do not open a draft security advisory, an issue or a pull
+request against this repository, and do not use the upstream project's addresses for a
+report about this fork.
 
+If a vulnerability affects this fork:
 
-| Version | Supported          |
-| ------- | ------------------ |
-| Latest  | :white_check_mark: |
-| Older   | :x:                |
+- fix it here and commit it to `main`, or
+- send the details directly to the repository owner.
 
+If a vulnerability affects the upstream project, report it to
+[upstream](https://github.com/QuantumNous/new-api/security/policy) under upstream's own
+policy. Upstream's handling, timelines and credit do not apply to this fork.
 
-We strongly recommend that users always use the latest version for the best security and features.
+## Supported versions
 
-## Reporting a Vulnerability
+Only the current state of `main`, and the newest build taken from it, are in scope. This
+fork makes no backport or long-term-support commitment.
 
-We take security vulnerability reports very seriously. If you discover a security issue, please follow the steps below for responsible disclosure.
+| Version                  | Supported          |
+| ------------------------ | ------------------ |
+| Newest build from `main` | :white_check_mark: |
+| Anything older           | :x:                |
 
-### How to Report
+## Deploying this fork
 
-**Do NOT** report security vulnerabilities in public GitHub Issues.
+The advice below is about self-hosting the software, not about this repository's
+process.
 
-To report a security issue, please use the GitHub Security Advisories tab to "[Open a draft security advisory](https://github.com/zhourenke/pg-api/security/advisories/new)". This is the preferred method as it provides a built-in private communication channel.
+### Deployment
 
-Alternatively, you can report via email:
+- Serve the console and the API over HTTPS only.
+- Open the minimum set of ports, and keep the management interface off the public internet.
+- Track `main` and rebuild to pick up fixes.
+- Use separate database and Redis instances in production.
 
-- **Email:** [support@quantumnous.com](mailto:support@quantumnous.com)
-- **Subject:** `[SECURITY] Security Vulnerability Report`
+### API keys
 
-### What to Include
+- Never place keys in client-side code or in a public repository.
+- Issue one key per purpose and follow least privilege.
+- Rotate keys on a schedule.
+- Watch key usage for anomalies.
 
-To help us understand and resolve the issue more quickly, please include the following information in your report:
+### Database
 
-1. **Vulnerability Type** - Brief description of the vulnerability (e.g., SQL injection, XSS, authentication bypass, etc.)
-2. **Affected Component** - Affected file paths, endpoints, or functional modules
-3. **Reproduction Steps** - Detailed steps to reproduce
-4. **Impact Assessment** - Potential security impact and severity assessment
-5. **Proof of Concept** - If possible, provide proof of concept code or screenshots (do not test in production environments)
-6. **Suggested Fix** - If you have a fix suggestion, please provide it
-7. **Your Contact Information** - So we can communicate with you
+- Use strong, unique credentials for the database user.
+- Do not expose the database port publicly.
+- Take regular backups and verify that they restore.
+- Grant the database user only the privileges it needs.
 
-## Response Process
+### Configuration
 
-1. **Acknowledgment:** We will acknowledge receipt of your report within **48 hours**.
-2. **Initial Assessment:** We will complete an initial assessment and communicate with you within **7 days**.
-3. **Fix Development:** Based on the severity of the vulnerability, we will prioritize developing a fix.
-4. **Security Advisory:** After the fix is released, we will publish a security advisory (if applicable).
-5. **Credit:** If you wish, we will credit your contribution in the security advisory.
-
-## Security Best Practices
-
-When deploying and using New API, we recommend following these security best practices:
-
-### Deployment Security
-
-- **Use HTTPS:** Always serve over HTTPS to ensure transport layer security
-- **Firewall Configuration:** Only open necessary ports and restrict access to management interfaces
-- **Regular Updates:** Update to the latest version promptly to receive security patches
-- **Environment Isolation:** Use separate database and Redis instances in production
-
-### API Key Security
-
-- **Key Protection:** Do not expose API keys in client-side code or public repositories
-- **Least Privilege:** Create different API keys for different purposes, following the principle of least privilege
-- **Regular Rotation:** Rotate API keys regularly
-- **Monitor Usage:** Monitor API key usage and detect anomalies promptly
-
-### Database Security
-
-- **Strong Passwords:** Use strong passwords to protect database access
-- **Network Isolation:** Database should not be directly exposed to the public internet
-- **Regular Backups:** Regularly backup the database and verify backup integrity
-- **Access Control:** Limit database user permissions, following the principle of least privilege
-
-## Security-Related Configuration
-
-Please ensure the following security-related environment variables and settings are properly configured:
-
-- `SESSION_SECRET` - Use a strong random string
-- `SQL_DSN` - Ensure database connection uses secure configuration
-- `REDIS_CONN_STRING` - If using Redis, ensure secure connection
-
-For detailed configuration instructions, please refer to the project documentation.
+- `SESSION_SECRET` — a long random value.
+- `SQL_DSN` — a connection string that does not leak credentials.
+- `REDIS_CONN_STRING` — TLS where the network is not trusted.
 
 ## Disclaimer
 
-This project is provided "as is" without any express or implied warranty. Users should assess the security risks of using this software in their environment.
+This software is provided "as is", without warranty of any kind. Assess the security of
+your own deployment.

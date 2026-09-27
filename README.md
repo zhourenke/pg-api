@@ -42,7 +42,7 @@
   <a href="#quick-start">快速开始</a> •
   <a href="#deployment">部署运维</a> •
   <a href="#development">开发扩展</a> •
-  <a href="#documentation">文档社区</a>
+  <a href="#documentation">文档资源</a>
 </p>
 
 </div>
@@ -264,21 +264,21 @@ bun run dev -- --port 5173
 | `web/` | Web 控制台，参阅[前端开发约定](./web/AGENTS.md) |
 | [electron/](./electron/README.md) | 桌面封装与打包 |
 
-贡献前请阅读 [AGENTS.md](./AGENTS.md)。按改动范围执行检查：Go 模块使用 `make test`；前端在 `web/` 下运行 `bun run typecheck`、`bun run lint`、`bun run test` 和 `bun run build`。修改 RelayKit 后还必须在 `relaykit/` 下执行 `GOWORK=off go build ./...`。
+修改本仓库前请阅读 [AGENTS.md](./AGENTS.md)。按改动范围执行检查：Go 模块使用 `make test`；前端在 `web/` 下运行 `bun run typecheck`、`bun run lint`、`bun run test` 和 `bun run build`。修改 RelayKit 后还必须在 `relaykit/` 下执行 `GOWORK=off go build ./...`。
 
 <a id="documentation"></a>
 
-## 文档与社区
+## 文档与资源
 
 | 资源 | 入口 |
 | --- | --- |
-| 官方文档 | [使用指南](https://docs.newapi.ai/zh/docs) · [安装部署](https://docs.newapi.ai/zh/docs/installation) · [API 参考](https://docs.newapi.ai/zh/docs/api) |
-| 项目导读 | [DeepWiki](https://deepwiki.com/QuantumNous/new-api) |
-| 使用问题与交流 | [常见问题](https://docs.newapi.ai/zh/docs/support/faq) · [社区渠道](https://docs.newapi.ai/zh/docs/support/community-interaction) |
-| 缺陷与功能建议 | [GitHub Issues](https://github.com/zhourenke/pg-api/issues) |
-| 安全漏洞 | 按[安全政策](./.github/SECURITY.md)进行私下报告 |
+| 上游文档 | [使用指南](https://docs.newapi.ai/zh/docs) · [安装部署](https://docs.newapi.ai/zh/docs/installation) · [API 参考](https://docs.newapi.ai/zh/docs/api) |
+| 上游项目导读 | [DeepWiki](https://deepwiki.com/QuantumNous/new-api) |
+| 上游使用问题 | [常见问题](https://docs.newapi.ai/zh/docs/support/faq) · [上游社区](https://docs.newapi.ai/zh/docs/support/community-interaction) |
+| 缺陷与功能建议 | 本 fork 为个人自用版本，不设公开 tracker；请在本地修复或直接告知维护者 |
+| 安全漏洞 | 本 fork 没有披露流程，直接告知维护者；上游漏洞请按[上游安全政策](https://github.com/QuantumNous/new-api/security/policy)上报。详见[安全政策](./.github/SECURITY.md) |
 
-反馈问题时请附上版本、部署方式、复现步骤及脱敏日志。欢迎贡献文档、翻译、渠道适配和有针对性的回归测试。
+报告问题时请附上版本、部署方式、复现步骤及脱敏日志。本 fork 不接受外部 issue 与 pull request，改动直接提交到 `main`。
 
 ---
 
@@ -308,7 +308,7 @@ bun run dev -- --port 5173
 
 本项目为开源项目，在 [One API](https://github.com/songquanpeng/one-api)（MIT 许可证）的基础上进行二次开发。
 
-如果您所在的组织政策不允许使用 AGPLv3 许可的软件，或您希望规避 AGPLv3 的开源义务，请发送邮件至：[support@quantumnous.com](mailto:support@quantumnous.com)
+上游项目提供商业授权。如果您所在的组织政策不允许使用 AGPLv3 许可的软件，或希望规避 AGPLv3 的开源义务，请联系上游项目：[support@quantumnous.com](mailto:support@quantumnous.com)。本 fork 由个人维护，不提供商业授权、技术支持或响应时限。
 
 署名及依赖声明见 [NOTICE](./NOTICE) 和[第三方许可证](./THIRD-PARTY-LICENSES.md)。
 
@@ -330,7 +330,7 @@ bun run dev -- --port 5173
 
 如果这个项目对你有帮助，欢迎给我们一个 ⭐️ Star！
 
-**[官方文档](https://docs.newapi.ai/zh/docs)** • **[问题反馈](https://github.com/zhourenke/pg-api/issues)** • **[最新发布](https://github.com/zhourenke/pg-api/releases)**
+**[上游文档](https://docs.newapi.ai/zh/docs)** • **[最新发布](https://github.com/zhourenke/pg-api/releases)** • **[上游项目](https://github.com/QuantumNous/new-api)**
 
 <sub>Built with ❤️ by QuantumNous</sub>
 
