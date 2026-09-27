@@ -41,54 +41,18 @@ import { createAppQueryClient } from '@/lib/query-client'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
-import type { TaskPluginOption } from '../../api'
 import {
   CHANNEL_TYPE_OLLAMA,
   CHANNEL_TYPE_SGLANG,
   CHANNEL_TYPE_VLLM,
 } from '../../constants'
 import { channelSchema, type Channel } from '../../types'
-import { ChannelPluginExtensions } from '../channel-plugin-extensions'
 import { ChannelsProvider } from '../channels-provider'
 import { ChannelMutateDrawer } from '../drawers/channel-mutate-drawer'
 
 const originalAuth = useAuthStore.getState().auth
 let client: QueryClient
 let editingChannel: Channel
-let pluginOptions: TaskPluginOption[]
-const plugins: TaskPluginOption[] = [
-  {
-    key: 'video-a',
-    name: 'Video A',
-    icon: 'text:VA',
-    baseUrl: 'https://a.example',
-    models: ['video-a-1'],
-    upstreams: ['vendor', 'new_api'],
-  },
-  {
-    key: 'video-b',
-    name: 'Video B',
-    icon: 'text:VB',
-    baseUrl: 'https://b.example',
-    models: ['video-b-1'],
-    upstreams: ['vendor', 'new_api'],
-  },
-  {
-    // Vendor-only: bindable to a Task Plugin channel, never to a New API one.
-    key: 'no-address',
-    name: 'No Address',
-    icon: 'text:NA',
-    models: ['video-c-1'],
-  },
-]
-
-const soraPlugin: TaskPluginOption = {
-  key: 'sora',
-  name: 'Sora',
-  icon: 'text',
-  baseUrl: 'https://video.example',
-  models: ['sora-2'],
-}
 
 function deferredResponse<T>() {
   let resolve!: (value: T) => void
@@ -131,7 +95,6 @@ function ConfigurationHarness(props: {
 }
 
 beforeEach(() => {
-  pluginOptions = plugins
   editingChannel = channelSchema.parse({
     id: 42,
     name: 'Existing channel',
@@ -161,9 +124,6 @@ beforeEach(() => {
     }
     if (url === '/api/channel/fetch_models/42') {
       return { data: { success: true, data: ['upstream-model'] } }
-    }
-    if (url === '/api/task_plugin_options') {
-      return { data: { success: true, data: pluginOptions } }
     }
     if (url === '/api/channel/models') {
       return { data: { success: true, data: [{ id: 'custom-model' }] } }
@@ -420,103 +380,21 @@ test('model mapping help supports keyboard activation and wraps long model names
   expect(trigger).toHaveAttribute('aria-expanded', 'false')
 })
 
-test('selecting a plugin opens a prefilled channel and creates its explicit binding', async () => {
-  const post = vi
-    .spyOn(api, 'post')
-    .mockResolvedValue({ data: { success: true } })
-  const user = userEvent.setup()
-  render(<ConfigurationHarness />)
-  expect(
-    screen.getByRole('combobox', {
-      name: 'Search providers, plugins, or type numbers',
-    })
-  ).toBeVisible()
-  expect(
-    screen.queryByRole('textbox', { name: /^Name\s*\*$/ })
-  ).not.toBeInTheDocument()
-  await user.click(await screen.findByRole('option', { name: /Video A/ }))
-  expect(screen.getByRole('textbox', { name: /^Name\s*\*$/ })).toHaveValue(
-    'Video A'
-  )
-  expect(screen.getByDisplayValue('https://a.example')).toBeVisible()
-  expect(screen.queryByLabelText('Task plugin *')).not.toBeInTheDocument()
-  fireEvent.change(screen.getByLabelText('API Key *'), {
-    target: { value: 'channel-secret' },
-  })
-  await user.click(screen.getByRole('button', { name: 'Create Channel' }))
-  await waitFor(() => expect(post).toHaveBeenCalled())
-  const [url, payload] = post.mock.calls[0]
-  expect(url).toBe('/api/channel')
-  expect(payload).toMatchObject({
-    mode: 'single',
-    channel: {
-      name: 'Video A',
-      type: 61,
-      key: 'channel-secret',
-      models: 'video-a-1',
-      base_url: 'https://a.example',
-      group: 'default',
-    },
-  })
-  expect(
-    JSON.parse((payload as { channel: { setting: string } }).channel.setting)
-      .task_plugin_key
-  ).toBe('video-a')
-  await waitFor(() =>
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-  )
-  await user.click(screen.getByRole('button', { name: 'Open channel' }))
-  await user.click(await screen.findByRole('option', { name: /Video A/ }))
-  expect(screen.getByLabelText('API Key *')).toHaveValue('')
-})
-
-test('changing plugins preserves credentials and custom settings while applying existing model and address rules', async () => {
-  const user = userEvent.setup()
-  render(<ConfigurationHarness />)
-  await user.click(await screen.findByRole('option', { name: /Video A/ }))
-  fireEvent.change(screen.getByLabelText('API Key *'), {
-    target: { value: 'keep-secret' },
-  })
-  fireEvent.change(screen.getByLabelText('Name *'), {
-    target: { value: 'My channel' },
-  })
-  await user.click(screen.getByRole('tab', { name: /Routing & Mapping/ }))
-  fireEvent.change(screen.getByLabelText('Priority'), {
-    target: { value: '7' },
-  })
-  await user.click(screen.getByRole('button', { name: 'Change provider' }))
-  await user.click(
-    screen.getByRole('option', { name: 'Video B Plugin video-b' })
-  )
-  await user.click(screen.getByRole('tab', { name: /Connection & Models/ }))
-  expect(screen.getByLabelText('API Key *')).toHaveValue('keep-secret')
-  expect(screen.getByLabelText('Name *')).toHaveValue('My channel')
-  expect(screen.getByDisplayValue('https://b.example')).toBeVisible()
-  fireEvent.change(screen.getByDisplayValue('https://b.example'), {
-    target: { value: 'https://custom.example' },
-  })
-  await user.click(screen.getByRole('button', { name: 'Change provider' }))
-  await user.click(screen.getByRole('option', { name: /Video A/ }))
-  expect(screen.getByDisplayValue('https://custom.example')).toBeVisible()
-  await user.click(screen.getByRole('tab', { name: /Routing & Mapping/ }))
-  expect(screen.getByLabelText('Priority')).toHaveValue(7)
-})
-
 test('canceling provider selection or selecting the same provider preserves adjusted models', async () => {
   const user = userEvent.setup()
   render(<ConfigurationHarness />)
-  await user.click(await screen.findByRole('option', { name: /Video A/ }))
+  await user.click(await screen.findByRole('option', { name: /^OpenAI / }))
   await user.click(screen.getByRole('button', { name: 'Clear All' }))
   await user.click(screen.getByRole('button', { name: 'Change provider' }))
-  expect(screen.getByRole('dialog')).toHaveAccessibleDescription(/Video A/)
-  expect(screen.getByRole('option', { name: /Video A/ })).toHaveAttribute(
+  expect(screen.getByRole('dialog')).toHaveAccessibleDescription(/OpenAI/)
+  expect(screen.getByRole('option', { name: /^OpenAI / })).toHaveAttribute(
     'aria-current',
     'true'
   )
   expect(
     within(
       screen.getByRole('button', { name: 'Back to configuration' })
-    ).getByText('Video A')
+    ).getByText('OpenAI')
   ).toBeVisible()
   await user.click(
     screen.getByRole('button', { name: 'Back to configuration' })
@@ -526,7 +404,7 @@ test('canceling provider selection or selecting the same provider preserves adju
     screen.getByRole('button', { name: 'Configure Models' })
   ).toBeDisabled()
   await user.click(screen.getByRole('button', { name: 'Change provider' }))
-  await user.click(screen.getByRole('option', { name: /Video A/ }))
+  await user.click(screen.getByRole('option', { name: /^OpenAI / }))
   expect(
     screen.getByRole('button', { name: 'Configure Models' })
   ).toBeDisabled()
@@ -561,44 +439,9 @@ test.each(['Cancel', 'Escape'])(
   }
 )
 
-test('submitting a missing plugin address focuses its field without leaving creation', async () => {
-  const post = vi.spyOn(api, 'post')
-  const user = userEvent.setup()
-  render(<ConfigurationHarness />)
-  await user.click(await screen.findByRole('option', { name: /No Address/ }))
-  fireEvent.change(screen.getByLabelText('API Key *'), {
-    target: { value: 'test-key' },
-  })
-  await user.click(screen.getByRole('tab', { name: /Other Settings/ }))
-  await user.click(screen.getByRole('button', { name: 'Create Channel' }))
-  await waitFor(() =>
-    expect(
-      screen.getByRole('tab', { name: /Connection & Models/ })
-    ).toHaveAttribute('aria-selected', 'true')
-  )
-  expect(
-    screen.getByText('Base URL is required for this channel type')
-  ).toBeVisible()
-  expect(post).not.toHaveBeenCalled()
-  await user.click(screen.getByRole('button', { name: 'Change provider' }))
-  await user.click(screen.getByRole('option', { name: /Video A/ }))
-  await waitFor(() =>
-    expect(
-      screen.queryByText('Base URL is required for this channel type')
-    ).not.toBeInTheDocument()
-  )
-})
-
-test('a hidden creation drawer does not request plugin options', async () => {
-  render(<ConfigurationHarness initialOpen={false} />)
-  expect(api.get).not.toHaveBeenCalledWith('/api/task_plugin_options')
-  await userEvent.click(screen.getByRole('button', { name: 'Open channel' }))
-  expect(await screen.findByRole('option', { name: /Video A/ })).toBeVisible()
-})
-
 test('configuration navigation retains its height when the form content overflows', async () => {
   render(<ConfigurationHarness />)
-  await userEvent.click(await screen.findByRole('option', { name: /Video A/ }))
+  await userEvent.click(await screen.findByRole('option', { name: /^OpenAI / }))
   const navigation = screen.getByRole('tablist', {
     name: 'Channel configuration',
   })
@@ -606,396 +449,18 @@ test('configuration navigation retains its height when the form content overflow
   expect(screen.getByRole('dialog')).toHaveClass('sm:max-w-7xl')
 })
 
-test('without plugin binding permission only built-in providers are offered', () => {
-  useAuthStore.setState({
-    auth: {
-      ...originalAuth,
-      user: {
-        id: 2,
-        username: 'admin',
-        role: ROLE.ADMIN,
-        permissions: {
-          admin_permissions: { channel: { sensitive_write: true } },
-        },
-      },
-    },
-  })
-  render(<ConfigurationHarness />)
-  expect(screen.getByRole('option', { name: /^OpenAI / })).toBeVisible()
-  expect(
-    screen.queryByRole('button', { name: 'Plugins' })
-  ).not.toBeInTheDocument()
-  expect(api.get).not.toHaveBeenCalledWith('/api/task_plugin_options')
-})
-
-test('plugin loading failure can be retried while built-in providers remain selectable', async () => {
-  const originalGet = vi.mocked(api.get).getMockImplementation()
-  let fail = true
-  vi.mocked(api.get).mockImplementation(async (url, config) => {
-    if (url === '/api/task_plugin_options' && fail) {
-      fail = false
-      throw new Error('Offline')
-    }
-    return originalGet?.(url, config)
-  })
-  render(<ConfigurationHarness />)
-  expect(await screen.findByText('Failed to load plugins')).toBeVisible()
-  expect(screen.getByRole('option', { name: /^OpenAI / })).toBeVisible()
-  await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
-  expect(await screen.findByRole('option', { name: /Video A/ })).toBeVisible()
-})
-
-test('creating a migrated provider uses its plugin binding instead of the legacy type', async () => {
-  pluginOptions = [soraPlugin]
-  const post = vi
-    .spyOn(api, 'post')
-    .mockResolvedValue({ data: { success: true } })
-  const user = userEvent.setup()
-  render(<ConfigurationHarness />)
-  const plugin = await screen.findByRole('option', { name: 'Sora Plugin sora' })
-  expect(
-    screen.queryByRole('option', { name: 'Sora Built-in #55' })
-  ).not.toBeInTheDocument()
-  await user.click(plugin)
-  fireEvent.change(screen.getByLabelText('API Key *'), {
-    target: { value: 'test-key' },
-  })
-  await user.click(screen.getByRole('button', { name: 'Create Channel' }))
-  await waitFor(() =>
-    expect(post).toHaveBeenCalledWith(
-      '/api/channel',
-      expect.objectContaining({
-        channel: expect.objectContaining({ type: 61 }),
-      }),
-      expect.anything()
-    )
-  )
-  const payload = post.mock.calls[0]?.[1] as { channel: { setting: string } }
-  expect(JSON.parse(payload.channel.setting)).toMatchObject({
-    task_plugin_key: 'sora',
-  })
-})
-
-test.each(['create', 'edit'])(
-  '%s selects plugin models in the shared model dialog while preserving the built-in connection',
-  async (mode) => {
-    pluginOptions = [
-      {
-        ...soraPlugin,
-        channelTypes: [1, 55],
-        description: { en: 'Video generation' },
-        models: [
-          'custom-model',
-          'sora-2',
-          'sora-3',
-          'sora-4',
-          'sora-5',
-          'sora-6',
-          'sora-7',
-        ],
-      },
-    ]
-    editingChannel = {
-      ...editingChannel,
-      model_mapping: '{"custom-model":"upstream-model"}',
-    }
-    const post = vi
-      .spyOn(api, 'post')
-      .mockResolvedValue({ data: { success: true } })
-    const put = vi
-      .spyOn(api, 'put')
-      .mockResolvedValue({ data: { success: true } })
-    const user = userEvent.setup()
-    render(
-      <ConfigurationHarness
-        currentRow={mode === 'edit' ? editingChannel : undefined}
-      />
-    )
-    if (mode === 'create') {
-      await user.click(
-        screen.getByRole('option', { name: 'OpenAI Built-in #1' })
-      )
-      fireEvent.change(screen.getByLabelText('Name *'), {
-        target: { value: 'Combined channel' },
-      })
-      fireEvent.change(screen.getByLabelText('API Key *'), {
-        target: { value: 'channel-key' },
-      })
-      fireEvent.change(screen.getByLabelText(/Base URL/), {
-        target: { value: 'https://channel.example' },
-      })
-    } else {
-      await screen.findByDisplayValue('Existing channel')
-    }
-    const extensions = await screen.findByRole('group', {
-      name: 'Plugin extensions',
-    })
-    expect(extensions).toHaveClass('flex-wrap')
-    expect(
-      within(extensions).queryByText('Video generation')
-    ).not.toBeInTheDocument()
-    expect(within(extensions).queryByText('sora-2')).not.toBeInTheDocument()
-    const extension = within(extensions).getByRole('button', {
-      name: `Sora Selected ${mode === 'edit' ? 1 : 0} / 7`,
-    })
-    expect(extension).toHaveAttribute('aria-haspopup', 'dialog')
-    expect(
-      screen.getByRole('button', { name: 'Configure Models' })
-    ).toBeEnabled()
-    await user.click(extension)
-    const dialog = within(
-      screen.getByRole('dialog', { name: 'Configure Models' })
-    )
-    expect(dialog.getByRole('tab', { name: 'Sora' })).toHaveAttribute(
-      'aria-selected',
-      'true'
-    )
-    expect(dialog.getByRole('checkbox', { name: 'sora-7' })).not.toBeChecked()
-    expect(dialog.getByRole('checkbox', { name: 'sora-2' })).not.toBeChecked()
-    expect(
-      dialog.getByRole('checkbox', { name: 'custom-model' })
-    ).toHaveAttribute('aria-checked', String(mode === 'edit'))
-    await user.click(dialog.getByRole('checkbox', { name: 'sora-2' }))
-    await user.click(dialog.getByRole('button', { name: 'Apply' }))
-    expect(extension).toHaveAccessibleName(
-      `Sora Selected ${mode === 'edit' ? 2 : 1} / 7`
-    )
-    expect(screen.getByRole('button', { name: 'sora-2' })).toBeVisible()
-    const selector = screen.getByRole('combobox', {
-      name: 'Select models or add custom ones',
-    })
-    await user.click(selector)
-    expect(
-      screen.getAllByRole('option', { name: 'custom-model' })
-    ).toHaveLength(1)
-    expect(screen.getByRole('option', { name: 'sora-2' })).toHaveAttribute(
-      'aria-selected',
-      'true'
-    )
-    await user.keyboard('{Escape}')
-    const submitLabel = mode === 'create' ? 'Create Channel' : 'Update Channel'
-    await user.click(screen.getByRole('button', { name: submitLabel }))
-    if (mode === 'create') {
-      await waitFor(() =>
-        expect(post).toHaveBeenCalledWith(
-          '/api/channel',
-          expect.objectContaining({
-            channel: expect.objectContaining({
-              type: 1,
-              name: 'Combined channel',
-              base_url: 'https://channel.example',
-              key: 'channel-key',
-              models: 'sora-2',
-            }),
-          }),
-          expect.anything()
-        )
-      )
-      const payload = post.mock.calls[0]?.[1] as {
-        channel: { setting: string }
-      }
-      expect(JSON.parse(payload.channel.setting)).not.toHaveProperty(
-        'task_plugin_key'
-      )
-    } else {
-      await waitFor(() =>
-        expect(put).toHaveBeenCalledWith(
-          '/api/channel/',
-          expect.objectContaining({
-            type: 1,
-            base_url: 'https://saved.example',
-            models: 'custom-model,sora-2',
-            model_mapping: '{"custom-model":"upstream-model"}',
-          }),
-          expect.anything()
-        )
-      )
-      const payload = put.mock.calls[0]?.[1] as { setting: string }
-      expect(JSON.parse(payload.setting)).not.toHaveProperty('task_plugin_key')
-    }
-  }
-)
-
-test('plugin model selection shares the field state, preserves other sources, and discards canceled changes', async () => {
-  pluginOptions = [
-    {
-      ...soraPlugin,
-      channelTypes: [1],
-      models: ['custom-model', 'sora-2', 'sora-2'],
-    },
-    { ...plugins[0], channelTypes: [1], models: ['custom-model', 'video-a-1'] },
-  ]
-  const user = userEvent.setup()
-  render(<ConfigurationHarness currentRow={editingChannel} />)
-  const extensions = within(
-    await screen.findByRole('group', { name: 'Plugin extensions' })
-  )
-  const sora = extensions.getByRole('button', { name: 'Sora Selected 1 / 2' })
-  await user.click(sora)
-  let dialog = within(screen.getByRole('dialog', { name: 'Configure Models' }))
-  await user.click(dialog.getByRole('checkbox', { name: 'sora-2' }))
-  await user.click(dialog.getByRole('tab', { name: 'Video A' }))
-  expect(
-    dialog.queryByRole('checkbox', { name: 'sora-2' })
-  ).not.toBeInTheDocument()
-  expect(dialog.getByRole('checkbox', { name: 'custom-model' })).toBeChecked()
-  await user.click(dialog.getByRole('checkbox', { name: 'video-a-1' }))
-  await user.click(dialog.getByRole('tab', { name: 'All' }))
-  expect(
-    dialog.getAllByRole('checkbox', { name: 'custom-model' })
-  ).toHaveLength(1)
-  expect(dialog.getByRole('checkbox', { name: 'sora-2' })).toBeChecked()
-  await user.click(dialog.getByRole('button', { name: 'Cancel' }))
-  await waitFor(() => expect(sora).toHaveFocus())
-  expect(sora).toHaveAccessibleName('Sora Selected 1 / 2')
-  expect(
-    screen.queryByRole('button', { name: 'sora-2' })
-  ).not.toBeInTheDocument()
-
-  await user.click(sora)
-  dialog = within(screen.getByRole('dialog', { name: 'Configure Models' }))
-  expect(dialog.getByRole('checkbox', { name: 'sora-2' })).not.toBeChecked()
-  await user.click(dialog.getByRole('checkbox', { name: 'custom-model' }))
-  await user.click(dialog.getByRole('checkbox', { name: 'sora-2' }))
-  await user.click(dialog.getByRole('button', { name: 'Apply' }))
-  expect(sora).toHaveAccessibleName('Sora Selected 1 / 2')
-  expect(
-    extensions.getByRole('button', { name: 'Video A Selected 0 / 2' })
-  ).toBeVisible()
-  expect(
-    screen.queryByRole('button', { name: 'custom-model' })
-  ).not.toBeInTheDocument()
-  const selector = screen.getByRole('combobox', {
-    name: 'Select models or add custom ones',
-  })
-  await user.click(selector)
-  await user.click(screen.getByRole('option', { name: 'sora-2' }))
-  await user.keyboard('{Escape}')
-  expect(sora).toHaveAccessibleName('Sora Selected 0 / 2')
-  expect(screen.getByRole('button', { name: 'Configure Models' })).toBeEnabled()
-})
-
-test('plugin model shortcuts truncate long names and omit plugins without model candidates', () => {
-  const name = 'Production Video Generation — International Extended Models'
-  render(
-    <ChannelPluginExtensions
-      plugins={[
-        { ...soraPlugin, name },
-        { ...plugins[0], models: [] },
-      ]}
-      selected={[]}
-      onConfigure={vi.fn()}
-    />
-  )
-  const row = screen.getByRole('group', { name: 'Plugin extensions' })
-  expect(row).toHaveClass('flex-wrap')
-  expect(screen.getByText(name)).toHaveClass('truncate', 'max-w-36')
-  const trigger = screen.getByRole('button', { name: `${name} Selected 0 / 1` })
-  expect(trigger).toHaveAttribute('title', name)
-  expect(trigger).toHaveClass('min-w-0', 'max-w-full')
-  expect(screen.getAllByRole('button')).toHaveLength(1)
-})
-
-test('retrying extension metadata preserves the editable built-in draft and selected models', async () => {
-  pluginOptions = [{ ...soraPlugin, channelTypes: [1, 55] }]
-  const originalGet = vi.mocked(api.get).getMockImplementation()
-  let fail = true
-  vi.mocked(api.get).mockImplementation(async (url, config) => {
-    if (url === '/api/task_plugin_options' && fail) {
-      fail = false
-      throw new Error('Plugin metadata unavailable')
-    }
-    return originalGet?.(url, config)
-  })
-  const user = userEvent.setup()
-  render(<ConfigurationHarness currentRow={editingChannel} />)
-  await screen.findByDisplayValue('Existing channel')
-  expect(await screen.findByText('Failed to load plugins')).toBeVisible()
-  expect(
-    screen.queryByRole('group', { name: 'Plugin extensions' })
-  ).not.toBeInTheDocument()
-  fireEvent.change(screen.getByLabelText('Name *'), {
-    target: { value: 'Keep this draft' },
-  })
-  await user.click(screen.getByRole('button', { name: 'Retry' }))
-  expect(
-    await screen.findByRole('group', { name: 'Plugin extensions' })
-  ).toBeVisible()
-  expect(screen.getByLabelText('Name *')).toHaveValue('Keep this draft')
-  expect(screen.getByLabelText(/Base URL/)).toHaveValue('https://saved.example')
-  expect(screen.getByRole('button', { name: 'custom-model' })).toBeVisible()
-  expect(
-    screen.queryByRole('button', { name: 'sora-2' })
-  ).not.toBeInTheDocument()
-})
-
-test('loading a replacement plugin preserves an already selected legacy creation draft', async () => {
-  const reply = deferredResponse<{
-    data: { success: boolean; data: TaskPluginOption[] }
-  }>()
-  const originalGet = vi.mocked(api.get).getMockImplementation()
-  vi.mocked(api.get).mockImplementation(async (url, config) => {
-    if (url === '/api/task_plugin_options') return reply.promise
-    return originalGet?.(url, config)
-  })
-  const post = vi
-    .spyOn(api, 'post')
-    .mockResolvedValue({ data: { success: true } })
-  const user = userEvent.setup()
-  render(<ConfigurationHarness />)
-  await user.click(screen.getByRole('option', { name: 'Sora Built-in #55' }))
-  fireEvent.change(screen.getByLabelText('Name *'), {
-    target: { value: 'Legacy draft' },
-  })
-  fireEvent.change(screen.getByLabelText('API Key *'), {
-    target: { value: 'draft-key' },
-  })
-  fireEvent.change(screen.getByLabelText(/Base URL/), {
-    target: { value: 'https://draft.example' },
-  })
-  await user.type(
-    screen.getByRole('combobox', { name: 'Select models or add custom ones' }),
-    'draft-model,'
-  )
-  await user.keyboard('{Escape}')
-  await user.click(screen.getByRole('button', { name: 'Change provider' }))
-  await act(async () => {
-    reply.resolve({ data: { success: true, data: [soraPlugin] } })
-    await reply.promise
-  })
-  expect(
-    await screen.findByRole('option', { name: 'Sora Plugin sora' })
-  ).toBeVisible()
-  const legacy = screen.getByRole('option', { name: 'Sora Built-in #55' })
-  expect(legacy).toHaveAttribute('aria-current', 'true')
-  await user.click(legacy)
-  expect(screen.getByLabelText('Name *')).toHaveValue('Legacy draft')
-  expect(screen.getByLabelText('API Key *')).toHaveValue('draft-key')
-  expect(screen.getByLabelText(/Base URL/)).toHaveValue('https://draft.example')
-  expect(screen.getByRole('button', { name: 'draft-model' })).toBeVisible()
-  await user.click(screen.getByRole('button', { name: 'Create Channel' }))
-  await waitFor(() =>
-    expect(post).toHaveBeenCalledWith(
-      '/api/channel',
-      expect.objectContaining({
-        channel: expect.objectContaining({ type: 55, name: 'Legacy draft' }),
-      }),
-      expect.anything()
-    )
-  )
-  const payload = post.mock.calls[0]?.[1] as { channel: { setting: string } }
-  expect(JSON.parse(payload.channel.setting)).not.toHaveProperty(
-    'task_plugin_key'
-  )
-})
-
 test('an invalid setting in another category is revealed and focused on submission', async () => {
   const user = userEvent.setup()
   render(<ConfigurationHarness />)
-  await user.click(await screen.findByRole('option', { name: /Video A/ }))
+  await user.click(await screen.findByRole('option', { name: /^OpenAI / }))
   fireEvent.change(screen.getByLabelText('API Key *'), {
     target: { value: 'secret' },
   })
+  await user.type(
+    screen.getByRole('combobox', { name: 'Select models or add custom ones' }),
+    'gpt-4o,'
+  )
+  await user.keyboard('{Escape}')
   await user.click(screen.getByRole('tab', { name: /Other Settings/ }))
   fireEvent.change(screen.getByLabelText('Proxy Address'), {
     target: { value: 'invalid-proxy' },
@@ -1015,37 +480,6 @@ test('an invalid setting in another category is revealed and focused on submissi
   )
 })
 
-test.each([
-  ['batch', 'Batch Add (one key per line)'],
-  ['multi_to_single', 'Multi-Key Mode (multiple keys, one channel)'],
-])('plugin creation preserves the %s request contract', async (mode, label) => {
-  const post = vi
-    .spyOn(api, 'post')
-    .mockResolvedValue({ data: { success: true } })
-  const user = userEvent.setup()
-  render(<ConfigurationHarness />)
-  await user.click(await screen.findByRole('option', { name: /Video A/ }))
-  await user.click(screen.getByRole('combobox', { name: 'Add Mode' }))
-  await user.click(screen.getByRole('option', { name: label }))
-  fireEvent.change(screen.getByLabelText('API Key *'), {
-    target: { value: 'first-key\nsecond-key' },
-  })
-  await user.click(screen.getByRole('button', { name: 'Create Channel' }))
-  await waitFor(() =>
-    expect(post).toHaveBeenCalledWith(
-      '/api/channel',
-      expect.objectContaining({
-        mode,
-        channel: expect.objectContaining({
-          key: 'first-key\nsecond-key',
-          type: 61,
-        }),
-      }),
-      expect.anything()
-    )
-  )
-})
-
 test('a failed creation keeps its draft and prevents duplicate submission while pending', async () => {
   const reply = deferredResponse<{
     data: { success: boolean; message: string }
@@ -1053,10 +487,15 @@ test('a failed creation keeps its draft and prevents duplicate submission while 
   const post = vi.spyOn(api, 'post').mockReturnValue(reply.promise)
   const user = userEvent.setup()
   render(<ConfigurationHarness />)
-  await user.click(await screen.findByRole('option', { name: /Video A/ }))
+  await user.click(await screen.findByRole('option', { name: /^OpenAI / }))
   fireEvent.change(screen.getByLabelText('API Key *'), {
     target: { value: 'keep-secret' },
   })
+  await user.type(
+    screen.getByRole('combobox', { name: 'Select models or add custom ones' }),
+    'gpt-4o,'
+  )
+  await user.keyboard('{Escape}')
   await user.click(screen.getByRole('button', { name: 'Create Channel' }))
   expect(screen.getByRole('button', { name: 'Create Channel' })).toBeDisabled()
   await user.click(screen.getByRole('button', { name: 'Create Channel' }))
@@ -1071,7 +510,7 @@ test('a failed creation keeps its draft and prevents duplicate submission while 
     expect(screen.getByRole('button', { name: 'Create Channel' })).toBeEnabled()
   )
   expect(screen.getByLabelText('API Key *')).toHaveValue('keep-secret')
-  expect(screen.getByLabelText('Name *')).toHaveValue('Video A')
+  expect(screen.getByLabelText('Name *')).toHaveValue('OpenAI')
 })
 
 test('model discovery discards a response for old credentials and retains manually selected models', async () => {
@@ -1262,9 +701,9 @@ test('quick options show only applicable shortcuts when the provider changes', a
   expect(quick.getByRole('switch', { name: 'Pass Through Body' })).toBeChecked()
 
   await user.click(screen.getByRole('button', { name: 'Change provider' }))
-  await user.click(screen.getByRole('option', { name: /Video A/ }))
+  await user.click(screen.getByRole('option', { name: /^Custom / }))
   quick = within(screen.getByRole('group', { name: 'Quick options' }))
-  expect(quick.getAllByRole('switch')).toHaveLength(1)
+  expect(quick.getAllByRole('switch')).toHaveLength(3)
   expect(
     quick.getByRole('switch', { name: 'Auto-disable channel' })
   ).toBeChecked()
@@ -1319,15 +758,6 @@ test('editing opens the shared configuration and omits an unchanged key on updat
 
 test('editing legacy channels retains the full provider list and saves the original type', async () => {
   editingChannel = { ...editingChannel, type: 55 }
-  pluginOptions = [
-    soraPlugin,
-    {
-      key: 'doubao',
-      name: 'Doubao',
-      icon: 'text',
-      models: ['doubao-video'],
-    },
-  ]
   const put = vi
     .spyOn(api, 'put')
     .mockResolvedValue({ data: { success: true } })
@@ -1336,10 +766,7 @@ test('editing legacy channels retains the full provider list and saves the origi
   await screen.findByDisplayValue('Existing channel')
   await user.click(screen.getByRole('button', { name: 'Change provider' }))
   expect(
-    await screen.findByRole('option', { name: 'Sora Plugin sora' })
-  ).toBeVisible()
-  expect(
-    screen.getByRole('option', { name: 'Doubao Built-in #54' })
+    await screen.findByRole('option', { name: 'Doubao Built-in #54' })
   ).toBeVisible()
   const legacy = screen.getByRole('option', { name: 'Sora Built-in #55' })
   expect(legacy).toHaveAttribute('aria-current', 'true')
@@ -1363,60 +790,6 @@ test('editing legacy channels retains the full provider list and saves the origi
   )
   const payload = put.mock.calls[0]?.[1] as { setting: string }
   expect(JSON.parse(payload.setting)).not.toHaveProperty('task_plugin_key')
-})
-
-test('opening and reselecting an existing plugin preserves its saved configuration', async () => {
-  editingChannel = {
-    ...editingChannel,
-    type: 61,
-    setting: '{"task_plugin_key":"video-a"}',
-    priority: 7,
-  }
-  const user = userEvent.setup()
-  render(<ConfigurationHarness currentRow={editingChannel} />)
-  expect(await screen.findByDisplayValue('Existing channel')).toBeVisible()
-  expect(screen.getByDisplayValue('https://saved.example')).toBeVisible()
-  expect(screen.getByText('custom-model')).toBeVisible()
-  expect(screen.queryByLabelText('Task plugin *')).not.toBeInTheDocument()
-  const providerControl = screen.getByRole('button', {
-    name: 'Change provider',
-  })
-  await user.click(await within(providerControl).findByText('Video A'))
-  await user.click(await screen.findByRole('option', { name: /Video A/ }))
-  expect(screen.getByText('custom-model')).toBeVisible()
-  expect(screen.getByDisplayValue('https://saved.example')).toBeVisible()
-  await user.click(screen.getByRole('button', { name: 'Change provider' }))
-  await user.click(
-    screen.getByRole('button', { name: 'Back to configuration' })
-  )
-  expect(screen.getByText('custom-model')).toBeVisible()
-  await user.click(screen.getByRole('button', { name: 'Change provider' }))
-  await user.click(screen.getByRole('option', { name: /^Video B Plugin/ }))
-  expect(screen.getByDisplayValue('Existing channel')).toBeVisible()
-  expect(screen.getByDisplayValue('https://saved.example')).toBeVisible()
-  expect(screen.getByText('video-b-1')).toBeVisible()
-  await user.click(screen.getByRole('tab', { name: /Routing & Mapping/ }))
-  expect(screen.getByLabelText('Priority')).toHaveValue(7)
-})
-
-test('an unavailable plugin keeps its identifier and binding when other fields are updated', async () => {
-  editingChannel = {
-    ...editingChannel,
-    type: 61,
-    setting: '{"task_plugin_key":"removed-plugin"}',
-  }
-  const put = vi
-    .spyOn(api, 'put')
-    .mockResolvedValue({ data: { success: true } })
-  render(<ConfigurationHarness currentRow={editingChannel} />)
-  expect(await screen.findByText('removed-plugin')).toBeVisible()
-  fireEvent.change(screen.getByLabelText('Name *'), {
-    target: { value: 'Updated name' },
-  })
-  await userEvent.click(screen.getByRole('button', { name: 'Update Channel' }))
-  await waitFor(() => expect(put).toHaveBeenCalled())
-  const payload = put.mock.calls[0]?.[1] as { setting: string }
-  expect(JSON.parse(payload.setting).task_plugin_key).toBe('removed-plugin')
 })
 
 test('a failed detail request blocks updating until retry loads the saved channel', async () => {
@@ -1562,7 +935,7 @@ test('configuration from fields unsupported by the selected provider stays unmar
     ...editingChannel,
     type: 61,
     setting:
-      '{"task_plugin_key":"video-a","force_format":true,"responses_websocket_enabled":true}',
+      '{"legacy_unknown_setting":"video-a","force_format":true,"responses_websocket_enabled":true}',
     settings:
       '{"allow_speed":true,"allow_service_tier":true,"upstream_model_update_check_enabled":true,"ollama_openai_chat":true}',
   }
@@ -1869,26 +1242,6 @@ test('model configuration keeps unchecked candidates searchable and supports cat
   expect(
     screen.queryByRole('button', { name: 'manual-model' })
   ).not.toBeInTheDocument()
-  expect(trigger).toBeDisabled()
-})
-
-test('model configuration is available for a plugin channel without upstream discovery and is disabled when its model list is empty', async () => {
-  const user = userEvent.setup()
-  render(<ConfigurationHarness />)
-  await user.click(await screen.findByRole('option', { name: /Video A/ }))
-  const trigger = screen.getByRole('button', { name: 'Configure Models' })
-  expect(trigger).toBeEnabled()
-  expect(
-    screen.queryByRole('button', { name: 'Fetch from Upstream' })
-  ).not.toBeInTheDocument()
-  await user.click(trigger)
-  const dialog = within(
-    screen.getByRole('dialog', { name: 'Configure Models' })
-  )
-  expect(dialog.getByRole('checkbox', { name: 'video-a-1' })).toBeChecked()
-  await user.click(dialog.getByRole('button', { name: 'Cancel' }))
-  await user.click(screen.getByRole('button', { name: 'Clear All' }))
-
   expect(trigger).toBeDisabled()
 })
 
@@ -2747,68 +2100,4 @@ test('the header override passthrough template button confirms before filling th
       { name: 'Pass Through Request Headers' }
     )
   ).toBeChecked()
-})
-
-test('a New API channel binds upstream task plugins and publishes their models', async () => {
-  const channel = channelSchema.parse({
-    ...editingChannel,
-    type: 60,
-    base_url: 'https://gateway.example',
-    models: 'gpt-5',
-    setting: JSON.stringify({ task_extend_plugin_keys: ['video-a'] }),
-  })
-  const originalGet = vi.mocked(api.get).getMockImplementation()
-  vi.mocked(api.get).mockImplementation(async (url, config) => {
-    if (url === '/api/channel/42') {
-      return { data: { success: true, data: channel } }
-    }
-    return originalGet?.(url, config)
-  })
-  const put = vi
-    .spyOn(api, 'put')
-    .mockResolvedValue({ data: { success: true } })
-  const user = userEvent.setup()
-  render(<ConfigurationHarness currentRow={channel} />)
-  const extensions = within(
-    await screen.findByRole('group', { name: 'Plugin extensions' })
-  )
-  expect(
-    extensions.getByRole('button', { name: 'Video A Selected 0 / 1' })
-  ).toBeVisible()
-  expect(
-    extensions.queryByRole('button', { name: /^Video B/ })
-  ).not.toBeInTheDocument()
-
-  const selector = screen.getByRole('combobox', {
-    name: 'Select the task plugins installed on the upstream gateway',
-  })
-  await user.click(selector)
-  expect(
-    screen.queryByRole('option', { name: /^No Address/ })
-  ).not.toBeInTheDocument()
-  await user.click(screen.getByRole('option', { name: /^Video B/ }))
-  await user.keyboard('{Escape}')
-  expect(
-    extensions.getByRole('button', { name: 'Video B Selected 1 / 1' })
-  ).toBeVisible()
-  expect(screen.getByRole('button', { name: 'video-b-1' })).toBeVisible()
-
-  await user.click(selector)
-  await user.click(screen.getByRole('option', { name: /^Video A/ }))
-  await user.keyboard('{Escape}')
-  expect(
-    extensions.queryByRole('button', { name: /^Video A/ })
-  ).not.toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'gpt-5' })).toBeVisible()
-
-  await user.click(screen.getByRole('button', { name: 'Update Channel' }))
-  await waitFor(() => expect(put).toHaveBeenCalled())
-  const payload = put.mock.calls[0]?.[1] as {
-    setting?: string
-    models?: string
-  }
-  const setting = JSON.parse(payload.setting ?? '{}')
-  expect(setting).toMatchObject({ task_extend_plugin_keys: ['video-b'] })
-  expect(setting).not.toHaveProperty('task_plugin_key')
-  expect(payload.models?.split(',').sort()).toEqual(['gpt-5', 'video-b-1'])
 })

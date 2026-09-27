@@ -187,7 +187,7 @@
 - 涉及可访问性的组件必须覆盖可访问名称、键盘可操作性，以及 `aria-expanded`、`aria-selected`、`aria-disabled`、`aria-invalid` 等与视觉状态一致的属性。
 - 涉及 i18n 文案的测试优先通过稳定的角色、label 或翻译键语义定位元素，避免将某一种语言的完整展示文案作为与业务无关的脆弱断言；若翻译内容本身是契约，则应明确覆盖 `zh.json` 的实际文案或缺失键时的降级行为。
 - **测试基座语言固定为 `zhCN`**（`src/test-setup.ts`）：每个用例开始前把 `zhCN` 的 translation bundle 重置为空，`t('英文源键')` 因此返回键本身，断言可按键定位元素。需要断言真实文案的用例自行 `addResourceBundle('zhCN', 'translation', zh.translation, true, true)` 加载 `zh.json`，不要依赖其它用例残留的 bundle（`addResourceBundle` 是合并语义，清空必须先 `removeResourceBundle`）。`src/i18n/config.ts` 只在实例未初始化时接管配置，测试环境因此不会被生产 resource 覆盖。
-- **插件/市场数据与 `Intl` 输出按当前语言解析**：`usageSchema` 的 `description` / `unitLabel`、内置渠道说明等 `{ en, zh }` 数据在 `zhCN` 下优先取 `zh`，日期、星期、单位等 `Intl` 输出为 `zh-CN`。断言这些内容时使用中文（或该字段唯一可用的语言），不要写英文期望。
+- **`{ en, zh }` 数据与 `Intl` 输出按当前语言解析**：`resolveLocalizedText`（`@/lib/localized-text`）等 `{ en, zh }` 数据在 `zhCN` 下优先取 `zh`，日期、星期、单位等 `Intl` 输出为 `zh-CN`。断言这些内容时使用中文（或该字段唯一可用的语言），不要写英文期望。
 - 异步测试必须等待明确的界面状态或 Promise 结果，不得使用固定 `sleep`、依赖执行耗时或制造竞态；定时器、网络请求和浏览器 API 仅在必要边界进行可控 mock，并在每个用例后恢复。
 - 优先测试真实代码路径；只有外部网络、时间、随机数、存储或浏览器 API 等不可控边界可以 mock。禁止 mock 被测模块自身，也不要通过复制生产逻辑到测试中计算期望结果。
 - 测试数据应使用最小且具有业务含义的显式 fixture，测试内部必须独立初始化并清理全局状态、缓存、localStorage、mock 和定时器，确保用例可单独运行且不依赖执行顺序。
@@ -230,3 +230,4 @@
 - **2026-09-06**：明确组件复用的强制检索流程、业务封装优先级、新增条件、常用入口及审查要求。
 - **2026-09-26**：界面语言收敛为简体中文（`zh.json`），移除语言切换器、语言偏好卡片、语言检测与其余六种语言，并同步 3.1 与依赖说明。
 - **2026-09-26**：测试基座语言由 `en` 改为 `zhCN`（空 bundle 作为键身份），`src/i18n/config.ts` 改为仅在未初始化时配置实例；3.14 增补测试语言与插件数据语言的约定。
+- **2026-09-28**：随「任务插件 + 任务/视频能力」整体移除，删除 3.1 中已不适用的「按用量计费 / 任务定价可视化编辑」相关约定，并清理 `zh.json` 中 336 个因此失效的键；3.14 中原以插件 `usageSchema` 为例的语言回退约定改写为以通用工具 `resolveLocalizedText`（`@/lib/localized-text`）为例，回退契约本身不变。渠道类型常量新增 `CHANNEL_TYPE_DECOMMISSIONED`（MjProxy 绘图渠道与已下线视频厂商），只在新建渠道时阻止选择，编辑既有渠道不受影响。

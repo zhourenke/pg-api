@@ -31,9 +31,7 @@ import { createRef } from 'react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 import { evaluateBillingExpression } from '@/features/pricing/lib/billing-expression/runtime'
-import { tryParseTaskVisualConfig } from '@/features/pricing/lib/task-expr'
 import { tryParseVisualConfig } from '@/features/pricing/lib/tier-expr'
-import type { BillingUsageSchema } from '@/features/pricing/types'
 import {
   ModelPricingEditorPanel,
   type ModelPricingEditorPanelHandle,
@@ -93,10 +91,7 @@ it('reads preview prices and billing metadata from the common data envelope', as
   ).resolves.toEqual({ effective, cacheWriteMode: 'none', billingDetails })
 })
 
-function renderEditor(
-  data: Partial<ModelRatioData> = {},
-  usageSchema?: BillingUsageSchema
-) {
+function renderEditor(data: Partial<ModelRatioData> = {}) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
@@ -115,7 +110,6 @@ function renderEditor(
           completionRatio: '2',
           ...entry,
         }}
-        usageSchema={usageSchema}
         onDirtyChange={dirty}
       />
     </QueryClientProvider>
@@ -843,92 +837,6 @@ it('keeps time pricing and request rules unchanged when opening the simulator', 
   expect(before?.requestRuleExpr).toBe(rules)
 })
 
-it('converts task base charges and second, token and credit prices, including whole-column fill', async () => {
-  const schema: BillingUsageSchema = {
-    seconds: { type: 'number', unit: 'second' },
-    tokens: { type: 'number', unit: 'token' },
-    credits: { type: 'number', unit: 'credit' },
-    mode: { enum: ['std', 'pro'] },
-  }
-  const editor = renderEditor(
-    {
-      billingMode: 'tiered_expr',
-      billingExpr: 'tier("base", u("seconds") * 1)',
-    },
-    schema
-  )
-  await selectCurrency('Site currency (CNY)')
-  fireEvent.change(
-    screen.getByRole('textbox', { name: 'Additional charge: mode: std' }),
-    {
-      target: { value: '7' },
-    }
-  )
-  fireEvent.change(
-    screen.getByRole('textbox', { name: 'Unit price: tokens: mode: std' }),
-    {
-      target: { value: '70' },
-    }
-  )
-  fireEvent.change(
-    screen.getByRole('textbox', { name: 'Unit price: credits: mode: std' }),
-    {
-      target: { value: '0.7' },
-    }
-  )
-  const secondsHeader = screen.getByRole('columnheader', { name: /seconds/ })
-  await userEvent.click(
-    within(secondsHeader).getByRole('button', { name: 'Fill entire column' })
-  )
-  fireEvent.change(
-    screen.getByRole('textbox', { name: 'Fill entire column' }),
-    { target: { value: '14' } }
-  )
-  await userEvent.click(
-    screen.getByRole('button', { name: 'Apply to all rows' })
-  )
-  expect(
-    screen.getByRole('textbox', { name: 'Unit price: seconds: mode: std' })
-  ).toHaveValue('14')
-  expect(
-    screen.getByRole('textbox', { name: 'Unit price: seconds: mode: pro' })
-  ).toHaveValue('14')
-  const saved = await commit(editor.ref)
-  const config = tryParseTaskVisualConfig(saved?.billingExpr ?? '', schema)
-  expect(config?.tiers[0]).toMatchObject({
-    constant: 1,
-    unitPrices: { seconds: 2, tokens: 10, credits: 0.1 },
-  })
-  expect(config?.tiers[1].unitPrices.seconds).toBe(2)
-  expect(saved?.billingExpr).toContain('/ 1000000')
-  await selectCurrency('US dollar (USD)')
-  expect(await commit(editor.ref)).toEqual(saved)
-})
-
-it('converts task unit prices without enum tiers and updates the monetary preview', async () => {
-  const schema: BillingUsageSchema = {
-    seconds: { type: 'number', unit: 'second' },
-  }
-  const editor = renderEditor(
-    {
-      billingMode: 'tiered_expr',
-      billingExpr: 'tier("base", u("seconds") * 1)',
-    },
-    schema
-  )
-  await selectCurrency('Site currency (CNY)')
-  fireEvent.change(screen.getByRole('textbox', { name: 'seconds' }), {
-    target: { value: '14' },
-  })
-  fireEvent.change(screen.getByRole('textbox', { name: 'Additional charge' }), {
-    target: { value: '7' },
-  })
-  expect(await commit(editor.ref)).toMatchObject({
-    billingExpr: 'tier("base", 1 + u("seconds") * 2)',
-  })
-  expect(screen.getByText(/= ¥77$/)).toBeVisible()
-})
-
 it('switches currency using the keyboard without changing the saved configuration', async () => {
   const editor = renderEditor()
   const original = await commit(editor.ref)
@@ -966,25 +874,6 @@ it('keeps an empty per-request amount empty when currencies change', async () =>
   await selectCurrency('Site currency (CNY)')
   expect(fixed).toHaveValue('')
   expect(await commit(editor.ref)).toMatchObject({ price: '' })
-})
-
-it('does not block saving valid prices when a preview quantity has a fractional step', async () => {
-  const schema: BillingUsageSchema = {
-    seconds: { type: 'number', unit: 'second' },
-  }
-  const editor = renderEditor(
-    {
-      billingMode: 'tiered_expr',
-      billingExpr: 'tier("base", u("seconds") * 1)',
-    },
-    schema
-  )
-  fireEvent.change(screen.getByRole('spinbutton'), {
-    target: { value: '0.5' },
-  })
-  expect(await commit(editor.ref)).toMatchObject({
-    billingExpr: 'tier("base", u("seconds") * 1)',
-  })
 })
 
 it('clears an invalid amount draft when pricing is reloaded with the same saved value', async () => {

@@ -9,7 +9,6 @@ import (
 
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/constant"
-	"github.com/zhourenke/pg-api/pkg/jsplugin"
 	"github.com/zhourenke/pg-api/setting/billing_setting"
 	"github.com/zhourenke/pg-api/setting/operation_setting"
 	"github.com/zhourenke/pg-api/setting/ratio_setting"
@@ -172,14 +171,6 @@ func PreviewModelPricingConversion(name string, draft PricingValues) (*ModelPric
 		return &ModelPricingConversion{UnsupportedReason: "Gemini and OpenAI audio prices differ for this model. Use separate billing model names to convert them."}, nil
 	}
 
-	generation := jsplugin.DefaultRegistry.Generation()
-	if _, task := generation.GetByModel(name); task {
-		return &ModelPricingConversion{UnsupportedReason: "Task pricing must be converted manually using the task usage schema."}, nil
-	}
-	if _, task := ResolveTaskModelAlias(generation, name); task {
-		return &ModelPricingConversion{UnsupportedReason: "Task pricing must be converted manually using the task usage schema."}, nil
-	}
-
 	// Inspect non-secret routing metadata so aliases cannot disguise a special
 	// settlement path as an ordinary text model.
 	var channels []Channel
@@ -191,9 +182,6 @@ func PreviewModelPricingConversion(name string, draft PricingValues) (*ModelPric
 	for _, channel := range channels {
 		if !slices.Contains(channel.GetModels(), name) {
 			continue
-		}
-		if channel.Type == constant.ChannelTypeTaskPlugin {
-			return &ModelPricingConversion{UnsupportedReason: "Task pricing must be converted manually using the task usage schema."}, nil
 		}
 		if slices.Contains(common.GetEndpointTypesByChannelType(channel.Type, name), constant.EndpointTypeOpenAIVideo) {
 			return &ModelPricingConversion{UnsupportedReason: "Video pricing must be converted manually."}, nil

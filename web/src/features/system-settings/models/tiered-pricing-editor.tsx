@@ -765,7 +765,7 @@ function CostEstimator({ effectiveExpr, fullExpr, currency }: EstimatorProps) {
       <Alert>
         <AlertDescription>
           {t(
-            "Task usage data is required to estimate this expression. Check the model's task plugin configuration."
+            'This expression reads usage data with u(...), which the token estimator cannot supply.'
           )}
         </AlertDescription>
       </Alert>
@@ -879,7 +879,6 @@ function CostEstimator({ effectiveExpr, fullExpr, currency }: EstimatorProps) {
         expression={fullExpr}
         tokens={tokens}
         currency={currency}
-        mode='token'
       />
     </div>
   )

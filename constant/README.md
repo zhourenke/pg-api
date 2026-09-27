@@ -4,18 +4,19 @@
 
 ## 当前文件
 
-| 文件                   | 说明                                                                  |
-|----------------------|---------------------------------------------------------------------|
-| `azure.go`           | 定义与 Azure 相关的全局常量，如 `AzureNoRemoveDotTime`（控制删除 `.` 的截止时间）。         |
-| `cache_key.go`       | 缓存键格式字符串及 Token 相关字段常量，统一缓存命名规则。                                    |
-| `channel_setting.go` | Channel 级别的设置键，如 `proxy`、`force_format` 等。                          |
-| `context_key.go`     | 定义 `ContextKey` 类型以及在整个项目中使用的上下文键常量（请求时间、Token/Channel/User 相关信息等）。 |
-| `env.go`             | 环境配置相关的全局变量，在启动阶段根据配置文件或环境变量注入。                                     |
-| `finish_reason.go`   | OpenAI/GPT 请求返回的 `finish_reason` 字符串常量集合。                           |
-| `midjourney.go`      | Midjourney 相关错误码及动作(Action)常量与模型到动作的映射表。                            |
-| `setup.go`           | 标识项目是否已完成初始化安装 (`Setup` 布尔值)。                                       |
-| `task.go`            | 各种任务(Task)平台、动作常量及模型与动作映射表，如 Suno、Midjourney 等。                     |
-| `user_setting.go`    | 用户设置相关键常量以及通知类型(Email/Webhook)等。                                    |
+| 文件                     | 说明                                                                  |
+|------------------------|---------------------------------------------------------------------|
+| `api_type.go`          | 上游协议类型常量（`APIType*`），供渠道适配器选择请求/响应转换方式。                              |
+| `azure.go`             | 定义与 Azure 相关的全局常量，如 `AzureNoRemoveDotTime`（控制删除 `.` 的截止时间）。         |
+| `cache_key.go`         | 缓存键格式字符串及 Token 相关字段常量，统一缓存命名规则。                                    |
+| `channel.go`           | 渠道类型常量（`ChannelType*`），取值同时持久化在渠道表中，不可随意改动。                           |
+| `context_key.go`       | 定义 `ContextKey` 类型以及在整个项目中使用的上下文键常量（请求时间、Token/Channel/User 相关信息等）。 |
+| `endpoint_type.go`     | 端点类型常量的别名集合，实际定义位于 `relaykit/types`。                                 |
+| `env.go`               | 环境配置相关的全局变量，在启动阶段根据配置文件或环境变量注入。                                     |
+| `finish_reason.go`     | OpenAI/GPT 请求返回的 `finish_reason` 字符串常量集合。                           |
+| `multi_key_mode.go`    | 多渠道密钥调度模式常量（`random` / `polling`）。                                   |
+| `setup.go`             | 标识项目是否已完成初始化安装 (`Setup` 布尔值)。                                       |
+| `waffo_pay_method.go`  | Waffo 支付方式的展示与参数映射，以及默认支付方式列表。                                      |
 
 ## 使用约定
 

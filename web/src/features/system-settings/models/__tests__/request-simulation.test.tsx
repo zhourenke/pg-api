@@ -31,28 +31,10 @@ const requestExpression =
 afterEach(() => vi.useRealTimers())
 
 describe('request simulation', () => {
-  test('explains absent task usage instead of showing a token estimator syntax error', () => {
-    render(
-      <TieredPricingEditor
-        billingExpr='tier("standard", u("seconds") * 0.09)'
-        requestRuleExpr=''
-        onBillingExprChange={vi.fn()}
-        onRequestRuleExprChange={vi.fn()}
-      />
-    )
-    expect(
-      screen.getByText(
-        "Task usage data is required to estimate this expression. Check the model's task plugin configuration."
-      )
-    ).toBeVisible()
-    expect(screen.queryByText('Token estimator')).not.toBeInTheDocument()
-    expect(screen.queryByText(/Expression error:/)).not.toBeInTheDocument()
-  })
   test('simulates billable image count separately from requested n and rejects invalid quantities', async () => {
     render(
       <RequestSimulation
         expression='tier("image", fixed(0.04)) * image_count'
-        mode='token'
         currency={USD_PRICING_CURRENCY}
       />
     )
@@ -78,36 +60,12 @@ describe('request simulation', () => {
       'image_count must be between 1 and 128'
     )
   })
-  test('simulates schema boolean usage without changing public task matrix rules', async () => {
-    const user = userEvent.setup()
-    render(
-      <RequestSimulation
-        expression='u("audio") == true ? tier("audio", u("seconds") * 0.8) : tier("silent", u("seconds") * 0.4)'
-        usage={{ seconds: 5, audio: true }}
-        usageSchema={{
-          seconds: { type: 'number', unit: 'second' },
-          audio: { type: 'boolean', description: 'Audio' },
-        }}
-        mode='task'
-      />
-    )
-    await user.click(screen.getByRole('button', { name: 'Request simulation' }))
-    expect(screen.getByRole('status')).toHaveTextContent(
-      'Simulated request cost: $4'
-    )
-    await user.click(screen.getByRole('combobox', { name: 'Audio' }))
-    await user.click(screen.getByRole('option', { name: 'No' }))
-    expect(screen.getByRole('status')).toHaveTextContent(
-      'Simulated request cost: $2'
-    )
-  })
   test('only supplies request context after opening and recalculates body and header rules', async () => {
     const user = userEvent.setup()
     render(
       <RequestSimulation
         expression={requestExpression}
         tokens={{ p: 1000000 }}
-        mode='token'
         currency={USD_PRICING_CURRENCY}
       />
     )
@@ -144,7 +102,6 @@ describe('request simulation', () => {
       <RequestSimulation
         expression={requestExpression}
         tokens={{ p: 1000000 }}
-        mode='token'
       />
     )
     await user.click(screen.getByRole('button', { name: 'Request simulation' }))
@@ -168,10 +125,7 @@ describe('request simulation', () => {
   test('uses a specified instant and rejects a timestamp without a timezone', async () => {
     const user = userEvent.setup()
     render(
-      <RequestSimulation
-        expression='hour("Asia/Shanghai") < 12 ? tier("morning", 1) : tier("afternoon", 2)'
-        mode='task'
-      />
+      <RequestSimulation expression='hour("Asia/Shanghai") < 12 ? tier("morning", 1) : tier("afternoon", 2)' />
     )
     await user.click(screen.getByRole('button', { name: 'Request simulation' }))
     await user.click(screen.getByRole('combobox', { name: 'Simulation time' }))
@@ -186,33 +140,6 @@ describe('request simulation', () => {
       'Enter an ISO date and time with a timezone offset.'
     )
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
-  })
-
-  test('keeps task output in cost units and refreshes on usage changes', async () => {
-    const user = userEvent.setup()
-    const expression =
-      'tier("task", u("seconds") * 0.4) * (param("priority") == true ? 2 : 1)'
-    const view = render(
-      <RequestSimulation
-        expression={expression}
-        usage={{ seconds: 5 }}
-        mode='task'
-      />
-    )
-    await user.click(screen.getByRole('button', { name: 'Request simulation' }))
-    expect(screen.getByRole('status')).toHaveTextContent(
-      'Simulated request cost: $2'
-    )
-    view.rerender(
-      <RequestSimulation
-        expression={expression}
-        usage={{ seconds: 10 }}
-        mode='task'
-      />
-    )
-    expect(screen.getByRole('status')).toHaveTextContent(
-      'Simulated request cost: $4'
-    )
   })
 
   test('keeps the basic token estimate separate and never publishes simulated values to pricing', async () => {

@@ -87,11 +87,11 @@ describe('pricing controls', () => {
       {
         ...base,
         id: 3,
-        model_name: 'task-model',
+        model_name: 'video-model',
         vendor_name: 'Vendor B',
         tags: 'Video',
+        quota_type: 1,
         supported_endpoint_types: ['openai-video'],
-        billing_usage_schema: { seconds: { type: 'number', unit: 'second' } },
       },
     ]
     const sidebarProps = {
@@ -117,10 +117,7 @@ describe('pricing controls', () => {
       screen.getByRole('button', { name: /^Token-based\s*1$/ })
     ).toBeVisible()
     expect(
-      screen.getByRole('button', { name: /^Per Request\s*1$/ })
-    ).toBeVisible()
-    expect(
-      screen.getByRole('button', { name: /^Task billing\s*1$/ })
+      screen.getByRole('button', { name: /^Per Request\s*2$/ })
     ).toBeVisible()
 
     rerender(<PricingSidebar {...sidebarProps} models={[models[1]]} />)
@@ -135,7 +132,7 @@ describe('pricing controls', () => {
       screen.getByRole('button', { name: /^Token-based\s*0$/ })
     ).toBeVisible()
     expect(
-      screen.getByRole('button', { name: /^Task billing\s*0$/ })
+      screen.getByRole('button', { name: /^Per Request\s*1$/ })
     ).toBeVisible()
   })
 

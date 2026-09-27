@@ -9,7 +9,6 @@ import (
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/constant"
 	"github.com/zhourenke/pg-api/model"
-	"github.com/zhourenke/pg-api/pkg/jsplugin"
 	"github.com/zhourenke/pg-api/relay"
 	"github.com/zhourenke/pg-api/relay/channel/ai360"
 	"github.com/zhourenke/pg-api/relay/channel/lingyiwanwu"
@@ -82,14 +81,6 @@ func init() {
 			OwnedBy: minimax.ChannelName,
 		})
 	}
-	for modelName, _ := range constant.MidjourneyModel2Action {
-		openAIModels = append(openAIModels, dto.OpenAIModels{
-			Id:      modelName,
-			Object:  "model",
-			Created: 1626777600,
-			OwnedBy: "midjourney",
-		})
-	}
 	openAIModelsMap = make(map[string]dto.OpenAIModels)
 	for _, aiModel := range openAIModels {
 		openAIModelsMap[aiModel.Id] = aiModel
@@ -98,9 +89,6 @@ func init() {
 	for i := 1; i <= constant.ChannelTypeDummy; i++ {
 		apiType, success := common.ChannelType2APIType(i)
 		if !success || apiType == constant.APITypeAIProxyLibrary {
-			if plugin, ok := jsplugin.DefaultRegistry.GetByChannelType(i); ok {
-				channelId2Models[i] = append([]string(nil), plugin.Meta.Models...)
-			}
 			continue
 		}
 		meta := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{
@@ -109,11 +97,6 @@ func init() {
 		adaptor := relay.GetAdaptor(apiType)
 		adaptor.Init(meta)
 		channelId2Models[i] = adaptor.GetModelList()
-		if len(channelId2Models[i]) == 0 {
-			if plugin, ok := jsplugin.DefaultRegistry.GetByChannelType(i); ok {
-				channelId2Models[i] = append([]string(nil), plugin.Meta.Models...)
-			}
-		}
 	}
 	openAIModels = lo.UniqBy(openAIModels, func(m dto.OpenAIModels) string {
 		return m.Id
@@ -326,11 +309,6 @@ func DashboardListModels(c *gin.Context) {
 	modelsByChannel := make(map[int][]string, len(channelId2Models))
 	for channelType, models := range channelId2Models {
 		modelsByChannel[channelType] = append([]string(nil), models...)
-	}
-	for channelType := 1; channelType <= constant.ChannelTypeDummy; channelType++ {
-		if plugin, ok := jsplugin.DefaultRegistry.GetByChannelType(channelType); ok {
-			modelsByChannel[channelType] = append([]string(nil), plugin.Meta.Models...)
-		}
 	}
 	c.JSON(200, gin.H{
 		"success": true,

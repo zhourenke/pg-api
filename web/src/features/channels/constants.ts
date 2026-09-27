@@ -27,8 +27,6 @@ export const CHANNEL_TYPE_SUB2API = 59
 
 export const CHANNEL_TYPE_NEW_API = 60
 
-export const CHANNEL_TYPE_TASK_PLUGIN = 61
-
 export const CHANNEL_TYPE_VLLM = 62
 
 export const CHANNEL_TYPE_SGLANG = 63
@@ -91,7 +89,6 @@ export const CHANNEL_TYPES = {
   58: 'Advanced Custom',
   59: 'Sub2API',
   60: 'New API',
-  61: 'Task Plugin',
   62: 'vLLM',
   63: 'SGLang',
 } as const
@@ -172,20 +169,19 @@ export const CHANNEL_PROVIDER_PRESENTATION: Partial<
   },
   59: { descriptionKey: 'Connect to model services through a Sub2API gateway' },
   60: {
-    descriptionKey:
-      'Connect to New API model services with support for multiple task plugins',
+    descriptionKey: 'Connect to New API model services',
   },
   62: { descriptionKey: 'Connect to self-hosted models served by vLLM' },
   63: { descriptionKey: 'Connect to self-hosted models served by SGLang' },
 } satisfies Record<
-  Exclude<keyof typeof CHANNEL_TYPES, 0 | typeof CHANNEL_TYPE_TASK_PLUGIN>,
+  Exclude<keyof typeof CHANNEL_TYPES, 0>,
   ChannelProviderPresentation
 >
 
 const CHANNEL_TYPE_DISPLAY_ORDER: number[] = [
-  1, 14, 24, 33, 43, 3, 41, 17, 45, 25, 26, 23, 48, 60, 58, 59, 61, 42, 34, 20,
-  4, 62, 40, 27, 15, 46, 18, 31, 35, 49, 19, 47, 37, 38, 39, 11, 8, 57, 22, 21,
-  44, 2, 5, 36, 50, 51, 52, 53, 54, 55, 56,
+  1, 14, 24, 33, 43, 3, 41, 17, 45, 25, 26, 23, 48, 60, 58, 59, 42, 34, 20, 4,
+  62, 40, 27, 15, 46, 18, 31, 35, 49, 19, 47, 37, 38, 39, 11, 8, 57, 22, 21, 44,
+  2, 5, 36, 50, 51, 52, 53, 54, 55, 56,
 ]
 
 export const CHANNEL_TYPE_OPTIONS: { value: number; label: string }[] = (() => {
@@ -206,17 +202,6 @@ export const CHANNEL_TYPE_OPTIONS: { value: number; label: string }[] = (() => {
   }
   return ordered
 })()
-
-export function channelTypeOptionsForTaskPluginBind(
-  canBindTaskPlugin: boolean
-): { value: number; label: string }[] {
-  if (canBindTaskPlugin) {
-    return CHANNEL_TYPE_OPTIONS
-  }
-  return CHANNEL_TYPE_OPTIONS.filter(
-    (option) => option.value !== CHANNEL_TYPE_TASK_PLUGIN
-  )
-}
 
 // ============================================================================
 // Channel Status (label values are i18n keys; use t(config.label) in components)
@@ -496,6 +481,12 @@ export const FIELD_DESCRIPTIONS = {
 // ============================================================================
 // Channel Type Specific Configurations
 // ============================================================================
+
+// Channel types whose relay path was removed with the task/video feature: the
+// MjProxy drawing channels and the task-plugin video vendors (SunoAPI, Kling,
+// Vidu, Doubao Seedance, Sora). Existing channels of these types stay editable,
+// but new ones can no longer be created.
+export const CHANNEL_TYPE_DECOMMISSIONED = new Set([2, 5, 36, 50, 52, 54, 55])
 
 export const MODEL_FETCHABLE_TYPES = new Set([
   1,

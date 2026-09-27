@@ -622,44 +622,6 @@ it.each([
   }
 )
 
-it('shows task tier ranges in the schema unit and converts site currency only once', async () => {
-  useSystemConfigStore.getState().setConfig({
-    currency: {
-      ...DEFAULT_CURRENCY_CONFIG,
-      quotaDisplayType: 'CNY',
-      usdExchangeRate: 7,
-    },
-  })
-  const expression =
-    'u("mode") == "pro" ? tier("pro", u("seconds") * 0.8) : tier("std", u("seconds") * 0.4)'
-  const schema = {
-    seconds: { type: 'number' as const, unit: 'second' as const },
-    mode: { enum: ['std', 'pro'] },
-  }
-  await renderList([channel], {
-    pricing: [
-      {
-        model_name: channel.model_name,
-        version: 'v1',
-        configured: {},
-        effective: {
-          'billing_setting.billing_mode': 'tiered_expr',
-          'billing_setting.billing_expr': expression,
-        },
-        usage_schema: schema,
-      },
-    ],
-  })
-  const button = screen.getByRole('button', {
-    name: 'View pricing for channel-only',
-  })
-  expect(button).toHaveTextContent(/2.8.*5.6/)
-  expect(button).toHaveTextContent('/s')
-  expect(button).toHaveTextContent('CNY')
-  expect(button).not.toHaveTextContent('¥')
-  expect(button).not.toHaveTextContent('1M tokens')
-})
-
 it('opens the effective expression breakdown from the price without creating metadata', async () => {
   const expression =
     '(len <= 200000 ? tier("standard", p * 3 + c * 15 + cr * 0.3) : tier("long", p * 6 + c * 22.5 + cr * 0.6)) * (header("x-priority") == "high" ? 2 : 1)'

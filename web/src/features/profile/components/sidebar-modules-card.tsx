@@ -99,16 +99,6 @@ export function SidebarModulesCard() {
           title: t('Audit Logs'),
           description: t('Login, security and access records'),
         },
-        {
-          key: 'midjourney',
-          title: t('Drawing Logs'),
-          description: t('Drawing task records'),
-        },
-        {
-          key: 'task',
-          title: t('Task Logs'),
-          description: t('System task records'),
-        },
       ],
     },
     {

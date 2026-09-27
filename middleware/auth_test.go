@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -333,4 +334,86 @@ func TestApplyWebSocketSubprotocolAuthorizationReadsRepeatedHeaders(t *testing.T
 
 	assert.True(t, applyWebSocketSubprotocolAuthorization(header))
 	assert.Equal(t, "Bearer sk-later-field", header.Get("Authorization"))
+}
+
+// The MjProxy drawing relay and its mj-api-secret credential were removed with
+// the task plugin system, so TokenAuth must only trust Authorization. This
+// guards against an accidental reintroduction of the extra credential source.
+func TestTokenAuthIgnoresRemovedMidjourneyProxySecretHeader(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	previousDB, previousLogDB := model.DB, model.LOG_DB
+	previousType, previousLogType := common.MainDatabaseType(), common.LogDatabaseType()
+	previousMaster, previousCache, previousRedis, previousSQLite := common.IsMasterNode, common.MemoryCacheEnabled, common.RedisEnabled, common.SQLitePath
+	t.Cleanup(func() {
+		model.DB, model.LOG_DB = previousDB, previousLogDB
+		common.SetDatabaseTypes(previousType, previousLogType)
+		common.IsMasterNode, common.MemoryCacheEnabled, common.RedisEnabled, common.SQLitePath = previousMaster, previousCache, previousRedis, previousSQLite
+	})
+	t.Setenv("SQL_DSN", "")
+	t.Setenv("LOG_SQL_DSN", "")
+	common.IsMasterNode, common.MemoryCacheEnabled, common.RedisEnabled = false, false, false
+	common.SQLitePath = filepath.Join(t.TempDir(), "token-auth.db")
+	require.NoError(t, model.InitDB())
+	database := model.DB
+	sqlDB, err := database.DB()
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, sqlDB.Close()) })
+	model.LOG_DB = database
+	common.SetLogDatabaseType(common.MainDatabaseType())
+	require.NoError(t, database.AutoMigrate(&model.User{}, &model.Token{}))
+
+	// Token keys cannot contain hyphens: TokenAuth keeps only the first segment.
+	const tokenKey = "tokenauthkey"
+	user := &model.User{
+		Username: "token-auth-user",
+		Status:   common.UserStatusEnabled,
+		Role:     common.RoleCommonUser,
+		Group:    "default",
+	}
+	require.NoError(t, database.Create(user).Error)
+	require.NoError(t, database.Create(&model.Token{
+		UserId:         user.Id,
+		Key:            tokenKey,
+		Status:         common.TokenStatusEnabled,
+		Name:           "token-auth",
+		UnlimitedQuota: true,
+		ExpiredTime:    -1,
+	}).Error)
+
+	runTokenAuth := func(configure func(*http.Request)) (*gin.Context, *httptest.ResponseRecorder) {
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+		configure(c.Request)
+		TokenAuth()(c)
+		return c, recorder
+	}
+
+	t.Run("authorization header authenticates the key", func(t *testing.T) {
+		c, _ := runTokenAuth(func(r *http.Request) {
+			r.Header.Set("Authorization", "Bearer "+tokenKey)
+		})
+
+		assert.False(t, c.IsAborted())
+		assert.Equal(t, user.Id, c.GetInt("id"))
+	})
+
+	t.Run("mj-api-secret header is no longer a credential", func(t *testing.T) {
+		c, recorder := runTokenAuth(func(r *http.Request) {
+			r.Header.Set("mj-api-secret", tokenKey)
+		})
+
+		assert.True(t, c.IsAborted())
+		assert.Equal(t, http.StatusUnauthorized, recorder.Code)
+	})
+
+	t.Run("midjourney-proxy authorization scheme is no longer accepted", func(t *testing.T) {
+		c, recorder := runTokenAuth(func(r *http.Request) {
+			r.Header.Set("Authorization", "midjourney-proxy")
+			r.Header.Set("mj-api-secret", tokenKey)
+		})
+
+		assert.True(t, c.IsAborted())
+		assert.Equal(t, http.StatusUnauthorized, recorder.Code)
+	})
 }

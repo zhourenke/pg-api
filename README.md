@@ -134,7 +134,6 @@ PG API 是面向应用、Agent 和团队的自托管 AI 网关。将不同厂商
 | Realtime / Responses WebSocket | `GET /v1/realtime`、`GET /v1/responses`（WebSocket 升级） |
 | 图片 / 音频 | `/v1/images/generations`、`/v1/images/edits`、`/v1/audio/speech`、`/v1/audio/transcriptions`、`/v1/audio/translations` |
 | 向量 / 重排 | `POST /v1/embeddings`、`POST /v1/rerank` |
-| 任务插件 | `POST /v1/tasks/{pluginKey}`、`GET /v1/tasks/{taskId}`，以及各插件声明的协议路由 |
 
 [RelayKit](./relaykit/README.md) 提供上述四种文本协议之间的请求、响应和流式转换。实际可用能力取决于渠道、上游模型和转换路径；协议特有的工具与字段可能无法完整映射。WebSocket 同样需要上游与渠道配置支持。
 
@@ -260,7 +259,6 @@ bun run dev -- --port 5173
 | `relay/` | 上游适配与请求调度 |
 | `service/`、`model/` | 业务逻辑与持久化 |
 | [relaykit/](./relaykit/README.md) | 可独立构建的协议 DTO 与转换 Go 模块 |
-| [plugins/tasks/](./plugins/tasks/) | JavaScript 任务插件；编写方式与宿主边界见 [Task Plugin API v1](./docs/plugin-api/v1.md) |
 | `web/` | Web 控制台，参阅[前端开发约定](./web/AGENTS.md) |
 | [electron/](./electron/README.md) | 桌面封装与打包 |
 
@@ -289,7 +287,6 @@ bun run dev -- --port 5173
 | 项目 | 说明 |
 |------|------|
 | [One API](https://github.com/songquanpeng/one-api) | 原版项目基础 |
-| [Midjourney-Proxy](https://github.com/novicezk/midjourney-proxy) | Midjourney 接口支持 |
 
 ### 配套工具
 

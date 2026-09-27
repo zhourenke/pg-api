@@ -345,11 +345,8 @@ func migrateDB() error {
 		&Redemption{},
 		&Ability{},
 		&Log{},
-		&Midjourney{},
 		&TopUp{},
 		&QuotaData{},
-		&Task{},
-		&TaskPlugin{},
 		&Model{},
 		&Vendor{},
 		&PrefillGroup{},
@@ -376,6 +373,9 @@ func migrateDB() error {
 		return err
 	}
 	if err := dropSubscriptionTables(); err != nil {
+		return err
+	}
+	if err := dropTaskTables(); err != nil {
 		return err
 	}
 	return nil
@@ -502,6 +502,31 @@ func dropSubscriptionTables() error {
 	}
 	if dropped {
 		common.SysLog("subscription tables removed: quota is billed per usage from the wallet only")
+	}
+	return nil
+}
+
+// dropTaskTables removes the tables of the retired task/video feature and its
+// JavaScript task plugin system. Every drop is guarded by an existence check,
+// so it is safe to run on every startup and on a database that never had them.
+func dropTaskTables() error {
+	dropped := false
+	for _, table := range []string{
+		"task_plugins",
+		"tasks",
+		"midjourneys",
+	} {
+		if !DB.Migrator().HasTable(table) {
+			continue
+		}
+		if err := DB.Migrator().DropTable(table); err != nil {
+			return fmt.Errorf("drop retired table %s: %w", table, err)
+		}
+		common.SysLog("dropped retired task table: " + table)
+		dropped = true
+	}
+	if dropped {
+		common.SysLog("task and task-plugin tables removed: video and drawing tasks are no longer served")
 	}
 	return nil
 }

@@ -6,7 +6,6 @@ import (
 	"github.com/zhourenke/pg-api/constant"
 	"github.com/zhourenke/pg-api/controller"
 	"github.com/zhourenke/pg-api/middleware"
-	"github.com/zhourenke/pg-api/relay"
 	"github.com/zhourenke/pg-api/relaykit/types"
 
 	"github.com/gin-gonic/gin"
@@ -117,8 +116,7 @@ func SetRelayRouter(router *gin.Engine) {
 		})
 
 		// image related routes. /images/generations and /images/edits are
-		// host protocol endpoints (openai_image) registered by
-		// SetTaskPluginProtocolRouter; unclaimed models fall back to Relay.
+		// openai_image protocol endpoints served by Relay.
 		httpRouter.POST("/edits", func(c *gin.Context) {
 			controller.Relay(c, types.RelayFormatOpenAIImage)
 		})
@@ -172,17 +170,6 @@ func SetRelayRouter(router *gin.Engine) {
 		httpRouter.DELETE("/models/:model", controller.RelayNotImplemented)
 	}
 
-	relayMjRouter := router.Group("/mj")
-	relayMjRouter.Use(middleware.RouteTag("relay"))
-	relayMjRouter.Use(middleware.SystemPerformanceCheck())
-	registerMjRouterGroup(relayMjRouter)
-
-	relayMjModeRouter := router.Group("/:mode/mj")
-	relayMjModeRouter.Use(middleware.RouteTag("relay"))
-	relayMjModeRouter.Use(middleware.SystemPerformanceCheck())
-	registerMjRouterGroup(relayMjModeRouter)
-	//relayMjRouter.Use()
-
 	relayGeminiRouter := router.Group("/v1beta")
 	// :countTokens is not implemented. Answer it like an unregistered route
 	// before auth/channel selection instead of silently relaying it as
@@ -203,28 +190,5 @@ func SetRelayRouter(router *gin.Engine) {
 		relayGeminiRouter.POST("/models/*path", func(c *gin.Context) {
 			controller.Relay(c, types.RelayFormatGemini)
 		})
-	}
-}
-
-func registerMjRouterGroup(relayMjRouter *gin.RouterGroup) {
-	relayMjRouter.GET("/image/:id", relay.RelayMidjourneyImage)
-	relayMjRouter.Use(middleware.TokenAuth(), middleware.Distribute())
-	{
-		relayMjRouter.POST("/submit/action", controller.RelayMidjourney)
-		relayMjRouter.POST("/submit/shorten", controller.RelayMidjourney)
-		relayMjRouter.POST("/submit/modal", controller.RelayMidjourney)
-		relayMjRouter.POST("/submit/imagine", controller.RelayMidjourney)
-		relayMjRouter.POST("/submit/change", controller.RelayMidjourney)
-		relayMjRouter.POST("/submit/simple-change", controller.RelayMidjourney)
-		relayMjRouter.POST("/submit/describe", controller.RelayMidjourney)
-		relayMjRouter.POST("/submit/blend", controller.RelayMidjourney)
-		relayMjRouter.POST("/submit/edits", controller.RelayMidjourney)
-		relayMjRouter.POST("/submit/video", controller.RelayMidjourney)
-		//relayMjRouter.POST("/notify", controller.RelayMidjourney)
-		relayMjRouter.GET("/task/:id/fetch", controller.RelayMidjourney)
-		relayMjRouter.GET("/task/:id/image-seed", controller.RelayMidjourney)
-		relayMjRouter.POST("/task/list-by-condition", controller.RelayMidjourney)
-		relayMjRouter.POST("/insight-face/swap", controller.RelayMidjourney)
-		relayMjRouter.POST("/submit/upload-discord-images", controller.RelayMidjourney)
 	}
 }

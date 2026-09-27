@@ -16,7 +16,6 @@ import (
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/constant"
 	"github.com/zhourenke/pg-api/model"
-	"github.com/zhourenke/pg-api/pkg/jsplugin"
 	"github.com/zhourenke/pg-api/relay/channel/advancedcustom"
 	"github.com/zhourenke/pg-api/relay/channel/gemini"
 	"github.com/zhourenke/pg-api/relay/channel/ollama"
@@ -362,13 +361,6 @@ func getFetchModelsResponseBody(method string, requestURL string, channel *model
 }
 
 func fetchChannelUpstreamModelIDs(channel *model.Channel) ([]string, error) {
-	if channel.Type == constant.ChannelTypeTaskPlugin {
-		plugin, ok := jsplugin.DefaultRegistry.Get(channel.GetSetting().TaskPluginKey)
-		if !ok {
-			return nil, fmt.Errorf("task plugin %q is not registered", channel.GetSetting().TaskPluginKey)
-		}
-		return normalizeModelNames(plugin.Meta.Models), nil
-	}
 	baseURL := constant.GetChannelBaseURL(channel.Type)
 	if channel.GetBaseURL() != "" {
 		baseURL = channel.GetBaseURL()

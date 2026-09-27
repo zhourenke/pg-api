@@ -14,7 +14,4 @@ const (
 	RelayFormatOpenAIRealtime                        = "openai_realtime"
 	RelayFormatRerank                                = "rerank"
 	RelayFormatEmbedding                             = "embedding"
-
-	RelayFormatTask    = "task"
-	RelayFormatMjProxy = "mj_proxy"
 )

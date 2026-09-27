@@ -13,14 +13,13 @@ This is an AI API gateway/proxy built with Go. It aggregates 40+ upstream AI pro
 - **Databases**: SQLite, MySQL, PostgreSQL for the primary database (all three must be supported); a separately configured log database also supports ClickHouse
 - **Cache**: Redis (go-redis) + in-memory cache
 - **Auth**: Browser sessions, API tokens and personal access tokens, JWT, WebAuthn/Passkeys, TOTP, OAuth/OIDC; Casbin authorization in `service/authz/`
-- **Extensions**: JavaScript task plugins executed by Sobek; Electron desktop wrapper
+- **Extensions**: Electron desktop wrapper
 - **Frontend package manager**: Bun (preferred over npm/yarn/pnpm)
 
 ## Architecture
 
 - The Go gateway handles management APIs, upstream relay, billing, and background tasks across `router/`, `middleware/`, `controller/`, `service/`, `model/`, and `relay/`.
 - `relaykit/` is an independent Go module for protocol DTOs and conversions; transport, authentication, database access, and billing stay in the host.
-- JavaScript task plugins live in `plugins/tasks/`, run through `pkg/jsplugin/`, and integrate with host task polling and settlement.
 - `web/` is the React frontend (see `web/AGENTS.md`); `electron/` is the desktop wrapper.
 
 ## Internationalization (i18n)
@@ -116,20 +115,13 @@ Inside `relaykit/`, use `kitutil.*` from `relaykit/relayconvert/kitutil/json.go`
 - Preserve explicit zero values in upstream relay request DTOs: absent client JSON fields must become `nil` and be omitted, while explicit `0`, `0.0`, or `false` values must remain non-`nil` and be sent upstream.
 - Avoid non-pointer scalars with `omitempty` for optional request parameters, because zero values will be silently dropped during marshal.
 
-**JavaScript task plugins (mandatory):**
-
-- Before implementing, modifying, or reviewing JavaScript task plugins or their host API/runtime, MUST read [Task Plugin API v1](docs/plugin-api/v1.md), including its description writing and translation conventions. When changing the plugin contract, also check `docs/plugin-api/v1.schema.json` and `docs/plugin-api/v1.d.ts` for consistency.
-- For numeric billing fields in `usageSchema` and `usageProfiles[].schema`, `description` MUST name the **billing subject + unit price**, because it labels the price input in the UI. For example, `image_count` uses `Image generation unit price` / `图片生成单价`, not `Generated image count` / `生成图片张数`; `seconds` uses `Video generation unit price` / `视频生成单价`. The field value remains a usage quantity, not a price.
-- Put units in `unit`. Keep protocol limits, usage sources, defaults, estimation, and settlement details in code comments or technical documentation. Descriptions must be short, equivalent across languages, and free of numeric prices and trailing punctuation. Follow the API document's separate wording rules for actions, booleans, and other enum conditions.
-- Review metadata wording explicitly before completing plugin work. These are authoring requirements; successful compilation, schema validation, or tests do not verify that descriptions follow them.
-
 **Billing rules (mandatory read gate):** `.agents/rules/billing.md` holds the billing conventions (expression system, built-in pricing, safety invariants, deriving billable quantities from upstream responses). If a task touches billing as defined below, you MUST read that file in full with your file-read tool — not a grep, a partial skim, memory, or a summary — before planning, coding, or reviewing, and then follow every rule in it. A task touches billing when it meets any of these:
 
-- Edits `pkg/billingexpr/`, `setting/billing_setting/`, `common/quota_math.go`, `types/price_data.go`, `relay/request_billing.go`, `relay/image_handler.go`, `relay/relay_task.go`, `relay/helper/price.go`, `relay/helper/billing_expr_request.go`, `relay/helper/valid_request.go`, `service/quota.go`, `service/text_quota.go`, `service/image_billing.go`, `service/tiered_settle.go`, `service/task_billing.go`, `service/responses_usage.go`, the billing part of `service/log_info_generate.go`, the `model/pricing*.go` / `model/model_pricing*.go` files, or the billing fields and methods of `relay/common/relay_info.go` (`PriceData`, `TieredBillingSnapshot`, `BillingImageCount`, `UpdateImageCount`).
+- Edits `pkg/billingexpr/`, `setting/billing_setting/`, `common/quota_math.go`, `types/price_data.go`, `relay/request_billing.go`, `relay/image_handler.go`, `relay/helper/price.go`, `relay/helper/billing_expr_request.go`, `relay/helper/valid_request.go`, `service/quota.go`, `service/text_quota.go`, `service/image_billing.go`, `service/tiered_settle.go`, `service/responses_usage.go`, the billing part of `service/log_info_generate.go`, the `model/pricing*.go` / `model/model_pricing*.go` files, or the billing fields and methods of `relay/common/relay_info.go` (`PriceData`, `TieredBillingSnapshot`, `BillingImageCount`, `UpdateImageCount`).
 - Reads or writes `PriceData` / `OtherRatios`, quota pre-consume, settlement, refund, or consume-log billing fields anywhere else.
-- Derives a billable quantity or `Usage` from an upstream response or stream (image counts, seconds, tokens, task deductions) in any channel adaptor, response handler, or task plugin.
+- Derives a billable quantity or `Usage` from an upstream response or stream (image counts, seconds, tokens) in any channel adaptor or response handler.
 - Validates, bounds, or forwards a request field that becomes a billing multiplier (`n`, `max_tokens`-family fields, duration, resolution or quality, batch counts), including passthrough and multipart paths.
-- Adds or changes model prices, or numeric `usageSchema` / `usageProfiles[].schema` fields in a task plugin.
+- Adds or changes model prices.
 
 Tasks that touch none of these (for example unrelated frontend work, authentication, database migrations, or protocol conversion that leaves usage untouched) do not need to read it.
 
@@ -150,7 +142,6 @@ Tasks that touch none of these (for example unrelated frontend work, authenticat
 **Documentation files:**
 
 - Do NOT add new files under `docs/` or any of its subdirectories unless the user explicitly requests it.
-- Do NOT create or generate documentation files in this repository's plugin directories under `plugins/`, including `plugins/tasks/<plugin>/` and their subdirectories. This includes README files, changelogs, usage guides, and other documentation files, regardless of format.
 
 ### Frontend Rules
 
@@ -183,7 +174,7 @@ Refuse a task that would break any of the above, naming the obligation it would 
 
 **Fork identity.** Renaming this fork's own identity is allowed and expected, and does not conflict with the obligations above. That covers the display and product name, Go module and import paths, binary names, Docker image, container, network and service names, systemd unit names, package metadata, HTML titles and meta tags, product-name UI copy, and this fork's own repository, CI and update-check URLs.
 
-Keep `new-api` wherever it is a technical identifier rather than this fork's product name: the upstream-gateway channel type (type 60, `ChannelTypeNewAPI`, upstream kind `new_api`), task-plugin upstream protocol fields, and any reference that specifically means the upstream project — attribution notices, upstream sync instructions, upstream-only documentation links, and comments describing upstream behavior.
+Keep `new-api` wherever it is a technical identifier rather than this fork's product name: the upstream-gateway channel type (type 60, `ChannelTypeNewAPI`, upstream kind `new_api`), upstream protocol field names, and any reference that specifically means the upstream project — attribution notices, upstream sync instructions, upstream-only documentation links, and comments describing upstream behavior.
 
 **Upstream synchronisation.** `upstream` is `https://github.com/QuantumNous/new-api.git`; `origin` is this fork. Take upstream updates by merging or rebasing onto `upstream/main`, resolving conflicts in favor of this fork's identity and local behavior. After a sync, re-verify that the license obligations above still hold and that the rename is still consistent and complete before treating the sync as done.
 

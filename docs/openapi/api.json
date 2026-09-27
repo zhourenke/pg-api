@@ -46,9 +46,6 @@
       "name": "分组"
     },
     {
-      "name": "任务"
-    },
-    {
       "name": "供应商"
     },
     {
@@ -4564,106 +4561,6 @@
             }
           }
         ],
-        "responses": {
-          "200": {
-            "description": "成功",
-            "headers": {}
-          }
-        },
-        "security": [
-          {
-            "Combination343": []
-          },
-          {
-            "Combination1243": []
-          }
-        ]
-      }
-    },
-    "/api/mj/": {
-      "get": {
-        "summary": "获取所有Midjourney任务",
-        "deprecated": false,
-        "description": "👨‍💼 需要管理员权限（Admin）",
-        "tags": [
-          "任务"
-        ],
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "成功",
-            "headers": {}
-          }
-        },
-        "security": [
-          {
-            "Combination343": []
-          },
-          {
-            "Combination1243": []
-          }
-        ]
-      }
-    },
-    "/api/mj/self": {
-      "get": {
-        "summary": "获取个人Midjourney任务",
-        "deprecated": false,
-        "description": "🔐 需要登录（User权限）",
-        "tags": [
-          "任务"
-        ],
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "成功",
-            "headers": {}
-          }
-        },
-        "security": [
-          {
-            "Combination343": []
-          },
-          {
-            "Combination1243": []
-          }
-        ]
-      }
-    },
-    "/api/task/": {
-      "get": {
-        "summary": "获取所有任务",
-        "deprecated": false,
-        "description": "👨‍💼 需要管理员权限（Admin）",
-        "tags": [
-          "任务"
-        ],
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "成功",
-            "headers": {}
-          }
-        },
-        "security": [
-          {
-            "Combination343": []
-          },
-          {
-            "Combination1243": []
-          }
-        ]
-      }
-    },
-    "/api/task/self": {
-      "get": {
-        "summary": "获取个人任务",
-        "deprecated": false,
-        "description": "🔐 需要登录（User权限）",
-        "tags": [
-          "任务"
-        ],
-        "parameters": [],
         "responses": {
           "200": {
             "description": "成功",

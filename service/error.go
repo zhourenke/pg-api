@@ -12,25 +12,10 @@ import (
 	"strings"
 
 	"github.com/zhourenke/pg-api/common"
-	taskdto "github.com/zhourenke/pg-api/dto"
 	"github.com/zhourenke/pg-api/logger"
 	"github.com/zhourenke/pg-api/relaykit/dto"
 	"github.com/zhourenke/pg-api/relaykit/types"
 )
-
-func MidjourneyErrorWrapper(code int, desc string) *taskdto.MidjourneyResponse {
-	return &taskdto.MidjourneyResponse{
-		Code:        code,
-		Description: desc,
-	}
-}
-
-func MidjourneyErrorWithStatusCodeWrapper(code int, desc string, statusCode int) *taskdto.MidjourneyResponseWithStatusCode {
-	return &taskdto.MidjourneyResponseWithStatusCode{
-		StatusCode: statusCode,
-		Response:   *MidjourneyErrorWrapper(code, desc),
-	}
-}
 
 //// OpenAIErrorWrapper wraps an error into an OpenAIErrorWithStatusCode
 //func OpenAIErrorWrapper(err error, code string, statusCode int) *dto.OpenAIErrorWithStatusCode {
@@ -188,43 +173,5 @@ func parseStatusCodeMappingValue(value any) (int, bool) {
 		return statusCode, true
 	default:
 		return 0, false
-	}
-}
-
-func TaskErrorWrapperLocal(err error, code string, statusCode int) *taskdto.TaskError {
-	openaiErr := TaskErrorWrapper(err, code, statusCode)
-	openaiErr.LocalError = true
-	return openaiErr
-}
-
-func TaskErrorWrapper(err error, code string, statusCode int) *taskdto.TaskError {
-	text := err.Error()
-	lowerText := strings.ToLower(text)
-	if strings.Contains(lowerText, "post") || strings.Contains(lowerText, "dial") || strings.Contains(lowerText, "http") {
-		common.SysLog(fmt.Sprintf("error: %s", text))
-		//text = "请求上游地址失败"
-		text = common.MaskSensitiveInfo(text)
-	}
-	//避免暴露内部错误
-	taskError := &taskdto.TaskError{
-		Code:       code,
-		Message:    text,
-		StatusCode: statusCode,
-		Error:      err,
-	}
-
-	return taskError
-}
-
-// TaskErrorFromAPIError 将 PreConsumeBilling 返回的 NewAPIError 转换为 TaskError。
-func TaskErrorFromAPIError(apiErr *types.NewAPIError) *taskdto.TaskError {
-	if apiErr == nil {
-		return nil
-	}
-	return &taskdto.TaskError{
-		Code:       string(apiErr.GetErrorCode()),
-		Message:    apiErr.Err.Error(),
-		StatusCode: apiErr.StatusCode,
-		Error:      apiErr.Err,
 	}
 }

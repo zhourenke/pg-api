@@ -16,17 +16,14 @@ import (
 	"time"
 
 	"github.com/zhourenke/pg-api/common"
-	"github.com/zhourenke/pg-api/constant"
 	"github.com/zhourenke/pg-api/controller"
 	"github.com/zhourenke/pg-api/i18n"
 	"github.com/zhourenke/pg-api/logger"
 	"github.com/zhourenke/pg-api/middleware"
 	"github.com/zhourenke/pg-api/model"
 	"github.com/zhourenke/pg-api/oauth"
-	"github.com/zhourenke/pg-api/pkg/jsplugin"
 	perfmetrics "github.com/zhourenke/pg-api/pkg/perf_metrics"
 	"github.com/zhourenke/pg-api/pkg/wsmanager"
-	"github.com/zhourenke/pg-api/relay"
 	kitutil "github.com/zhourenke/pg-api/relaykit/relayconvert/kitutil"
 	"github.com/zhourenke/pg-api/router"
 	"github.com/zhourenke/pg-api/service"
@@ -48,9 +45,6 @@ var buildFS embed.FS
 var indexPage []byte
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "plugin" {
-		os.Exit(jsplugin.RunCLI(os.Args[2:], os.Stdout, os.Stderr))
-	}
 	startTime := time.Now()
 	kitutil.SetLogging(common.SysLog, func(message string) {
 		logger.LogError(nil, message)
@@ -113,7 +107,6 @@ func main() {
 
 	// 热更新配置
 	go model.SyncOptions(common.SyncFrequency)
-	go controller.SyncTaskPlugins()
 
 	// 周期性重载授权策略，保证多节点/多 master 部署下权限变更能传播到每个实例
 	go authz.StartPolicySync(common.SyncFrequency)
@@ -136,22 +129,10 @@ func main() {
 	// all currently alive nodes in multi-instance deployments.
 	service.StartSystemInstanceReporter()
 
-	// Wire task polling adaptor factory (breaks service -> relay import cycle).
-	// Must run before the system task runner starts: the async_task_poll handler
-	// calls service.RunTaskPollingOnce, which needs this factory set.
-	service.GetTaskAdaptorFunc = func(platform constant.TaskPlatform) service.TaskPollingAdaptor {
-		a := relay.GetTaskAdaptor(platform)
-		if a == nil {
-			return nil
-		}
-		return a
-	}
-
-	// Register the periodic channel test, upstream model update, and async task
-	// polling (Midjourney / Suno / video) jobs as scheduled system tasks
-	// (DB-lease dedup across masters + run history), then start the runner that
-	// schedules and executes them. Master-only execution and the UpdateTask
-	// switch are enforced inside the runner and each handler's Enabled().
+	// Register the periodic channel test and upstream model update jobs as
+	// scheduled system tasks (DB-lease dedup across masters + run history),
+	// then start the runner that schedules and executes them. Master-only
+	// execution is enforced inside the runner and each handler's Enabled().
 	controller.RegisterScheduledSystemTasks()
 	service.StartSystemTaskRunner()
 

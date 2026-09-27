@@ -538,6 +538,28 @@ func (channel *Channel) GetModelMapping() string {
 	return *channel.ModelMapping
 }
 
+// followChannelModelMapping walks a channel model mapping to its final target.
+// The second result reports a mapping cycle; a self-mapping is not a cycle and
+// resolves to the model itself.
+func followChannelModelMapping(modelMap map[string]string, start string) (string, bool) {
+	current := start
+	visited := map[string]bool{current: true}
+	for {
+		mapped, exists := modelMap[current]
+		if !exists || mapped == "" {
+			return current, false
+		}
+		if visited[mapped] {
+			if mapped == current {
+				return current, false
+			}
+			return "", true
+		}
+		visited[mapped] = true
+		current = mapped
+	}
+}
+
 func (channel *Channel) GetStatusCodeMapping() string {
 	if channel.StatusCodeMapping == nil {
 		return ""

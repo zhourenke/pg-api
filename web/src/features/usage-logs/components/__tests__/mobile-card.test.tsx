@@ -74,11 +74,7 @@ function Fixture(props: {
       <button type='button' onClick={() => context.setSensitiveVisible(false)}>
         Hide sensitive data
       </button>
-      <UsageLogsMobileList
-        table={table}
-        logCategory='common'
-        isLoading={props.loading}
-      />
+      <UsageLogsMobileList table={table} isLoading={props.loading} />
     </>
   )
 }
@@ -269,38 +265,23 @@ it('retains the user avatar and model badge in the mobile summary', () => {
   expect(modelButton.querySelector('[data-slot="status-badge"]')).not.toBeNull()
 })
 
-it('omits unused token and throughput placeholders for async jobs', () => {
+it('omits unused token and throughput placeholders for non-streaming calls', () => {
   renderLogs({
     logs: [
       {
         ...log,
         prompt_tokens: 0,
         completion_tokens: 0,
-        other: JSON.stringify({ is_task: true }),
+        other: JSON.stringify({}),
       },
     ],
   })
-  expect(screen.getByText('Async')).toBeVisible()
+  expect(screen.getByText('Non-stream')).toBeVisible()
   expect(screen.queryByText('Input')).not.toBeInTheDocument()
   const timing = screen
     .getByRole('button', { name: /^Time:/ })
     .closest('[data-slot="log-time-and-timing"]')
   expect(within(timing as HTMLElement).queryByText('—')).not.toBeInTheDocument()
-})
-
-it('labels a task whose result was returned in the response as synchronous', () => {
-  renderLogs({
-    logs: [
-      {
-        ...log,
-        prompt_tokens: 0,
-        completion_tokens: 0,
-        other: JSON.stringify({ is_task: true, task_sync: true }),
-      },
-    ],
-  })
-  expect(screen.getByText('Sync')).toBeVisible()
-  expect(screen.queryByText('Async')).not.toBeInTheDocument()
 })
 
 it('shows mapped model names in full when inspecting a mobile model badge', async () => {

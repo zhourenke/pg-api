@@ -23,32 +23,18 @@ import type { RequestRuleTrace } from '@/features/pricing/lib/billing-expr'
 import type { PolicyEvent } from '@/features/system-settings/request-policies/api'
 
 import type { UsageLog } from './data/schema'
-// ============================================================================
-// Log Category Types
-// ============================================================================
-
-/**
- * Log category for different log types
- */
-export type LogCategory = 'common' | 'drawing' | 'task'
 
 // ============================================================================
 // Filter Types
 // ============================================================================
 
 /**
- * Common filters (shared across all log types)
+ * Common logs filters
  */
-export interface CommonFilters {
+export interface CommonLogFilters {
   startTime?: Date
   endTime?: Date
   channel?: string
-}
-
-/**
- * Common logs specific filters
- */
-export interface CommonLogFilters extends CommonFilters {
   model?: string
   token?: string
   group?: string
@@ -56,25 +42,6 @@ export interface CommonLogFilters extends CommonFilters {
   requestId?: string
   upstreamRequestId?: string
 }
-
-/**
- * Drawing logs specific filters
- */
-export interface DrawingLogFilters extends CommonFilters {
-  mjId?: string
-}
-
-/**
- * Task logs specific filters
- */
-export interface TaskLogFilters extends CommonFilters {
-  taskId?: string
-}
-
-/**
- * Union type for all log filters
- */
-export type LogFilters = CommonLogFilters | DrawingLogFilters | TaskLogFilters
 
 // ============================================================================
 // Common Logs Additional Types
@@ -146,12 +113,6 @@ export interface LogOtherData {
     }
     // Reject / intercept reason (admin only)
     reject_reason?: string
-    task_plugin?: TaskPluginInfo
-  }
-  root_info?: {
-    task_plugin?: TaskPluginRuntimeInfo
-    upstream_task_id?: string
-    node_name?: string
   }
   // Language-independent operation descriptor (audit/login logs).
   // Frontend renders localized content from action + params via i18n templates.
@@ -218,7 +179,6 @@ export interface LogOtherData {
   expr_b64?: string
   matched_tier?: string
   request_rules?: RequestRuleTrace[]
-  usage_facts?: Record<string, string | number>
   reasoning_effort?: string
   image?: boolean
   image_ratio?: number
@@ -251,14 +211,7 @@ export interface LogOtherData {
   violation_fee_code?: string
   violation_fee_marker?: string
   fee_quota?: number
-  // Task-related fields (for refund logs, type=6)
-  is_task?: boolean
-  // The submitting request returned the task result itself (an immediate
-  // result, or an OpenAI Images request the gateway waited on).
-  task_sync?: boolean
-  // The inline result was not persisted, so no artifact can be retrieved.
-  result_discarded?: boolean
-  task_id?: string
+  // Refund reason (type=6)
   reason?: string
 }
 
@@ -269,139 +222,6 @@ export interface LogStatistics {
   quota: number
   rpm: number
   tpm: number
-}
-
-// ============================================================================
-// Drawing Logs (MjProxy) Types
-// ============================================================================
-
-export interface MidjourneyLog {
-  id: number
-  user_id: number
-  channel_id: number
-  code: number
-  mj_id: string
-  action: string // IMAGINE, UPSCALE, VARIATION, etc. (backend field name)
-  submit_time: number // milliseconds
-  finish_time?: number // milliseconds
-  start_time?: number // milliseconds
-  fail_reason?: string
-  progress: string
-  prompt: string
-  prompt_en?: string
-  description?: string
-  buttons?: string
-  properties?: string
-  image_url?: string
-  status: string // NOT_START, SUBMITTED, IN_PROGRESS, SUCCESS, FAILURE, MODAL
-  other?: string
-  created_at?: number
-  updated_at?: number
-}
-
-// ============================================================================
-// Task Logs Types
-// ============================================================================
-
-export interface TaskLog {
-  id: number
-  user_id: number
-  username?: string
-  platform: string // suno, kling, runway, etc.
-  task_id: string
-  action: string // MUSIC, LYRICS, GENERATE, TEXT_GENERATE, etc.
-  channel_id: number
-  group: string
-  quota: number
-  submit_time: number // seconds
-  start_time?: number // seconds
-  finish_time?: number // seconds
-  progress?: string
-  progress_message_en?: string
-  data?: unknown
-  properties?: {
-    input?: string
-    upstream_model_name?: string
-    origin_model_name?: string
-  }
-  legacy_video_available?: boolean
-  // A synchronous result returned inline and never persisted; artifact
-  // retrieval is not offered for it.
-  result_discarded?: boolean
-  fail_reason?: string
-  status: string // NOT_START, SUBMITTED, IN_PROGRESS, SUCCESS, FAILURE, QUEUED, UNKNOWN
-  admin_info?: {
-    request_id?: string
-    request_path?: string
-    task_plugin?: TaskPluginInfo
-  }
-  root_info?: {
-    task_plugin?: TaskPluginRuntimeInfo
-    upstream_task_id?: string
-    node_name?: string
-  }
-  created_at?: number
-  updated_at?: number
-}
-
-export interface TaskPluginInfo {
-  key: string
-  name: string
-  version?: string
-  author?: TaskPluginAuthor
-}
-
-export interface TaskPluginAuthor {
-  name: string
-  url?: string
-}
-
-export interface TaskPluginRuntimeInfo {
-  key: string
-  version: string
-  api_version: number
-  generation: number
-}
-
-export type TaskArtifactType = 'image' | 'video' | 'audio' | 'file'
-
-export interface TaskArtifact {
-  key: string
-  type: TaskArtifactType
-  mime_type?: string
-  content_url: string
-}
-
-export interface AudioClip {
-  clip_id?: string
-  id?: string
-  title?: string
-  tags?: string
-  duration?: number
-  audio_url?: string
-  image_url?: string
-  image_large_url?: string
-  metadata?: {
-    tags?: string
-    duration?: number
-  }
-}
-
-export interface TaskArtifactProjection {
-  artifacts: TaskArtifact[]
-  legacyContentUrl?: string
-  legacyAudioClips?: AudioClip[]
-}
-
-export interface TaskArtifactsResponse {
-  success: boolean
-  message?: string
-  code?: string
-  data?: {
-    artifacts?: unknown
-    legacy_content_url?: unknown
-    legacy_audio_clips?: unknown
-  }
 }
 
 // ============================================================================
@@ -427,7 +247,7 @@ export interface GetLogsResponse {
   success: boolean
   message?: string
   data?: {
-    items: UsageLog[] | MidjourneyLog[] | TaskLog[]
+    items: UsageLog[]
     total: number
     page: number
     page_size: number
@@ -451,48 +271,6 @@ export interface GetLogStatsResponse {
   success: boolean
   message?: string
   data?: LogStatistics
-}
-
-// ============================================================================
-// Drawing Log Types
-// ============================================================================
-
-export interface GetMidjourneyLogsParams {
-  p?: number
-  page_size?: number
-  channel_id?: string
-  mj_id?: string
-  start_timestamp?: number
-  end_timestamp?: number
-}
-
-// ============================================================================
-// Task Log Types
-// ============================================================================
-
-export interface GetTaskLogsParams {
-  p?: number
-  page_size?: number
-  channel_id?: string
-  task_id?: string
-  start_timestamp?: number
-  end_timestamp?: number
-}
-
-// ============================================================================
-// Fetch Logs Configuration
-// ============================================================================
-
-/**
- * Configuration for fetching logs by category
- */
-export interface FetchLogsConfig {
-  logCategory: LogCategory
-  isAdmin: boolean
-  page: number
-  pageSize: number
-  searchParams: Record<string, unknown>
-  columnFilters: Array<{ id: string; value: unknown }>
 }
 
 // ============================================================================

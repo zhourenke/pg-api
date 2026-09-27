@@ -24,9 +24,7 @@ import {
   FlaskConical,
   Key,
   LayoutDashboard,
-  ListTodo,
   MessageSquare,
-  PlugZap,
   Radio,
   ServerCog,
   Settings,
@@ -97,13 +95,6 @@ export function useSidebarData(): SidebarData {
             url: '/usage-logs/audit',
             icon: ClipboardList,
           },
-          {
-            title: t('Task Logs'),
-            url: '/usage-logs/task',
-            activeUrls: ['/usage-logs/drawing'],
-            configUrls: ['/usage-logs/drawing', '/usage-logs/task'],
-            icon: ListTodo,
-          },
         ],
       },
       {
@@ -155,12 +146,6 @@ export function useSidebarData(): SidebarData {
             title: t('System Info'),
             url: '/system-info',
             icon: ServerCog,
-            requiredRole: ROLE.SUPER_ADMIN,
-          },
-          {
-            title: t('Task Plugins'),
-            url: '/task-plugins',
-            icon: PlugZap,
             requiredRole: ROLE.SUPER_ADMIN,
           },
           {

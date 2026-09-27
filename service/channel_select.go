@@ -11,7 +11,6 @@ import (
 	"github.com/zhourenke/pg-api/i18n"
 	"github.com/zhourenke/pg-api/logger"
 	"github.com/zhourenke/pg-api/model"
-	"github.com/zhourenke/pg-api/pkg/jsplugin"
 	"github.com/zhourenke/pg-api/relaykit/types"
 	"github.com/gin-gonic/gin"
 )
@@ -26,19 +25,6 @@ func GetChannelConstraints(c *gin.Context) *dto.ChannelConstraints {
 	constraints := &dto.ChannelConstraints{}
 	common.SetContextKey(c, constant.ContextKeyChannelConstraints, constraints)
 	return constraints
-}
-
-func AppendTaskPluginIdentityFilter(c *gin.Context, pluginKey string) {
-	if c == nil {
-		return
-	}
-	channelTypes, pluginKeys := pinnedTaskPluginIdentities(c, pluginKey)
-	GetChannelConstraints(c).AddFilter(dto.ChannelFilter{
-		Kind:                   dto.FilterTaskPluginIdentity,
-		TaskPluginKey:          pluginKey,
-		TaskPluginChannelTypes: channelTypes,
-		TaskPluginKeys:         pluginKeys,
-	})
 }
 
 type RetryParam struct {
@@ -201,58 +187,6 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 		}
 	}
 	return channel, selectGroup, nil
-}
-
-func pinnedTaskPluginIdentities(c *gin.Context, expected string) ([]int, []string) {
-	if c == nil || expected == "" {
-		return nil, nil
-	}
-	if value, exists := c.Get(jsplugin.ContextKeyPinnedEndpoint); exists {
-		pinned, ok := value.(jsplugin.PinnedEndpoint)
-		if ok && pinned.Generation != nil && len(pinned.Candidates) > 1 {
-			expectedFound := false
-			channelTypes := make([]int, 0, len(pinned.Candidates))
-			pluginKeys := make([]string, 0, len(pinned.Candidates))
-			seen := make(map[int]struct{}, len(pinned.Candidates))
-			for _, candidate := range pinned.Candidates {
-				if candidate.Plugin == nil {
-					continue
-				}
-				if candidate.Plugin.Meta.Key == expected {
-					expectedFound = true
-				}
-				pluginKeys = append(pluginKeys, candidate.Plugin.Meta.Key)
-				for _, channelType := range candidate.Plugin.Meta.ChannelTypes {
-					if channelType == 0 || channelType == constant.ChannelTypeTaskPlugin {
-						continue
-					}
-					if _, duplicate := seen[channelType]; duplicate {
-						continue
-					}
-					if plugin, indexed := pinned.Generation.GetByChannelType(channelType); indexed && plugin == candidate.Plugin {
-						seen[channelType] = struct{}{}
-						channelTypes = append(channelTypes, channelType)
-					}
-				}
-			}
-			if expectedFound {
-				return channelTypes, pluginKeys
-			}
-		}
-	}
-	value, exists := c.Get(jsplugin.ContextKeyPinnedPlugin)
-	pinned, ok := value.(jsplugin.PinnedPlugin)
-	if !exists || !ok || pinned.Generation == nil || pinned.Plugin == nil || pinned.Plugin.Meta.Key != expected {
-		return nil, nil
-	}
-	channelTypes := make([]int, 0, len(pinned.Plugin.Meta.ChannelTypes))
-	for _, channelType := range pinned.Plugin.Meta.ChannelTypes {
-		if channelType == 0 || channelType == constant.ChannelTypeTaskPlugin {
-			continue
-		}
-		channelTypes = append(channelTypes, channelType)
-	}
-	return channelTypes, []string{expected}
 }
 
 // ChannelSelectError explains why SelectChannelForRequest found no channel.
