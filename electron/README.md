@@ -1,6 +1,6 @@
-# pg-api Electron Desktop App
+# PG API Electron Desktop App
 
-This directory contains the Electron wrapper for pg-api, providing a native desktop application with system tray support for Windows, macOS, and Linux.
+This directory contains the Electron wrapper for PG API, providing a native desktop application with system tray support for Windows, macOS, and Linux.
 
 ## Prerequisites
 

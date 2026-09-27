@@ -50,7 +50,7 @@ export function SystemBrand(props: SystemBrandProps) {
   const { logo } = useSystemConfig()
 
   const variant = props.variant ?? 'sidebar'
-  const name = status?.system_name || props.defaultName || 'pg-api'
+  const name = status?.system_name || props.defaultName || 'PG API'
 
   if (variant === 'inline') {
     return (

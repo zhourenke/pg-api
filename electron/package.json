@@ -1,7 +1,7 @@
 {
   "name": "pg-api-electron",
   "version": "1.0.0",
-  "description": "pg-api - AI Model Gateway Desktop Application",
+  "description": "PG API - AI Model Gateway Desktop Application",
   "main": "main.js",
   "scripts": {
     "start-app": "electron .",

@@ -100,7 +100,7 @@ beforeEach: i18next.removeResourceBundle('zhCN', 'translation')
 - `git grep` 的 pattern 里带反斜杠或引号在 PowerShell 下容易解析失败（`fatal: unable to resolve revision: ...`），换成不含引号的简单子串，或改用 grep 类工具。
 - 提交信息里不要放双引号：PowerShell 会把 `\"` 当字符串结束，`git commit -m "..."` 会把消息碎片当成 pathspec（报 `fatal: Invalid path '/en'`）。用 here-string（`@'...'@`）传消息体。
 - 前端包管理统一用 `bun`。
-- 评测/构建会锁住 `web/dist`；先构建再跑需要读 dist 的检查。
+- 评测/构建会锁住 `web/dist`；先构建再跑需要读 dist 的检查。`main.go` 用 `//go:embed web/dist/index.html`，所以 `go vet .` / `go build .` 在 `web/dist` 不存在（例如尚未构建，或 rsbuild 正在重建、目标目录被清空的瞬间）会直接报 `pattern web/dist/index.html: no matching files found`——先跑完 `bun run build`，再跑 Go 侧检查；反之两者不要并行。
 
 ---
 
@@ -116,5 +116,6 @@ beforeEach: i18next.removeResourceBundle('zhCN', 'translation')
 
 ## 6. 相关变更历史
 
+- 2026-09-27：产品显示名统一为 **PG API**，仓库名、二进制名、镜像名、容器/服务名、Go 模块路径等技术标识继续用 `pg-api`。改动点：`common.SystemName` 默认值、`printHelp()` 横幅首行（`Usage: pg-api ...` 保留，那是可执行文件名）、前端 `DEFAULT_SYSTEM_NAME`、`system-brand.tsx` / `footer.tsx` 的品牌回退值、`web/index.html` 标题、`assets/logo.tsx` 的 SVG title、聊天链接 `name=` 参数、渠道表单里两处渠道文案及其 `zh.json` 键（顺带删掉了同文案的 `New API` 死键）、Electron 窗口标题/托盘提示/右键菜单/崩溃日志与报错文案。注意两点：**`SystemName` 是数据库选项**，已有实例若保存过「系统名称」，界面仍显示库里存的值（改一次设置即可）；**Electron `electron/package.json` 的 `productName` 保持 `pg-api`**，因为它决定 `app.getPath('userData')`，改名会让桌面版数据目录从 `%APPDATA%/pg-api` 漂移、旧数据看似丢失。根目录 README 收敛为简体中文单份并作为默认 `README.md`（删除 `README.en.md` / `README.fr.md` / `README.ja.md` / `README.zh_CN.md` / `README.zh_TW.md`，去掉语言切换块，修正其中"支持七种界面语言"的过期描述）。Windows 单文件构建（两步，先前端后 Go，因为 `web/dist` 被 embed）：`cd web && bun run build`，再在仓库根 `CGO_ENABLED=0 go build -ldflags "-s -w -X 'github.com/zhourenke/pg-api/common.Version=$VERSION'" -o "pg-api-$VERSION.exe" .`，其中 `$VERSION = git describe --tags --match 'v[0-9]*'`。
 - 2026-09-27：移除版本号与更新检查界面（本 fork 自用，不需要检查上游 Release）。删除页头 Logo 旁的版本号控件（`SystemUpdateAction presentation='version'`，窄屏退化为图标）与维护页「系统维护」小节；删除 `web/src/features/system-update/**`（浏览器直连 `api.github.com/repos/zhourenke/pg-api/releases` 取最新 Release、`parseSystemVersion` 版本比较、忽略版本列表、localStorage 快照）与 `web/src/features/system-settings/maintenance/update-checker-section.tsx`；清理 31 个只服务该功能的 `zh.json` 键。`/api/status` 仍返回 `version` 与 `start_time`，但前端已无消费者。**从上游同步时这些文件会被重新引入，需要按本节再次删除。**
 - 2026-09-26：界面语言收敛为简体中文。前端删除 `en` / `zh-TW` / `fr` / `ja` / `ru` / `vi` 六个语言文件、语言切换器、语言偏好卡片、登录时的语言应用逻辑与 `i18next-browser-languagedetector` 依赖；后端删除多语言协商与用户语言偏好，只留 `zh-CN`；测试基座语言由 `en` 改为 `zhCN`；`common/init.go` 移除多语言横幅。
