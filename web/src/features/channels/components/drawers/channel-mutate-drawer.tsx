@@ -296,7 +296,6 @@ const SENSITIVE_FORM_FIELDS = [
   'allow_speed',
   'claude_beta_query',
   'ollama_openai_chat',
-  'disable_task_polling_sleep',
   'upstream_model_update_check_enabled',
   'upstream_model_update_auto_sync_enabled',
   'upstream_model_update_ignored_models',
@@ -1747,32 +1746,6 @@ export function ChannelMutateDrawer({
             <FormLabel>{t('Thinking to Content')}</FormLabel>
             <FormDescription>
               {t('Convert reasoning_content to <think> tag in content')}
-            </FormDescription>
-          </div>
-          <FormControl>
-            <Switch
-              disabled={sensitiveLocked}
-              checked={field.value}
-              onCheckedChange={field.onChange}
-            />
-          </FormControl>
-        </FormItem>
-      )}
-    />
-  )
-
-  const taskPollingFields = (
-    <FormField
-      control={form.control}
-      name='disable_task_polling_sleep'
-      render={({ field }) => (
-        <FormItem className='flex items-center justify-between px-4 py-3'>
-          <div className='space-y-0.5'>
-            <FormLabel>{t('Skip async task polling delay')}</FormLabel>
-            <FormDescription>
-              {t(
-                'Do not wait one second between polling async tasks for this channel'
-              )}
             </FormDescription>
           </div>
           <FormControl>
@@ -4400,7 +4373,6 @@ export function ChannelMutateDrawer({
                 disabled={sensitiveLocked}
                 className='space-y-4 disabled:opacity-60'
               >
-                {taskPollingFields}
                 {proxyFields}
                 {httpProtocolFields}
                 {httpShardsFields}
