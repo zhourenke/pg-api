@@ -230,4 +230,4 @@
 - **2026-09-06**：明确组件复用的强制检索流程、业务封装优先级、新增条件、常用入口及审查要求。
 - **2026-09-26**：界面语言收敛为简体中文（`zh.json`），移除语言切换器、语言偏好卡片、语言检测与其余六种语言，并同步 3.1 与依赖说明。
 - **2026-09-26**：测试基座语言由 `en` 改为 `zhCN`（空 bundle 作为键身份），`src/i18n/config.ts` 改为仅在未初始化时配置实例；3.14 增补测试语言与插件数据语言的约定。
-- **2026-09-28**：随「任务插件 + 任务/视频能力」整体移除，删除 3.1 中已不适用的「按用量计费 / 任务定价可视化编辑」相关约定，并清理 `zh.json` 中 336 个因此失效的键；3.14 中原以插件 `usageSchema` 为例的语言回退约定改写为以通用工具 `resolveLocalizedText`（`@/lib/localized-text`）为例，回退契约本身不变。渠道类型常量新增 `CHANNEL_TYPE_DECOMMISSIONED`（MjProxy 绘图渠道与已下线视频厂商），只在新建渠道时阻止选择，编辑既有渠道不受影响。
+- **2026-09-28**：随「任务插件 + 任务/视频能力」整体移除，删除 3.1 中已不适用的「按用量计费 / 任务定价可视化编辑」相关约定，并清理 `zh.json` 中 336 个因此失效的键；3.14 中原以插件 `usageSchema` 为例的语言回退约定改写为以通用工具 `resolveLocalizedText`（`@/lib/localized-text`）为例，回退契约本身不变。渠道类型常量新增 `CHANNEL_TYPE_DECOMMISSIONED`（MjProxy 绘图渠道与已下线视频厂商），只在新建渠道时阻止选择，编辑既有渠道不受影响。 同一轮收尾：删除已无消费者的「异步任务对外地址」字段（`TaskPublicAddress`）及其 `general/task-public-address.ts` 校验器和单测，并清理 3 个只服务该字段的 `zh.json` 键与 13 个任务插件遗留的孤儿键；该键与 `TaskPluginEnabled`、`billing_setting.plugin_billing_expr` 一起列为退役配置键，数据库行保留但不再出现在 `GET /api/option/`。

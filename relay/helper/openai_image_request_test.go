@@ -116,9 +116,10 @@ func TestGetAndValidOpenAIImageRequestMultipartStream(t *testing.T) {
 }
 
 // Provider `parameters.n` is still bounded at ingress so a malformed multiplier
-// is a client error, but the billing quantity always follows the top-level n:
-// Ali image requests are served by the alibaba task plugin, which owns the
-// DashScope parameters.n semantics.
+// is a client error, but the billing quantity always follows the top-level n.
+// The Bailian image task plugin that owned the DashScope parameters.n semantics
+// is removed, so the provider count is validated without overriding the billed
+// quantity.
 func TestImageBillingRequestValidatesProviderCountWithoutOverriding(t *testing.T) {
 	for _, tc := range []struct {
 		body    string

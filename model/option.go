@@ -72,7 +72,6 @@ func InitOptionMap() {
 	common.OptionMap["SystemName"] = common.SystemName
 	common.OptionMap["Logo"] = common.Logo
 	common.OptionMap["ServerAddress"] = ""
-	common.OptionMap["TaskPublicAddress"] = system_setting.TaskPublicAddress
 	common.OptionMap["WorkerUrl"] = system_setting.WorkerUrl
 	common.OptionMap["WorkerValidKey"] = system_setting.WorkerValidKey
 	common.OptionMap["WorkerAllowHttpImageRequestEnabled"] = strconv.FormatBool(system_setting.WorkerAllowHttpImageRequestEnabled)
@@ -324,8 +323,26 @@ func UpdateOptionsBulk(values map[string]string) error {
 	return nil
 }
 
+// retiredOptionKeys are option keys whose rows stay in the database but are
+// never published. retiredThemeOptionKey belongs to the removed dashboard
+// frontend; the other three belong to the removed task/video feature. Removing
+// administrator data is not a migration's job, so the rows are filtered out of
+// common.OptionMap and the administrator option API instead.
+var retiredOptionKeys = map[string]struct{}{
+	retiredThemeOptionKey:                 {},
+	"TaskPublicAddress":                   {},
+	"TaskPluginEnabled":                   {},
+	"billing_setting.plugin_billing_expr": {},
+}
+
+// IsRetiredOptionKey reports whether key configures a feature this fork removed.
+func IsRetiredOptionKey(key string) bool {
+	_, retired := retiredOptionKeys[key]
+	return retired
+}
+
 func updateOptionMap(key string, value string) (err error) {
-	if key == retiredThemeOptionKey {
+	if IsRetiredOptionKey(key) {
 		common.OptionMapRWMutex.Lock()
 		delete(common.OptionMap, key)
 		common.OptionMapRWMutex.Unlock()
@@ -445,8 +462,6 @@ func updateOptionMap(key string, value string) (err error) {
 		common.SMTPToken = value
 	case "ServerAddress":
 		system_setting.ServerAddress = value
-	case "TaskPublicAddress":
-		system_setting.TaskPublicAddress = value
 	case "WorkerUrl":
 		system_setting.WorkerUrl = value
 	case "WorkerValidKey":

@@ -167,14 +167,34 @@ func TestMigrateRetiredFrontendOptionsKeepsEmptyAuthoritativeTargets(t *testing.
 	}
 }
 
-func TestRetiredThemeOptionIsPersistedButNotPublished(t *testing.T) {
+func TestRetiredOptionsArePersistedButNotPublished(t *testing.T) {
 	db := useFrontendOptionMigrationDB(t)
 	previousMap := common.OptionMap
 	t.Cleanup(func() { common.OptionMap = previousMap })
 	common.OptionMap = map[string]string{}
 
-	require.NoError(t, UpdateOption(retiredThemeOptionKey, "default"))
-	assert.Equal(t, "default", requireOptionValue(t, db, retiredThemeOptionKey))
-	_, published := common.OptionMap[retiredThemeOptionKey]
-	assert.False(t, published)
+	retiredKeys := []string{
+		retiredThemeOptionKey,
+		"TaskPublicAddress",
+		"TaskPluginEnabled",
+		"billing_setting.plugin_billing_expr",
+	}
+	for _, key := range retiredKeys {
+		assert.Truef(t, IsRetiredOptionKey(key), "%s must be reported as retired", key)
+		require.NoError(t, UpdateOption(key, "default"))
+		assert.Equal(t, "default", requireOptionValue(t, db, key))
+		_, published := common.OptionMap[key]
+		assert.Falsef(t, published, "%s must not be published by a write", key)
+	}
+
+	// A database upgraded from a build that still used these keys keeps the rows
+	// but must not publish them when the options are loaded again.
+	require.NoError(t, UpdateOption("Notice", "keep"))
+	common.OptionMap = map[string]string{}
+	loadOptionsFromDatabase()
+	assert.Equal(t, "keep", common.OptionMap["Notice"])
+	for _, key := range retiredKeys {
+		_, published := common.OptionMap[key]
+		assert.Falsef(t, published, "%s must not be published on load", key)
+	}
 }

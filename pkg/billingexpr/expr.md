@@ -151,10 +151,9 @@ OpenAI 已于 2026-05-12 下线 DALL·E 2/3；其校验、默认值和倍率保�
 `estimated_image_count` 保存本次发送前的数量；JSON/multipart 图片参数上下文只保留计费需要的标量，不保留图片或提示词内容。
 结算使用独立的实际数量，不修改被冻结的 `param("n")`。正常结束
 的 SSE 可以减少数量，客户端提前断开不能减少应收数量。最终消费日志记录 `image_count`。
-阿里百炼图片模型（万相、Qwen-Image、Z-Image）由 alibaba 任务插件通过 `openai_image` 宿主协议承接：
-其数量是任务用量事实 `u("image_count")`，提交时按请求数量预留，完成时按上游 `usage.image_count`
-（Qwen-Image-3.0 为 `usage.output_image_count`）或按各 `choices[].message.content[]` / `results[]`
-中的图片载荷数结算，任务消费日志同样记录 `image_count`。
+阿里百炼图片模型（万相、Qwen-Image、Z-Image）曾由 alibaba 任务插件通过 `openai_image` 宿主协议承接，
+该插件已随任务插件系统一并移除：ali 渠道的图片请求由适配器直接拒绝，这些模型不再有承接方。
+`image_count` 因此只来自请求数量与上游响应中实际计数的图片，不再有插件上报的用量事实。
 
 > **注意：** 自动扣除针对 GPT/OpenAI 格式的 API（prompt_tokens 包含子类别）。Claude 格式的 API 不重复扣除缓存；未独立计价的缓存读取加回输入。系统根据上游返回格式自动处理。
 
@@ -273,148 +272,30 @@ The usage-log UI treats `request_rules` as the authoritative rule list and rende
 
 ## Task Usage Expressions
 
-Task plugins can expose validated, provider-specific billing facts through
-`meta.usageSchema`. Expressions read those facts with `u("key")`. A literal key
-must be declared by the plugin schema before the expression can be saved.
+Task plugins used to expose provider-specific billing facts through
+`meta.usageSchema`. Expressions read those facts with `u("key")`, per-model
+overrides lived in `billing_setting.plugin_billing_expr`, and settlement used
+`expression output in USD * QuotaPerUnit * groupRatio`. The task plugin system
+was removed, so nothing produces those facts any more.
 
-Multiple plugins may serve the same model with different usage schemas. The
-executing channel identifies the plugin; clients do not select a billing
-provider. Task expression resolution uses this order:
+What survived in the engine, and why:
 
-1. `billing_setting.plugin_billing_expr["<pluginKey>::<clientModel>"]`
-2. The same plugin's override for the final mapped model, when present
-3. The client model's expression when its billing mode is `tiered_expr`
-4. The final mapped model's expression when the client model has no expression
-   billing mode
+- `u("<key>")` still compiles and reads `RequestInput.Usage`. No production
+  caller populates that map, so the function returns nil and cannot price
+  anything; it is kept only so the expression language stays parse-compatible.
+- `BillingSnapshot.TaskUsageBilling` and `UsageFacts` remain, and
+  `settle.go` still honours `TaskUsageBilling` (dollar-per-request quota
+  conversion and a fixed-price rejection). No code sets the field, so it is
+  false for every snapshot the host builds.
+- Usage-key expressions can no longer be saved. `SmokeTestExpr` rejects any
+  expression whose literal `u()` keys are non-empty with
+  `expression references usage keys [...] but usage facts are not supported`.
+  An expression stored while plugins existed is not migrated: it cannot be
+  re-saved, and evaluating it fails, which keeps the pre-consumed charge.
 
-Plugin overrides always use task-usage semantics, independently of the model's
-billing mode. The flat override map is a separate option and never contributes
-composite keys to model names or model-price synchronization exports. Existing
-prices are not rewritten. The billing snapshot freezes the selected expression;
-completion uses that snapshot even if provider pricing later changes.
-
-A model-level expression save smoke-tests each candidate's selected schema,
-skipping candidates with their own override in the same complete draft.
-Provider expression saves validate the plugin/model binding and that plugin's
-schema; errors identify both model and plugin. For a shared model, an effective
-expression referencing an undeclared literal `u()` key is unconfigured for that
-provider, including references in branches skipped by the current request.
-Submission rejects it with 400 `model_price_error`; administration and public
-pricing expose the unconfigured state. Public model-level metadata remains the
-first plugin's view in ascending key order, with provider variants added
-separately.
-
-Saved provider overrides remain visible when only one provider remains.
-Administration exposes unavailable plugin/model bindings as `stale` and permits
-preserving or removing their existing expressions. Changes to those expressions
-still require a valid binding; writes compare against the locked database
-snapshot rather than the process cache. No overrides are silently pruned.
-Public provider variants include their effective `billing_mode` so inherited
-ratio/per-call pricing is distinct from an unconfigured usage expression.
-
-Plugins serving different model families can optionally declare
-`meta.usageProfiles: [{models: ["image-model"], schema: {...}, examples: [...]}]`.
-Each profile provides the complete usage schema and optional display examples
-for its declared models. It replaces, rather than merges with, the plugin's
-default `usageSchema` and `usageExamples`. A model may belong to only one
-profile, and profile model names must use the spelling declared in `meta.models`.
-An empty profile schema is allowed; a missing or null schema is not. Token-unit
-profiles require their own examples, using the same validation as the defaults.
-
-The host resolves model aliases before selecting usage metadata. Model-level
-pricing and expression-save APIs use the declared target; an ambiguous alias
-with multiple targets in the same plugin retains the plugin defaults. Request
-and usage validation use the executing plugin and final upstream model. Polling
-selects metadata from each saved task's model, including in mixed-model batches.
-An upstream name that no profile declares, such as a channel mapping to a vendor
-endpoint ID, falls back to the client-facing model's profile. Unmatched models
-and plugins without profiles retain the plugin defaults.
-
-Profiles do not introduce a request-body whitelist or remove legacy multiplier
-extensions. Numeric hook facts retain a consistent floating-point representation
-for expression evaluation, including fields outside the selected profile.
-Saving an expression checks literal usage keys against the selected schema;
-already stored expressions are not migrated. Single-plugin submissions retain
-the existing key-check behavior; shared models enforce the compatibility rule
-above. Existing runtime error and quota safety checks still apply.
-Completion continues to evaluate the frozen expression after overlaying measured
-facts; no schema snapshot or database migration is introduced.
-
-This is an optional addition to plugin API version 1. New hosts accept existing
-plugins unchanged. Older hosts reject the new metadata field, so upgrade the
-host before installing a plugin that declares profiles.
-
-Numeric facts are finite, non-negative values in the declared canonical unit
-(`second`, `count`, `token`, or `credit`); enum facts are exact strings from the
-declared value list. The schema description is display-only metadata and never
-affects evaluation. `token` is the host unit for upstream billing tokens (for
-example doubao `usage.completion_tokens`). `credit` is the host unit for vendor
-resource-pack units (for example kling `final_unit_deduction`). Both share the
-int32 quota bound, not the 3600-second / 128-count limits.
-
-Task usage billing has a deliberately different conversion rule from token
-billing:
-
-```
-task quota = expression output in USD * QuotaPerUnit * groupRatio
-token quota = expression output in $/1M tokens / 1,000,000 * QuotaPerUnit * groupRatio
-```
-
-In other words, a task expression already returns the request's dollar cost.
-For example, `u("seconds") * 0.4` means $0.40 per second. Engine semantics do
-not divide task output by one million.
-
-The visual editor generates, and public pricing displays recognize, exactly
-these canonical task shapes. Expressions outside these shapes remain valid in
-raw mode but fall back to the special-expression display:
-
-```
-# Flat unit pricing
-tier("base", u("seconds") * 0.4)
-
-# Enum tiers (conditions may combine enum comparisons with &&)
-u("mode") == "pro"
-  ? tier("pro", u("seconds") * 0.8)
-  : tier("std", u("seconds") * 0.4)
-
-# Optional constant plus multiple numeric usage terms
-tier("base", 0.1 + u("seconds") * 0.4 + u("clips") * 0.05)
-
-# Upstream token overlay (doubao Seedance tokens)
-# The editor takes a $/1M token input and emits the / 1000000 literal.
-# Engine semantics are unchanged: the expression still returns USD.
-tier("base", u("tokens") * 9.8 / 1000000)
-
-# Vendor credit overlay (kling resource-pack units)
-# The coefficient is the real $/credit price; no /1M scale.
-tier("base", u("units") * 0.14)
-```
-
-The tier body is an optional non-negative constant plus one or more
-`u("<number field>") * <unit price>` terms. Token-unit fields use the
-canonical scaled shape `u("<field>") * <dollars per 1M tokens> / 1000000`.
-Credit, second, and count fields keep the bare `u("<field>") * <unit price>`
-shape. Tier conditions are equality checks
-between declared enum fields and values, optionally joined by `&&`, with
-chained ternaries following the same ordering rules as token tiers. Numeric
-range tiers are not part of the current canonical shape. Request rules after
-`|||` remain orthogonal and use the same syntax as token expressions.
-
-Before saving, the host compiles every expression, rejects literal `u()` keys
-that the selected task plugin did not declare, and smoke-tests usage vectors.
-Every numeric field is exercised at 0, 1, and its host-owned unit ceiling
-(`second` 3600, `count` 128, `token`/`credit` int32 max). Enum values are exercised as a
-Cartesian product. Smoke vectors are capped at
-64, reducing oversized enum dimensions to their first and last values. Every
-evaluated result must be finite and non-negative.
-
-Submission evaluates the expression with request-derived usage facts and
-freezes both the expression and those facts in the billing snapshot. On
-completion, the host overlays completion facts on the frozen submission facts
-key by key, so measured values replace estimates while facts omitted by the
-completion hook retain their submission values. The same expression is then
-evaluated again; a changed fact can therefore produce a settlement delta and a
-different matched tier. Evaluation failure keeps the pre-consumed charge.
+`image_count` is not a usage fact. It is a first-class variable derived from
+the request quantity and from the images counted in the upstream response (see
+**Image Quantity** above).
 
 ---
 
@@ -428,7 +309,7 @@ Frontend Editor → Storage → Pre-consume → Settlement → Log Display
 
 ### 1. Frontend Editor
 
-**File**: `web/src/pages/Setting/Ratio/components/TieredPricingEditor.jsx`
+**File**: `web/src/features/system-settings/models/tiered-pricing-editor.tsx`
 
 Two editing modes:
 - **Visual mode**: Fill in prices per variable, conditions per tier. Generates expression via `generateExprFromVisualConfig()`.
@@ -440,9 +321,9 @@ The editor outputs a billing expression string and an optional request rule expr
 
 **File**: `setting/billing_setting/tiered_billing.go`
 
-Two option maps stored in the `options` DB table:
-- `ModelBillingMode`: `{ "model-name": "tiered_expr" }` — activates tiered billing for a model
-- `ModelBillingExpr`: `{ "model-name": "tier(\"base\", p * 2.5 + c * 15)" }` — the expression
+Two option rows stored in the `options` DB table:
+- `billing_setting.billing_mode`: `{ "model-name": "tiered_expr" }` — activates tiered billing for a model
+- `billing_setting.billing_expr`: `{ "model-name": "tier(\"base\", p * 2.5 + c * 15)" }` — the expression
 
 On save, the expression is validated:
 1. Compiled via `billingexpr.CompileFromCache()` — syntax check
@@ -459,7 +340,7 @@ When a request arrives and the model uses `tiered_expr` billing:
 4. Converts output to quota: `rawCost / 1,000,000 * QuotaPerUnit`. For token-priced leaves, multiplies this reservation by `quota_setting.pre_consume_multiplier` (default 1; any finite positive decimal). The multiplier does not change context-length tier selection, actual settlement, or request-priced leaves. The snapshot freezes the multiplier for image quantity retries; group retries reuse the multiplied reservation. Older snapshots with no multiplier retain a factor of 1.
 5. Creates `BillingSnapshot` and stores it on `RelayInfo`. Expression and request state stay frozen for settlement. An auto-group retry refreshes group-dependent fields from the selected group before the next upstream attempt. If a free initial group skipped pre-consume and the retry selects a paid group, the billing session is created before that attempt. If an existing session moves to a more expensive group, its reservation is raised to that group's estimate before sending; cheaper groups are refunded only after actual usage is settled.
 
-Wallet trust bypass uses `quota_setting.trust_quota_usd` (default 10 USD; 0 disables bypass). Both the wallet and any limited API token must exceed the threshold. The wallet must still cover the estimated reservation before bypass is considered. Asynchronous tasks do not use this bypass. Legacy token-ratio pricing also reserves estimated input cost times the multiplier, without the former `PreConsumedQuota` floor or output-token estimate. Task usage pricing is unchanged.
+Wallet trust bypass uses `quota_setting.trust_quota_usd` (default 10 USD; 0 disables bypass). Both the wallet and any limited API token must exceed the threshold. The wallet must still cover the estimated reservation before bypass is considered. Legacy token-ratio pricing also reserves estimated input cost times the multiplier, without the former `PreConsumedQuota` floor or output-token estimate.
 
 ### 4. Settlement (Actual Billing)
 
@@ -480,7 +361,7 @@ After the upstream response returns with actual token usage:
 
 ### 5. Log Display
 
-**Files**: `service/log_info_generate.go`, `web/src/helpers/render.jsx`
+**Files**: `service/log_info_generate.go`, `web/src/features/usage-logs/lib/format.ts`
 
 Backend: `InjectTieredBillingInfo()` adds `billing_mode`, `expr_b64` (base64 expression), `matched_tier`, and the structured `request_rules` trace list to the log's `other` JSON.
 
@@ -544,7 +425,7 @@ This enables future evolution without breaking existing expressions.
 | Pre-consume | `relay/helper/price.go`, `relay/helper/billing_expr_request.go` |
 | Settlement | `service/tiered_settle.go`, `service/quota.go` |
 | Log injection | `service/log_info_generate.go` |
-| Frontend editor | `web/src/pages/Setting/Ratio/components/TieredPricingEditor.jsx` |
-| Frontend display | `web/src/helpers/render.jsx`, `web/src/helpers/utils.jsx` |
-| Model detail | `web/src/components/table/model-pricing/modal/components/DynamicPricingBreakdown.jsx` |
-| Log display | `web/src/hooks/usage-logs/useUsageLogsData.jsx`, `web/src/components/table/usage-logs/UsageLogsColumnDefs.jsx` |
+| Frontend editor | `web/src/features/system-settings/models/tiered-pricing-editor.tsx`, `web/src/features/pricing/lib/tier-expr.ts`, `web/src/features/pricing/lib/billing-expr.ts` |
+| Frontend display | `web/src/features/pricing/components/dynamic-pricing-breakdown.tsx` |
+| Model detail | `web/src/features/model-pricing/model-pricing-panel.tsx` |
+| Log display | `web/src/features/usage-logs/lib/format.ts`, `web/src/features/usage-logs/components/dialogs/details-dialog.tsx` |

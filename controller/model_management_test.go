@@ -360,8 +360,9 @@ func TestModelPricingConversionDatabaseMatrix(t *testing.T) {
 				aliConversion, err := model.PreviewModelPricingConversion(aliName, model.PricingValues{"ModelPrice": 0.04})
 				require.NoError(t, err)
 				require.Empty(t, aliConversion.UnsupportedReason)
-				// Ali image billing lives in the alibaba task plugin, where prompt_extend is a
-				// usage fact; the legacy conversion no longer adds a per-channel request multiplier.
+				// Bailian image billing keeps a flat per-image price with no per-channel
+				// request multiplier: parameters.prompt_extend was a usage fact reported by
+				// the task plugin, which is removed.
 				assert.Equal(t, `tier("image", fixed(0.04)) * image_count`, aliConversion.Expression)
 				assert.Empty(t, aliConversion.BillingDetails.RequestRules)
 				quantity := 3

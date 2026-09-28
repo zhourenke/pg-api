@@ -204,7 +204,8 @@ type ChannelSelectError struct {
 	FilterKind dto.ChannelFilterKind
 	Channel    *model.Channel
 	// NoAvailableChannel marks the "no channel for this group and model"
-	// outcome so the distributor can name the claiming task plugin.
+	// outcome, which the distributor reports as an unavailable model in the
+	// selected group.
 	NoAvailableChannel bool
 }
 

@@ -289,10 +289,11 @@ func TestGeminiThinkingControlsConvertBestEffort(t *testing.T) {
 	})
 }
 
-// An Ali image model the alibaba task plugin does not claim is rejected by the
-// adaptor with a classified 400 that skips retries. ImageHelper must surface
-// that classification unchanged instead of wrapping it into a retryable
-// conversion failure that other channels would then be asked to serve.
+// An Ali image request is rejected by the adaptor with a classified 400 that
+// skips retries, because this channel type serves no image model now that the
+// Bailian image task plugin is gone. ImageHelper must surface that
+// classification unchanged instead of wrapping it into a retryable conversion
+// failure that other channels would then be asked to serve.
 func TestImageHelperKeepsAdaptorClassifiedConvertError(t *testing.T) {
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", strings.NewReader(`{"model":"wanx-style-repaint-v1","prompt":"a cat"}`))
@@ -312,5 +313,5 @@ func TestImageHelperKeepsAdaptorClassifiedConvertError(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, apiErr.StatusCode)
 	assert.Equal(t, types.ErrorCodeInvalidRequest, apiErr.GetErrorCode())
 	assert.True(t, types.IsSkipRetryError(apiErr), "other channels must not be asked to serve the same name")
-	assert.Contains(t, apiErr.Error(), "not served by the alibaba task plugin")
+	assert.Contains(t, apiErr.Error(), "cannot be served")
 }
