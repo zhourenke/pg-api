@@ -374,7 +374,9 @@ func (a *Adaptor) resolve(c *gin.Context, info *relaycommon.RelayInfo) error {
 
 func incomingRequestPath(c *gin.Context, info *relaycommon.RelayInfo) string {
 	if c != nil && c.Request != nil && c.Request.URL != nil {
-		return c.Request.URL.Path
+		// The playground posts the public request shape under /pg, while routes
+		// are declared with the public /v1 paths.
+		return relayconstant.PublicRequestPath(c.Request.URL.Path)
 	}
 	if info == nil {
 		return ""

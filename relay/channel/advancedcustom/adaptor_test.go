@@ -184,6 +184,64 @@ func TestAdaptorReturnsErrorWhenNoRouteMatchesPath(t *testing.T) {
 	assert.Contains(t, err.Error(), "does not support request path")
 }
 
+func TestAdaptorResolvesPlaygroundPathAgainstPublicRoutes(t *testing.T) {
+	tests := []struct {
+		name        string
+		requestPath string
+		routes      []string
+		wantURLPath string
+	}{
+		{
+			name:        "playground chat request uses the public chat route",
+			requestPath: "/pg/chat/completions",
+			routes:      []string{"/v1/chat/completions"},
+			wantURLPath: "/v1/chat/completions",
+		},
+		{
+			name:        "public chat request keeps resolving",
+			requestPath: "/v1/chat/completions",
+			routes:      []string{"/v1/chat/completions"},
+			wantURLPath: "/v1/chat/completions",
+		},
+		{
+			name:        "playground chat request cannot use a responses-only route",
+			requestPath: "/pg/chat/completions",
+			routes:      []string{"/v1/responses"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			routes := make([]dto.AdvancedCustomRoute, 0, len(tt.routes))
+			for _, path := range tt.routes {
+				routes = append(routes, dto.AdvancedCustomRoute{
+					IncomingPath: path,
+					UpstreamPath: path,
+					Converter:    relayconvert.ConverterNone,
+				})
+			}
+			adaptor := &Adaptor{}
+			info := advancedCustomRelayInfo(&dto.AdvancedCustomConfig{Routes: routes})
+			info.RequestURLPath = tt.requestPath
+			c := advancedCustomGinContext(tt.requestPath)
+
+			err := adaptor.resolve(c, info)
+			if tt.wantURLPath == "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "does not support request path")
+				return
+			}
+			require.NoError(t, err)
+
+			requestURL, err := adaptor.GetRequestURL(info)
+			require.NoError(t, err)
+			parsedURL, err := url.Parse(requestURL)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantURLPath, parsedURL.Path)
+		})
+	}
+}
+
 func TestAdaptorReplacesModelPlaceholderInRouteURL(t *testing.T) {
 	adaptor := &Adaptor{}
 	info := advancedCustomRelayInfo(&dto.AdvancedCustomConfig{

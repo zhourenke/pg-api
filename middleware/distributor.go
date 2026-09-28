@@ -39,8 +39,10 @@ func Distribute() func(c *gin.Context) {
 		}()
 		constraints := service.GetChannelConstraints(c)
 		constraints.AddFilter(taskdto.ChannelFilter{
-			Kind:        taskdto.FilterRequestPath,
-			RequestPath: c.Request.URL.Path,
+			Kind: taskdto.FilterRequestPath,
+			// Judge the playground by the public path it behaves as, because
+			// channels declare their routes with /v1 paths and never /pg.
+			RequestPath: relayconstant.PublicRequestPath(c.Request.URL.Path),
 		})
 		modelRequest, shouldSelectChannel, err := getModelRequest(c)
 		if err != nil {
