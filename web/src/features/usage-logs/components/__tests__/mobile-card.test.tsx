@@ -258,6 +258,22 @@ it.each([false, true])(
   }
 )
 
+it('reports streamed throughput over the generation window', () => {
+  renderLogs({
+    logs: [
+      {
+        ...log,
+        is_stream: true,
+        use_time: 10,
+        completion_tokens: 500,
+        other: JSON.stringify({ frt: 2000 }),
+      },
+    ],
+  })
+  // 500 tokens over the 8s generation window, not over the 10s duration
+  expect(screen.getByText('63 t/s')).toBeVisible()
+})
+
 it('retains the user avatar and model badge in the mobile summary', () => {
   renderLogs()
   expect(screen.getByText('P')).toBeVisible()

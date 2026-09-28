@@ -222,7 +222,36 @@ export function getThroughputColor(
 }
 
 /**
+ * Generation throughput in output tokens per second.
+ *
+ * A streamed reply spends part of its wall-clock time waiting for the first
+ * token, and the log's `use_time` covers that wait. Dividing the output tokens
+ * by the whole duration charges the model for the wait and reports a rate below
+ * its real generation speed, so the throughput uses the generation window
+ * instead: the duration minus the first-token latency. Non-streamed replies have
+ * no separate wait to exclude, and logs without a usable first-token time (or
+ * whose latency already reaches the whole duration) fall back to the duration.
+ */
+export function getTokensPerSecond(
+  useTimeSec: number,
+  completionTokens: number,
+  frtMs: number | null | undefined,
+  isStream: boolean
+): number | null {
+  if (useTimeSec <= 0 || completionTokens <= 0) return null
+  if (isStream && frtMs != null && frtMs > 0) {
+    const generationSeconds = useTimeSec - frtMs / 1000
+    if (generationSeconds > 0) return completionTokens / generationSeconds
+  }
+  return completionTokens / useTimeSec
+}
+
+/**
  * Get response color using throughput only when enough output tokens exist.
+ *
+ * This colors the total duration it is displayed next to, so it divides by that
+ * same total duration rather than by the generation window used for the
+ * throughput figure.
  */
 export function getResponseTimeColor(
   seconds: number,
