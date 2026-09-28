@@ -168,6 +168,10 @@ export interface LogOtherData {
   audio_ratio?: number
   audio_completion_ratio?: number
   frt?: number
+  // Millisecond-precision request duration. The stored use_time only carries
+  // whole seconds, which is too coarse to derive throughput from; older logs
+  // omit this and the UI falls back to use_time.
+  use_time_ms?: number
   // Tiered (expression-based) billing fields, set by backend when
   // billing_mode === 'tiered_expr'. expr_b64 is the base64-encoded billing
   // expression; the matched tier and request-rule traces come from the actual

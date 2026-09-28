@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/constant"
@@ -44,6 +45,17 @@ func attachQuotaSaturation(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, o
 	attachQuotaSaturationToOther(other, clamp)
 	logger.LogWarn(ctx, fmt.Sprintf("quota saturation on consume log: op=%s kind=%s original=%g clamped=%d user=%d model=%s",
 		clamp.Op, clamp.Kind, clamp.Original, clamp.Clamped, relayInfo.UserId, relayInfo.GetBillingModelName()))
+}
+
+// measuredUseTime reports a request's elapsed time in both units the consume log
+// needs, from a single reading: whole seconds for the stored use_time column and
+// milliseconds for the use_time_ms metadata the usage log derives generation
+// throughput from. One reading keeps the two consistent, and truncating the
+// measured duration is more accurate than the difference of two Unix-second
+// timestamps, which could sit up to a second away from the true duration.
+func measuredUseTime(startTime time.Time) (seconds int64, milliseconds int64) {
+	milliseconds = time.Since(startTime).Milliseconds()
+	return milliseconds / 1000, milliseconds
 }
 
 func appendRequestPath(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, other *model.LogOther) {

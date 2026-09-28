@@ -331,6 +331,7 @@ type RecordConsumeLogParams struct {
 	Content          string    `json:"content"`
 	TokenId          int       `json:"token_id"`
 	UseTimeSeconds   int       `json:"use_time_seconds"`
+	UseTimeMs        int64     `json:"use_time_ms"`
 	IsStream         bool      `json:"is_stream"`
 	Group            string    `json:"group"`
 	Other            *LogOther `json:"other"`
@@ -345,6 +346,13 @@ func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams)
 	requestId := c.GetString(common.RequestIdKey)
 	upstreamRequestId := c.GetString(common.UpstreamRequestIdKey)
 	createdAt := common.GetTimestamp()
+	// The stored use_time column only carries whole seconds, which is too coarse
+	// for the usage log to derive generation throughput (it must subtract the
+	// first-token latency). Record the exact duration alongside it. Zero means the
+	// caller performed no measurement, so nothing is written.
+	if params.UseTimeMs > 0 {
+		params.Other.SetPublic("use_time_ms", params.UseTimeMs)
+	}
 	otherStr := params.Other.JSONString()
 	// 判断是否需要记录 IP
 	needRecordIp := false

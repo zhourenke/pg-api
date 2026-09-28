@@ -18,34 +18,89 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { describe, expect, test } from 'vitest'
 
+import { usageLogSchema, type UsageLog } from '../../data/schema'
 import { getTokensPerSecond } from '../format'
+
+function log(overrides: Partial<UsageLog> = {}): UsageLog {
+  return usageLogSchema.parse({
+    id: 1,
+    user_id: 2,
+    created_at: 1788840000,
+    type: 2,
+    content: '',
+    ...overrides,
+  })
+}
 
 describe('generation throughput', () => {
   test('excludes the first-token wait for a streamed reply', () => {
     // 500 tokens over the 8s generation window, not over the 10s duration
-    expect(getTokensPerSecond(10, 500, 2000, true)).toBe(62.5)
+    expect(
+      getTokensPerSecond(log({ is_stream: true, completion_tokens: 500 }), {
+        frt: 2000,
+        use_time_ms: 10_000,
+      })
+    ).toBe(62.5)
+  })
+
+  test('prefers the millisecond duration when the log carries one', () => {
+    // use_time only says 10s; the generation window is 10.3s - 2s = 8.3s
+    const streamed = log({
+      is_stream: true,
+      completion_tokens: 500,
+      use_time: 10,
+    })
+    expect(
+      getTokensPerSecond(streamed, { frt: 2000, use_time_ms: 10_300 })
+    ).toBeCloseTo(60.24, 2)
+  })
+
+  test('falls back to whole-second use_time for logs without a millisecond duration', () => {
+    // Logs written before use_time_ms existed must keep working
+    expect(
+      getTokensPerSecond(
+        log({ is_stream: true, completion_tokens: 500, use_time: 10 }),
+        { frt: 2000 }
+      )
+    ).toBe(62.5)
   })
 
   test('uses the whole duration for a non-streamed reply', () => {
     // A non-streamed reply has no separate wait before its output
-    expect(getTokensPerSecond(10, 500, 2000, false)).toBe(50)
+    expect(
+      getTokensPerSecond(log({ completion_tokens: 500 }), {
+        frt: 2000,
+        use_time_ms: 10_000,
+      })
+    ).toBe(50)
   })
 
-  test('falls back to the whole duration when no first-token time was recorded', () => {
-    expect(getTokensPerSecond(10, 500, undefined, true)).toBe(50)
+  test('falls back when no first-token time was recorded', () => {
+    const streamed = log({ is_stream: true, completion_tokens: 500 })
     // The backend writes -1000 for a request that never sent a first token
-    expect(getTokensPerSecond(10, 500, -1000, true)).toBe(50)
-    expect(getTokensPerSecond(10, 500, 0, true)).toBe(50)
+    expect(
+      getTokensPerSecond(streamed, { frt: -1000, use_time_ms: 10_000 })
+    ).toBe(50)
+    expect(getTokensPerSecond(streamed, { use_time_ms: 10_000 })).toBe(50)
   })
 
   test('falls back when the first-token time covers the whole measured duration', () => {
-    // The log stores whole seconds, so a 58s first token in a 58s reply leaves
-    // no generation window to divide by
-    expect(getTokensPerSecond(58, 800, 58000, true)).toBeCloseTo(13.79, 2)
+    expect(
+      getTokensPerSecond(log({ is_stream: true, completion_tokens: 800 }), {
+        frt: 58_000,
+        use_time_ms: 58_000,
+      })
+    ).toBeCloseTo(13.79, 2)
   })
 
   test('reports nothing without output tokens or a measured duration', () => {
-    expect(getTokensPerSecond(0, 500, 2000, true)).toBeNull()
-    expect(getTokensPerSecond(10, 0, 2000, true)).toBeNull()
+    expect(
+      getTokensPerSecond(log({ completion_tokens: 0 }), {
+        use_time_ms: 10_000,
+      })
+    ).toBeNull()
+    expect(
+      getTokensPerSecond(log({ completion_tokens: 500, use_time: 0 }), null)
+    ).toBeNull()
   })
 })

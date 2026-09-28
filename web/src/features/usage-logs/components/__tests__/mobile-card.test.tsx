@@ -274,6 +274,23 @@ it('reports streamed throughput over the generation window', () => {
   expect(screen.getByText('63 t/s')).toBeVisible()
 })
 
+it('prefers the millisecond duration for streamed throughput', () => {
+  renderLogs({
+    logs: [
+      {
+        ...log,
+        is_stream: true,
+        use_time: 10,
+        completion_tokens: 500,
+        other: JSON.stringify({ frt: 2000, use_time_ms: 10_300 }),
+      },
+    ],
+  })
+  // 500 tokens over the 8.3s generation window, which the rounded use_time of
+  // 10s cannot express
+  expect(screen.getByText('60 t/s')).toBeVisible()
+})
+
 it('retains the user avatar and model badge in the mobile summary', () => {
   renderLogs()
   expect(screen.getByText('P')).toBeVisible()

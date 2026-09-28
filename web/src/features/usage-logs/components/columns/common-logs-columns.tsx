@@ -645,14 +645,8 @@ export function useCommonLogsColumns(
           const log = row.original
           if (!isTimingLogType(log.type)) return null
 
-          const useTime = row.getValue('use_time') as number
           const other = parseLogOther(log.other)
-          const tokensPerSecond = getTokensPerSecond(
-            useTime,
-            log.completion_tokens,
-            other?.frt,
-            log.is_stream
-          )
+          const tokensPerSecond = getTokensPerSecond(log, other)
 
           return (
             <StreamTpsCell

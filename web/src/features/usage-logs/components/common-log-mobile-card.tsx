@@ -197,12 +197,7 @@ export function CommonLogMobileCard<TData>(props: {
                   compact
                   className='min-h-5 max-w-full min-w-0 justify-end'
                   isStream={log.is_stream}
-                  tokensPerSecond={getTokensPerSecond(
-                    log.use_time,
-                    log.completion_tokens,
-                    other?.frt,
-                    log.is_stream
-                  )}
+                  tokensPerSecond={getTokensPerSecond(log, other)}
                   streamStatus={other?.stream_status}
                 />
               )}

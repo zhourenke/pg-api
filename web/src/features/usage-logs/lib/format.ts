@@ -225,25 +225,33 @@ export function getThroughputColor(
  * Generation throughput in output tokens per second.
  *
  * A streamed reply spends part of its wall-clock time waiting for the first
- * token, and the log's `use_time` covers that wait. Dividing the output tokens
+ * token, and the request duration covers that wait. Dividing the output tokens
  * by the whole duration charges the model for the wait and reports a rate below
  * its real generation speed, so the throughput uses the generation window
  * instead: the duration minus the first-token latency. Non-streamed replies have
  * no separate wait to exclude, and logs without a usable first-token time (or
  * whose latency already reaches the whole duration) fall back to the duration.
+ *
+ * The duration comes from the log's millisecond `use_time_ms` when the backend
+ * recorded one, and from the whole-second `use_time` column otherwise, so logs
+ * written before `use_time_ms` existed keep reporting a rate.
  */
 export function getTokensPerSecond(
-  useTimeSec: number,
-  completionTokens: number,
-  frtMs: number | null | undefined,
-  isStream: boolean
+  log: UsageLog,
+  other?: LogOtherData | null
 ): number | null {
-  if (useTimeSec <= 0 || completionTokens <= 0) return null
-  if (isStream && frtMs != null && frtMs > 0) {
-    const generationSeconds = useTimeSec - frtMs / 1000
-    if (generationSeconds > 0) return completionTokens / generationSeconds
+  if (log.completion_tokens <= 0) return null
+  const durationMs =
+    other?.use_time_ms != null && other.use_time_ms > 0
+      ? other.use_time_ms
+      : log.use_time * 1000
+  if (durationMs <= 0) return null
+  const frtMs = other?.frt
+  if (log.is_stream && frtMs != null && frtMs > 0) {
+    const generationMs = durationMs - frtMs
+    if (generationMs > 0) return (log.completion_tokens * 1000) / generationMs
   }
-  return completionTokens / useTimeSec
+  return (log.completion_tokens * 1000) / durationMs
 }
 
 /**

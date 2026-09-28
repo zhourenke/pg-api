@@ -5,7 +5,6 @@ import (
 	"math"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/constant"
@@ -49,6 +48,7 @@ type textQuotaSummary struct {
 	ModelName              string
 	TokenName              string
 	UseTimeSeconds         int64
+	UseTimeMs              int64
 	CompletionRatio        float64
 	CacheRatio             float64
 	ImageRatio             float64
@@ -228,10 +228,12 @@ func composeTieredTextQuota(relayInfo *relaycommon.RelayInfo, summary textQuotaS
 // effectiveBillingUsage; PostTextConsumeQuota performs that remap once and shares
 // the result with tiered billing, affinity observation and logging.
 func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.Usage) textQuotaSummary {
+	useTimeSeconds, useTimeMs := measuredUseTime(relayInfo.StartTime)
 	summary := textQuotaSummary{
 		ModelName:            relayInfo.GetBillingModelName(),
 		TokenName:            ctx.GetString("token_name"),
-		UseTimeSeconds:       time.Now().Unix() - relayInfo.StartTime.Unix(),
+		UseTimeSeconds:       useTimeSeconds,
+		UseTimeMs:            useTimeMs,
 		CompletionRatio:      relayInfo.PriceData.CompletionRatio,
 		CacheRatio:           relayInfo.PriceData.CacheRatio,
 		ImageRatio:           relayInfo.PriceData.ImageRatio,
@@ -543,6 +545,7 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 		Content:          logContent,
 		TokenId:          relayInfo.TokenId,
 		UseTimeSeconds:   int(summary.UseTimeSeconds),
+		UseTimeMs:        summary.UseTimeMs,
 		IsStream:         relayInfo.IsStream,
 		Group:            relayInfo.UsingGroup,
 		Other:            other,
