@@ -24,15 +24,23 @@ var channelsIDM map[int]*Channel                     // all channels include dis
 var channel2advancedCustomConfig map[int]*kitdto.AdvancedCustomConfig
 var channelSyncLock sync.RWMutex
 
-func InitChannelCache() {
+// InitChannelCache rebuilds the routing cache from the database. A load that
+// fails leaves the previously published cache in place and reports the error:
+// publishing a snapshot built from a failed read would take every model in the
+// instance offline until the next sync, which is what a busy SQLite database
+// (SQLITE_BUSY after the busy timeout) used to cause.
+func InitChannelCache() error {
 	if !common.MemoryCacheEnabled {
 		InvalidatePricingCache()
-		return
+		return nil
 	}
 	newChannelId2channel := make(map[int]*Channel)
 	newChannel2advancedCustomConfig := make(map[int]*kitdto.AdvancedCustomConfig)
 	var channels []*Channel
-	DB.Find(&channels)
+	if err := DB.Find(&channels).Error; err != nil {
+		common.SysError("failed to load channels for channel cache, keeping previous cache: " + err.Error())
+		return err
+	}
 	for _, channel := range channels {
 		newChannelId2channel[channel.Id] = channel
 		if channel.Type == constant.ChannelTypeAdvancedCustom {
@@ -42,7 +50,10 @@ func InitChannelCache() {
 		}
 	}
 	var abilities []*Ability
-	DB.Find(&abilities)
+	if err := DB.Find(&abilities).Error; err != nil {
+		common.SysError("failed to load abilities for channel cache, keeping previous cache: " + err.Error())
+		return err
+	}
 	groups := make(map[string]bool)
 	for _, ability := range abilities {
 		groups[ability.Group] = true
@@ -102,13 +113,22 @@ func InitChannelCache() {
 	// invalidating the pricing cache, otherwise the reversed order deadlocks.
 	InvalidatePricingCache()
 	common.SysLog("channels synced from database")
+	return nil
 }
 
 func SyncChannelCache(frequency int) {
 	for {
 		time.Sleep(time.Duration(frequency) * time.Second)
 		common.SysLog("syncing channels from database")
-		InitChannelCache()
+		if err := InitChannelCache(); err == nil {
+			continue
+		}
+		// The failed load kept the previous cache; retry shortly instead of
+		// waiting another whole interval, so a busy database cannot leave the
+		// routing cache stale until the next scheduled sync.
+		time.Sleep(5 * time.Second)
+		common.SysLog("syncing channels from database")
+		_ = InitChannelCache()
 	}
 }
 

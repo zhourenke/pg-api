@@ -1,5 +1,7 @@
 package common
 
+import "strings"
+
 type DatabaseType string
 
 const (
@@ -62,3 +64,42 @@ func UsingLogDatabase(databaseType DatabaseType) bool {
 //     a stale snapshot. Autocommit SELECTs stay concurrent because WAL keeps
 //     readers unlocked.
 var SQLitePath = "one-api.db?_pragma=busy_timeout(30000)&_pragma=journal_mode(WAL)&_txlock=immediate"
+
+// sqliteConnectionParams are the DSN entries every SQLite connection needs, with
+// the marker that identifies an entry the operator already set. They exist so a
+// caller-supplied path (SQLITE_PATH) cannot silently drop them: the driver's own
+// defaults are a 5s busy timeout and the rollback journal, under which a reader
+// waits for the writer and then fails with SQLITE_BUSY.
+var sqliteConnectionParams = []struct {
+	marker string
+	param  string
+}{
+	{marker: "_pragma=busy_timeout", param: "_pragma=busy_timeout(30000)"},
+	{marker: "_pragma=journal_mode", param: "_pragma=journal_mode(WAL)"},
+	{marker: "_txlock=", param: "_txlock=immediate"},
+}
+
+// withSQLitePragmas appends the required connection parameters to an
+// operator-supplied SQLite DSN, skipping the ones it already sets. Entries the
+// operator wrote are kept as they are; the legacy `_busy_timeout=` form does not
+// count as setting the busy timeout because the pure-Go driver ignores it.
+func withSQLitePragmas(dsn string) string {
+	dsn = strings.TrimSpace(dsn)
+	if dsn == "" {
+		return ""
+	}
+	missing := make([]string, 0, len(sqliteConnectionParams))
+	for _, entry := range sqliteConnectionParams {
+		if !strings.Contains(dsn, entry.marker) {
+			missing = append(missing, entry.param)
+		}
+	}
+	if len(missing) == 0 {
+		return dsn
+	}
+	separator := "?"
+	if strings.Contains(dsn, "?") {
+		separator = "&"
+	}
+	return dsn + separator + strings.Join(missing, "&")
+}

@@ -68,7 +68,9 @@ func InitEnv() {
 	}
 	initUserSessionSettings()
 	if os.Getenv("SQLITE_PATH") != "" {
-		SQLitePath = os.Getenv("SQLITE_PATH")
+		// SQLITE_PATH replaces the whole default DSN, so re-apply the connection
+		// parameters a SQLite database needs to survive concurrent writers.
+		SQLitePath = withSQLitePragmas(os.Getenv("SQLITE_PATH"))
 	}
 	if *LogDir != "" {
 		var err error
