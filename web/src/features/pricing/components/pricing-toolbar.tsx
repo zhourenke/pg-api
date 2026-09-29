@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { ArrowUpDown, Check, Filter } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, Filter } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -45,7 +45,13 @@ import {
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
 
-import { getSortLabels, type SortOption, type ViewMode } from '../constants'
+import {
+  getSortLabels,
+  SORT_DIRECTIONS,
+  type SortDirection,
+  type SortOption,
+  type ViewMode,
+} from '../constants'
 import type { PricingModel, PricingVendor, TokenUnit } from '../types'
 import { PricingSidebar } from './pricing-sidebar'
 
@@ -54,6 +60,8 @@ export interface PricingToolbarProps {
   totalCount?: number
   sortBy: string
   onSortChange: (value: string) => void
+  sortDir: SortDirection
+  onSortDirChange: (value: SortDirection) => void
   tokenUnit: TokenUnit
   onTokenUnitChange: (value: TokenUnit) => void
   showRechargePrice: boolean
@@ -156,12 +164,13 @@ export function PricingToolbar(props: PricingToolbarProps) {
                   type='button'
                   variant='outline'
                   size='sm'
-                  className='h-8 gap-1.5 px-3 text-xs'
+                  className='h-8 px-3 text-xs'
                 />
               }
             >
-              <ArrowUpDown className='size-3.5' />
-              <span>{sortLabels[props.sortBy as SortOption] || t('Sort')}</span>
+              <span>
+                {sortLabels[props.sortBy as SortOption] || t('Model')}
+              </span>
             </DropdownMenuTrigger>
             <DropdownMenuContent align='end' className='w-44'>
               <DropdownMenuGroup>
@@ -183,6 +192,36 @@ export function PricingToolbar(props: PricingToolbarProps) {
               </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          <Button
+            type='button'
+            variant='outline'
+            size='icon'
+            className='size-8'
+            aria-label={
+              props.sortDir === SORT_DIRECTIONS.DESC
+                ? t('Sort descending')
+                : t('Sort ascending')
+            }
+            title={
+              props.sortDir === SORT_DIRECTIONS.DESC
+                ? t('Sort descending')
+                : t('Sort ascending')
+            }
+            onClick={() =>
+              props.onSortDirChange(
+                props.sortDir === SORT_DIRECTIONS.DESC
+                  ? SORT_DIRECTIONS.ASC
+                  : SORT_DIRECTIONS.DESC
+              )
+            }
+          >
+            {props.sortDir === SORT_DIRECTIONS.DESC ? (
+              <ArrowDown className='size-3.5' />
+            ) : (
+              <ArrowUp className='size-3.5' />
+            )}
+          </Button>
 
           <DataTableViewModeToggle
             value={props.viewMode}

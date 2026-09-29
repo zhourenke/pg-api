@@ -32,6 +32,7 @@ function toolbarProps(): PricingToolbarProps {
     filteredCount: 2,
     totalCount: 2,
     sortBy: 'name',
+    sortDir: 'asc',
     tokenUnit: 'M',
     showRechargePrice: false,
     viewMode: 'card',
@@ -41,6 +42,7 @@ function toolbarProps(): PricingToolbarProps {
     groupFilter: 'all',
     tagFilter: 'all',
     onSortChange: vi.fn(),
+    onSortDirChange: vi.fn(),
     onTokenUnitChange: vi.fn(),
     onRechargePriceChange: vi.fn(),
     onViewModeChange: vi.fn(),
@@ -183,15 +185,26 @@ describe('pricing controls', () => {
     )
   })
 
-  it('selects price sorting from the shared dropdown', async () => {
+  it('selects a price field from the sort dropdown', async () => {
     const props = toolbarProps()
     const user = userEvent.setup()
-    render(<PricingToolbar {...props} />)
-    await user.click(screen.getByRole('button', { name: 'Name' }))
-    await user.click(
-      screen.getByRole('menuitem', { name: 'Price: Low to High' })
-    )
-    expect(props.onSortChange).toHaveBeenCalledWith('price-low')
+    render(<PricingToolbar {...props} sortBy='input-price' />)
+    await user.click(screen.getByRole('button', { name: 'Input price' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Output price' }))
+    expect(props.onSortChange).toHaveBeenCalledWith('output-price')
+  })
+
+  it('toggles the sort direction from the arrow button', async () => {
+    const props = toolbarProps()
+    const user = userEvent.setup()
+    const { rerender } = render(<PricingToolbar {...props} />)
+    const ascending = screen.getByRole('button', { name: 'Sort ascending' })
+    expect(ascending).toHaveAttribute('title', 'Sort ascending')
+    await user.click(ascending)
+    expect(props.onSortDirChange).toHaveBeenCalledWith('desc')
+    rerender(<PricingToolbar {...props} sortDir='desc' />)
+    await user.click(screen.getByRole('button', { name: 'Sort descending' }))
+    expect(props.onSortDirChange).toHaveBeenLastCalledWith('asc')
   })
 
   it('opens mobile filters from the left, selects a group, and restores focus on close', async () => {

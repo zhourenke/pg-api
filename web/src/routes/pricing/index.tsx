@@ -26,6 +26,7 @@ import { useAuthStore } from '@/stores/auth-store'
 const pricingSearchSchema = z.object({
   search: z.string().optional(),
   sort: z.string().optional(),
+  dir: z.enum(['asc', 'desc']).optional().catch(undefined),
   vendor: z.string().optional(),
   group: z.string().optional(),
   quotaType: z.string().optional(),

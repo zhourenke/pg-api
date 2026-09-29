@@ -24,10 +24,13 @@ import { useDebounce } from '@/hooks/use-debounce'
 import {
   FILTER_ALL,
   SORT_OPTIONS,
+  SORT_DIRECTIONS,
+  DEFAULT_SORT_DIRECTION,
   QUOTA_TYPES,
   ENDPOINT_TYPES,
   DEFAULT_TOKEN_UNIT,
   VIEW_MODES,
+  type SortDirection,
   type ViewMode,
 } from '../constants'
 import { filterAndSortModels, extractAllTags } from '../lib/filters'
@@ -36,6 +39,7 @@ import type { PricingModel, TokenUnit } from '../types'
 type FilterState = {
   search?: string
   sort?: string
+  dir?: string
   vendor?: string
   group?: string
   quotaType?: string
@@ -46,6 +50,12 @@ type FilterState = {
   rechargePrice?: boolean
 }
 
+function normalizeSortDirection(value: unknown): SortDirection {
+  return value === SORT_DIRECTIONS.DESC
+    ? SORT_DIRECTIONS.DESC
+    : DEFAULT_SORT_DIRECTION
+}
+
 function normalizeViewMode(value: unknown): ViewMode {
   if (value === VIEW_MODES.TABLE) {
     return VIEW_MODES.TABLE
@@ -53,11 +63,15 @@ function normalizeViewMode(value: unknown): ViewMode {
   return VIEW_MODES.CARD
 }
 
-export function useFilters(models: PricingModel[]) {
+export function useFilters(
+  models: PricingModel[],
+  priceOptions: { priceRate?: number; usdExchangeRate?: number } = {}
+) {
   const search = useSearch({ from: '/pricing/' })
   const [filterState, setFilterState] = useState<FilterState>(() => ({
     search: search.search,
     sort: search.sort,
+    dir: search.dir,
     vendor: search.vendor,
     group: search.group,
     quotaType: search.quotaType,
@@ -71,6 +85,7 @@ export function useFilters(models: PricingModel[]) {
   const searchInput = filterState.search || ''
   const debouncedSearchInput = useDebounce(searchInput, 200)
   const sortBy = filterState.sort || SORT_OPTIONS.NAME
+  const sortDir = normalizeSortDirection(filterState.dir)
   const vendorFilter = filterState.vendor || FILTER_ALL
   const groupFilter = filterState.group || FILTER_ALL
   const quotaTypeFilter = filterState.quotaType || QUOTA_TYPES.ALL
@@ -80,6 +95,8 @@ export function useFilters(models: PricingModel[]) {
     filterState.tokenUnit === 'K' ? 'K' : DEFAULT_TOKEN_UNIT
   const viewMode = normalizeViewMode(filterState.view)
   const showRechargePrice = filterState.rechargePrice === true
+  const priceRate = priceOptions.priceRate ?? 1
+  const usdExchangeRate = priceOptions.usdExchangeRate ?? 1
 
   const updateFilters = useCallback((updates: Record<string, unknown>) => {
     setFilterState((prev) => {
@@ -100,6 +117,13 @@ export function useFilters(models: PricingModel[]) {
   const setSortBy = useCallback(
     (v: string) =>
       updateFilters({ sort: v === SORT_OPTIONS.NAME ? undefined : v }),
+    [updateFilters]
+  )
+  const setSortDir = useCallback(
+    (v: SortDirection) =>
+      updateFilters({
+        dir: v === DEFAULT_SORT_DIRECTION ? undefined : v,
+      }),
     [updateFilters]
   )
   const setVendorFilter = useCallback(
@@ -157,6 +181,12 @@ export function useFilters(models: PricingModel[]) {
       endpointType: endpointTypeFilter,
       tag: tagFilter,
       sortBy,
+      sortDir,
+      tokenUnit,
+      showRechargePrice,
+      priceRate,
+      usdExchangeRate,
+      selectedGroup: groupFilter === FILTER_ALL ? undefined : groupFilter,
     })
   }, [
     models,
@@ -167,6 +197,11 @@ export function useFilters(models: PricingModel[]) {
     endpointTypeFilter,
     tagFilter,
     sortBy,
+    sortDir,
+    tokenUnit,
+    showRechargePrice,
+    priceRate,
+    usdExchangeRate,
   ])
 
   const hasActiveFilters = useMemo(
@@ -206,6 +241,7 @@ export function useFilters(models: PricingModel[]) {
   return {
     searchInput,
     sortBy,
+    sortDir,
     vendorFilter,
     groupFilter,
     quotaTypeFilter,
@@ -216,6 +252,7 @@ export function useFilters(models: PricingModel[]) {
     showRechargePrice,
     setSearchInput,
     setSortBy,
+    setSortDir,
     setVendorFilter,
     setGroupFilter,
     setQuotaTypeFilter,

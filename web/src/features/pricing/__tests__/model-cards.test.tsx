@@ -37,7 +37,6 @@ import {
   useSystemConfigStore,
 } from '@/stores/system-config-store'
 
-import { CachedPriceCell } from '../components/cached-price-cell'
 import { ModelCard } from '../components/model-card'
 import { ModelCardGrid } from '../components/model-card-grid'
 import type { PricingModel } from '../types'
@@ -90,24 +89,6 @@ afterEach(() => {
 })
 
 describe('model cards', () => {
-  it('shows separate generic and image cache prices including a free image cache', () => {
-    render(
-      <CachedPriceCell
-        model={pricingModel({
-          billing_mode: 'tiered_expr',
-          billing_expr:
-            'tier("standard", p * 5 + cr * 1.25 + img * 8 + img_cr * 0 + c * 30)',
-        })}
-        options={{ tokenUnit: 'M' }}
-      />
-    )
-    expect(screen.getByText('Cache Read').parentElement).toHaveTextContent(
-      '$1.25'
-    )
-    expect(screen.getByText('Image Cache').parentElement).toHaveTextContent(
-      '$0'
-    )
-  })
   it('adds the cache read price to the right of output for expression pricing', () => {
     render(
       <ModelCard
@@ -128,6 +109,8 @@ describe('model cards', () => {
     expect(screen.getByText('Cache Read').parentElement).toHaveTextContent(
       '$0.001'
     )
+    // The card no longer repeats the billing mode above the prices.
+    expect(within(pricing).queryByText('Dynamic Pricing')).toBeNull()
   })
 
   it('keeps expression pricing at input and output when the expression prices no cache', () => {
@@ -325,10 +308,10 @@ describe('model cards', () => {
     ).toHaveAttribute('title', tags.join(', '))
     expect(within(tagField).getByText('+4')).toBeVisible()
     expect(
-      within(screen.getByRole('group', { name: 'Pricing' })).getByText(
+      within(screen.getByRole('group', { name: 'Pricing' })).queryByText(
         'Token-based'
       )
-    ).toBeVisible()
+    ).toBeNull()
   })
 
   it('omits metadata fields when the model has no groups, endpoints or tags', () => {
@@ -420,7 +403,7 @@ describe('model cards', () => {
     )
     expect(screen.getByText(/\$0.6/)).toHaveTextContent(/\$0.6\s*\/\s*request/)
     expect(screen.queryByText(/1K|1M/)).not.toBeInTheDocument()
-    expect(screen.getAllByText('Per Request')).toHaveLength(1)
+    expect(screen.queryByText('Per Request')).not.toBeInTheDocument()
     expect(screen.queryByText('Per-request')).not.toBeInTheDocument()
   })
 

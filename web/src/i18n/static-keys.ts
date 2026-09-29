@@ -212,8 +212,13 @@ export const STATIC_I18N_KEYS = [
 
   // Pricing constants
   'Name',
-  'Price: Low to High',
-  'Price: High to Low',
+  'Model',
+  'Input price',
+  'Output price',
+  'Cache read price',
+  'Per-call',
+  'Sort ascending',
+  'Sort descending',
   'All Models',
   'Token-based',
   'Per Request',
@@ -227,7 +232,6 @@ export const STATIC_I18N_KEYS = [
   'Image',
   'Embeddings',
   'Video',
-  'Sort',
   'All',
   'All Vendors',
   'All Groups',

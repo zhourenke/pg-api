@@ -17,13 +17,20 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import {
-  SORT_OPTIONS,
+  SORT_DIRECTIONS,
+  SORT_PRICE_TYPES,
+  type SortPriceType,
   FILTER_ALL,
   QUOTA_TYPES,
   QUOTA_TYPE_VALUES,
   ENDPOINT_TYPES,
 } from '../constants'
-import type { PricingModel } from '../types'
+import type { PricingModel, TokenUnit } from '../types'
+import {
+  getDynamicDisplayGroupRatio,
+  getDynamicPricingSummary,
+} from './dynamic-price'
+import { getRequestPriceValue, getTokenPriceValue } from './price'
 
 // ----------------------------------------------------------------------------
 // Filter Utilities
@@ -98,35 +105,113 @@ export function filterByEndpointType(
   )
 }
 
-/**
- * Get model price for sorting
- */
-function getModelPrice(model: PricingModel): number {
-  return model.quota_type === 0 ? model.model_ratio : model.model_price || 0
+export type SortModelsOptions = {
+  sortBy: string
+  sortDir?: string
+  tokenUnit: TokenUnit
+  showRechargePrice: boolean
+  priceRate: number
+  usdExchangeRate: number
+  selectedGroup?: string
+}
+
+/** Dynamic entries that carry each sortable price */
+const DYNAMIC_FIELDS_BY_PRICE_TYPE: Record<SortPriceType, string> = {
+  input: 'inputPrice',
+  output: 'outputPrice',
+  cache: 'cacheReadPrice',
 }
 
 /**
- * Sort models by specified option
+ * Sort value for a price option, in the same unit and currency the price cells
+ * show. Models that are billed per call or per image always participate, using
+ * the number the price cell shows for them; a model whose cells show no price
+ * for the requested field sorts after every model that has one.
+ */
+function getPriceSortValue(
+  model: PricingModel,
+  type: SortPriceType,
+  options: SortModelsOptions
+): number | null {
+  const dynamic = getDynamicPricingSummary(model, {
+    tokenUnit: options.tokenUnit,
+    showRechargePrice: options.showRechargePrice,
+    priceRate: options.priceRate,
+    usdExchangeRate: options.usdExchangeRate,
+    groupRatioMultiplier: getDynamicDisplayGroupRatio(
+      model,
+      options.selectedGroup
+    ),
+  })
+
+  if (dynamic) {
+    if (dynamic.isSpecialExpression) return null
+    const exact = dynamic.entries.find(
+      (item) => item.field === DYNAMIC_FIELDS_BY_PRICE_TYPE[type]
+    )
+    if (exact) return exact.value
+    const perCall = dynamic.entries.find(
+      (item) => item.unit === 'request' || item.unit === 'image'
+    )
+    return perCall ? perCall.value : null
+  }
+
+  const tokenPrice = getTokenPriceValue(
+    model,
+    type,
+    options.tokenUnit,
+    options.showRechargePrice,
+    options.priceRate,
+    options.usdExchangeRate,
+    options.selectedGroup
+  )
+  if (tokenPrice !== null) return tokenPrice
+
+  return getRequestPriceValue(
+    model,
+    options.showRechargePrice,
+    options.priceRate,
+    options.usdExchangeRate,
+    options.selectedGroup
+  )
+}
+
+function compareByName(a: PricingModel, b: PricingModel): number {
+  return (a.model_name || '').localeCompare(b.model_name || '')
+}
+
+/**
+ * Sort models by the selected field and direction.
+ *
+ * Price options compare the displayed price, so switching the token unit or the
+ * recharge mode keeps the order consistent with the numbers on screen.
  */
 export function sortModels(
   models: PricingModel[],
-  sortBy: string
+  options: SortModelsOptions
 ): PricingModel[] {
   const sorted = [...models]
+  const priceType =
+    SORT_PRICE_TYPES[options.sortBy as keyof typeof SORT_PRICE_TYPES]
+  const descending = options.sortDir === SORT_DIRECTIONS.DESC
 
-  switch (sortBy) {
-    case SORT_OPTIONS.NAME:
-      sorted.sort((a, b) =>
-        (a.model_name || '').localeCompare(b.model_name || '')
-      )
-      break
-    case SORT_OPTIONS.PRICE_LOW:
-      sorted.sort((a, b) => getModelPrice(a) - getModelPrice(b))
-      break
-    case SORT_OPTIONS.PRICE_HIGH:
-      sorted.sort((a, b) => getModelPrice(b) - getModelPrice(a))
-      break
+  if (!priceType) {
+    sorted.sort((a, b) =>
+      descending ? compareByName(b, a) : compareByName(a, b)
+    )
+    return sorted
   }
+
+  sorted.sort((a, b) => {
+    const valueA = getPriceSortValue(a, priceType, options)
+    const valueB = getPriceSortValue(b, priceType, options)
+
+    if (valueA === null && valueB === null) return compareByName(a, b)
+    if (valueA === null) return 1
+    if (valueB === null) return -1
+    if (valueA === valueB) return compareByName(a, b)
+    return descending ? valueB - valueA : valueA - valueB
+  })
 
   return sorted
 }
@@ -136,14 +221,13 @@ export function sortModels(
  */
 export function filterAndSortModels(
   models: PricingModel[],
-  filters: {
+  filters: SortModelsOptions & {
     search: string
     vendor: string
     group: string
     quotaType: string
     endpointType: string
     tag: string
-    sortBy: string
   }
 ): PricingModel[] {
   let result = filterBySearch(models, filters.search)
@@ -152,7 +236,7 @@ export function filterAndSortModels(
   result = filterByQuotaType(result, filters.quotaType)
   result = filterByEndpointType(result, filters.endpointType)
   result = filterByTag(result, filters.tag)
-  result = sortModels(result, filters.sortBy)
+  result = sortModels(result, filters)
 
   return result
 }

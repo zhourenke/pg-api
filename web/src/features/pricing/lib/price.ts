@@ -139,6 +139,72 @@ function applyRechargeRate(
 }
 
 /**
+ * Numeric token price in USD for a single price type.
+ *
+ * Mirrors what formatPrice displays so callers can compare prices without
+ * formatting and parsing them again. Returns null when the model bills per
+ * request or has no value for the requested type.
+ */
+export function getTokenPriceValue(
+  model: PricingModel,
+  type: PriceType,
+  tokenUnit: TokenUnit,
+  showWithRecharge = false,
+  priceRate = 1,
+  usdExchangeRate = 1,
+  selectedGroup?: string
+): number | null {
+  if (model.quota_type === QUOTA_TYPE_VALUES.REQUEST) {
+    return null
+  }
+
+  const displayGroupRatio = getDisplayGroupRatio(model, selectedGroup)
+
+  const priceInUSD = applyRechargeRate(
+    calculateTokenPrice(model, type, displayGroupRatio),
+    showWithRecharge,
+    priceRate,
+    usdExchangeRate
+  )
+
+  if (!Number.isFinite(priceInUSD)) {
+    return null
+  }
+
+  return priceInUSD / TOKEN_UNIT_DIVISORS[tokenUnit]
+}
+
+/**
+ * Numeric per-request price in USD, mirroring formatRequestPrice.
+ *
+ * Returns null for token-based models.
+ */
+export function getRequestPriceValue(
+  model: PricingModel,
+  showWithRecharge = false,
+  priceRate = 1,
+  usdExchangeRate = 1,
+  selectedGroup?: string
+): number | null {
+  if (model.quota_type !== QUOTA_TYPE_VALUES.REQUEST) {
+    return null
+  }
+
+  const priceInUSD = applyRechargeRate(
+    (model.model_price || 0) * getDisplayGroupRatio(model, selectedGroup),
+    showWithRecharge,
+    priceRate,
+    usdExchangeRate
+  )
+
+  if (!Number.isFinite(priceInUSD)) {
+    return null
+  }
+
+  return priceInUSD
+}
+
+/**
  * Format token-based price for display
  */
 export function formatPrice(
@@ -151,21 +217,20 @@ export function formatPrice(
   selectedGroup?: string,
   showCurrencySymbol = true
 ): string {
-  if (model.quota_type === QUOTA_TYPE_VALUES.REQUEST) {
+  const price = getTokenPriceValue(
+    model,
+    type,
+    tokenUnit,
+    showWithRecharge,
+    priceRate,
+    usdExchangeRate,
+    selectedGroup
+  )
+
+  if (price === null) {
     return '-'
   }
 
-  const displayGroupRatio = getDisplayGroupRatio(model, selectedGroup)
-
-  let priceInUSD = calculateTokenPrice(model, type, displayGroupRatio)
-  priceInUSD = applyRechargeRate(
-    priceInUSD,
-    showWithRecharge,
-    priceRate,
-    usdExchangeRate
-  )
-
-  const price = priceInUSD / TOKEN_UNIT_DIVISORS[tokenUnit]
   return formatBillingCurrencyFromUSD(price, {
     showSymbol: showCurrencySymbol,
     digitsLarge: 4,

@@ -1179,6 +1179,7 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
             {isDynamic && (
               <DynamicPricingBreakdown
                 billingExpr={props.model.billing_expr}
+                hideHeader
                 priceOptions={{
                   showRechargePrice,
                   priceRate: props.priceRate,

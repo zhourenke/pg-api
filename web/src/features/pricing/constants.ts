@@ -24,20 +24,42 @@ import type { TokenUnit } from './types'
 // Pricing Constants
 // ----------------------------------------------------------------------------
 
-/** Sort options for pricing models */
+/** Sortable fields for pricing models */
 export const SORT_OPTIONS = {
   NAME: 'name',
-  PRICE_LOW: 'price-low',
-  PRICE_HIGH: 'price-high',
+  INPUT_PRICE: 'input-price',
+  OUTPUT_PRICE: 'output-price',
+  CACHE_READ_PRICE: 'cache-read-price',
 } as const
 
 export type SortOption = (typeof SORT_OPTIONS)[keyof typeof SORT_OPTIONS]
 
+/** Sort direction, shared by every sort option */
+export const SORT_DIRECTIONS = {
+  ASC: 'asc',
+  DESC: 'desc',
+} as const
+
+export type SortDirection =
+  (typeof SORT_DIRECTIONS)[keyof typeof SORT_DIRECTIONS]
+
+export const DEFAULT_SORT_DIRECTION: SortDirection = SORT_DIRECTIONS.ASC
+
+/** Price field each price sort option compares */
+export type SortPriceType = 'input' | 'output' | 'cache'
+
+export const SORT_PRICE_TYPES: Partial<Record<SortOption, SortPriceType>> = {
+  [SORT_OPTIONS.INPUT_PRICE]: 'input',
+  [SORT_OPTIONS.OUTPUT_PRICE]: 'output',
+  [SORT_OPTIONS.CACHE_READ_PRICE]: 'cache',
+}
+
 export function getSortLabels(t: TFunction): Record<SortOption, string> {
   return {
-    [SORT_OPTIONS.NAME]: t('Name'),
-    [SORT_OPTIONS.PRICE_LOW]: t('Price: Low to High'),
-    [SORT_OPTIONS.PRICE_HIGH]: t('Price: High to Low'),
+    [SORT_OPTIONS.NAME]: t('Model'),
+    [SORT_OPTIONS.INPUT_PRICE]: t('Input price'),
+    [SORT_OPTIONS.OUTPUT_PRICE]: t('Output price'),
+    [SORT_OPTIONS.CACHE_READ_PRICE]: t('Cache read price'),
   }
 }
 

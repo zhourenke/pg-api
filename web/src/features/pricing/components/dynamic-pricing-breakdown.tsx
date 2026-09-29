@@ -77,6 +77,12 @@ type DynamicPricingBreakdownProps = {
    * icon header and uses the dialog's small text sizes. Defaults to false.
    */
   compact?: boolean
+  /**
+   * Drops the dynamic-pricing banner (icon, title and explanation) while the
+   * tier table and conditional multipliers stay. The model details overview
+   * already states the billing mode, so it renders without the banner.
+   */
+  hideHeader?: boolean
   priceOptions?: Pick<
     DynamicPriceOptions,
     'showRechargePrice' | 'priceRate' | 'usdExchangeRate'
@@ -245,6 +251,7 @@ export function DynamicPricingBreakdown({
   requestRules,
   hideCacheColumns = false,
   compact = false,
+  hideHeader = false,
   priceOptions,
 }: DynamicPricingBreakdownProps) {
   const { t, i18n } = useTranslation()
@@ -362,7 +369,7 @@ export function DynamicPricingBreakdown({
 
   return (
     <section className={cn('min-w-0', !compact && 'py-3 sm:py-4')}>
-      {!compact && (
+      {!compact && !hideHeader && (
         <div className='mb-3 flex items-start gap-2 sm:mb-4'>
           <span className='mt-0.5 inline-flex size-6 items-center justify-center rounded-lg bg-amber-100 text-amber-700 shadow-sm dark:bg-amber-500/20 dark:text-amber-300'>
             <TagIcon className='size-3.5' />

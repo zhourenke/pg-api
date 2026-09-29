@@ -57,6 +57,7 @@ export function Pricing() {
   const {
     searchInput,
     sortBy,
+    sortDir,
     vendorFilter,
     groupFilter,
     quotaTypeFilter,
@@ -67,6 +68,7 @@ export function Pricing() {
     showRechargePrice,
     setSearchInput,
     setSortBy,
+    setSortDir,
     setVendorFilter,
     setGroupFilter,
     setQuotaTypeFilter,
@@ -81,7 +83,7 @@ export function Pricing() {
     availableTags,
     clearFilters,
     clearSearch,
-  } = useFilters(models || [])
+  } = useFilters(models || [], { priceRate, usdExchangeRate })
 
   const handleModelClick = useCallback((modelName: string) => {
     setSelectedModelName(modelName)
@@ -230,6 +232,8 @@ export function Pricing() {
                 totalCount={models?.length}
                 sortBy={sortBy}
                 onSortChange={setSortBy}
+                sortDir={sortDir}
+                onSortDirChange={setSortDir}
                 tokenUnit={tokenUnit}
                 onTokenUnitChange={setTokenUnit}
                 showRechargePrice={showRechargePrice}

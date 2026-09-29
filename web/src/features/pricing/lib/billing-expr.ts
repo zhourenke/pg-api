@@ -528,7 +528,9 @@ function tryParseRuleGroupFactor(part: string): RequestRuleGroup | null {
 
   const conditions = tryParseRequestConditions(m[1])
   if (!conditions) return null
-  return { conditions, multiplier: m[2] }
+  // Keep the condition source so every caller renders it through
+  // formatBillingCondition, the same way requestRuleGroupsFromTrace does.
+  return { conditions, multiplier: m[2], conditionText: m[1] }
 }
 
 export function requestRuleGroupsFromTrace(

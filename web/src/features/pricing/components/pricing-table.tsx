@@ -103,6 +103,9 @@ export function PricingTable(props: PricingTableProps) {
           <DataTableRow
             key={row.id}
             row={row}
+            // Keeps the row memo in sync with the column renderers, so the
+            // price display options re-render the visible cells.
+            cellRenderColumns={columns}
             className='hover:bg-muted/30 cursor-pointer transition-colors'
             onClick={() => handleRowClick(row.original)}
           />
