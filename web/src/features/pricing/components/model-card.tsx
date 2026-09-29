@@ -52,6 +52,13 @@ export interface ModelCardProps {
   perf?: ModelPerfBadgeData
 }
 
+const CARD_CACHE_FIELDS = new Set([
+  'cacheReadPrice',
+  'cacheCreatePrice',
+  'imageCachePrice',
+  'cacheCreate1hPrice',
+])
+
 export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
   const { t } = useTranslation()
   const tokenUnit = props.tokenUnit ?? DEFAULT_TOKEN_UNIT
@@ -96,6 +103,17 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [props.model, dynamicPriceOptions, currency]
   )
+  // The card shows one cache price beside input and output. Which one is decided
+  // by the entry order the billing variables define, so cache read wins over
+  // cache writes; the details dialog still lists every cache dimension.
+  const cardPriceEntries = useMemo(() => {
+    if (!dynamicSummary) return []
+    const cacheEntry = dynamicSummary.entries.find((entry) =>
+      CARD_CACHE_FIELDS.has(entry.field)
+    )
+    if (!cacheEntry) return dynamicSummary.primaryEntries
+    return [...dynamicSummary.primaryEntries, cacheEntry]
+  }, [dynamicSummary])
   let priceSummary: ReactNode
   if (dynamicSummary) {
     if (dynamicSummary.isSpecialExpression) {
@@ -109,10 +127,10 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
           </code>
         </div>
       )
-    } else if (dynamicSummary.primaryEntries.length > 0) {
+    } else if (cardPriceEntries.length > 0) {
       priceSummary = (
         <>
-          {dynamicSummary.primaryEntries.map((entry) => {
+          {cardPriceEntries.map((entry) => {
             const unitLabelKey = getDynamicPriceUnitLabelKey(entry)
             const unitLabel = unitLabelKey ? t(unitLabelKey) : tokenUnitLabel
             const label: ReactNode = t(entry.shortLabel)

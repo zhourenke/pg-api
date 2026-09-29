@@ -30,7 +30,7 @@ import { cn } from '@/lib/utils'
 export type ModelPerfBadgeData = {
   window_start?: number
   window_end?: number
-  avg_latency_ms: number
+  avg_ttft_ms: number
   success_rate: number
   avg_tps: number
   recent_success_series?: SuccessRatePoint[]
@@ -46,7 +46,7 @@ export const ModelPerfBadge = memo(function ModelPerfBadge(
   props: ModelPerfBadgeProps
 ) {
   const { t } = useTranslation()
-  const latencyText = formatLatency(props.perf?.avg_latency_ms ?? 0)
+  const latencyText = formatLatency(props.perf?.avg_ttft_ms ?? 0)
   const throughputText = formatThroughput(props.perf?.avg_tps ?? 0).replace(
     ' t/s',
     't/s'
@@ -123,9 +123,9 @@ export const ModelPerfBadge = memo(function ModelPerfBadge(
             })}
           </dd>
         </div>
-        <div title={t('Average latency')} className='shrink-0'>
+        <div title={t('Average first-token latency')} className='shrink-0'>
           <dt className='text-muted-foreground text-[11px] leading-4'>
-            {t('Latency short')}
+            {t('First token latency')}
           </dt>
           <dd className='mt-1 font-mono whitespace-nowrap'>
             {latencyText === '—' ? '—s' : latencyText}

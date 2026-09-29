@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/model"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	"github.com/zhourenke/pg-api/relaykit/types"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestClassifyRelayOutcome(t *testing.T) {
@@ -178,6 +178,9 @@ func TestPerformanceAggregationAndFlush(t *testing.T) {
 			assert.Equal(t, before.Summary, summary.Summary)
 			require.Len(t, summary.Models, 1)
 			assert.Equal(t, 99.01, summary.Models[0].SuccessRate)
+			// The pricing card reads the first-token latency; the failing sample
+			// above reported none, so only the stored TTFT samples count.
+			assert.Equal(t, int64(100), summary.Models[0].AvgTtftMs)
 			assert.Equal(t, 99.01, summary.Models[0].RecentSuccessSeries[0].SuccessRate)
 			encoded, err := common.Marshal(summary)
 			require.NoError(t, err)

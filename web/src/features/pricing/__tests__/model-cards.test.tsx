@@ -106,6 +106,77 @@ describe('model cards', () => {
       '$0'
     )
   })
+  it('adds the cache read price to the right of output for expression pricing', () => {
+    render(
+      <ModelCard
+        model={pricingModel({
+          billing_mode: 'tiered_expr',
+          billing_expr: 'tier("standard", p * 0.05 + c * 0.2 + cr * 0.001)',
+        })}
+        onClick={vi.fn()}
+        tokenUnit='M'
+      />
+    )
+    const pricing = screen.getByRole('group', { name: 'Pricing' })
+    expect(
+      within(pricing)
+        .getAllByText(/^(Input|Output|Cache Read)$/)
+        .map((label) => label.textContent)
+    ).toEqual(['Input', 'Output', 'Cache Read'])
+    expect(screen.getByText('Cache Read').parentElement).toHaveTextContent(
+      '$0.001'
+    )
+  })
+
+  it('keeps expression pricing at input and output when the expression prices no cache', () => {
+    render(
+      <ModelCard
+        model={pricingModel({
+          billing_mode: 'tiered_expr',
+          billing_expr: 'tier("standard", p * 0.05 + c * 0.2)',
+        })}
+        onClick={vi.fn()}
+        tokenUnit='M'
+      />
+    )
+    expect(screen.queryByText('Cache Read')).not.toBeInTheDocument()
+    expect(screen.queryByText('Cache Write')).not.toBeInTheDocument()
+  })
+
+  it('shows only the cache read price when the expression also prices cache writes', () => {
+    render(
+      <ModelCard
+        model={pricingModel({
+          billing_mode: 'tiered_expr',
+          billing_expr:
+            'tier("standard", p * 0.05 + c * 0.2 + cr * 0.001 + cc * 0.005)',
+        })}
+        onClick={vi.fn()}
+        tokenUnit='M'
+      />
+    )
+    expect(screen.getByText('Cache Read').parentElement).toHaveTextContent(
+      '$0.001'
+    )
+    expect(screen.queryByText('Cache Write')).not.toBeInTheDocument()
+  })
+
+  it('labels the card performance figure as first-token latency', () => {
+    render(
+      <ModelCard
+        model={pricingModel()}
+        onClick={vi.fn()}
+        perf={{ avg_ttft_ms: 250, avg_tps: 42, success_rate: 100 }}
+      />
+    )
+    const metrics = screen.getByLabelText(
+      'Performance metrics for the last 24 hours'
+    )
+    expect(within(metrics).getByText('First token latency')).toBeVisible()
+    expect(within(metrics).getByText('250ms')).toBeVisible()
+    expect(within(metrics).queryByText('Latency short')).not.toBeInTheDocument()
+  })
+
   it('shows fixed prices per request in both token display units', () => {
     const model = pricingModel({
       billing_mode: 'tiered_expr',
@@ -256,7 +327,7 @@ describe('model cards', () => {
         <ModelCard
           model={pricingModel()}
           onClick={vi.fn()}
-          perf={{ avg_latency_ms: 1200, avg_tps: 42, success_rate }}
+          perf={{ avg_ttft_ms: 1200, avg_tps: 42, success_rate }}
         />
       )
       const metrics = screen.getByLabelText(
@@ -264,6 +335,7 @@ describe('model cards', () => {
       )
       expect(within(metrics).getByText(expected)).toBeVisible()
       expect(within(metrics).getByText('Status')).toBeVisible()
+      expect(within(metrics).getByText('First token latency')).toBeVisible()
       expect(within(metrics).getByText('1.20s')).toBeVisible()
       expect(within(metrics).getByText('42.0t/s')).toBeVisible()
     }
@@ -437,7 +509,7 @@ describe('model cards', () => {
         model={pricingModel()}
         onClick={vi.fn()}
         perf={{
-          avg_latency_ms: 1200,
+          avg_ttft_ms: 1200,
           avg_tps: 42,
           success_rate: 100,
           window_start: currentHourStart - 23 * 3600,
@@ -475,7 +547,7 @@ describe('model cards', () => {
         model={pricingModel()}
         onClick={vi.fn()}
         perf={{
-          avg_latency_ms: 1200,
+          avg_ttft_ms: 1200,
           avg_tps: 42,
           success_rate: 100,
           window_start: currentHourStart - 23 * 3600,
@@ -503,7 +575,7 @@ describe('model cards', () => {
       <ModelCard
         model={pricingModel()}
         onClick={vi.fn()}
-        perf={{ avg_latency_ms: 1200, avg_tps: 42, success_rate: 100 }}
+        perf={{ avg_ttft_ms: 1200, avg_tps: 42, success_rate: 100 }}
       />
     )
 
@@ -528,7 +600,7 @@ describe('model cards', () => {
         model={pricingModel()}
         onClick={vi.fn()}
         perf={{
-          avg_latency_ms: 1200,
+          avg_ttft_ms: 1200,
           avg_tps: 42,
           success_rate: 80,
           window_start: currentHourStart - 47 * 3600,
