@@ -101,7 +101,9 @@ function niceStep(raw: number): number {
 }
 
 function domainText(field: TrendMetricField, max: number, step: number) {
-  const decimals = step >= 1 ? 0 : step >= 0.1 ? 1 : 2
+  let decimals = 2
+  if (step >= 1) decimals = 0
+  else if (step >= 0.1) decimals = 1
   return `0-${max.toFixed(decimals)}${METRIC_UNITS[field]}`
 }
 
@@ -250,12 +252,23 @@ export function ModelOverviewTrendChart(props: ModelOverviewTrendChartProps) {
         valueAxis('success', successDomain, false),
       ],
       legends: { visible: false },
+      // The band axis marks the hovered hour, the same rect crosshair the
+      // previous latency chart showed.
+      crosshair: {
+        xField: {
+          visible: true,
+          line: { visible: true, type: 'rect' as const },
+        },
+      },
       tooltip: {
         // `dimension` shows all three metrics for the hovered hour, and the
         // click trigger keeps touch taps from dismissing it immediately.
         activeType: ['dimension'],
         trigger: ['hover', 'click'],
-        enterable: true,
+        // The panel must stay transparent to pointers: with an enterable
+        // tooltip a fast cursor (or a tap) that lands on the panel freezes the
+        // highlight instead of reporting the hour under the pointer.
+        enterable: false,
         dimension: {
           title: { value: (datum: TrendDatum) => datum?.fullTime },
           content: [

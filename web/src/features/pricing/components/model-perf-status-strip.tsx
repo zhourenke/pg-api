@@ -24,7 +24,7 @@ import type { SuccessRatePoint } from '@/features/performance-metrics/types'
 import { cn } from '@/lib/utils'
 
 const SLOT_COUNT = 24
-const SLOT_GAP_PX = 1
+const SLOT_GAP_CSS_PX = 1
 const SECONDS_PER_HOUR = 3600
 
 export interface ModelPerfStatusStripProps {
@@ -32,6 +32,16 @@ export interface ModelPerfStatusStripProps {
   windowStart?: number
   /** Sparse hourly samples; hours without traffic render as empty slots. */
   series?: SuccessRatePoint[]
+}
+
+type StripLayout = {
+  /** Device pixels to nudge the row so the first bar starts on the grid. */
+  offsetDev: number
+  ratio: number
+  /** Device-pixel pitch of one slot, used for hit testing. */
+  pitchDev: number
+  gapCss: number
+  widthCss: number[]
 }
 
 function buildSlotRates(
@@ -46,8 +56,9 @@ function buildSlotRates(
 
   const byHour = new Map<number, number>()
   for (const point of series ?? []) {
-    if (Number.isFinite(point.success_rate))
+    if (Number.isFinite(point.success_rate)) {
       byHour.set(point.ts, point.success_rate)
+    }
   }
   for (let slot = 0; slot < SLOT_COUNT; slot += 1) {
     const rate = byHour.get(windowStart + slot * SECONDS_PER_HOUR)
@@ -56,18 +67,57 @@ function buildSlotRates(
   return rates
 }
 
+function devicePixelRatio(): number {
+  const ratio = globalThis.devicePixelRatio
+  return Number.isFinite(ratio) && ratio > 0 ? ratio : 1
+}
+
 /**
- * Whole-pixel slot widths so the bars stay crisp at any zoom level. Splitting
- * the width evenly instead would leave each bar on a fractional pixel and make
- * the gaps drift.
+ * The bars have to land on real device pixels, not CSS pixels: on a 2x display
+ * an odd CSS width covers three device pixels while its neighbour covers four,
+ * and a row starting at a fractional position blurs every edge. Measuring and
+ * dividing in device pixels keeps all bars the same weight, keeps the gaps
+ * uniform, and never spreads the remainder over more than one device pixel.
  */
-function buildSlotWidths(width: number): number[] {
-  const usable = Math.floor(width) - SLOT_GAP_PX * (SLOT_COUNT - 1)
-  if (usable < SLOT_COUNT) return []
-  const base = Math.floor(usable / SLOT_COUNT)
-  const remainder = usable - base * SLOT_COUNT
-  return Array.from({ length: SLOT_COUNT }, (_, slot) =>
-    slot < remainder ? base + 1 : base
+function buildLayout(rect: {
+  left: number
+  width: number
+}): StripLayout | null {
+  const ratio = devicePixelRatio()
+  // Round the device position first so a fractional CSS offset does not turn
+  // into 0.1999999999999993px of margin.
+  const leftDev = Math.round(rect.left * ratio * 1000) / 1000
+  const rightDev = Math.round((rect.left + rect.width) * ratio * 1000) / 1000
+  const startDev = Math.ceil(leftDev)
+  const endDev = Math.floor(rightDev)
+  const gapDev = Math.max(1, Math.round(SLOT_GAP_CSS_PX * ratio))
+  const usableDev = endDev - startDev - gapDev * (SLOT_COUNT - 1)
+  if (usableDev < SLOT_COUNT) return null
+  const base = Math.floor(usableDev / SLOT_COUNT)
+  const remainder = usableDev - base * SLOT_COUNT
+  return {
+    // The subtraction is lossy in binary (21 - 20.6 is 0.3999999999999986), and
+    // the remainder is applied as a CSS margin.
+    offsetDev: Math.round((startDev - leftDev) * 1000) / 1000,
+    ratio,
+    pitchDev: (endDev - startDev) / SLOT_COUNT,
+    gapCss: gapDev / ratio,
+    widthCss: Array.from(
+      { length: SLOT_COUNT },
+      (_, slot) => (slot < remainder ? base + 1 : base) / ratio
+    ),
+  }
+}
+
+function sameLayout(current: StripLayout | null, next: StripLayout | null) {
+  if (current === next) return true
+  if (!current || !next) return false
+  return (
+    current.offsetDev === next.offsetDev &&
+    current.ratio === next.ratio &&
+    current.gapCss === next.gapCss &&
+    current.widthCss.length === next.widthCss.length &&
+    current.widthCss.every((width, slot) => width === next.widthCss[slot])
   )
 }
 
@@ -75,39 +125,63 @@ function formatHour(hourTs: number): string {
   return String(new Date(hourTs * 1000).getHours()).padStart(2, '0')
 }
 
+/**
+ * The strip is a fixed 24-slot grid, so the hour is the stable identity; the
+ * window start is still unknown before the summary arrives.
+ */
+function slotKey(windowStart: number | undefined, slot: number): string {
+  if (windowStart == null) return `slot-${slot}`
+  return `hour-${windowStart + slot * SECONDS_PER_HOUR}`
+}
+
 export function ModelPerfStatusStrip(props: ModelPerfStatusStripProps) {
   const { t } = useTranslation()
   const containerRef = useRef<HTMLDivElement | null>(null)
-  const [width, setWidth] = useState(0)
+  const [layout, setLayout] = useState<StripLayout | null>(null)
   const [activeSlot, setActiveSlot] = useState<number | null>(null)
 
   const slotRates = useMemo(
     () => buildSlotRates(props.windowStart, props.series),
     [props.windowStart, props.series]
   )
-  const slotWidths = useMemo(() => buildSlotWidths(width), [width])
 
   useEffect(() => {
     const element = containerRef.current
     if (!element || typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver((entries) => {
-      const next = Math.floor(entries[0]?.contentRect.width ?? 0)
-      setWidth((current) => (current === next ? current : next))
-    })
+    const measure = () => {
+      const next = buildLayout(element.getBoundingClientRect())
+      setLayout((current) => (sameLayout(current, next) ? current : next))
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
     observer.observe(element)
-    return () => observer.disconnect()
+    // Browser zoom keeps the CSS size and changes the device pixel ratio, which
+    // the observer never reports.
+    window.addEventListener('resize', measure)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', measure)
+    }
   }, [])
 
   // The full strip is the hit area, so a pointer that lands between two bars
   // still resolves to the nearest hour instead of reporting nothing.
-  const resolveSlot = useCallback((clientX: number): number | null => {
-    const element = containerRef.current
-    if (!element) return null
-    const rect = element.getBoundingClientRect()
-    if (!(rect.width > 0)) return null
-    const slot = Math.floor(((clientX - rect.left) / rect.width) * SLOT_COUNT)
-    return Math.min(SLOT_COUNT - 1, Math.max(0, slot))
-  }, [])
+  const resolveSlot = useCallback(
+    (clientX: number): number | null => {
+      const element = containerRef.current
+      if (!element) return null
+      const rect = element.getBoundingClientRect()
+      if (!(rect.width > 0)) return null
+      // Before the grid is measured, fall back to a proportional hit test.
+      const xDev = layout
+        ? (clientX - rect.left) * layout.ratio - layout.offsetDev
+        : clientX - rect.left
+      const stride = layout ? layout.pitchDev : rect.width / SLOT_COUNT
+      const slot = Math.floor(xDev / stride)
+      return Math.min(SLOT_COUNT - 1, Math.max(0, slot))
+    },
+    [layout]
+  )
 
   // Touch keeps its tooltip until the user taps somewhere else.
   useEffect(() => {
@@ -144,9 +218,6 @@ export function ModelPerfStatusStrip(props: ModelPerfStatusStripProps) {
       ? 'bg-muted-foreground/15'
       : getSuccessRateDotClass(rate)
   }
-  // Whole-pixel widths only exist once the container has been measured; before
-  // that (first paint, no ResizeObserver) an even grid keeps the same 24 slots.
-  const measured = slotWidths.length === SLOT_COUNT
 
   return (
     <div
@@ -175,18 +246,28 @@ export function ModelPerfStatusStrip(props: ModelPerfStatusStripProps) {
           'Recent success-rate samples; gray bars indicate missing data.'
         )}
         className={cn(
-          'h-full gap-px',
-          measured
+          'h-full',
+          layout
             ? 'flex items-stretch'
-            : 'grid grid-cols-[repeat(24,minmax(0,1fr))] items-stretch'
+            : 'grid grid-cols-[repeat(24,minmax(0,1fr))] items-stretch gap-px'
         )}
+        // Device-pixel widths only exist once the strip is measured; the even
+        // grid above covers the first paint and environments without a DPR.
+        style={
+          layout
+            ? {
+                marginLeft: layout.offsetDev / layout.ratio,
+                columnGap: layout.gapCss,
+              }
+            : undefined
+        }
       >
         {slotRates.map((_, slot) => (
           <span
-            key={slot}
+            key={slotKey(props.windowStart, slot)}
             aria-hidden
             className={cn('rounded-xs', slotClassName(slot))}
-            style={measured ? { width: `${slotWidths[slot]}px` } : undefined}
+            style={layout ? { width: layout.widthCss[slot] } : undefined}
           />
         ))}
       </div>

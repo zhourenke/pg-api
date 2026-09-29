@@ -46,7 +46,11 @@ type CapturedSpec = {
     max?: number
     label?: { visible?: boolean }
   }>
+  crosshair?: {
+    xField?: { visible?: boolean; line?: { visible?: boolean; type?: string } }
+  }
   tooltip: {
+    enterable?: boolean
     dimension: {
       title: { value: (datum: TrendDatumLike) => string }
       content: Array<{
@@ -178,6 +182,21 @@ it('starts every value axis at zero and keeps only the hour labels', async () =>
   expect(spec.axes[3].max).toBe(80)
   expect(spec.axes[3].label?.visible).toBe(false)
   expect(spec.axes[0].label?.visible).toBeUndefined()
+})
+
+it('marks the hovered hour and keeps the tooltip out of the pointer path', async () => {
+  chart.mockClear()
+  renderTrend([trendGroup({ series: [hourPoint(5)] })])
+
+  const [spec] = await capturedSpecs()
+  expect(spec.crosshair?.xField?.visible).toBe(true)
+  expect(spec.crosshair?.xField?.line).toMatchObject({
+    visible: true,
+    type: 'rect',
+  })
+  // An enterable panel becomes a hit target, so a fast cursor or a tap that
+  // lands on it freezes the highlight instead of reporting the hour below.
+  expect(spec.tooltip.enterable).toBe(false)
 })
 
 it('writes each range into the legend with the metric unit', async () => {

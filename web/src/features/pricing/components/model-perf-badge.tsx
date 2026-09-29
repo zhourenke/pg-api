@@ -71,7 +71,10 @@ export const ModelPerfBadge = memo(function ModelPerfBadge(
         props.className
       )}
     >
-      <dl className='flex min-w-0 flex-wrap items-start gap-x-5 gap-y-2 text-xs tabular-nums'>
+      {/* One row on purpose: wrapping pushes 速度 onto its own line and reads as
+          a broken card. On a narrow card the numbers may reach a few pixels past
+          the details button, which the owner accepted. */}
+      <dl className='flex min-w-0 items-start gap-5 text-xs tabular-nums'>
         <div className='w-24 shrink-0'>
           <dt
             title={t(

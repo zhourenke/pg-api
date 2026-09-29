@@ -29,18 +29,43 @@ const HOUR = 3600
 // 00:00 local time of a fixed day keeps the expected hour labels deterministic.
 const dayStart = Math.floor(new Date(2026, 8, 28, 0, 0, 0, 0).getTime() / 1000)
 
-function stubStripRect(width: number) {
+function stubStripRect(width: number, left = 100) {
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
-    left: 100,
-    right: 100 + width,
+    left,
+    right: left + width,
     top: 0,
     bottom: 12,
     width,
     height: 12,
-    x: 100,
+    x: left,
     y: 0,
     toJSON: () => ({}),
   } as DOMRect)
+}
+
+/** Reports the measured element once, like a browser does on first layout. */
+class ImmediateResizeObserver {
+  callback: ResizeObserverCallback
+
+  constructor(callback: ResizeObserverCallback) {
+    this.callback = callback
+  }
+
+  observe(target: Element) {
+    this.callback(
+      [
+        {
+          target,
+          contentRect: { width: 96 } as DOMRectReadOnly,
+        } as ResizeObserverEntry,
+      ],
+      this as unknown as ResizeObserver
+    )
+  }
+
+  unobserve() {}
+
+  disconnect() {}
 }
 
 function stripElement(): HTMLElement {
@@ -160,30 +185,8 @@ describe('ModelPerfStatusStrip', () => {
   })
 
   it('sizes every slot on whole pixels once the strip is measured', () => {
-    class ImmediateResizeObserver {
-      callback: ResizeObserverCallback
-
-      constructor(callback: ResizeObserverCallback) {
-        this.callback = callback
-      }
-
-      observe(target: Element) {
-        this.callback(
-          [
-            {
-              target,
-              contentRect: { width: 96 } as DOMRectReadOnly,
-            } as ResizeObserverEntry,
-          ],
-          this as unknown as ResizeObserver
-        )
-      }
-
-      unobserve() {}
-
-      disconnect() {}
-    }
     vi.stubGlobal('ResizeObserver', ImmediateResizeObserver)
+    stubStripRect(96)
 
     render(<ModelPerfStatusStrip windowStart={dayStart} />)
 
@@ -193,5 +196,28 @@ describe('ModelPerfStatusStrip', () => {
     const total =
       widths.reduce((sum, width) => sum + Number.parseInt(width, 10), 0) + 23
     expect(total).toBe(96)
+  })
+
+  it('sizes the bars on whole device pixels on a high-density display', () => {
+    vi.stubGlobal('devicePixelRatio', 2)
+    vi.stubGlobal('ResizeObserver', ImmediateResizeObserver)
+    // A container that does not sit on a device pixel boundary is the case that
+    // made every bar edge blurry.
+    stubStripRect(95, 10.3)
+
+    render(<ModelPerfStatusStrip windowStart={dayStart} />)
+
+    const row = stripElement()
+    expect(row.style.marginLeft).toBe('0.2px')
+
+    const widths = slotElements().map((slot) =>
+      Number.parseFloat(slot.style.width)
+    )
+    // Each bar covers a whole number of device pixels.
+    expect(widths.every((width) => Number.isInteger(width * 2))).toBe(true)
+    // The remainder never spreads over more than one device pixel.
+    expect(Math.max(...widths) - Math.min(...widths)).toBe(0.5)
+    // 23 gaps of 2 device pixels and the bars span the measured pixels exactly.
+    expect(widths.reduce((sum, width) => sum + width * 2, 0) + 23 * 2).toBe(189)
   })
 })

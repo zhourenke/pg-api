@@ -186,6 +186,28 @@ describe('model cards', () => {
     ).not.toBeInTheDocument()
   })
 
+  it('keeps the status, latency and speed figures on one row', () => {
+    render(
+      <ModelCard
+        model={pricingModel()}
+        onClick={vi.fn()}
+        perf={{
+          recent_ttft_ms: 11371,
+          recent_tps: 159.51,
+          recent_hours: 2,
+          success_rate: 98.16,
+        }}
+      />
+    )
+
+    const row = screen
+      .getByLabelText('Performance metrics for this model')
+      .querySelector('dl')
+    // Wrapping would push 速度 onto its own line; the row overflows instead.
+    expect(row).toHaveClass('flex')
+    expect(row).not.toHaveClass('flex-wrap')
+  })
+
   it('shows fixed prices per request in both token display units', () => {
     const model = pricingModel({
       billing_mode: 'tiered_expr',
