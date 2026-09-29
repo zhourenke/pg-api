@@ -145,8 +145,8 @@ export function usePricingColumns(
             }}
           />
         ),
-        size: 500,
-        minSize: 320,
+        size: 380,
+        minSize: 280,
         enableSorting: false,
       },
 

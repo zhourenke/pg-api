@@ -58,6 +58,17 @@ const CARD_CACHE_FIELDS = new Set([
   'cacheCreate1hPrice',
 ])
 
+/**
+ * Lays the price groups out as blank / group / blank / blank / group / … / blank,
+ * so the first group sits near the left edge, the last near the right edge, and
+ * every blank shares the same flexible width.
+ */
+function getPriceGroupGridTemplate(groupCount: number): string {
+  return Array.from({ length: groupCount * 3 }, (_, index) =>
+    index % 3 === 1 ? 'auto' : '1fr'
+  ).join(' ')
+}
+
 export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
   const { t } = useTranslation()
   const tokenUnit = props.tokenUnit ?? DEFAULT_TOKEN_UNIT
@@ -65,7 +76,6 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
   const usdExchangeRate = props.usdExchangeRate ?? 1
   const showRechargePrice = props.showRechargePrice ?? false
   const isTokenBased = isTokenBasedModel(props.model)
-  const tokenUnitLabel = tokenUnit === 'K' ? '1K' : '1M'
   const tags = parseTags(props.model.tags)
   const groups = props.model.enable_groups || []
   const endpoints = props.model.supported_endpoint_types || []
@@ -114,6 +124,8 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
     return [...dynamicSummary.primaryEntries, cacheEntry]
   }, [dynamicSummary])
   let priceSummary: ReactNode
+  // Number of price groups shown in the row; 0 keeps the plain auto-fit grid.
+  let priceGroupCount = 0
   if (dynamicSummary) {
     if (dynamicSummary.isSpecialExpression) {
       priceSummary = (
@@ -127,14 +139,21 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
         </div>
       )
     } else if (cardPriceEntries.length > 0) {
+      priceGroupCount = cardPriceEntries.length
       priceSummary = (
         <>
-          {cardPriceEntries.map((entry) => {
+          {cardPriceEntries.map((entry, index) => {
+            // Token prices drop the unit because the toolbar selects it; only
+            // per-request and per-image prices keep a suffix.
             const unitLabelKey = getDynamicPriceUnitLabelKey(entry)
-            const unitLabel = unitLabelKey ? t(unitLabelKey) : tokenUnitLabel
+            const unitLabel = unitLabelKey ? t(unitLabelKey) : ''
             const label: ReactNode = t(entry.shortLabel)
             return (
-              <div key={entry.key} className='flex min-w-0 flex-col gap-1'>
+              <div
+                key={entry.key}
+                className='flex min-w-0 flex-col items-start gap-1'
+                style={{ gridColumnStart: index * 3 + 2 }}
+              >
                 {label && (
                   <span className='text-muted-foreground text-xs break-words whitespace-normal'>
                     {label}
@@ -142,10 +161,12 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
                 )}
                 <span className='flex flex-wrap items-baseline gap-x-1 font-mono text-sm font-semibold tabular-nums'>
                   <span>{entry.formattedRange ?? entry.formatted}</span>
-                  <span className='text-muted-foreground text-xs font-normal whitespace-nowrap'>
-                    {' '}
-                    / {unitLabel}
-                  </span>
+                  {unitLabel && (
+                    <span className='text-muted-foreground text-xs font-normal whitespace-nowrap'>
+                      {' '}
+                      / {unitLabel}
+                    </span>
+                  )}
                 </span>
               </div>
             )
@@ -177,8 +198,13 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
         ? [{ type: 'cache' as const, label: t('Cached') }]
         : []),
     ]
-    priceSummary = prices.map((price) => (
-      <div key={price.type} className='flex min-w-0 flex-col gap-1'>
+    priceGroupCount = prices.length
+    priceSummary = prices.map((price, index) => (
+      <div
+        key={price.type}
+        className='flex min-w-0 flex-col items-start gap-1'
+        style={{ gridColumnStart: index * 3 + 2 }}
+      >
         <span className='text-muted-foreground text-xs'>{price.label}</span>
         <span className='font-mono text-sm font-semibold tabular-nums'>
           {formatPrice(
@@ -190,16 +216,19 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
             usdExchangeRate,
             props.selectedGroup
           )}
-          <span className='text-muted-foreground text-xs font-normal'>
-            {' '}
-            / {tokenUnitLabel}
-          </span>
         </span>
       </div>
     ))
   } else {
+    // A per-request model has a single group, laid out on the middle track so
+    // it sits where a token model shows its output price.
+    priceGroupCount = 1
     priceSummary = (
-      <div className='col-span-full flex min-w-0 flex-col gap-1'>
+      <div
+        className='flex min-w-0 flex-col items-start gap-1'
+        style={{ gridColumnStart: 2 }}
+      >
+        <span className='text-muted-foreground text-xs'>{t('Per-call')}</span>
         <span className='font-mono text-sm font-semibold tabular-nums'>
           {formatRequestPrice(
             props.model,
@@ -281,7 +310,17 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
           aria-label={t('Pricing')}
           className='mt-auto flex min-w-0 flex-col gap-1.5'
         >
-          <div className='grid grid-cols-[repeat(auto-fit,minmax(88px,1fr))] gap-x-3 gap-y-2'>
+          <div
+            className='grid gap-y-2'
+            style={
+              priceGroupCount > 0
+                ? {
+                    gridTemplateColumns:
+                      getPriceGroupGridTemplate(priceGroupCount),
+                  }
+                : undefined
+            }
+          >
             {priceSummary}
           </div>
         </div>

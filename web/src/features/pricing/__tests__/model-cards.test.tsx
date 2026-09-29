@@ -368,25 +368,20 @@ describe('model cards', () => {
       usdExchangeRate: 6,
     }
     const { rerender } = render(<ModelCard {...props} tokenUnit='M' />)
-    expect(screen.getByText('Input').parentElement).toHaveTextContent(
-      /\$3\s*\/\s*1M/
-    )
-    expect(screen.getByText('Output').parentElement).toHaveTextContent(
-      /\$9\s*\/\s*1M/
-    )
-    expect(screen.getByText('Cached').parentElement).toHaveTextContent(
-      /\$0\s*\/\s*1M/
-    )
+    expect(screen.getByText('Input').parentElement).toHaveTextContent(/\$3$/)
+    expect(screen.getByText('Output').parentElement).toHaveTextContent(/\$9$/)
+    expect(screen.getByText('Cached').parentElement).toHaveTextContent(/\$0$/)
+    // The toolbar owns the token unit, so the card never repeats it.
+    expect(screen.queryByText(/1K|1M/)).toBeNull()
     rerender(<ModelCard {...props} tokenUnit='K' />)
     expect(screen.getByText('Input').parentElement).toHaveTextContent(
-      /\$0.003\s*\/\s*1K/
+      /\$0\.003$/
     )
     expect(screen.getByText('Output').parentElement).toHaveTextContent(
-      /\$0.009\s*\/\s*1K/
+      /\$0\.009$/
     )
-    expect(screen.getByText('Cached').parentElement).toHaveTextContent(
-      /\$0\s*\/\s*1K/
-    )
+    expect(screen.getByText('Cached').parentElement).toHaveTextContent(/\$0$/)
+    expect(screen.queryByText(/1K|1M/)).toBeNull()
   })
 
   it('shows a per-request price with the selected group and recharge multiplier without a token unit', () => {
@@ -407,7 +402,48 @@ describe('model cards', () => {
     expect(screen.queryByText('Per-request')).not.toBeInTheDocument()
   })
 
-  it('preserves expression prices and makes the selected token unit explicit', () => {
+  it('spreads the three token price groups across a blank and group row', () => {
+    render(
+      <ModelCard
+        model={pricingModel({ cache_ratio: 0.1 })}
+        onClick={vi.fn()}
+        tokenUnit='M'
+      />
+    )
+
+    const row = screen.getByRole('group', { name: 'Pricing' })
+      .firstElementChild as HTMLElement
+    expect(row.style.gridTemplateColumns).toBe(
+      '1fr auto 1fr 1fr auto 1fr 1fr auto 1fr'
+    )
+    const groups = ['Input', 'Output', 'Cached'].map(
+      (label) => screen.getByText(label).parentElement as HTMLElement
+    )
+    expect(groups.map((group) => group.style.gridColumnStart)).toEqual([
+      '2',
+      '5',
+      '8',
+    ])
+  })
+
+  it('centers the single per-request price group on the middle track', () => {
+    render(
+      <ModelCard
+        model={pricingModel({ quota_type: 1, model_price: 0.4 })}
+        onClick={vi.fn()}
+        tokenUnit='M'
+      />
+    )
+
+    const row = screen.getByRole('group', { name: 'Pricing' })
+      .firstElementChild as HTMLElement
+    expect(row.style.gridTemplateColumns).toBe('1fr auto 1fr')
+    const group = screen.getByText('Per-call').parentElement as HTMLElement
+    expect(group.style.gridColumnStart).toBe('2')
+    expect(group).toHaveTextContent(/\$0\.4\s*\/\s*request/)
+  })
+
+  it('preserves expression prices without repeating the token unit', () => {
     render(
       <ModelCard
         model={pricingModel({
@@ -423,11 +459,12 @@ describe('model cards', () => {
       />
     )
     expect(screen.getByText('Input').parentElement).toHaveTextContent(
-      /\$0.0045\s*\/\s*1K/
+      /\$0\.0045$/
     )
     expect(screen.getByText('Output').parentElement).toHaveTextContent(
-      /\$0.0225\s*\/\s*1K/
+      /\$0\.0225$/
     )
+    expect(screen.queryByText(/1K|1M/)).toBeNull()
   })
 
   it('keeps an unrecognized expression visible with the special billing message', () => {

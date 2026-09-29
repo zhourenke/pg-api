@@ -60,7 +60,6 @@ export function ModelPriceInlineCell(props: {
   const currency = useSystemConfigStore((state) => state.config.currency)
   const options = props.options ?? {}
   const tokenUnit = options.tokenUnit ?? DEFAULT_TOKEN_UNIT
-  const tokenUnitLabel = tokenUnit === 'K' ? '1K' : '1M'
   const billingTime = useBillingTime(props.model.billing_expr)
   const dynamic = useMemo(
     () =>
@@ -124,11 +123,12 @@ export function ModelPriceInlineCell(props: {
         ? [...dynamic.primaryEntries, cacheEntry]
         : dynamic.primaryEntries
 
+      // The toolbar picks the token unit, so token prices carry no suffix.
       return priced.map((entry) => ({
         key: entry.key,
         label: t(entry.shortLabel),
         value: entry.formattedRange ?? entry.formatted,
-        unit: tokenUnitLabel,
+        unit: '',
       }))
     }
 
@@ -147,7 +147,7 @@ export function ModelPriceInlineCell(props: {
             options.selectedGroup,
             true
           ),
-          unit: tokenUnitLabel,
+          unit: '',
         },
         {
           key: 'output',
@@ -162,7 +162,7 @@ export function ModelPriceInlineCell(props: {
             options.selectedGroup,
             true
           ),
-          unit: tokenUnitLabel,
+          unit: '',
         },
       ]
       if (props.model.cache_ratio != null) {
@@ -179,7 +179,7 @@ export function ModelPriceInlineCell(props: {
             options.selectedGroup,
             true
           ),
-          unit: tokenUnitLabel,
+          unit: '',
         })
       }
       return prices
@@ -210,7 +210,6 @@ export function ModelPriceInlineCell(props: {
     dynamic,
     props.model,
     tokenUnit,
-    tokenUnitLabel,
     options.showRechargePrice,
     options.priceRate,
     options.usdExchangeRate,

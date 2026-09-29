@@ -94,7 +94,7 @@ describe('pricing table', () => {
     // The price cell renders input, output and cache read on one line, so it
     // takes the largest share of the table width.
     expect(widths[3]).toBe(Math.max(...widths))
-    expect(widths[3]).toBeGreaterThanOrEqual(35)
+    expect(widths[3]).toBeGreaterThanOrEqual(30)
   })
 
   it('leaves the model header without its own sort control', () => {
@@ -115,7 +115,7 @@ describe('pricing table', () => {
     expect(screen.getByText('$0.002')).toBeVisible()
     expect(screen.getByText('$0.008')).toBeVisible()
     expect(screen.queryByText('$2')).toBeNull()
-    expect(screen.getAllByText('/ 1K')).toHaveLength(2)
+    expect(screen.queryByText(/\/ 1[KM]/)).toBeNull()
   })
 
   it('re-renders visible price cells when the recharge display mode changes', () => {

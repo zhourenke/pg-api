@@ -71,7 +71,7 @@ afterEach(() => {
 })
 
 describe('inline price cell', () => {
-  it('lists input, output and cache read on one line with a currency symbol and unit each', () => {
+  it('lists input, output and cache read on one line with a currency symbol each', () => {
     render(
       <ModelPriceInlineCell
         model={pricingModel({ completion_ratio: 4, cache_ratio: 0.1 })}
@@ -87,7 +87,8 @@ describe('inline price cell', () => {
     expect(screen.getByText('$2')).toBeVisible()
     expect(screen.getByText('$8')).toBeVisible()
     expect(screen.getByText('$0.2')).toBeVisible()
-    expect(screen.getAllByText('/ 1M')).toHaveLength(3)
+    // The toolbar owns the token unit, so no value repeats it.
+    expect(screen.queryByText(/\/ 1[KM]/)).toBeNull()
     expect(screen.queryByText(/CNY|USD/)).toBeNull()
   })
 
@@ -95,7 +96,7 @@ describe('inline price cell', () => {
     render(<ModelPriceInlineCell model={pricingModel()} options={{}} />)
 
     expect(screen.queryByText('Cache Read')).toBeNull()
-    expect(screen.getAllByText('/ 1M')).toHaveLength(2)
+    expect(screen.getAllByText(/^\$/)).toHaveLength(2)
   })
 
   it('recomputes every value when the token unit changes', () => {
@@ -114,7 +115,7 @@ describe('inline price cell', () => {
       />
     )
     expect(screen.getByText('$0.008')).toBeVisible()
-    expect(screen.getAllByText('/ 1K')).toHaveLength(2)
+    expect(screen.queryByText(/\/ 1[KM]/)).toBeNull()
   })
 
   it('shows a per-call price per request for pay-per-request models', () => {
@@ -146,6 +147,6 @@ describe('inline price cell', () => {
     expect(screen.getByText('$0.2')).toBeVisible()
     expect(screen.getByText('Cache Read')).toBeVisible()
     expect(screen.getByText('$0.001')).toBeVisible()
-    expect(screen.getAllByText('/ 1M')).toHaveLength(3)
+    expect(screen.queryByText(/\/ 1[KM]/)).toBeNull()
   })
 })
