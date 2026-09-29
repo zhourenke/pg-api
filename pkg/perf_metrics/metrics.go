@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -211,12 +212,16 @@ func QuerySummaryAll(hours int, groups []string) (SummaryAllResult, error) {
 		if total.generationMs > 0 {
 			avgTps = float64(total.outputTokens) / (float64(total.generationMs) / 1000.0)
 		}
+		recentTtftMs, recentTps, recentHours := recentHourWindow(modelBuckets[name])
 		models = append(models, ModelSummary{
 			ModelName:           name,
 			AvgTtftMs:           avg(total.ttftSumMs, total.ttftCount),
 			AvgLatencyMs:        avgLatency,
 			SuccessRate:         math.Round(successRate*100) / 100,
 			AvgTps:              math.Round(avgTps*100) / 100,
+			RecentTtftMs:        recentTtftMs,
+			RecentTps:           recentTps,
+			RecentHours:         recentHours,
 			RecentSuccessSeries: recentSuccessSeries(modelBuckets[name]),
 			RequestCount:        total.requestCount,
 		})
@@ -261,18 +266,54 @@ func mergeModelBucket(modelBuckets map[string]map[int64]counters, modelName stri
 	modelBuckets[modelName][bucketTs] = current
 }
 
-func recentSuccessSeries(buckets map[int64]counters) []SuccessRatePoint {
-	if len(buckets) == 0 {
-		return nil
+// recentHourLimit is how many of the most recent hours with traffic the model
+// square card aggregates. One hour can be a handful of logs, a whole day hides
+// the current behaviour, so the card reads these hours only.
+const recentHourLimit = 2
+
+func recentHourWindow(buckets map[int64]counters) (ttftMs int64, tps float64, hours int) {
+	hourly := hourlyBuckets(buckets)
+	timestamps := make([]int64, 0, len(hourly))
+	for hourTs, value := range hourly {
+		if value.requestCount > 0 {
+			timestamps = append(timestamps, hourTs)
+		}
 	}
+	if len(timestamps) == 0 {
+		return 0, 0, 0
+	}
+	slices.Sort(timestamps)
+	window := timestamps[max(0, len(timestamps)-recentHourLimit):]
+	total := counters{}
+	for _, hourTs := range window {
+		value := hourly[hourTs]
+		total.ttftSumMs += value.ttftSumMs
+		total.ttftCount += value.ttftCount
+		total.outputTokens += value.outputTokens
+		total.generationMs += value.generationMs
+	}
+	return avg(total.ttftSumMs, total.ttftCount), math.Round(avgTps(total)*100) / 100, len(window)
+}
+
+func hourlyBuckets(buckets map[int64]counters) map[int64]counters {
 	hourly := map[int64]counters{}
 	for ts, value := range buckets {
 		hourTs := ts - ts%3600
 		merged := hourly[hourTs]
 		merged.requestCount += value.requestCount
 		merged.successCount += value.successCount
+		merged.totalLatencyMs += value.totalLatencyMs
+		merged.ttftSumMs += value.ttftSumMs
+		merged.ttftCount += value.ttftCount
+		merged.outputTokens += value.outputTokens
+		merged.generationMs += value.generationMs
 		hourly[hourTs] = merged
 	}
+	return hourly
+}
+
+func recentSuccessSeries(buckets map[int64]counters) []SuccessRatePoint {
+	hourly := hourlyBuckets(buckets)
 	timestamps := make([]int64, 0, len(hourly))
 	for hourTs, value := range hourly {
 		if value.requestCount == 0 {
@@ -283,9 +324,7 @@ func recentSuccessSeries(buckets map[int64]counters) []SuccessRatePoint {
 	if len(timestamps) == 0 {
 		return nil
 	}
-	sort.Slice(timestamps, func(i, j int) bool {
-		return timestamps[i] < timestamps[j]
-	})
+	slices.Sort(timestamps)
 	points := make([]SuccessRatePoint, 0, len(timestamps))
 	for _, hourTs := range timestamps {
 		points = append(points, SuccessRatePoint{

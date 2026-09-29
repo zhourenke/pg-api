@@ -67,11 +67,16 @@ type SuccessRatePoint struct {
 }
 
 type ModelSummary struct {
-	ModelName           string             `json:"model_name"`
-	AvgTtftMs           int64              `json:"avg_ttft_ms"`
-	AvgLatencyMs        int64              `json:"avg_latency_ms"`
-	SuccessRate         float64            `json:"success_rate"`
-	AvgTps              float64            `json:"avg_tps"`
+	ModelName    string  `json:"model_name"`
+	AvgTtftMs    int64   `json:"avg_ttft_ms"`
+	AvgLatencyMs int64   `json:"avg_latency_ms"`
+	SuccessRate  float64 `json:"success_rate"`
+	AvgTps       float64 `json:"avg_tps"`
+	// The model square card shows the recent window instead of the 24h average,
+	// because a full-day average hides what the model does right now.
+	RecentTtftMs        int64              `json:"recent_ttft_ms"`
+	RecentTps           float64            `json:"recent_tps"`
+	RecentHours         int                `json:"recent_hours"`
 	RecentSuccessSeries []SuccessRatePoint `json:"recent_success_series,omitempty"`
 	RequestCount        int64              `json:"-"`
 }

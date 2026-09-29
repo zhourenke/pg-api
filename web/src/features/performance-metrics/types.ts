@@ -61,6 +61,12 @@ export type PerfModelSummary = {
   avg_latency_ms: number
   success_rate: number
   avg_tps: number
+  /** First-token latency over the most recent hours with traffic, not 24h. */
+  recent_ttft_ms: number
+  /** Model speed over the most recent hours with traffic, not 24h. */
+  recent_tps: number
+  /** How many recent hours with traffic those two values cover (0 = no data). */
+  recent_hours: number
   recent_success_series?: SuccessRatePoint[]
   request_count?: number
 }

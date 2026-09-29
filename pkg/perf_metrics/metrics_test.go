@@ -109,6 +109,37 @@ func TestHourlySuccessSeriesWeightsSmallerBuckets(t *testing.T) {
 	assert.Equal(t, []SuccessRatePoint{{Ts: 3600, SuccessRate: 99.01}, {Ts: 7200, SuccessRate: 100}}, points)
 }
 
+func TestRecentHourWindowUsesTheNewestHoursWithTraffic(t *testing.T) {
+	// The pricing card must not read the 24h average. Only the two newest hours
+	// with traffic count: hour 3600 is older and is dropped even though it holds
+	// the most samples, and hour 14400 has no traffic at all. The 3900 bucket is
+	// sub-hourly and must be merged into hour 3600 before the window is chosen.
+	ttftMs, tps, hours := recentHourWindow(map[int64]counters{
+		3600:  {requestCount: 3, ttftSumMs: 3000, ttftCount: 3, outputTokens: 30, generationMs: 3000},
+		3900:  {requestCount: 1, ttftSumMs: 9000, ttftCount: 1, outputTokens: 10, generationMs: 1000},
+		7200:  {requestCount: 2, ttftSumMs: 2000, ttftCount: 2, outputTokens: 40, generationMs: 4000},
+		10800: {requestCount: 1, ttftSumMs: 1000, ttftCount: 1, outputTokens: 21, generationMs: 2000},
+		14400: {},
+	})
+	assert.Equal(t, int64(1000), ttftMs)
+	assert.Equal(t, 10.17, tps)
+	assert.Equal(t, 2, hours)
+
+	// A single hour with traffic is still better than nothing.
+	ttftMs, tps, hours = recentHourWindow(map[int64]counters{
+		3600: {requestCount: 4, ttftSumMs: 2000, ttftCount: 4},
+	})
+	assert.Equal(t, int64(500), ttftMs)
+	assert.Equal(t, 0.0, tps)
+	assert.Equal(t, 1, hours)
+
+	// No usable sample in the window at all.
+	ttftMs, tps, hours = recentHourWindow(map[int64]counters{3600: {}})
+	assert.Equal(t, int64(0), ttftMs)
+	assert.Equal(t, 0.0, tps)
+	assert.Equal(t, 0, hours)
+}
+
 // TEST_PERF_MYSQL_DSN / TEST_PERF_POSTGRES_DSN optionally run the aggregation
 // against isolated real MySQL/PostgreSQL databases.
 func TestPerformanceAggregationAndFlush(t *testing.T) {

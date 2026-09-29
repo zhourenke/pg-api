@@ -26,9 +26,11 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import i18n from 'i18next'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createJSONStorage } from 'zustand/middleware'
 
+import zhCN from '@/i18n/locales/zh.json'
 import { api } from '@/lib/api'
 import {
   DEFAULT_CURRENCY_CONFIG,
@@ -161,20 +163,27 @@ describe('model cards', () => {
     expect(screen.queryByText('Cache Write')).not.toBeInTheDocument()
   })
 
-  it('labels the card performance figure as first-token latency', () => {
+  it('labels the card performance figures as latency and speed', () => {
     render(
       <ModelCard
         model={pricingModel()}
         onClick={vi.fn()}
-        perf={{ avg_ttft_ms: 250, avg_tps: 42, success_rate: 100 }}
+        perf={{
+          recent_ttft_ms: 250,
+          recent_tps: 42,
+          recent_hours: 2,
+          success_rate: 100,
+        }}
       />
     )
-    const metrics = screen.getByLabelText(
-      'Performance metrics for the last 24 hours'
-    )
-    expect(within(metrics).getByText('First token latency')).toBeVisible()
-    expect(within(metrics).getByText('250ms')).toBeVisible()
-    expect(within(metrics).queryByText('Latency short')).not.toBeInTheDocument()
+    const metrics = screen.getByLabelText('Performance metrics for this model')
+    expect(within(metrics).getByText('Latency')).toBeVisible()
+    expect(within(metrics).getByText('250 ms')).toBeVisible()
+    expect(within(metrics).getByText('Speed')).toBeVisible()
+    expect(within(metrics).getByText('42.0 t/s')).toBeVisible()
+    expect(
+      within(metrics).queryByText('First token latency')
+    ).not.toBeInTheDocument()
   })
 
   it('shows fixed prices per request in both token display units', () => {
@@ -229,12 +238,10 @@ describe('model cards', () => {
 
   it('retains a neutral health strip and missing values when metrics are unavailable', () => {
     render(<ModelCard model={pricingModel()} onClick={vi.fn()} />)
-    const metrics = screen.getByLabelText(
-      'Performance metrics for the last 24 hours'
-    )
+    const metrics = screen.getByLabelText('Performance metrics for this model')
     expect(within(metrics).getByText('—')).toBeVisible()
-    expect(within(metrics).getByText('—s')).toBeVisible()
-    expect(within(metrics).getByText('—t/s')).toBeVisible()
+    expect(within(metrics).getByText('— s')).toBeVisible()
+    expect(within(metrics).getByText('— t/s')).toBeVisible()
     expect(within(metrics).queryByText(/100/)).not.toBeInTheDocument()
     expect(
       within(metrics).getByRole('img', {
@@ -327,17 +334,22 @@ describe('model cards', () => {
         <ModelCard
           model={pricingModel()}
           onClick={vi.fn()}
-          perf={{ avg_ttft_ms: 1200, avg_tps: 42, success_rate }}
+          perf={{
+            recent_ttft_ms: 1200,
+            recent_tps: 42,
+            recent_hours: 2,
+            success_rate,
+          }}
         />
       )
       const metrics = screen.getByLabelText(
-        'Performance metrics for the last 24 hours'
+        'Performance metrics for this model'
       )
       expect(within(metrics).getByText(expected)).toBeVisible()
       expect(within(metrics).getByText('Status')).toBeVisible()
-      expect(within(metrics).getByText('First token latency')).toBeVisible()
-      expect(within(metrics).getByText('1.20s')).toBeVisible()
-      expect(within(metrics).getByText('42.0t/s')).toBeVisible()
+      expect(within(metrics).getByText('Latency')).toBeVisible()
+      expect(within(metrics).getByText('1.20 s')).toBeVisible()
+      expect(within(metrics).getByText('42.0 t/s')).toBeVisible()
     }
   )
 
@@ -449,12 +461,54 @@ describe('model cards', () => {
     })
     expect(
       within(
-        screen.getByLabelText('Performance metrics for the last 24 hours')
+        screen.getByLabelText('Performance metrics for this model')
       ).getAllByText(/^—/)
     ).toHaveLength(3)
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Details' }))
     expect(onModelClick).toHaveBeenCalledWith('example-model')
+  })
+
+  it('shows the newest hours with traffic instead of the 24h average', () => {
+    act(() => {
+      i18n.addResourceBundle(
+        'zhCN',
+        'translation',
+        zhCN.translation,
+        true,
+        true
+      )
+    })
+    queryClient.setQueryData(['perf-metrics-summary', 24], {
+      success: true,
+      data: {
+        window_start: 1790600000,
+        window_end: 1790686400,
+        models: [
+          {
+            model_name: 'example-model',
+            avg_ttft_ms: 9000,
+            avg_latency_ms: 9000,
+            avg_tps: 5,
+            success_rate: 100,
+            recent_ttft_ms: 1200,
+            recent_tps: 42,
+            recent_hours: 2,
+          },
+        ],
+      },
+    })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ModelCardGrid models={[pricingModel()]} onModelClick={vi.fn()} />
+      </QueryClientProvider>
+    )
+
+    const metrics = screen.getByLabelText('该模型的性能指标')
+    expect(within(metrics).getByText('1.20 s')).toBeVisible()
+    expect(within(metrics).getByText('42.0 t/s')).toBeVisible()
+    expect(within(metrics).queryByText('9.00 s')).not.toBeInTheDocument()
+    expect(screen.getByTitle('模型速度 · 最近有数据的 2 小时')).toBeVisible()
   })
 
   it('paginates the model cards and disables navigation at both boundaries', async () => {
@@ -509,8 +563,9 @@ describe('model cards', () => {
         model={pricingModel()}
         onClick={vi.fn()}
         perf={{
-          avg_ttft_ms: 1200,
-          avg_tps: 42,
+          recent_ttft_ms: 1200,
+          recent_tps: 42,
+          recent_hours: 2,
           success_rate: 100,
           window_start: currentHourStart - 23 * 3600,
           recent_success_series: [
@@ -547,8 +602,9 @@ describe('model cards', () => {
         model={pricingModel()}
         onClick={vi.fn()}
         perf={{
-          avg_ttft_ms: 1200,
-          avg_tps: 42,
+          recent_ttft_ms: 1200,
+          recent_tps: 42,
+          recent_hours: 2,
           success_rate: 100,
           window_start: currentHourStart - 23 * 3600,
           recent_success_series: [
@@ -575,7 +631,12 @@ describe('model cards', () => {
       <ModelCard
         model={pricingModel()}
         onClick={vi.fn()}
-        perf={{ avg_ttft_ms: 1200, avg_tps: 42, success_rate: 100 }}
+        perf={{
+          recent_ttft_ms: 1200,
+          recent_tps: 42,
+          recent_hours: 2,
+          success_rate: 100,
+        }}
       />
     )
 
@@ -600,8 +661,9 @@ describe('model cards', () => {
         model={pricingModel()}
         onClick={vi.fn()}
         perf={{
-          avg_ttft_ms: 1200,
-          avg_tps: 42,
+          recent_ttft_ms: 1200,
+          recent_tps: 42,
+          recent_hours: 2,
           success_rate: 80,
           window_start: currentHourStart - 47 * 3600,
           recent_success_series: [
