@@ -123,7 +123,7 @@ export const ModelPerfBadge = memo(function ModelPerfBadge(
             })}
           </dd>
         </div>
-        <div title={t('Average first-token latency')} className='shrink-0'>
+        <div title={t('Average TTFT')} className='shrink-0'>
           <dt className='text-muted-foreground text-[11px] leading-4'>
             {t('First token latency')}
           </dt>
