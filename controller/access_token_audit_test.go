@@ -16,15 +16,15 @@ import (
 	sqlmysql "github.com/go-sql-driver/mysql"
 	"gorm.io/driver/clickhouse"
 
+	"github.com/gin-gonic/gin"
+	"github.com/glebarez/sqlite"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/middleware"
 	"github.com/zhourenke/pg-api/model"
 	"github.com/zhourenke/pg-api/service"
 	"github.com/zhourenke/pg-api/service/authz"
-	"github.com/gin-gonic/gin"
-	"github.com/glebarez/sqlite"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -430,6 +430,20 @@ type releasedAuditLog struct {
 
 func (releasedAuditLog) TableName() string { return "logs" }
 
+// closeAuditTestDatabase releases the pooled connections so the temporary or
+// isolated database can be removed. On Windows an open SQLite handle keeps the
+// file locked, and t.TempDir's cleanup then fails with "the process cannot
+// access the file because it is being used by another process".
+func closeAuditTestDatabase(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	t.Cleanup(func() {
+		connection, err := db.DB()
+		if err == nil {
+			_ = connection.Close()
+		}
+	})
+}
+
 // External tests create a new database per case on a loopback-only disposable
 // instance. They never drop databases or tables supplied through an environment variable.
 func newAuditTestDatabase(t *testing.T, kind, dsn string) (*gorm.DB, string) {
@@ -438,6 +452,7 @@ func newAuditTestDatabase(t *testing.T, kind, dsn string) (*gorm.DB, string) {
 		path := t.TempDir() + "/audit.db"
 		db, err := gorm.Open(sqlite.Open(path), &gorm.Config{})
 		require.NoError(t, err)
+		closeAuditTestDatabase(t, db)
 		return db, path
 	}
 	require.NotEmpty(t, dsn)
@@ -483,12 +498,7 @@ func newAuditTestDatabase(t *testing.T, kind, dsn string) (*gorm.DB, string) {
 	db, err := gorm.Open(isolated, &gorm.Config{})
 	require.NoError(t, err)
 	t.Logf("isolated database: %s (%s)", name, kind)
-	t.Cleanup(func() {
-		connection, err := db.DB()
-		if err == nil {
-			_ = connection.Close()
-		}
-	})
+	closeAuditTestDatabase(t, db)
 	return db, newDSN
 }
 
@@ -678,10 +688,27 @@ func TestAuditDatabaseMatrix(t *testing.T) {
 						require.NoError(t, db.Create(&releasedAuditUser{Username: "released-owner", Password: "placeholder", AccessToken: &legacy, AffCode: "released-aff", Quota: 1234}).Error)
 						require.NoError(t, db.Create(&releasedAuditLog{UserId: 1, Type: model.LogTypeLogin, Content: "historical login", CreatedAt: 100, RequestId: "legacy-request"}).Error)
 					}
+					// Each model.InitDB/InitLogDB call opens a fresh pool over the
+					// isolated SQLite file and overwrites model.DB/model.LOG_DB without
+					// closing the one it replaces. Nothing outside this case owns those
+					// superseded pools, and on Windows an open handle keeps the file
+					// locked, so t.TempDir removal would fail. Close every pool this
+					// case is responsible for: the returned handle, each superseded
+					// pool, and finally the pool that ends up in model.DB.
+					var superseded []*gorm.DB
 					for range 2 {
+						previousPool := model.DB
 						require.NoError(t, model.InitDB())
 						require.NoError(t, model.InitLogDB())
+						if previousPool != nil && previousPool != db {
+							superseded = append(superseded, previousPool)
+						}
 					}
+					closeAuditTestDatabase(t, db)
+					for _, pool := range superseded {
+						closeAuditTestDatabase(t, pool)
+					}
+					t.Cleanup(func() { _ = model.CloseDB() })
 					if !upgrade {
 						require.NoError(t, db.Create(&model.User{Username: "fresh-owner", Password: "placeholder", AffCode: "fresh-aff"}).Error)
 					}
@@ -750,6 +777,7 @@ func TestAuditDatabaseMatrix(t *testing.T) {
 					require.NoError(t, authz.ReloadPolicy())
 					assert.False(t, authz.Can(1, common.RoleAdminUser, authz.AuditRead))
 					assert.True(t, authz.Can(1, common.RoleRootUser, authz.AuditRead))
+					require.NoError(t, model.CloseDB())
 				})
 			}
 		})

@@ -16,17 +16,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zhourenke/pg-api/common"
-	"github.com/zhourenke/pg-api/model"
-	"github.com/zhourenke/pg-api/oauth"
-	"github.com/zhourenke/pg-api/service"
-	"github.com/zhourenke/pg-api/setting/system_setting"
 	"github.com/fxamacker/cbor/v2"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"github.com/pquerna/otp/totp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/i18n"
+	"github.com/zhourenke/pg-api/model"
+	"github.com/zhourenke/pg-api/oauth"
+	"github.com/zhourenke/pg-api/service"
+	"github.com/zhourenke/pg-api/setting/system_setting"
 	"gorm.io/gorm"
 )
 
@@ -884,7 +885,11 @@ func legacyGitHubBindingAudits(t *testing.T) ([]model.AuditLog, []string) {
 }
 
 func TestOAuthLoginLegacyGitHubBindingRequiresAccountEvidence(t *testing.T) {
-	const declined = "This GitHub account cannot be linked to an existing account automatically, please sign in or register another way and then link GitHub in account settings"
+	require.NoError(t, i18n.Init())
+	// The API message comes from oauth.not_auto_linked, which only ships the
+	// Simplified Chinese copy, so read it from the bundle instead of hardcoding
+	// a stale English string.
+	declined := i18n.T(nil, i18n.MsgOAuthNotAutoLinked, map[string]any{"Provider": "GitHub"})
 	tests := []struct {
 		name              string
 		existingGitHubID  string
@@ -1119,7 +1124,7 @@ func TestOAuthBindIgnoresLegacyGitHubUsernames(t *testing.T) {
 				return
 			}
 			assert.Equal(t, test.ownGitHubID, bound.GitHubId)
-			assert.Equal(t, "This GitHub account has already been bound", result.Message)
+			assert.Equal(t, i18n.T(nil, i18n.MsgOAuthAlreadyBound, map[string]any{"Provider": "GitHub"}), result.Message)
 		})
 	}
 }
