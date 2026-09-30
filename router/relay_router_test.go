@@ -89,6 +89,60 @@ func TestListModelsSupportsOpenAIAndGeminiAuthentication(t *testing.T) {
 	}
 }
 
+// The native Responses endpoint must stay reachable. Upstream mounts
+// POST /v1/responses from the task plugin protocol registry; when the task
+// plugin system was removed the route went with it and every native Responses
+// request started returning the router's 404 "Invalid URL (POST /v1/responses)".
+func TestRelayRouterServesNativeResponsesEndpoint(t *testing.T) {
+	setupRelayRouterTestDB(t)
+
+	user := model.User{
+		Username: "responses-user",
+		Status:   common.UserStatusEnabled,
+		Group:    "default",
+		Quota:    100,
+	}
+	require.NoError(t, model.DB.Create(&user).Error)
+	require.NoError(t, model.DB.Create(&model.Token{
+		UserId:         user.Id,
+		Key:            "responsestestkey",
+		Status:         common.TokenStatusEnabled,
+		ExpiredTime:    -1,
+		UnlimitedQuota: true,
+	}).Error)
+
+	engine := gin.New()
+	SetRelayRouter(engine)
+
+	newRequest := func(token string) *http.Request {
+		request := httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(`{"model":"gpt-test","input":"hi"}`))
+		request.Header.Set("Content-Type", "application/json")
+		if token != "" {
+			request.Header.Set("Authorization", "Bearer "+token)
+		}
+		return request
+	}
+
+	t.Run("no token is rejected by auth rather than treated as a missing route", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+		engine.ServeHTTP(recorder, newRequest(""))
+
+		require.Equal(t, http.StatusUnauthorized, recorder.Code)
+		assert.NotContains(t, recorder.Body.String(), "Invalid URL")
+	})
+
+	t.Run("a valid token reaches channel selection", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+		engine.ServeHTTP(recorder, newRequest("responsestestkey"))
+
+		assert.NotContains(t, recorder.Body.String(), "Invalid URL")
+		require.NotEqual(t, http.StatusNotFound, recorder.Code)
+		// No channel is configured for the model, so the request stops at
+		// distribution; reaching it is what proves the route exists.
+		require.Equal(t, http.StatusServiceUnavailable, recorder.Code)
+	})
+}
+
 func setupRelayRouterTestDB(t *testing.T) {
 	t.Helper()
 

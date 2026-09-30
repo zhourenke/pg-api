@@ -106,6 +106,15 @@ func SetRelayRouter(router *gin.Engine) {
 		})
 
 		// response related routes
+		// Upstream serves this path from the task plugin protocol registry
+		// (pkg/jsplugin routing table, operation "openai_responses.create"),
+		// which this fork removed together with the task plugin system. The
+		// relay itself still supports the format, so register the front door
+		// here instead of losing the endpoint: without it every native
+		// Responses request falls through to RelayNotFound (#404).
+		httpRouter.POST("/responses", func(c *gin.Context) {
+			controller.Relay(c, types.RelayFormatOpenAIResponses)
+		})
 		httpRouter.POST("/responses/compact", func(c *gin.Context) {
 			controller.Relay(c, types.RelayFormatOpenAIResponsesCompaction)
 		})
