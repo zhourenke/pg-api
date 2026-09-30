@@ -56,7 +56,10 @@ describe('dashboard granularity default', () => {
     setSiteDefaultTimeGranularity('day')
     localStorage.setItem(
       DASHBOARD_CHART_PREFERENCES_STORAGE_KEY,
-      JSON.stringify({ defaultTimeGranularity: 'hour', defaultTimeRangeDays: 7 })
+      JSON.stringify({
+        defaultTimeGranularity: 'hour',
+        defaultTimeRangeDays: 7,
+      })
     )
 
     expect(hasLocalGranularityChoice()).toBe(true)

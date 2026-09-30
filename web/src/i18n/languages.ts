@@ -16,7 +16,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-
 /**
  * Convert this project's interface language code (`zhCN`, the value i18next
  * uses) into a valid BCP-47 locale tag that the `Intl.*` APIs accept.
