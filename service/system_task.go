@@ -100,7 +100,9 @@ type LogCleanupState struct {
 }
 
 type LogCleanupResult struct {
-	DeletedCount int64 `json:"deleted_count"`
+	DeletedCount           int64 `json:"deleted_count"`
+	DeletedQuotaDataCount  int64 `json:"deleted_quota_data_count"`
+	DeletedPerfMetricCount int64 `json:"deleted_perf_metric_count"`
 }
 
 var (
@@ -409,6 +411,21 @@ func runLogCleanupTask(ctx context.Context, task *model.SystemTask, runnerID str
 		}
 	}
 
+	// quota_data (dashboard and leaderboard) and perf_metrics (model square)
+	// aggregate the same requests, so a manual cleanup drops the derived rows of
+	// the same range too. Otherwise both pages would keep reporting traffic whose
+	// logs are already gone.
+	deletedQuotaDataCount, err := model.DeleteQuotaDataBefore(payload.TargetTimestamp)
+	if err != nil {
+		failSystemTask(task, runnerID, fmt.Errorf("failed to delete dashboard and leaderboard rows: %w", err))
+		return
+	}
+	deletedPerfMetricCount, err := model.DeletePerfMetricsBefore(payload.TargetTimestamp)
+	if err != nil {
+		failSystemTask(task, runnerID, fmt.Errorf("failed to delete model square metrics: %w", err))
+		return
+	}
+
 	state.Remaining = 0
 	state.Progress = 100
 	if state.Total < state.Processed {
@@ -419,7 +436,11 @@ func runLogCleanupTask(ctx context.Context, task *model.SystemTask, runnerID str
 		return
 	}
 
-	result := LogCleanupResult{DeletedCount: state.Processed}
+	result := LogCleanupResult{
+		DeletedCount:           state.Processed,
+		DeletedQuotaDataCount:  deletedQuotaDataCount,
+		DeletedPerfMetricCount: deletedPerfMetricCount,
+	}
 	if err := model.FinishSystemTask(task.TaskID, runnerID, model.SystemTaskStatusSucceeded, result, ""); err != nil {
 		logSystemTaskLockError(ctx, task, err)
 	}

@@ -30,7 +30,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { formatUseTime } from '@/lib/format'
+import { formatUseTime, formatUseTimeMs } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { getFirstResponseTimeColor, getResponseTimeColor } from '../lib/format'
@@ -51,7 +51,12 @@ const barColorMap: Record<StatusVariant, string> = {
 }
 
 interface TimingMetricsCellProps {
-  useTimeSec: number
+  /**
+   * Total request duration in milliseconds. The caller resolves it from the
+   * log's exact `use_time_ms` when present, so the label keeps millisecond
+   * resolution instead of rounding to whole seconds.
+   */
+  durationMs: number
   completionTokens: number
   frtMs?: number
   isStream: boolean
@@ -77,12 +82,12 @@ export function TimingMetricsCell(props: TimingMetricsCellProps) {
       ? 'neutral'
       : getFirstResponseTimeColor(firstTokenSeconds)
   const totalTimeVariant = getResponseTimeColor(
-    props.useTimeSec,
+    props.durationMs / 1000,
     props.completionTokens
   )
   const firstTokenLabel =
     firstTokenSeconds == null ? t('N/A') : formatUseTime(firstTokenSeconds)
-  const totalTimeLabel = formatUseTime(props.useTimeSec)
+  const totalTimeLabel = formatUseTimeMs(props.durationMs)
 
   const labels = (
     <div

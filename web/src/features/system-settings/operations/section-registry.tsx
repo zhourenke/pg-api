@@ -96,7 +96,12 @@ const OPERATIONS_SECTIONS = [
     titleKey: 'Log Maintenance',
     build: (settings: OperationsSettings) => (
       <LogSettingsSection
-        defaultEnabled={Boolean(settings.LogConsumeEnabled)}
+        defaultValues={{
+          LogConsumeEnabled: Boolean(settings.LogConsumeEnabled),
+          DataExportEnabled: Boolean(settings.DataExportEnabled),
+          DataExportInterval: settings.DataExportInterval,
+          DataExportDefaultTime: settings.DataExportDefaultTime,
+        }}
       />
     ),
   },

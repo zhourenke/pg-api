@@ -31,6 +31,7 @@ import type {
   DashboardFilters,
   ModelAnalyticsChartTab,
 } from '@/features/dashboard/types'
+import { getSiteDefaultTimeGranularity } from '@/lib/status-query'
 import { getRollingDateRange, type TimeGranularity } from '@/lib/time'
 
 function isTimeGranularity(value: unknown): value is TimeGranularity {
@@ -38,9 +39,30 @@ function isTimeGranularity(value: unknown): value is TimeGranularity {
 }
 
 function getLegacySavedGranularity(): TimeGranularity {
-  if (typeof window === 'undefined') return DEFAULT_TIME_GRANULARITY
+  const siteDefault =
+    getSiteDefaultTimeGranularity() ?? DEFAULT_TIME_GRANULARITY
+  if (typeof window === 'undefined') return siteDefault
   const saved = localStorage.getItem(TIME_GRANULARITY_STORAGE_KEY)
-  return isTimeGranularity(saved) ? saved : DEFAULT_TIME_GRANULARITY
+  return isTimeGranularity(saved) ? saved : siteDefault
+}
+
+/**
+ * True when this browser stores its own granularity, which keeps it from
+ * following the site default set in Ops > Log maintenance.
+ */
+export function hasLocalGranularityChoice(): boolean {
+  if (typeof window === 'undefined') return false
+  if (isTimeGranularity(localStorage.getItem(TIME_GRANULARITY_STORAGE_KEY))) {
+    return true
+  }
+  const raw = localStorage.getItem(DASHBOARD_CHART_PREFERENCES_STORAGE_KEY)
+  if (!raw) return false
+  try {
+    const parsed = JSON.parse(raw) as Partial<DashboardChartPreferences>
+    return isTimeGranularity(parsed.defaultTimeGranularity)
+  } catch {
+    return false
+  }
 }
 
 function isConsumptionDistributionChartType(

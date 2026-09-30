@@ -61,7 +61,7 @@ import { BILLING_PRICING_VARS } from '@/features/pricing/lib/billing-expr'
 import { PolicyDecisionRecord } from '@/features/system-settings/request-policies/decision-record'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { formatBillingCurrencyFromUSD } from '@/lib/currency'
-import { formatLogQuota, formatTokens, formatUseTime } from '@/lib/format'
+import { formatLogQuota, formatTokens, formatUseTime, formatUseTimeMs } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { AuditDetailFields } from '../../audit/components/audit-detail-fields'
@@ -76,6 +76,7 @@ import {
   isViolationFeeLog,
   getFirstResponseTimeColor,
   getResponseTimeColor,
+  getLogDurationMs,
   getReasoningEffortVariant,
   renderAuditContent,
 } from '../../lib/format'
@@ -679,7 +680,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
             />
           )}
 
-          {showTiming && props.log.use_time > 0 && (
+          {showTiming && getLogDurationMs(props.log, other) > 0 && (
             <DetailRow
               label={t('Response Time')}
               value={
@@ -688,13 +689,13 @@ export function DetailsDialog(props: DetailsDialogProps) {
                     'font-medium',
                     timingTextColorClass(
                       getResponseTimeColor(
-                        props.log.use_time,
+                        getLogDurationMs(props.log, other) / 1000,
                         props.log.completion_tokens
                       )
                     )
                   )}
                 >
-                  {formatUseTime(props.log.use_time)}
+                  {formatUseTimeMs(getLogDurationMs(props.log, other))}
                   {props.log.is_stream &&
                     other?.frt != null &&
                     other.frt > 0 && (

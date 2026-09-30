@@ -20,6 +20,7 @@ import { queryOptions, type QueryClient } from '@tanstack/react-query'
 
 import { getStatus } from '@/lib/api'
 import { DEFAULT_SYSTEM_NAME, DEFAULT_LOGO } from '@/lib/constants'
+import type { TimeGranularity } from '@/lib/time'
 import {
   useSystemConfigStore,
   type CurrencyConfig,
@@ -103,8 +104,41 @@ export function mapStatusDataToConfig(
   }
 }
 
-/** Read the last known status from localStorage (survives reload, may be stale). */
-export function readCachedStatus(): StatusData | null {
+const TIME_GRANULARITIES: readonly TimeGranularity[] = ['hour', 'day', 'week']
+
+let siteDefaultTimeGranularity: TimeGranularity | null = null
+
+/**
+ * Site default data granularity published by `/api/status` as
+ * `data_export_default_time`. Invalid or absent values mean "no site default".
+ */
+export function readSiteDefaultTimeGranularity(
+  status: StatusData | undefined | null
+): TimeGranularity | null {
+  const value = status?.data_export_default_time
+  return TIME_GRANULARITIES.find((granularity) => granularity === value) ?? null
+}
+
+/**
+ * Records the site default for synchronous readers. Dashboard filters are built
+ * during the first render, before a fetch can resolve, and read the cached
+ * status snapshot through `getSiteDefaultTimeGranularity` in that case.
+ */
+export function setSiteDefaultTimeGranularity(
+  value: TimeGranularity | null
+): void {
+  siteDefaultTimeGranularity = value
+}
+
+/** Latest site default granularity, falling back to the cached status snapshot. */
+export function getSiteDefaultTimeGranularity(): TimeGranularity | null {
+  return (
+    siteDefaultTimeGranularity ??
+    readSiteDefaultTimeGranularity(readCachedStatus())
+  )
+}
+
+/** Read the last known status from localStorage (survives reload, may be stale). */ export function readCachedStatus(): StatusData | null {
   try {
     if (typeof window === 'undefined') return null
     const raw = window.localStorage.getItem(STATUS_STORAGE_KEY)
@@ -144,6 +178,7 @@ async function fetchStatus(): Promise<StatusData | null> {
       }
     }
     writeCachedStatus(status)
+    setSiteDefaultTimeGranularity(readSiteDefaultTimeGranularity(status))
   }
 
   return status

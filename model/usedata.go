@@ -181,3 +181,15 @@ func GetAllQuotaDates(startTime int64, endTime int64, username string) (quotaDat
 	err = DB.Table("quota_data").Select("model_name, sum(count) as count, sum(quota) as quota, sum(token_used) as token_used, created_at").Where("created_at >= ? and created_at <= ?", startTime, endTime).Group("model_name, created_at").Find(&quotaDatas).Error
 	return quotaDatas, err
 }
+
+// DeleteQuotaDataBefore removes aggregated dashboard and leaderboard rows older
+// than the cutoff and reports how many rows it removed. The manual log cleanup
+// calls it so the statistics derived from the deleted logs disappear with them;
+// there is no automatic retention window for this table.
+func DeleteQuotaDataBefore(cutoffTs int64) (int64, error) {
+	if cutoffTs <= 0 {
+		return 0, nil
+	}
+	result := DB.Where("created_at < ?", cutoffTs).Delete(&QuotaData{})
+	return result.RowsAffected, result.Error
+}

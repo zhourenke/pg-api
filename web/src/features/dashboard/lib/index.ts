@@ -25,6 +25,7 @@ export {
   getSavedChartPreferences,
   saveChartPreferences,
   buildDefaultDashboardFilters,
+  hasLocalGranularityChoice,
 } from './filters'
 export {
   getLatencyColorClass,

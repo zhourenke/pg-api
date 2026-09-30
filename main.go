@@ -219,6 +219,8 @@ func main() {
 	if common.DataExportEnabled {
 		model.SaveQuotaDataCache()
 	}
+	// 内存中的模型广场性能数据同样落库，避免重启丢失当前小时已采样的计数
+	perfmetrics.FlushNow()
 	common.SysLog("server exited")
 }
 

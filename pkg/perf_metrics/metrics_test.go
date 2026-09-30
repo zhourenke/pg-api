@@ -218,8 +218,8 @@ func TestPerformanceAggregationAndFlush(t *testing.T) {
 			assert.NotContains(t, string(encoded), "request_count")
 			assert.NotContains(t, string(encoded), "success_count")
 
-			flushCompletedBuckets()
-			flushCompletedBuckets()
+			flushHotBuckets()
+			flushHotBuckets()
 			after, err := Query(QueryParams{Model: "test-model", Hours: 24, AllowedGroups: groups})
 			require.NoError(t, err)
 			assert.Equal(t, before.Summary, after.Summary)
@@ -242,6 +242,24 @@ func TestPerformanceAggregationAndFlush(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, 98.04, combined.Summary.SuccessRate)
 			assert.Equal(t, 99.01, combined.Models[0].SuccessRate)
+
+			// The periodic flush drains the current partial hour as well, so the row
+			// is stored instead of living only in memory. FlushNow is the shutdown
+			// path and must persist it without waiting for the flush interval.
+			currentHour := now.Unix() - now.Unix()%3600
+			RecordRelayResult(context.Background(), &relaycommon.RelayInfo{OriginModelName: "flush-model", UsingGroup: "b", StartTime: now}, nil)
+			FlushNow()
+			stored, err := model.GetPerfMetrics("flush-model", "b", currentHour, currentHour)
+			require.NoError(t, err)
+			require.Len(t, stored, 1)
+			assert.Equal(t, int64(1), stored[0].RequestCount)
+
+			RecordRelayResult(context.Background(), &relaycommon.RelayInfo{OriginModelName: "flush-model", UsingGroup: "b", StartTime: now}, nil)
+			flushHotBuckets()
+			stored, err = model.GetPerfMetrics("flush-model", "b", currentHour, currentHour)
+			require.NoError(t, err)
+			require.Len(t, stored, 1)
+			assert.Equal(t, int64(2), stored[0].RequestCount, "partial flushes upsert onto the same current-hour row")
 		})
 	}
 }

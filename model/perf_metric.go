@@ -117,11 +117,15 @@ func GetPerfMetricsSummaryBucketsAll(startTs int64, endTs int64, groups []string
 	return summaries, err
 }
 
-func DeletePerfMetricsBefore(cutoffTs int64) error {
+// DeletePerfMetricsBefore removes aggregated model-square rows older than the
+// cutoff and reports how many rows it removed. It serves both the optional
+// retention window and the manual log cleanup.
+func DeletePerfMetricsBefore(cutoffTs int64) (int64, error) {
 	if cutoffTs <= 0 {
-		return nil
+		return 0, nil
 	}
-	return DB.Where("bucket_ts < ?", cutoffTs).Delete(&PerfMetric{}).Error
+	result := DB.Where("bucket_ts < ?", cutoffTs).Delete(&PerfMetric{})
+	return result.RowsAffected, result.Error
 }
 
 func PerfMetricStartTime(hours int) int64 {

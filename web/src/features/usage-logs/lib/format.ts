@@ -241,10 +241,7 @@ export function getTokensPerSecond(
   other?: LogOtherData | null
 ): number | null {
   if (log.completion_tokens <= 0) return null
-  const durationMs =
-    other?.use_time_ms != null && other.use_time_ms > 0
-      ? other.use_time_ms
-      : log.use_time * 1000
+  const durationMs = getLogDurationMs(log, other)
   if (durationMs <= 0) return null
   const frtMs = other?.frt
   if (log.is_stream && frtMs != null && frtMs > 0) {
@@ -252,6 +249,23 @@ export function getTokensPerSecond(
     if (generationMs > 0) return (log.completion_tokens * 1000) / generationMs
   }
   return (log.completion_tokens * 1000) / durationMs
+}
+
+/**
+ * Total request duration in milliseconds.
+ *
+ * Prefers the exact `use_time_ms` the backend records and falls back to the
+ * whole-second `use_time` column, so logs written before that field existed
+ * keep reporting their duration.
+ */
+export function getLogDurationMs(
+  log: Pick<UsageLog, 'use_time'>,
+  other?: LogOtherData | null
+): number {
+  if (other?.use_time_ms != null && other.use_time_ms > 0) {
+    return other.use_time_ms
+  }
+  return log.use_time * 1000
 }
 
 /**

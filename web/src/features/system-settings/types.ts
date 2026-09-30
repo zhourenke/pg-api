@@ -112,6 +112,8 @@ export type LogCleanupTaskState = {
 
 export type LogCleanupTaskResult = {
   deleted_count: number
+  deleted_quota_data_count: number
+  deleted_perf_metric_count: number
 }
 
 export type LogCleanupTask = SystemTask<
@@ -213,9 +215,6 @@ export type ContentSettings = {
   'console_setting.announcements_enabled': boolean
   'console_setting.faq_enabled': boolean
   'console_setting.uptime_kuma_enabled': boolean
-  DataExportEnabled: boolean
-  DataExportDefaultTime: string
-  DataExportInterval: number
   Chats: string
 }
 
@@ -366,6 +365,9 @@ export type OperationsSettings = {
   WorkerValidKey: string
   WorkerAllowHttpImageRequestEnabled: boolean
   LogConsumeEnabled: boolean
+  DataExportEnabled: boolean
+  DataExportDefaultTime: 'hour' | 'day' | 'week'
+  DataExportInterval: number
   'performance_setting.disk_cache_enabled': boolean
   'performance_setting.disk_cache_threshold_mb': number
   'performance_setting.disk_cache_max_size_mb': number

@@ -42,6 +42,7 @@ import {
   FormControl,
   FormDescription,
   FormField,
+  FormItem,
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
@@ -80,18 +81,29 @@ import {
 } from '../components/settings-form-layout'
 import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
+import { useResetForm } from '../hooks/use-reset-form'
 import { useUpdateOption } from '../hooks/use-update-option'
 import type { LogCleanupTask } from '../types'
+import { safeNumberFieldProps } from '../utils/numeric-field'
 
 const logSettingsSchema = z.object({
   LogConsumeEnabled: z.boolean(),
+  DataExportEnabled: z.boolean(),
+  DataExportInterval: z.number().int().min(1).max(1440),
+  DataExportDefaultTime: z.enum(['hour', 'day', 'week']),
 })
 
 type LogSettingsFormValues = z.infer<typeof logSettingsSchema>
 
 type LogSettingsSectionProps = {
-  defaultEnabled: boolean
+  defaultValues: LogSettingsFormValues
 }
+
+const granularityOptions = [
+  { label: 'Hour', value: 'hour' },
+  { label: 'Day', value: 'day' },
+  { label: 'Week', value: 'week' },
+] as const
 
 type ServerLogInfo = {
   enabled: boolean
@@ -144,16 +156,12 @@ function isActiveLogCleanupTask(task: LogCleanupTask | null) {
   return task?.status === 'pending' || task?.status === 'running'
 }
 
-export function LogSettingsSection({
-  defaultEnabled,
-}: LogSettingsSectionProps) {
+export function LogSettingsSection({ defaultValues }: LogSettingsSectionProps) {
   const { t } = useTranslation()
   const updateOption = useUpdateOption()
   const form = useForm<LogSettingsFormValues>({
     resolver: zodResolver(logSettingsSchema),
-    defaultValues: {
-      LogConsumeEnabled: defaultEnabled,
-    },
+    defaultValues,
   })
 
   const [purgeDate, setPurgeDate] = useState<Date | undefined>(() =>
@@ -179,9 +187,7 @@ export function LogSettingsSection({
     }
   }, [])
 
-  useEffect(() => {
-    form.reset({ LogConsumeEnabled: defaultEnabled })
-  }, [defaultEnabled, form])
+  useResetForm(form, defaultValues)
 
   useEffect(() => {
     fetchServerLogInfo()
@@ -207,6 +213,8 @@ export function LogSettingsSection({
       cancelled = true
     }
   }, [])
+
+  const isStatisticsEnabled = form.watch('DataExportEnabled')
 
   const purgeTimestamp = useMemo(() => {
     if (!purgeDate) return null
@@ -240,13 +248,20 @@ export function LogSettingsSection({
         setLogCleanupTask(res.data)
         if (!isActiveLogCleanupTask(res.data)) {
           if (res.data.status === 'succeeded') {
-            const count =
+            const logs =
               res.data.result?.deleted_count ?? res.data.state?.processed ?? 0
-            toast.success(
-              count > 0
-                ? t('{{count}} log entries removed.', { count })
-                : t('No log entries matched the selected time.')
-            )
+            const quotaRows = res.data.result?.deleted_quota_data_count ?? 0
+            const metricRows = res.data.result?.deleted_perf_metric_count ?? 0
+            if (logs + quotaRows + metricRows === 0) {
+              toast.success(t('Nothing matched the selected time.'))
+            } else {
+              toast.success(
+                t(
+                  'Removed {{logs}} log entries, {{quota}} dashboard rows, and {{metrics}} model square rows.',
+                  { logs, quota: quotaRows, metrics: metricRows }
+                )
+              )
+            }
           } else if (res.data.status === 'failed') {
             handleServerError(res.data, t('Failed to clean logs'))
           }
@@ -263,11 +278,13 @@ export function LogSettingsSection({
   }, [logCleanupActive, logCleanupTaskId, t])
 
   const onSubmit = async (values: LogSettingsFormValues) => {
-    if (values.LogConsumeEnabled === defaultEnabled) return
-    await updateOption.mutateAsync({
-      key: 'LogConsumeEnabled',
-      value: values.LogConsumeEnabled,
-    })
+    const updates = Object.entries(values).filter(
+      ([key, value]) =>
+        value !== defaultValues[key as keyof LogSettingsFormValues]
+    )
+    for (const [key, value] of updates) {
+      await updateOption.mutateAsync({ key, value })
+    }
   }
 
   const handleRequestCleanLogs = () => {
@@ -358,7 +375,7 @@ export function LogSettingsSection({
                   <FormLabel>{t('Record quota usage')}</FormLabel>
                   <FormDescription>
                     {t(
-                      'Track per-request consumption to power usage analytics. Keeping this on increases database writes.'
+                      'Write one usage log entry per consuming request. Turning this off stops both new usage logs and new statistics; existing rows stay until you clean history.'
                     )}
                   </FormDescription>
                 </SettingsSwitchContent>
@@ -373,12 +390,117 @@ export function LogSettingsSection({
             )}
           />
 
+          <SettingsControlGroup className='space-y-4'>
+            <div>
+              <h4 className='text-sm font-medium'>{t('Statistics')}</h4>
+              <p className='text-muted-foreground text-sm'>
+                {t(
+                  'The data dashboard and the leaderboard read these hourly aggregates instead of the usage logs. They keep their own rows while recording is off, and only a history cleanup removes them.'
+                )}
+              </p>
+            </div>
+
+            <FormField
+              control={form.control}
+              name='DataExportEnabled'
+              render={({ field }) => (
+                <SettingsSwitchItem>
+                  <SettingsSwitchContent>
+                    <FormLabel>{t('Aggregate usage statistics')}</FormLabel>
+                    <FormDescription>
+                      {t(
+                        'Keep writing the hourly statistics. Turning this off freezes both pages at their current values and deletes nothing.'
+                      )}
+                    </FormDescription>
+                  </SettingsSwitchContent>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </SettingsSwitchItem>
+              )}
+            />
+
+            <div className='grid gap-6 sm:grid-cols-2'>
+              <FormField
+                control={form.control}
+                name='DataExportInterval'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      {t('Statistics write interval (minutes)')}
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        type='number'
+                        min={1}
+                        max={1440}
+                        step={1}
+                        {...safeNumberFieldProps(field)}
+                        disabled={!isStatisticsEnabled}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t(
+                        'How often the in-memory statistics are written to the database. A smaller value keeps both pages fresher and writes more often; a new value applies from the next write.'
+                      )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='DataExportDefaultTime'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Default statistics granularity')}</FormLabel>
+                    <Select
+                      items={granularityOptions.map((option) => ({
+                        value: option.value,
+                        label: t(option.label),
+                      }))}
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      disabled={!isStatisticsEnabled}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder={t('Select granularity')} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent alignItemWithTrigger={false}>
+                        <SelectGroup>
+                          {granularityOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {t(option.label)}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      {t(
+                        'Site-wide default granularity for the data dashboard. A viewer who picks a granularity on the dashboard keeps that choice in their own browser; everyone else follows this value.'
+                      )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </SettingsControlGroup>
+
           <SettingsControlGroup className='space-y-3'>
             <div>
               <h4 className='text-sm font-medium'>{t('Clean history logs')}</h4>
               <p className='text-muted-foreground text-sm'>
                 {t(
-                  'Remove all log entries created before the selected timestamp.'
+                  'Permanently delete usage logs created before the selected time, together with the derived statistics of the same range: the dashboard and leaderboard aggregates, and the model square metrics. Rows at or after that time are kept.'
                 )}
               </p>
             </div>
@@ -402,7 +524,7 @@ export function LogSettingsSection({
               >
                 {isStartingLogCleanup || logCleanupActive
                   ? t('Cleaning...')
-                  : t('Clean logs')}
+                  : t('Clean history data')}
               </Button>
             </div>
             {logCleanupTask && (
@@ -417,7 +539,7 @@ export function LogSettingsSection({
                 </div>
                 <Progress value={logCleanupProgress} />
                 <div className='text-muted-foreground mt-2 text-xs'>
-                  {t('{{processed}} of {{total}} log entries processed.', {
+                  {t('{{processed}} of {{total}} log entries deleted.', {
                     processed: logCleanupProcessed,
                     total: logCleanupTotal,
                   })}
@@ -440,7 +562,7 @@ export function LogSettingsSection({
           <h4 className='font-medium'>{t('Server Log Management')}</h4>
           <p className='text-muted-foreground mt-1 text-xs'>
             {t(
-              'Manage server log files. Log files accumulate over time; regular cleanup is recommended to free disk space.'
+              'These are the server process log files on disk. Cleaning them frees disk space and never deletes usage logs, statistics, or any other database data. A new file is created on every start and after one million log lines.'
             )}
           </p>
         </div>
@@ -560,7 +682,10 @@ export function LogSettingsSection({
                               {
                                 value: serverLogCleanupValue,
                               }
-                            )}
+                            )}{' '}
+                        {t(
+                          'The log file currently being written is never deleted.'
+                        )}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -594,11 +719,11 @@ export function LogSettingsSection({
             <AlertDialogDescription>
               {formattedPurgeDate
                 ? t(
-                    'This will permanently remove all log entries created before {{date}}.',
+                    'This permanently removes every usage log created before {{date}}, plus the dashboard and leaderboard statistics and the model square metrics of that range.',
                     { date: formattedPurgeDate }
                   )
                 : t(
-                    'This will permanently remove log entries before the selected timestamp.'
+                    'This permanently removes the usage logs before the selected timestamp, plus the derived statistics of that range.'
                   )}{' '}
               {t('This action cannot be undone.')}
             </AlertDialogDescription>

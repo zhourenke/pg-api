@@ -18,19 +18,25 @@ func flushLoop() {
 		if !setting.Enabled {
 			continue
 		}
-		flushCompletedBuckets()
+		flushHotBuckets()
 		cleanupExpiredMetrics(setting.RetentionDays)
 	}
 }
 
-func flushCompletedBuckets() {
-	currentBucket := bucketStart(time.Now().Unix())
+// FlushNow persists every pending in-memory bucket. A graceful shutdown calls it
+// so the counters recorded since the last periodic flush survive a restart.
+func FlushNow() {
+	flushHotBuckets()
+}
+
+// flushHotBuckets writes every bucket that currently holds samples, including
+// the bucket for the current partial hour. Readers merge the stored partial row
+// with the counters sampled after this call, and the next flush upserts onto the
+// same row, so a restart only loses the samples taken between this call and the
+// process exit.
+func flushHotBuckets() {
 	hotBuckets.Range(func(key, value any) bool {
 		k := key.(bucketKey)
-		if k.bucketTs >= currentBucket {
-			return true
-		}
-
 		bucket := value.(*atomicBucket)
 		drained := bucket.drain()
 		if drained.requestCount == 0 {
@@ -72,7 +78,7 @@ func cleanupExpiredMetrics(retentionDays int) {
 		return
 	}
 	cutoff := time.Now().Add(-time.Duration(retentionDays) * 24 * time.Hour).Unix()
-	if err := model.DeletePerfMetricsBefore(cutoff); err != nil {
+	if _, err := model.DeletePerfMetricsBefore(cutoff); err != nil {
 		common.SysError("failed to cleanup expired perf metrics: " + err.Error())
 	}
 }

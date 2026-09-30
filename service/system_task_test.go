@@ -232,3 +232,63 @@ func TestEnqueueSystemTaskReportsCreatedAndExistingActive(t *testing.T) {
 	require.NotNil(t, second)
 	assert.NotEqual(t, first.TaskID, second.TaskID)
 }
+
+func TestLogCleanupAlsoRemovesDerivedStatistics(t *testing.T) {
+	truncate(t)
+
+	now := time.Now().Unix()
+	cutoff := now - 3600
+	oldBucket := now - now%3600 - 3600
+	currentBucket := now - now%3600
+
+	for _, row := range []model.Log{
+		{Type: model.LogTypeConsume, CreatedAt: cutoff - 60, Content: "old", ModelName: "m"},
+		{Type: model.LogTypeConsume, CreatedAt: cutoff + 60, Content: "recent", ModelName: "m"},
+	} {
+		require.NoError(t, model.DB.Create(&row).Error)
+	}
+	for _, row := range []model.QuotaData{
+		{UserID: 1, Username: "u", ModelName: "m", CreatedAt: cutoff - 60, Count: 1, Quota: 1, TokenUsed: 1},
+		{UserID: 1, Username: "u", ModelName: "m", CreatedAt: cutoff + 60, Count: 1, Quota: 1, TokenUsed: 1},
+	} {
+		require.NoError(t, model.DB.Create(&row).Error)
+	}
+	for _, row := range []model.PerfMetric{
+		{ModelName: "m", Group: "default", BucketTs: oldBucket, RequestCount: 1},
+		{ModelName: "m", Group: "default", BucketTs: currentBucket, RequestCount: 1},
+	} {
+		require.NoError(t, model.UpsertPerfMetric(&row))
+	}
+
+	task, err := model.CreateSystemTask(model.SystemTaskTypeLogCleanup, LogCleanupPayload{TargetTimestamp: cutoff, BatchSize: 100}, LogCleanupState{})
+	require.NoError(t, err)
+	_, claimed, err := model.ClaimSystemTask(task.ID, model.SystemTaskTypeLogCleanup, "runner-cleanup", common.GetTimestamp()+60)
+	require.NoError(t, err)
+	require.True(t, claimed)
+
+	runLogCleanupTask(context.Background(), task, "runner-cleanup")
+
+	var logCount int64
+	require.NoError(t, model.DB.Model(&model.Log{}).Count(&logCount).Error)
+	assert.Equal(t, int64(1), logCount, "only logs older than the cutoff are removed")
+
+	var quotaRows []model.QuotaData
+	require.NoError(t, model.DB.Order("created_at ASC").Find(&quotaRows).Error)
+	require.Len(t, quotaRows, 1, "dashboard rows of the same range are removed with the logs")
+	assert.Equal(t, cutoff+60, quotaRows[0].CreatedAt)
+
+	var perfRows []model.PerfMetric
+	require.NoError(t, model.DB.Order("bucket_ts ASC").Find(&perfRows).Error)
+	require.Len(t, perfRows, 1, "model square rows of the same range are removed with the logs")
+	assert.Equal(t, currentBucket, perfRows[0].BucketTs)
+
+	finished, err := model.GetSystemTaskByTaskID(task.TaskID)
+	require.NoError(t, err)
+	require.NotNil(t, finished)
+	assert.Equal(t, model.SystemTaskStatusSucceeded, finished.Status)
+	var result LogCleanupResult
+	require.NoError(t, common.UnmarshalJsonStr(finished.Result, &result))
+	assert.Equal(t, int64(1), result.DeletedCount)
+	assert.Equal(t, int64(1), result.DeletedQuotaDataCount)
+	assert.Equal(t, int64(1), result.DeletedPerfMetricCount)
+}

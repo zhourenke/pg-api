@@ -4,10 +4,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/zhourenke/pg-api/common"
-	"github.com/zhourenke/pg-api/model"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/model"
 	"gorm.io/gorm"
 )
 
@@ -41,6 +41,8 @@ func TestMain(m *testing.M) {
 		&model.TopUp{},
 		&model.SystemTask{},
 		&model.SystemTaskLock{},
+		&model.QuotaData{},
+		&model.PerfMetric{},
 	); err != nil {
 		panic("failed to migrate: " + err.Error())
 	}
@@ -58,6 +60,8 @@ func truncate(t *testing.T) {
 		model.DB.Exec("DELETE FROM top_ups")
 		model.DB.Exec("DELETE FROM system_task_locks")
 		model.DB.Exec("DELETE FROM system_tasks")
+		model.DB.Exec("DELETE FROM quota_data")
+		model.DB.Exec("DELETE FROM perf_metrics")
 	})
 }
 

@@ -16,9 +16,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useQuery } from '@tanstack/react-query'
 import { getRouteApi, useNavigate } from '@tanstack/react-router'
 import { Eye, EyeOff } from 'lucide-react'
-import { useState, useCallback, useMemo, lazy, Suspense } from 'react'
+import {
+  useState,
+  useCallback,
+  useEffect,
+  useMemo,
+  lazy,
+  Suspense,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
@@ -32,6 +40,10 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { ROLE } from '@/lib/roles'
+import {
+  readSiteDefaultTimeGranularity,
+  statusQueryOptions,
+} from '@/lib/status-query'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -44,6 +56,7 @@ import {
   getDefaultDays,
   getSavedChartPreferences,
   getSavedGranularity,
+  hasLocalGranularityChoice,
   saveChartPreferences,
 } from './lib'
 import {
@@ -179,6 +192,26 @@ export function Dashboard() {
     }
   )
   const [flowSensitiveVisible, setFlowSensitiveVisible] = useState(true)
+
+  // The site default granularity (Ops > Log maintenance) applies to every
+  // browser that did not choose its own granularity on the dashboard. The
+  // initial state above reads the cached status snapshot, and this effect
+  // applies a refreshed value without requiring a reload.
+  const statusQuery = useQuery(statusQueryOptions)
+  useEffect(() => {
+    const siteGranularity = readSiteDefaultTimeGranularity(statusQuery.data)
+    if (!siteGranularity || hasLocalGranularityChoice()) return
+    setChartPreferences((previous) =>
+      previous.defaultTimeGranularity === siteGranularity
+        ? previous
+        : { ...previous, defaultTimeGranularity: siteGranularity }
+    )
+    setModelFilters((previous) =>
+      previous.time_granularity === siteGranularity
+        ? previous
+        : { ...previous, time_granularity: siteGranularity }
+    )
+  }, [statusQuery.data])
 
   const handleFilterChange = useCallback((filters: DashboardFilters) => {
     setModelFilters(filters)

@@ -46,6 +46,7 @@ import type { UsageLog } from '../../data/schema'
 import {
   formatModelName,
   getTieredBillingSummary,
+  getLogDurationMs,
   getTokensPerSecond,
   hasAnyCacheTokens,
   parseLogOther,
@@ -725,12 +726,11 @@ export function useCommonLogsColumns(
           const log = row.original
           if (!isTimingLogType(log.type)) return null
 
-          const useTime = row.getValue('use_time') as number
           const other = parseLogOther(log.other)
 
           return (
             <TimingMetricsCell
-              useTimeSec={useTime}
+              durationMs={getLogDurationMs(log, other)}
               completionTokens={log.completion_tokens}
               frtMs={other?.frt}
               isStream={log.is_stream}

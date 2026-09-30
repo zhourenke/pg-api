@@ -263,6 +263,21 @@ export function formatUseTime(seconds: number): string {
 }
 
 /**
+ * Format a duration given in milliseconds, keeping millisecond resolution.
+ *
+ * The usage log's `use_time` column only holds whole seconds, so a duration
+ * derived from it cannot show the sub-second part. The backend additionally
+ * records the exact `use_time_ms`, and this formatter keeps those digits
+ * instead of rounding them back to a tenth of a second.
+ */
+export function formatUseTimeMs(milliseconds: number): string {
+  const seconds = milliseconds / 1000
+  if (seconds < 60) return `${seconds.toFixed(3)}s`
+  const minutes = Math.floor(seconds / 60)
+  return `${minutes}m ${(seconds % 60).toFixed(0)}s`
+}
+
+/**
  * Format timestamp to date input value (YYYY-MM-DDTHH:mm)
  */
 export function formatTimestampForInput(timestamp: number): string {
