@@ -26,6 +26,15 @@ VERSION_VALUE=$(cat VERSION)
 LDFLAGS="-s -w -X 'github.com/zhourenke/pg-api/common.Version=$VERSION_VALUE'"
 echo "Building version $VERSION_VALUE"
 
+# electron-builder takes the installer and app version from electron/package.json,
+# not from VERSION, so a stale value there ships installers whose version disagrees
+# with the binary and with the web UI (electron/main.js reports app.getVersion()).
+ELECTRON_VERSION=$(sed -n 's/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' electron/package.json | head -n 1)
+if [ "$ELECTRON_VERSION" != "$VERSION_VALUE" ]; then
+    echo "electron/package.json version ($ELECTRON_VERSION) does not match VERSION ($VERSION_VALUE); bump both together." >&2
+    exit 1
+fi
+
 if [[ "$OSTYPE" == "darwin"* ]]; then
     echo "Building for macOS..."
     CGO_ENABLED=1 go build -ldflags="$LDFLAGS" -o pg-api
