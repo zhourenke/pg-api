@@ -50,6 +50,12 @@ import { channelSchema, type Channel } from '../../types'
 import { ChannelsProvider } from '../channels-provider'
 import { ChannelMutateDrawer } from '../drawers/channel-mutate-drawer'
 
+// The heaviest test in this file needs ~7.9s uncontended, which leaves the
+// suite-wide 20s budget (vitest.config.ts) too little room under a contended
+// full-suite run, where this file has been observed to time out. Raise the
+// budget for this file only so the rest of the suite keeps the stricter one.
+vi.setConfig({ testTimeout: 60_000 })
+
 const originalAuth = useAuthStore.getState().auth
 let client: QueryClient
 let editingChannel: Channel

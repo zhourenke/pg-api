@@ -162,7 +162,14 @@ it.each([
         <AuditLogViewer scope='self' />
       </QueryClientProvider>
     )
-    const cell = await screen.findByRole('cell', { name: new RegExp(headline) })
+    // The suite-wide 5s asyncUtilTimeout (src/test-setup.ts) is not enough for
+    // this first-in-file lookup under a contended full-suite run. Stay below the
+    // 20s testTimeout so a genuinely missing element still reports itself.
+    const cell = await screen.findByRole(
+      'cell',
+      { name: new RegExp(headline) },
+      { timeout: 15_000 }
+    )
     expect(cell).toHaveTextContent(headline)
     if ('id' in params || 'target_user_id' in params) {
       expect(cell).toHaveTextContent('(ID: 11)')

@@ -28,6 +28,12 @@ import { evaluateBillingExpression } from '@/features/pricing/lib/billing-expres
 import { BillingConditionValueInput } from '../billing-time-fields'
 import { TieredPricingEditor } from '../tiered-pricing-editor'
 
+// The heaviest test in this file needs ~13.5s uncontended, which leaves the
+// suite-wide 20s budget (vitest.config.ts) only ~1.5x headroom; a contended
+// full-suite run has been observed to exhaust it. Raise the budget for this file
+// only so the rest of the suite keeps the stricter one.
+vi.setConfig({ testTimeout: 60_000 })
+
 const expression =
   'weekday("Asia/Shanghai") >= 1 && weekday("Asia/Shanghai") <= 5 && ((hour("Asia/Shanghai") >= 9 && hour("Asia/Shanghai") < 12) || (hour("Asia/Shanghai") >= 14 && hour("Asia/Shanghai") < 18))\n  ? tier("peak", p * 3 + cr * 0.10 + c * 9)\n  : tier("off_peak", p * 1.5 + cr * 0.05 + c * 4.5)'
 
