@@ -263,3 +263,73 @@ func TestPerformanceAggregationAndFlush(t *testing.T) {
 		})
 	}
 }
+
+// The manual history cleanup deletes the derived statistics of the same range
+// with the same cutoff as the usage logs. Run those deletes on every supported
+// engine: the failure that matters is a dialect where the delete matches
+// nothing and the cleanup silently keeps the rows.
+func TestDerivedStatisticDeletionMatrix(t *testing.T) {
+	for _, dialect := range []struct{ name, env string }{
+		{"sqlite", ""}, {"mysql", "TEST_PERF_MYSQL_DSN"}, {"postgres", "TEST_PERF_POSTGRES_DSN"},
+	} {
+		t.Run(dialect.name, func(t *testing.T) {
+			dsn := ""
+			if dialect.env != "" {
+				dsn = os.Getenv(dialect.env)
+				if dsn == "" {
+					t.Skip("isolated test database DSN is not configured")
+				}
+			}
+			t.Setenv("SQL_DSN", dsn)
+			oldDB, oldPath, oldMaster, oldRedis := model.DB, common.SQLitePath, common.IsMasterNode, common.RedisEnabled
+			oldType, oldLogType := common.MainDatabaseType(), common.LogDatabaseType()
+			common.SQLitePath, common.IsMasterNode, common.RedisEnabled = filepath.Join(t.TempDir(), "cleanup.db"), false, false
+			t.Cleanup(func() {
+				model.DB, common.SQLitePath, common.IsMasterNode, common.RedisEnabled = oldDB, oldPath, oldMaster, oldRedis
+				common.SetDatabaseTypes(oldType, oldLogType)
+			})
+			require.NoError(t, model.InitDB())
+			db := model.DB
+			sqlDB, err := db.DB()
+			require.NoError(t, err)
+			t.Cleanup(func() { require.NoError(t, sqlDB.Close()) })
+			require.NoError(t, db.Migrator().DropTable(&model.QuotaData{}, &model.PerfMetric{}))
+			require.NoError(t, db.AutoMigrate(&model.QuotaData{}, &model.PerfMetric{}))
+
+			now := time.Now()
+			cutoff := now.Unix() - 3600
+			oldBucket := now.Unix() - now.Unix()%3600 - 3600
+			currentBucket := now.Unix() - now.Unix()%3600
+			require.NoError(t, db.Create(&[]model.QuotaData{
+				{UserID: 1, Username: "before", ModelName: "m", CreatedAt: cutoff - 1, Quota: 1},
+				{UserID: 1, Username: "at", ModelName: "m", CreatedAt: cutoff, Quota: 1},
+				{UserID: 1, Username: "after", ModelName: "m", CreatedAt: cutoff + 60, Quota: 1},
+			}).Error)
+			require.NoError(t, db.Create(&[]model.PerfMetric{
+				{ModelName: "m", Group: "g", BucketTs: oldBucket, RequestCount: 1},
+				{ModelName: "m", Group: "g", BucketTs: currentBucket, RequestCount: 1},
+			}).Error)
+
+			deletedQuota, err := model.DeleteQuotaDataBefore(cutoff)
+			require.NoError(t, err)
+			assert.Equal(t, int64(1), deletedQuota, "rows at the cutoff survive")
+			deletedMetrics, err := model.DeletePerfMetricsBefore(cutoff)
+			require.NoError(t, err)
+			assert.Equal(t, int64(1), deletedMetrics, "only whole-hour buckets before the cutoff go")
+
+			var quotaLeft, metricLeft int64
+			require.NoError(t, db.Model(&model.QuotaData{}).Count(&quotaLeft).Error)
+			assert.Equal(t, int64(2), quotaLeft)
+			require.NoError(t, db.Model(&model.PerfMetric{}).Count(&metricLeft).Error)
+			assert.Equal(t, int64(1), metricLeft)
+
+			// A second cleanup over the same range is a no-op, not an error.
+			deletedQuota, err = model.DeleteQuotaDataBefore(cutoff)
+			require.NoError(t, err)
+			assert.Equal(t, int64(0), deletedQuota)
+			deletedMetrics, err = model.DeletePerfMetricsBefore(cutoff)
+			require.NoError(t, err)
+			assert.Equal(t, int64(0), deletedMetrics)
+		})
+	}
+}
