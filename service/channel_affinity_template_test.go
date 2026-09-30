@@ -209,7 +209,7 @@ func TestGetPreferredChannelByAffinity_RequestHeaderKeySource(t *testing.T) {
 		IncludeModelName: true,
 	}
 
-	affinityValue := fmt.Sprintf("header-hit-%d", time.Now().UnixNano())
+	affinityValue := "header-hit-" + t.Name()
 	cacheKeySuffix := buildChannelAffinityCacheKeySuffix(rule, "gpt-5", "default", affinityValue)
 
 	cache := getChannelAffinityCache()
@@ -244,7 +244,7 @@ func TestGetPreferredChannelByAffinity_RequestHeaderKeySource(t *testing.T) {
 func TestClearCurrentChannelAffinityCache(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	cacheKeySuffix := fmt.Sprintf("codex cli trace:default:clear-current-%d", time.Now().UnixNano())
+	cacheKeySuffix := "codex cli trace:default:clear-current-" + t.Name()
 	cacheKeyFull := channelAffinityCacheNamespace + ":" + cacheKeySuffix
 	cache := getChannelAffinityCache()
 	require.NoError(t, cache.SetWithTTL(cacheKeySuffix, 9527, time.Minute))
@@ -284,7 +284,7 @@ func TestChannelAffinityHitCodexTemplatePassHeadersEffective(t *testing.T) {
 	}
 	require.NotNil(t, codexRule)
 
-	affinityValue := fmt.Sprintf("pc-hit-%d", time.Now().UnixNano())
+	affinityValue := "pc-hit-" + t.Name()
 	cacheKeySuffix := buildChannelAffinityCacheKeySuffix(*codexRule, "gpt-5", "default", affinityValue)
 
 	cache := getChannelAffinityCache()

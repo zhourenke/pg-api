@@ -1,12 +1,10 @@
 package model
 
 import (
-	"fmt"
 	"os"
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
@@ -26,7 +24,7 @@ func testPrefillGroupMigrationNonPostgreSQL(t *testing.T, db *gorm.DB) {
 	}
 	require.NoError(t, db.Raw(versionQuery).Scan(&version).Error)
 	t.Logf("%s version: %s", db.Dialector.Name(), version)
-	tableName := fmt.Sprintf("prefill_group_migration_%d", time.Now().UnixNano())
+	tableName := migrationTestIdentifier(t, "prefill_group_migration")
 	t.Cleanup(func() { _ = db.Migrator().DropTable(tableName) })
 
 	tableDB := db.Table(tableName)
@@ -223,7 +221,7 @@ func TestMigratePrefillGroupUniquenessPostgreSQL(t *testing.T) {
 			require.NoError(t, tx.Error)
 			t.Cleanup(func() { _ = tx.Rollback().Error })
 
-			schemaName := fmt.Sprintf("prefill_group_migration_%d", time.Now().UnixNano())
+			schemaName := migrationTestIdentifier(t, "prefill_group_migration")
 			require.NoError(t, tx.Exec(
 				"CREATE SCHEMA ?",
 				clause.Table{Name: schemaName},

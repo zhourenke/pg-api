@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -456,7 +457,14 @@ func newAuditTestDatabase(t *testing.T, kind, dsn string) (*gorm.DB, string) {
 		return db, path
 	}
 	require.NotEmpty(t, dsn)
-	name := fmt.Sprintf("newapi_audit_%d", time.Now().UnixNano())
+	// The name is interpolated into CREATE DATABASE below, so it has to stay a
+	// bare identifier within MySQL's 64-character limit, which rules out using
+	// the test name verbatim. A timestamp is not an option either:
+	// time.Now().UnixNano() repeats within one clock tick on Windows, and the
+	// collision guard below turns such a repeat into a hard failure.
+	sum := fnv.New32a()
+	_, _ = sum.Write([]byte(t.Name()))
+	name := fmt.Sprintf("newapi_audit_%08x", sum.Sum32())
 	var original, isolated gorm.Dialector
 	var newDSN string
 	if kind == "mysql" {

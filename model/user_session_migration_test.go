@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 	"fmt"
+	"hash/fnv"
 	"os"
 	"strings"
 	"sync"
@@ -79,9 +80,21 @@ func TestUserSessionPreviousRefreshHashSchemaUsesNullableVarchar(t *testing.T) {
 	assert.False(t, field.NotNull)
 }
 
+// migrationTestIdentifier returns a table or schema name that is unique to the
+// calling test. Deriving the suffix from the test name keeps runs distinct and
+// deterministic; a timestamp does not, because time.Now().UnixNano() repeats
+// within one clock tick on Windows, and a sanitized test name can exceed the
+// 64-character identifier limit MySQL imposes on databases and tables.
+func migrationTestIdentifier(t *testing.T, prefix string) string {
+	t.Helper()
+	sum := fnv.New32a()
+	_, _ = sum.Write([]byte(t.Name()))
+	return fmt.Sprintf("%s_%08x", prefix, sum.Sum32())
+}
+
 func testPreviousRefreshHashMigration(t *testing.T, db *gorm.DB, recorder *migrationSQLRecorder, dialect string) {
 	t.Helper()
-	tableName := fmt.Sprintf("user_session_previous_hash_migration_%d", time.Now().UnixNano())
+	tableName := migrationTestIdentifier(t, "user_session_previous_hash_migration")
 	t.Cleanup(func() { _ = db.Migrator().DropTable(tableName) })
 
 	require.NoError(t, db.Table(tableName).AutoMigrate(&previousRefreshHashMigrationLegacy{}))

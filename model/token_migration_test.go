@@ -1,11 +1,9 @@
 package model
 
 import (
-	"fmt"
 	"os"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
@@ -42,7 +40,7 @@ WHERE index_meta.indrelid = to_regclass(?)
 
 func testTokenKeyMigrationNonPostgreSQL(t *testing.T, db *gorm.DB) {
 	t.Helper()
-	tableName := fmt.Sprintf("token_migration_%d", time.Now().UnixNano())
+	tableName := migrationTestIdentifier(t, "token_migration")
 	t.Cleanup(func() { _ = db.Migrator().DropTable(tableName) })
 
 	tableDB := db.Table(tableName)
@@ -228,7 +226,7 @@ func TestMigrateTokenKeyUniquenessPostgreSQL(t *testing.T) {
 			require.NoError(t, tx.Error)
 			t.Cleanup(func() { _ = tx.Rollback().Error })
 
-			schemaName := fmt.Sprintf("token_migration_%d", time.Now().UnixNano())
+			schemaName := migrationTestIdentifier(t, "token_migration")
 			require.NoError(t, tx.Exec(
 				"CREATE SCHEMA ?",
 				clause.Table{Name: schemaName},
