@@ -4,6 +4,8 @@
 
 本文件随仓库提交，长期维护。新踩到的坑、验证命令的变化、容易被误改的约定，都补到对应小节。
 
+**分工**：本文件是本仓库的**开发记录**（约定、坑、验证命令、变更历史）。工作区层面的**交接**事项——仓库状态、待决事项、未验证清单——写在仓库外的 `PGAPI\HANDOVER.md`；那份文件只做交接，不再承载开发记录，并逐步退役。
+
 ---
 
 ## 1. 语言基座：本项目只讲简体中文
@@ -90,7 +92,60 @@ beforeEach: i18next.removeResourceBundle('zhCN', 'translation')
 - `bunx vitest run --reporter=basic` 会因 reporter 不存在而空跑，用默认 reporter。
 - `cmd /c "bun run test > ..\_x.log 2>&1"` 这类重定向在本机不稳（日志文件可能不生成），失败排查直接看终端输出更可靠。
 - 全量跑时 `channel-configuration`、`visual-billing-editor`、`viewer` 偶发超时（vitest `testTimeout: 20000`）：默认并行度在 20 核机器上会开满 20 个 worker，这几个重型 jsdom 用例在有竞争时可能超过 20s。三者单独 `bunx vitest run <文件>` 通过即视为环境抖动；要一次稳定全绿，用 `bunx vitest run --maxWorkers=8`（实测 166 文件 / 2091 用例全通过）。
-- 在 Windows 上跑 `go test ./controller/...` 会出现大量 `--- FAIL`，失败原因是 `testing.go:1617: TempDir RemoveAll cleanup: unlinkat ...\audit.db: The process cannot access the file because it is being used by another process.`（SQLite 仍持有审计库句柄，`t.TempDir()` 清理失败），用例本身没有断言失败。用 `go test ./controller/ -run <用例名> -v` 看是否为该原因；这不是回归。
+- ~~在 Windows 上跑 `go test ./controller/...` 会出现大量 `--- FAIL`，失败原因是 `testing.go:1617: TempDir RemoveAll cleanup: unlinkat ...\audit.db: The process cannot access the file because it is being used by another process.`~~ **这条已于 2026-09-30 修掉（提交 `352c0753b`），实测 `go test ./controller/ -count=1` 整包 `ok`（约 153s）。** 这里原先把它当成「本机既有现象、不是回归」，是错的：它是测试自身的缺陷，不是环境。两根因：`newAuditTestDatabase` 的 sqlite 分支直接 `return`，**从未注册关闭连接的 `t.Cleanup`**，审计库句柄留到进程结束，Windows 删不掉被占用的文件，`t.TempDir()` 清理失败被 Go 计为该测试失败（子用例全 PASS、只有父测试 FAIL，且每个父测试被删除重试拖到约 2s）；`TestAuditDatabaseMatrix` 另有一层连接池泄漏：`model.InitDB()` / `model.InitLogDB()` 每次新建池并覆盖全局 `model.DB` / `model.LOG_DB`，却不关闭被替换的池。**若再次看到同类失败，按新引入的句柄泄漏排查，不要当成既有现象忽略。**
+- `TestObserveChannelAffinityUsageCacheByRelayFormat_*` 曾出现「单跑通过、整批失败」：三个用例用 `time.Now().UnixNano()` 造 `ruleName`/`keyFP`，而累积统计是**进程级全局状态**，Windows 计时器精度约 0.5–15 ms 使三者在同一 tick 内取到同一个值、共用一条记录（断言「期望 1 实得 3」）。已于 2026-09-30 改为按 `t.Name()` 派生（`352c0753b`）。**写测试时不要用时钟造标识**——仓库里还有约 15 处同类写法造库名/表名/schema 名（`controller/access_token_audit_test.go:444`、`model/prefill_group_migration_test.go`、`model/token_migration_test.go`、`model/user_session_migration_test.go`、`service/channel_affinity_template_test.go` 等），目前没暴露失败但同样脆弱，用到时顺手换成 `t.Name()` 派生。
+
+### 视觉核对：后端 + 前端一起跑
+
+后端用设备库副本（`tools\visual-data\one-api.db`，不属于仓库）起在 3002，前端 dev server 起在 5173 并代理过去：
+
+```powershell
+cd C:\Users\ParkGarden\DSH_Workspace\PGAPI\pg-api
+go build -o pg-api-visual.exe .
+.\pg-api-visual.exe            # SQLITE_PATH 指向 tools\visual-data\one-api.db
+
+cd web
+$env:VITE_REACT_APP_SERVER_URL = 'http://localhost:3002'
+bun run dev --port 5173
+```
+
+### 三库矩阵：本机实例与 DSN
+
+两套测试用**不同的环境变量族**，别混：
+
+| 变量 | 用在哪 | 库 |
+| --- | --- | --- |
+| `TEST_PERF_POSTGRES_DSN` / `TEST_PERF_MYSQL_DSN` | `pkg/perf_metrics` 的聚合与派生统计删除矩阵 | `pgapi_test` |
+| `AUDIT_POSTGRES_DSN` / `AUDIT_MYSQL_DSN` / `AUDIT_CLICKHOUSE_DSN` | `controller/` 的审计库矩阵（含 `TestAuditDatabaseMatrix`、`TestAPITokenAuditDatabaseMatrix`、`TestIndependentAuditLogStores`） | 任意，测试自建表 |
+
+**不设这些变量时，MySQL / PostgreSQL / ClickHouse 分支会 `t.Skip(...)`**——不报错，但也什么都没验证；要按 `AGENTS.md` 的三库要求交差，必须真的设上并确认子用例是 PASS 而不是 SKIP。
+
+`tools\dbmatrix` 下已有一次性数据目录（**不属于仓库，不要提交**）：`pg\`（PostgreSQL 18.6，`pg_hba.conf` 是 `trust`，无需口令）、`mysql\data\`（`--initialize-insecure` 初始化，root 空口令，已建 `pgapi_test`）。两者都监听回环地址、用非默认端口，**不去碰 5432 上那个服务**（`postgresql-x64-18` 已按需启动且处于停止状态）。
+
+```powershell
+# PostgreSQL 18.6 → 5433。直接用 postgres.exe 起最省事。
+$pg = 'C:\Program Files\PostgreSQL\18\bin'
+& "$pg\postgres.exe" -D 'C:\Users\ParkGarden\DSH_Workspace\PGAPI\tools\dbmatrix\pg' -p 5433 -c listen_addresses=127.0.0.1
+# 停止优先用 pg_ctl（别直接杀进程）：& "$pg\pg_ctl.exe" -D '...\tools\dbmatrix\pg' -m fast -w stop
+# 若确实要用 pg_ctl start：不要放进受管后台作业、也不要 -Wait 等它——postgres 会继承控制台句柄
+# 导致 pg_ctl 不退出，而一旦杀掉那个作业 postgres 会被一起带走（已踩过一次）。
+
+# MySQL 26.7.0 → 3307。--no-defaults 必带，否则会去读全局 my.ini。
+& 'C:\Users\ParkGarden\scoop\apps\mysql\current\bin\mysqld.exe' --no-defaults `
+  --datadir='C:\Users\ParkGarden\DSH_Workspace\PGAPI\tools\dbmatrix\mysql\data' --port=3307 --mysqlx=OFF
+# 停止：& '...\bin\mysqladmin.exe' --protocol=tcp -h 127.0.0.1 -P 3307 -u root shutdown
+```
+
+DSN 写法（PostgreSQL **必须以 `postgres://` 开头**：`model/main.go` 靠前缀识别方言，key=value 形式会被判成别的方言并报 `invalid DSN`；MySQL 的空口令 root 用 `root:@tcp(...)`，客户端查询要加 `--protocol=tcp`）：
+
+```powershell
+$env:TEST_PERF_POSTGRES_DSN = 'postgres://postgres@127.0.0.1:5433/pgapi_test?sslmode=disable'
+$env:TEST_PERF_MYSQL_DSN    = 'root:@tcp(127.0.0.1:3307)/pgapi_test?charset=utf8mb4&parseTime=True&loc=Local'
+$env:AUDIT_POSTGRES_DSN     = 'postgres://postgres@127.0.0.1:5433/postgres?sslmode=disable'
+$env:AUDIT_MYSQL_DSN        = 'root@tcp(127.0.0.1:3307)/'
+```
+
+**ClickHouse 无法在本机验证**：本机没有 ClickHouse 服务端二进制（PATH 上没有 `clickhouse` / `clickhouse-server`，scoop 未安装，常见安装目录也不存在），`TestIndependentAuditLogStores/clickhouse/*` 始终 SKIP。不要把它算作已覆盖。
 
 ---
 
@@ -100,6 +155,7 @@ beforeEach: i18next.removeResourceBundle('zhCN', 'translation')
 - `git grep` 的 pattern 里带反斜杠或引号在 PowerShell 下容易解析失败（`fatal: unable to resolve revision: ...`），换成不含引号的简单子串，或改用 grep 类工具。
 - 提交信息里不要放双引号：PowerShell 会把 `\"` 当字符串结束，`git commit -m "..."` 会把消息碎片当成 pathspec（报 `fatal: Invalid path '/en'`）。用 here-string（`@'...'@`）传消息体。
 - 前端包管理统一用 `bun`。
+- **不要顺手改旧标识**：`oneapi-` 日志文件前缀与 `one-api.db` 数据库名是**有意保留**的过渡期兼容（2026-09-30 确认），不是漏改。它们各有真实消费者——`logger/logger.go:55` 按 `oneapi-%s.log` 建日志文件，`controller/performance.go:211` 用 `HasPrefix(name, "oneapi-")` 过滤服务器日志文件列表，`common/database.go:66` 的 `SQLitePath` 默认值就是 `one-api.db`；改名会让既有实例找不到自己的库与日志。fork 身份改名只覆盖产品名、模块路径、二进制/镜像/服务名等，不覆盖这两个。
 - 评测/构建会锁住 `web/dist`；先构建再跑需要读 dist 的检查。`main.go` 用 `//go:embed web/dist/index.html`，所以 `go vet .` / `go build .` 在 `web/dist` 不存在（例如尚未构建，或 rsbuild 正在重建、目标目录被清空的瞬间）会直接报 `pattern web/dist/index.html: no matching files found`——先跑完 `bun run build`，再跑 Go 侧检查；反之两者不要并行。
 
 ---
@@ -115,6 +171,16 @@ beforeEach: i18next.removeResourceBundle('zhCN', 'translation')
 ---
 
 ## 6. 相关变更历史
+
+- 2026-09-30：**修掉 4 个被误当成「本机环境问题」的测试缺陷**（提交 `352c0753b`，改 `controller/access_token_audit_test.go`、`controller/auth_flow_test.go`、`service/channel_affinity_usage_cache_test.go`）。**一、sqlite 审核库句柄从不关闭**：`newAuditTestDatabase` 的 MySQL/PostgreSQL 分支本来就注册了 `t.Cleanup` 关连接，sqlite 分支却直接 `return`，句柄留到进程结束，于是 `t.TempDir()` 清理报 `RemoveAll cleanup: unlinkat ...\audit.db: The process cannot access the file because it is being used by another process`，Go 把清理失败计为该测试失败——受影响的是 `TestAPITokenAuditDatabaseMatrix` 与约 30 个 `TestSecurityEnrollment*`、`TestTelegramOAuth*`，**子用例全 PASS、只有父测试 FAIL**，且每个父测试被删除重试拖到约 2s。修法：抽出 `closeAuditTestDatabase(t, db)`，sqlite 分支与原非 sqlite 路径共用。**二、`TestAuditDatabaseMatrix` 的连接池泄漏**：该用例 `for range 2` 各跑一次 `model.InitDB()` / `InitLogDB()`，而二者每次都新建池并覆盖全局 `model.DB` / `model.LOG_DB`、从不关闭被替换的池，父级清理又只还原全局变量；修法是用例收尾按顺序关闭「被替换的池、辅助函数给的句柄、最终 `model.CloseDB()`」。**三、`UnixNano()` 键名撞车**：三个 `TestObserveChannelAffinityUsageCacheByRelayFormat_*` 用例用时钟造 `ruleName`/`keyFP`，而统计是进程级全局状态，Windows 计时器精度使其共用一条记录（期望 1 实得 3），表现为「单跑通过、整批失败」；修法改为 `t.Name()` 派生（新增 `testAffinityIdentity`）。**四、两条 OAuth 断言比的是过期英文文案**：i18n 只提供简体中文且 `i18n.T` 不做语言协商，`oauth.not_auto_linked` 与 `oauth.already_bound` 的英文常量早已不存在；改为从 bundle 读期望值（`i18n.T(nil, i18n.MsgOAuthNotAutoLinked, map[string]any{"Provider": "GitHub"})`），与 `security_enrollment_test.go` 写法一致——注意 `i18n.Init()` 幂等但**必须在取值前调用**，否则 bundle 未加载时 `i18n.T` 直接返回 key。**验证**：`go test ./controller/ -count=1` 由整包 FAIL 变为 `ok 153.2s`；定点 `-run 'TestSecurityEnrollment|TestTelegramOAuth'` = `ok 38.8s`，`-run 'TestAPITokenAuditDatabaseMatrix'` = `ok 6.5s`（原 10.2s，差的就是删除重试），`-run 'TestAuditDatabaseMatrix$'` = `ok 6.7s`；随后根模块全量（76 包）无 `FAIL`，`gofmt -l` 对被改文件无输出。
+
+- 2026-09-30：**三库矩阵的 MySQL 与 PostgreSQL 分支用本机实例实测跑通**（不是代码改动，是验证覆盖的修正）。此前把「`AUDIT_*` 未配置导致 skip」当成「无法验证」，实际上只有 ClickHouse 是真的不行：本机有 PostgreSQL 18.6（EDB 安装版二进制）与 MySQL 26.7.0（scoop），`tools\dbmatrix` 下还留着两者的一次性数据目录。设上 `AUDIT_POSTGRES_DSN='postgres://postgres@127.0.0.1:5433/postgres?sslmode=disable'` 与 `AUDIT_MYSQL_DSN='root@tcp(127.0.0.1:3307)/'` 后：`TestAuditDatabaseMatrix` 的 mysql / postgres 各自 `upgrade=false/true` 全 PASS，`TestAPITokenAuditDatabaseMatrix` 的 mysql / postgres × `separate_log=false/true` 全 PASS，`TestIndependentAuditLogStores` 的 mysql / postgres 全 PASS，整包 `ok 17.7s`，**mysql 与 postgres 无任何子用例再 SKIP**；`clickhouse/*` 仍 SKIP（本机无服务端二进制）。完整的启动/停止命令、两套 DSN 与坑见第 3 节「三库矩阵」小节。**收尾**：跑完已把两个实例干净关闭（`pg_ctl -m fast stop` 与 `mysqladmin shutdown`），`5432/5433/3306/3307` 无监听、无 `postgres`/`mysqld` 残留、`postgresql-x64-18` 仍 `Stopped`/`Manual`、`tools\dbmatrix` 恢复为原来的 `mysql/`、`pg/`、`pg.log` 三项。顺带确认了 5432 上那个实例的收尾已完成：服务 `START_TYPE=3 DEMAND_START`、`data\base` 只剩 template1/template0/postgres 三个标准 OID、日志里 `14:44:32` 一次口令失败后 `14:45:40` 正常关闭，即「先删库、后停服务」的顺序正确。
+
+- 2026-09-30：**补齐前端目录里缺失的 12 个 i18n 键**（提交 `a57c8e3c6`，仅 `web/src/i18n/locales/zh.json`，+12 行）。交接记录写的是 `find-missing-keys` 报 7 条，重写审计（遍历 `web/src` 的 `t('literal')` 与 `zh.json` 对比，共 1082 个文件、6275 个键）后实际是 12 条：7 条以外还有 4 条批量删除 toast（`{{count}} announcements / API entries / FAQs / groups deleted. Click "Save Settings" to apply.`，四个内容设置节的单数兄弟键本来就已在目录里）与 1 条自定义 OAuth 删除确认（`Are you sure you want to delete "{{name}}"? ...`）。按第 5 节流程用一次性 Node 脚本写入再 `bun run i18n:sync`（脚本已删除），措辞沿用同族既有译法，键按文件既有的 ICU 数字排序插入。**踩到的坑**：脚本 `JSON.parse` + `JSON.stringify` 往返会把 `footer.new\u0061pi.projectAttributionSuffix` 的转义还原成字面 `newapi`，破坏 `web/scripts/sync-i18n.mjs` 里 `OBFUSCATED_KEYS` 的遮蔽，已在同一次处理中修回（该键现在仍是转义形式）。复跑审计只剩 `"English source key"`，那是 `test-setup.ts` 注释里的示例字面量，不是真键。
+
+- 2026-09-30：**`electron/build.sh` 补上版本注入**（提交 `2485dd7bb`）。这补上了同一天「版本号改为 `1.1.0`」那条记录留下的尾巴（那里已把 `build.sh` 的版本来源从 `git describe` 改成 `cat ../VERSION`，但四条 `go build` 仍没写 `-X`，所以桌面版进程内版本一直是 `common/constants.go` 的默认 `v0.0.0`）。现在共用同一个 `LDFLAGS="-s -w -X 'github.com/zhourenke/pg-api/common.Version=$VERSION_VALUE'"`（`VERSION_VALUE=$(cat VERSION)`，与 `Dockerfile` / `Dockerfile.dev` 的写法一致），并加了 `VERSION` 缺失或为空即 `exit 1` 的前置校验，避免再静默产出无版本号的产物。**验证**：用同一 ldflags 构建根模块并启动，日志为 `pg-api 1.1.0 started`；`bash -n`（Git for Windows 的 bash）退出 0。**未验证**：没有跑完整的 `electron/build.sh`（它还要 bun/npm install 与 electron-builder，需要先有前端 `dist`），也没在 Electron 应用内确认进程内版本。
+
+- 2026-09-30：**清掉 pricing 三个文件里的 15 个 lint error**（提交 `2aa40d479`）。交接记录的路径已过期，实际在 `web/src/features/pricing/`：`components/model-details-apps.tsx`（`RankBadge`、`GrowthChip` 的嵌套三元改成 if/else，`GrowthIcon` 变量需大写才能在 JSX 里用）、`components/model-details-api.tsx`（5 处 `replace(/\n/g, ...)` 改 `replaceAll('\n', ...)`——注意规则要求用字符串形式，传正则仍会报错；`buildSample` 的 `if` 补花括号）、`lib/mock-stats.ts`（速率基线改 if/else if、`[...targets]` 取代 `slice()`、`formatRateLimit` 补花括号）。**验证**：三个文件 `oxlint` 0 error；仓库级 error **173 → 158**（正好 -15，无任何规则计数上升）；`oxfmt --check` 与 `tsgo -b --force` 通过；`bunx vitest run src/features/pricing` 改动前后都是 11 文件 / 192 用例通过。**未解决**：`bun run lint` 仍不会通过——仓库级还有 158 个 error 分布在 93 个文件（`typescript(no-import-type-side-effects)` 55、`react(no-array-index-key)` 26、`unicorn(prefer-spread)` 25、`eslint(no-nested-ternary)` 15、`unicorn(prefer-string-replace-all)` 14、`eslint(curly)` 10，最集中的是 `src/features/dashboard/lib/charts.ts` 15 个与 `src/features/home/components/hero-terminal-demo.tsx` 12 个）。`prefer-spread` 不能机械 `--fix`：`arr.slice()` 与 `[...arr]` 对稀疏数组、类数组语义不同，要逐处判断。
 
 - 2026-09-30：**统计数据设置合并进「运维 > 日志维护」，看板粒度改读服务端选项；`perf_metrics` 当前小时也落库、退出时补写；清理历史日志连带清理两张派生表；使用日志「生成总耗时」改按毫秒显示**。**一、设置项搬迁**：删除「控制台内容 > 数据仪表盘」整节（`content/dashboard-section.tsx` 删除，注册表与默认节改为 `announcements`），三项选项移入 `OperationsSettings`（`DataExportEnabled` / `DataExportInterval` / `DataExportDefaultTime`），由 `maintenance/log-settings-section.tsx` 统一承载，表单改用 `useResetForm(form, defaultValues)` 与逐键 `updateOption.mutateAsync`（与其它设置节一致）。**二、看板真的读服务端选项**：`data_export_default_time` 经 `/api/status` 成为**站点默认值**（`lib/status-query.ts` 新增 `readSiteDefaultTimeGranularity` / `setSiteDefaultTimeGranularity` / `getSiteDefaultTimeGranularity`，`fetchStatus` 写入，并保留 localStorage 快照作为首屏同步回退），`dashboard/lib/filters.ts` 的 `getLegacySavedGranularity()` 回退值由硬编码 `hour` 改为站点默认，新增 `hasLocalGranularityChoice()`；看板挂载时若本浏览器没有自己的粒度（既无 `data_export_default_time` 也无 `dashboard_models_chart_preferences.defaultTimeGranularity`），用最新 status 覆盖当前粒度，否则保留浏览器选择——即「站点默认 + 看板个人覆盖」。**三、`perf_metrics` 不再丢当前小时**：`flushHotBuckets`（原 `flushCompletedBuckets`）去掉「跳过当前桶」分支，每个刷新周期把当前小时的部分计数也 upsert 落库；新增导出的 `FlushNow()`，`main.go` 优雅退出路径在 `SaveQuotaDataCache()` 之后调用。读取侧不变（`Query` / `QuerySummaryAll` 是「库里的行 + 内存计数」相加，部分落库不会重复计数），因此重启后残留风险只剩最后一次刷盘之后的样本（≤ `perf_metrics_setting.flush_interval`，默认 5 分钟，本次未改）。**四、`quota_data` 融入手动清理**：`model/usedata.go` 新增 `DeleteQuotaDataBefore`（本仓库原本没有清理入口），`model/perf_metric.go` 的 `DeletePerfMetricsBefore` 改为返回删除行数；`service/system_task.go` 在日志批删成功后用**同一个 `target_timestamp`** 删除 `quota_data` 与 `perf_metrics`，结果结构扩展为 `deleted_count` / `deleted_quota_data_count` / `deleted_perf_metric_count`，前端 toast 三类数量一并报告。没有保留期、没有自动清理任务。**五、措辞全面改写**：日志维护页说明「记录配额使用量」关闭后连统计也停止、统计数据是看板与排行榜的数据源、写入间隔何时生效、粒度是站点默认且可被看板个人选择覆盖、清理历史会同时删三处数据且保留时间点之后的行、服务器日志文件清理只释放磁盘并跳过正在写入的文件（每次启动与满一百万行新建文件）；确认弹窗、进度文案（`已删除 X / Y 条使用日志`）、结果 toast 同步更新。**六、使用日志毫秒精度**：后端本就在写 `other.use_time_ms`（09-28 那条），但展示层仍读整秒的 `use_time` 且 `formatUseTime` 是 `toFixed(1)`，所以 28.035s 显示成 `28.0s`。新增 `usage-logs/lib/format.ts` 的 `getLogDurationMs(log, other)`（优先 `use_time_ms`，缺失时 `use_time * 1000` 兼容旧日志）与 `@/lib/format` 的 `formatUseTimeMs(ms)`（< 60s 保留三位小数），`TimingMetricsCell` 的 `useTimeSec` 改为 `durationMs`（列定义与移动卡片两处调用点随之更新），详情弹窗的 Response Time 同步改用它，并顺手让「总耗时 > 0」的判断也按毫秒值（原本 `use_time > 0` 会把亚秒请求整行隐藏）。**七、过渡期兼容**：`oneapi-` 日志文件前缀与 `one-api.db` 数据库名按要求未改。**测试**：后端扩展 `pkg/perf_metrics/metrics_test.go`（`FlushNow()` 后当前小时行确实在库、周期落库 upsert 到同一行），新增 `service/system_task_test.go::TestLogCleanupAlsoRemovesDerivedStatistics`（旧日志/`quota_data`/`perf_metric` 被清、时间点之后的行保留、结果三个计数为 1/1/1），`service/main_test.go` 纳管两张新表；前端新增 `usage-logs/lib/__tests__/duration.test.ts`（`use_time_ms` 优先、旧日志回退、三位小数）与 `dashboard/lib/__tests__/granularity.test.ts`（站点默认生效、浏览器选择优先、`hour` 兜底）。**命令与结果**：`go build ./...` 退出 0；`gofmt` 对 `service/main_test.go` 重新格式化；`go test ./pkg/perf_metrics/ -run TestPerformanceAggregationAndFlush` ok，`go test ./service/ -run TestLogCleanupAlsoRemovesDerivedStatistics` ok；`bunx tsgo -b --force` 退出 0；`oxlint` 对 16 个改动文件 0 warning / 0 error；`oxfmt --write` 已执行；`bunx vitest run src/features/usage-logs` 15 文件 345 用例通过，两个新测试文件 9 用例通过；`bun run build` 退出 0（生产构建，dist 合计 62,588.4 kB / gzip 19,321.2 kB）；`zh.json` 的 19 个新键经 `add-missing-keys.mjs` + `bun run i18n:sync` 写入（其中 `Prices shown per usage call` 是上一轮价格改动漏掉的键，本次补上），临时脚本已删除。**数据库验证**：新增的 `DELETE` 与 `RowsAffected` 已在真实 SQLite、MySQL、PostgreSQL 上验证。本机用两个一次性实例：`initdb -A trust` 新建的 **PostgreSQL 18.6**（`C:\Program Files\PostgreSQL\18\bin`，集群在 `_pgapi_fix\dbmatrix\pg`，监听 127.0.0.1:**5433**），以及 scoop 安装的 **MySQL 26.7.0 Community**（`mysqld --no-defaults --initialize-insecure` 新建数据目录 `_pgapi_fix\dbmatrix\mysql\data`，监听 127.0.0.1:**3307**）；两者都在 `pgapi_test` 库上跑。新增用例 `TestDerivedStatisticDeletionMatrix`（`pkg/perf_metrics/metrics_test.go`，与聚合用例共用同一套方言夹具与 `TEST_PERF_MYSQL_DSN` / `TEST_PERF_POSTGRES_DSN` 开关）用 `postgres://postgres@127.0.0.1:5433/pgapi_test?sslmode=disable` 与 `root:@tcp(127.0.0.1:3307)/pgapi_test?charset=utf8mb4&parseTime=True&loc=Local` 跑出三方言全过（`--- PASS: TestDerivedStatisticDeletionMatrix` 0.34s；子测试 sqlite 0.06s / mysql 0.09s / postgres 0.19s）；断言的是「`created_at < cutoff` 的行被删、cutoff 当刻与之后的行留下、`perf_metrics` 按 `bucket_ts` 删且当前小时桶留下、重复清理返回 0 行且不报错」，也就是删除确实命中而不是静默无效。同一次运行里 `go test ./pkg/perf_metrics/ -count=1` 与 `go test ./service/ -run TestLogCleanupAlsoRemovesDerivedStatistics -count=1` 均 ok，`go build ./...` 退出 0。两个实例验证完已停止（结束 postgres/mysqld 进程），数据目录保留在仓库外的 `_pgapi_fix\dbmatrix` 以便下次复用。**遗留**：日志维护页与其新字段尚无用例级测试（只覆盖纯逻辑：粒度解析与时长格式化）；`find-missing-keys` 仍报 7 个与本轮无关的历史缺失键。
 
