@@ -19,11 +19,11 @@ import (
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/logger"
 
+	"github.com/samber/lo"
 	"github.com/zhourenke/pg-api/model"
 	"github.com/zhourenke/pg-api/relaykit/dto"
 	"github.com/zhourenke/pg-api/setting/billing_setting"
 	"github.com/zhourenke/pg-api/setting/ratio_setting"
-	"github.com/samber/lo"
 
 	"github.com/gin-gonic/gin"
 )
@@ -34,9 +34,6 @@ const (
 	maxConcurrentFetches        = 8
 	maxRatioConfigBytes         = 10 << 20 // 10MB
 	floatEpsilon                = 1e-9
-	officialRatioPresetID       = -100
-	officialRatioPresetName     = "官方倍率预设"
-	officialRatioPresetBaseURL  = "https://basellm.github.io"
 	modelsDevPresetID           = -101
 	modelsDevPresetName         = "models.dev 价格预设"
 	modelsDevPresetBaseURL      = "https://models.dev"
@@ -1126,13 +1123,6 @@ func GetSyncableChannels(c *gin.Context) {
 			})
 		}
 	}
-
-	syncableChannels = append(syncableChannels, dto.SyncableChannel{
-		ID:      officialRatioPresetID,
-		Name:    officialRatioPresetName,
-		BaseURL: officialRatioPresetBaseURL,
-		Status:  1,
-	})
 
 	syncableChannels = append(syncableChannels, dto.SyncableChannel{
 		ID:      modelsDevPresetID,
