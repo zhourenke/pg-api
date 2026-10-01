@@ -116,7 +116,7 @@ export function useSaveModelPricing() {
 }
 
 // Only dirty model fields are applied to stored configuration. Display-only
-// built-in expressions for other models never become administrator overrides.
+// effective values for other models never become administrator overrides.
 export function buildPricingChanges(
   snapshot: ModelPricingConfig,
   before: PricingOptions,
