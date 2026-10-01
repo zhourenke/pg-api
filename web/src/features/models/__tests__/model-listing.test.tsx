@@ -215,7 +215,7 @@ it('requests channel models and distinguishes catalog policy from availability u
     .getAllByText('Unavailable')[0]
     .closest('[data-slot="status-badge"]')
   expect(warning).toHaveClass('text-warning')
-  expect(warning?.querySelector('svg')).toBeInTheDocument()
+  expect(warning?.querySelector('svg')).toBeNull()
   expect(warning).not.toHaveClass('text-success')
   expect(screen.getAllByText('Missing metadata')).toHaveLength(2)
   expect(screen.getAllByText('Channels 0 · Groups 0')).toHaveLength(3)
@@ -302,8 +302,10 @@ it('keeps long model names and translated channel labels truncated inside their 
     { ...metadata, status: 0, square_state: 'hidden' },
   ])
   expect(screen.getByText(longName)).toHaveClass('truncate')
+  // 操作列按内容自适应宽度，按钮文字不允许被截断，否则这一列会被压到 0 宽
   for (const label of screen.getAllByText('Model info')) {
-    expect(label).toHaveClass('truncate')
+    expect(label).not.toHaveClass('truncate')
+    expect(label).toHaveClass('whitespace-nowrap')
   }
   const label = screen.getAllByText(
     i18n.t('Channels {{channels}} · Groups {{groups}}', {
@@ -320,6 +322,26 @@ it('keeps long model names and translated channel labels truncated inside their 
   expect(screen.getByText('缺元数据')).toBeVisible()
   expect(screen.getByText('已隐藏')).toBeVisible()
   expect(screen.getAllByText('渠道 0 · 分组 0')).toHaveLength(2)
+})
+
+it('keeps all four row actions visible inside the content-sized actions column', async () => {
+  await renderList([{ ...metadata, status: 0, square_state: 'hidden' }])
+  const actions = screen
+    .getByRole('button', { name: 'Model info' })
+    .closest('[data-column-id="actions"]')
+  expect(actions).not.toBeNull()
+  for (const name of ['Model info', 'Price', 'Show', 'Delete']) {
+    expect(
+      within(actions as HTMLElement).getByRole('button', { name })
+    ).toBeVisible()
+  }
+  const grid = (actions as HTMLElement).querySelector('.grid')
+  expect(grid).toHaveClass('grid-cols-2')
+  // 该列由内容撑开：`w-full` / `min-w-0` / `truncate` 会让浏览器把它压到 0 宽，
+  // 结果就是整列操作在界面上完全不可见。
+  expect(grid).not.toHaveClass('w-full')
+  expect(grid?.querySelector('.min-w-0')).toBeNull()
+  expect(grid?.querySelector('.truncate')).toBeNull()
 })
 
 it('prefills and creates metadata only when the user explicitly saves it', async () => {
@@ -428,7 +450,8 @@ it('uses backend square states for success, warning, hidden, and partial rows in
   for (const label of ['Unavailable', 'Partly shown']) {
     const badge = screen.getByText(label).closest('[data-slot="status-badge"]')
     expect(badge).toHaveClass('text-warning')
-    expect(badge?.querySelector('svg')).toBeInTheDocument()
+    // 警示色本身已经足够醒目，状态徽标不再渲染三角感叹号图标
+    expect(badge?.querySelector('svg')).toBeNull()
     expect(badge).not.toHaveClass('text-success')
   }
   const displayed = screen.getAllByText('Displayed')
@@ -479,15 +502,16 @@ it.each(['{Enter}', ' '])(
   }
 )
 
-it('opens the warning icon’s own model reason and closes it on an outside click without selecting the row', async () => {
+it('opens the warning badge’s own model reason and closes it on an outside click without selecting the row', async () => {
   await renderList([metadata, channel])
   const user = userEvent.setup()
   const triggers = screen.getAllByRole('button', {
     name: 'Unavailable',
   })
-  const icon = triggers[1].querySelector('svg')
-  expect(icon).not.toBeNull()
-  await user.click(icon as SVGElement)
+  const badge = triggers[1].querySelector('[data-slot="status-badge"]')
+  expect(badge).not.toBeNull()
+  expect(badge?.querySelector('svg')).toBeNull()
+  await user.click(badge as HTMLElement)
   const popup = await screen.findByRole('dialog', { name: 'Unavailable' })
   expect(popup).toHaveTextContent('No channel is currently available.')
   expect(popup).not.toHaveTextContent('No channel is configured.')

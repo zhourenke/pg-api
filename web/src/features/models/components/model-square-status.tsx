@@ -16,7 +16,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { TriangleAlert } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { StatusBadge, type StatusVariant } from '@/components/status-badge'
@@ -79,7 +78,6 @@ export function ModelSquareStatus(props: { model: Model; detail?: boolean }) {
     <StatusBadge
       variant={variant}
       label={label}
-      icon={variant === 'warning' ? TriangleAlert : undefined}
       copyable={false}
       title={undefined}
     />

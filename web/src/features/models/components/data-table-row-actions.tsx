@@ -46,8 +46,12 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   // is nothing to hide from the model square or to delete.
   const hasMetadata = model.id > 0
 
+  // The actions column is content-sized (see `isContentSizedColumn`), so this
+  // grid must keep a real intrinsic width: `min-w-0`/`shrink` on the buttons
+  // let the browser collapse the column to zero width, which hides every
+  // action.
   return (
-    <div className='grid w-full grid-cols-2 gap-1 [&>button]:min-w-0 [&>button]:shrink'>
+    <div className='grid grid-cols-2 gap-1'>
       <Button
         variant='ghost'
         size='sm'
@@ -56,7 +60,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
           setOpen('update-model')
         }}
       >
-        <span className='truncate'>{t('Model info')}</span>
+        {t('Model info')}
       </Button>
 
       {canPrice && (
@@ -68,7 +72,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
             setOpen('price-model')
           }}
         >
-          <span className='truncate'>{t('Price')}</span>
+          {t('Price')}
         </Button>
       )}
 
@@ -80,7 +84,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
           handleToggleModelStatus(model.id, model.status, queryClient)
         }}
       >
-        <span className='truncate'>{isEnabled ? t('Hide') : t('Show')}</span>
+        {isEnabled ? t('Hide') : t('Show')}
       </Button>
 
       <Button
@@ -90,7 +94,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
         disabled={!hasMetadata}
         onClick={() => setDeleteConfirmOpen(true)}
       >
-        <span className='truncate'>{t('Delete')}</span>
+        {t('Delete')}
       </Button>
 
       {deleteConfirmOpen && (
