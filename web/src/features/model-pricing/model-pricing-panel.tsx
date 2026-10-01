@@ -25,18 +25,11 @@ import { ErrorState } from '@/components/error-state'
 import { LoadingState } from '@/components/loading-state'
 import { Button } from '@/components/ui/button'
 import { DynamicPricingBreakdown } from '@/features/pricing/components/dynamic-pricing-breakdown'
-import { isDynamicPricingModel } from '@/features/pricing/lib/dynamic-price'
-import {
-  buildPreviewRows,
-  createInitialLaneState,
-} from '@/features/system-settings/models/model-pricing-core'
 import {
   ModelPricingEditorPanel,
   type ModelPricingEditorPanelHandle,
 } from '@/features/system-settings/models/model-pricing-sheet'
 import { handleServerError } from '@/lib/handle-server-error'
-import { usePricingPreferencesStore } from '@/stores/pricing-preferences-store'
-import { useSystemConfigStore } from '@/stores/system-config-store'
 
 import {
   useCanEditModelPricing,
@@ -44,11 +37,6 @@ import {
   useSaveModelPricing,
   type ModelPricingEntry,
 } from './api'
-import {
-  getSitePricingCurrency,
-  isValidPricingCurrency,
-  USD_PRICING_CURRENCY,
-} from './currency'
 import { modelPricingDisplay, pricingFromDraft, pricingRow } from './pricing'
 
 export function ModelPricingPanel(props: {
@@ -56,10 +44,6 @@ export function ModelPricingPanel(props: {
   onDirtyChange?: (dirty: boolean) => void
 }) {
   const { t } = useTranslation()
-  const currencyConfig = useSystemConfigStore((state) => state.config.currency)
-  const currencyPreference = usePricingPreferencesStore(
-    (state) => state.currency
-  )
   const canEdit = useCanEditModelPricing()
   const query = useModelPricing([props.modelName], Boolean(props.modelName))
   const save = useSaveModelPricing()
@@ -129,32 +113,6 @@ export function ModelPricingPanel(props: {
   }
   if (!editData || !entry) return <LoadingState />
   const effectivePricing = modelPricingDisplay(entry)
-  const siteCurrency = getSitePricingCurrency(currencyConfig)
-  const currency =
-    currencyPreference === 'site' && isValidPricingCurrency(siteCurrency)
-      ? siteCurrency
-      : USD_PRICING_CURRENCY
-  const current = pricingRow(entry.model_name, entry.effective)
-  const currentLanes = createInitialLaneState(current)
-  const details = buildPreviewRows(
-    current,
-    current.billingMode ?? 'per-token',
-    '',
-    '',
-    currentLanes.promptPrice,
-    currentLanes.prices,
-    currentLanes.enabled,
-    t,
-    currency,
-    entry.cache_write_mode,
-    entry.billing_details
-  ).filter(
-    (row) =>
-      row.key !== 'inputPrice' &&
-      row.key !== 'completion' &&
-      row.key !== 'price' &&
-      row.value !== t('Empty')
-  )
 
   return (
     <div className='flex min-h-0 min-w-0 flex-1 flex-col gap-3'>
@@ -186,26 +144,11 @@ export function ModelPricingPanel(props: {
               </Button>
             </div>
             <div className='space-y-3 border-b pb-3'>
-              {isDynamicPricingModel(effectivePricing) ? (
+              {effectivePricing.billing_expr && (
                 <DynamicPricingBreakdown
                   compact
                   billingExpr={effectivePricing.billing_expr}
                 />
-              ) : (
-                effectivePricing.quota_type === 0 &&
-                Number.isFinite(effectivePricing.model_ratio) && (
-                  <dl className='grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-3'>
-                    {details.map((row) => (
-                      <div key={row.key}>
-                        <dt className='text-muted-foreground'>{row.label}</dt>
-                        <dd className='mt-1 font-mono tabular-nums'>
-                          {row.value}
-                          {row.unit !== 'none' && ' / 1M'}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
-                )
               )}
             </div>
             {save.isError && (

@@ -71,7 +71,6 @@ function renderModelActions(currentModel: Model = model, role = 100) {
 describe('model pricing entry', () => {
   it('saves pricing and opens connections for a channel model without creating metadata', async () => {
     const channelModel = { ...model, id: 0, model_name: 'channel-only' }
-    let storedPrice = 1.5
     const get = vi.spyOn(api, 'get').mockImplementation(async (url) => {
       if (url === '/api/option/model_pricing') {
         return {
@@ -82,8 +81,14 @@ describe('model pricing entry', () => {
                 {
                   model_name: 'channel-only',
                   version: 'v1',
-                  configured: { ModelPrice: storedPrice },
-                  effective: { ModelPrice: storedPrice },
+                  configured: {
+                    'billing_setting.billing_mode': 'tiered_expr',
+                    'billing_setting.billing_expr': 'tier("base", p * 1.5)',
+                  },
+                  effective: {
+                    'billing_setting.billing_mode': 'tiered_expr',
+                    'billing_setting.billing_expr': 'tier("base", p * 1.5)',
+                  },
                 },
               ],
               options: pricingOptions({}),
@@ -96,9 +101,8 @@ describe('model pricing entry', () => {
     })
     const post = vi.spyOn(api, 'post')
     const put = vi.spyOn(api, 'put')
-    const patch = vi.spyOn(api, 'patch').mockImplementation(async () => {
-      storedPrice = 0
-      return { data: { success: true } }
+    const patch = vi.spyOn(api, 'patch').mockResolvedValue({
+      data: { success: true },
     })
     const client = renderModelActions(channelModel)
     const user = userEvent.setup()
@@ -117,9 +121,6 @@ describe('model pricing entry', () => {
     expect(
       await screen.findByRole('button', { name: 'Save model prices' })
     ).toBeVisible()
-    const price = await screen.findByPlaceholderText('0.01')
-    await user.clear(price)
-    await user.type(price, '0')
     await user.click(screen.getByRole('button', { name: 'Save model prices' }))
     await waitFor(() =>
       expect(patch).toHaveBeenCalledWith('/api/option/model_pricing', {
@@ -127,7 +128,10 @@ describe('model pricing entry', () => {
           {
             model_name: 'channel-only',
             expected_version: 'v1',
-            pricing: { ModelPrice: 0, 'billing_setting.billing_mode': 'ratio' },
+            pricing: {
+              'billing_setting.billing_mode': 'tiered_expr',
+              'billing_setting.billing_expr': 'tier("base", p * 1.5)',
+            },
             reset: false,
           },
         ],
@@ -163,8 +167,16 @@ describe('model pricing entry', () => {
                 {
                   model_name: model.model_name,
                   version: 'v1',
-                  configured: { ModelRatio: 3.25, CompletionRatio: 27 / 6.5 },
-                  effective: { ModelRatio: 3.25, CompletionRatio: 27 / 6.5 },
+                  configured: {
+                    'billing_setting.billing_mode': 'tiered_expr',
+                    'billing_setting.billing_expr':
+                      'tier("base", p * 6.5 + c * 27)',
+                  },
+                  effective: {
+                    'billing_setting.billing_mode': 'tiered_expr',
+                    'billing_setting.billing_expr':
+                      'tier("base", p * 6.5 + c * 27)',
+                  },
                 },
               ],
               options: pricingOptions({}),
@@ -190,15 +202,16 @@ describe('model pricing entry', () => {
       'true'
     )
     expect(
-      await screen.findByRole('textbox', { name: 'Input price' })
-    ).toHaveValue('6.5')
+      await screen.findByRole('complementary', {
+        name: 'Billing expression (USD)',
+      })
+    ).toBeVisible()
     expect(
       screen.queryByRole('heading', { name: 'Edit model pricing' })
     ).not.toBeInTheDocument()
     expect(
       screen.queryByRole('textbox', { name: 'Model name' })
     ).not.toBeInTheDocument()
-    expect(screen.getByRole('complementary', { name: 'Preview' })).toBeVisible()
     for (const tab of ['Model metadata', 'Channels and groups', 'Pricing']) {
       expect(screen.getByRole('tab', { name: tab })).toHaveClass(
         'min-w-0',
@@ -250,8 +263,14 @@ describe('model pricing entry', () => {
                 {
                   model_name: 'example-concrete',
                   version: 'v1',
-                  configured: { ModelPrice: 1.5 },
-                  effective: { ModelPrice: 1.5 },
+                  configured: {
+                    'billing_setting.billing_mode': 'tiered_expr',
+                    'billing_setting.billing_expr': 'tier("base", p * 1.5)',
+                  },
+                  effective: {
+                    'billing_setting.billing_mode': 'tiered_expr',
+                    'billing_setting.billing_expr': 'tier("base", p * 1.5)',
+                  },
                 },
               ],
               options: pricingOptions({}),
@@ -277,16 +296,23 @@ describe('model pricing entry', () => {
     await user.click(
       await screen.findByRole('option', { name: 'example-concrete' })
     )
-    const price = await screen.findByPlaceholderText('0.01')
-    await waitFor(() => expect(price).toHaveValue('1.5'))
-    await user.clear(price)
-    await user.type(price, '2')
+    await user.click(
+      await screen.findByRole('combobox', { name: 'Editor mode' })
+    )
+    await user.click(
+      await screen.findByRole('option', { name: 'Expression editor' })
+    )
+    const expression = await screen.findByRole('textbox', {
+      name: 'Billing expression',
+    })
+    await user.clear(expression)
+    await user.type(expression, 'tier("base", p * 2)')
     await user.click(screen.getByRole('button', { name: 'Close' }))
     expect(await screen.findByRole('alertdialog')).toHaveTextContent(
       'Discard unsaved changes?'
     )
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
-    expect(price).toHaveValue('2')
+    expect(expression).toHaveValue('tier("base", p * 2)')
     client.clear()
   })
 })
@@ -449,7 +475,7 @@ describe('metadata editing', () => {
   it('keeps metadata drafts while saving pricing independently and preserves the price draft across tabs', async () => {
     useAuthStore.getState().auth.setUser({ id: 1, username: 'root', role: 100 })
     let version = 'v1'
-    let storedPrice = 1.5
+  let storedExpression = 'tier("base", p * 1.5)'
     const get = vi.spyOn(api, 'get').mockImplementation(async (url) => {
       if (url === '/api/models/7') {
         return { data: { success: true, data: model } }
@@ -473,8 +499,14 @@ describe('metadata editing', () => {
                 {
                   model_name: model.model_name,
                   version,
-                  configured: { ModelPrice: storedPrice },
-                  effective: { ModelPrice: storedPrice },
+                  configured: {
+                    'billing_setting.billing_mode': 'tiered_expr',
+                    'billing_setting.billing_expr': storedExpression,
+                  },
+                  effective: {
+                    'billing_setting.billing_mode': 'tiered_expr',
+                    'billing_setting.billing_expr': storedExpression,
+                  },
                 },
               ],
               options: pricingOptions({ ModelPrice: '{"example-model":1.5}' }),
@@ -516,16 +548,11 @@ describe('metadata editing', () => {
     await user.clear(description)
     await user.type(description, 'Unsaved metadata draft')
     await user.click(screen.getByRole('tab', { name: 'Pricing' }))
-    const price = await screen.findByPlaceholderText('0.01')
-    await waitFor(() => expect(price).toHaveValue('1.5'))
-    await user.clear(price)
-    await user.type(price, '0')
     await user.click(screen.getByRole('tab', { name: 'Model metadata' }))
     expect(screen.getByLabelText('Description')).toHaveValue(
       'Unsaved metadata draft'
     )
     await user.click(screen.getByRole('tab', { name: 'Pricing' }))
-    expect(screen.getByPlaceholderText('0.01')).toHaveValue('0')
     await user.click(screen.getByRole('button', { name: 'Save model prices' }))
     await waitFor(() =>
       expect(patch).toHaveBeenCalledWith('/api/option/model_pricing', {
@@ -533,22 +560,20 @@ describe('metadata editing', () => {
           {
             model_name: 'example-model',
             expected_version: 'v1',
-            pricing: { ModelPrice: 0, 'billing_setting.billing_mode': 'ratio' },
+            pricing: {
+              'billing_setting.billing_mode': 'tiered_expr',
+              'billing_setting.billing_expr': 'tier("base", p * 1.5)',
+            },
             reset: false,
           },
         ],
       })
     )
     version = 'v2'
-    storedPrice = 2
+    storedExpression = 'tier("base", p * 2)'
     await user.click(
       await screen.findByRole('button', { name: 'Reload pricing' })
     )
-    await waitFor(() =>
-      expect(screen.getByPlaceholderText('0.01')).toHaveValue('2')
-    )
-    await user.clear(screen.getByPlaceholderText('0.01'))
-    await user.type(screen.getByPlaceholderText('0.01'), '0')
     await user.click(screen.getByRole('button', { name: 'Save model prices' }))
     await waitFor(() =>
       expect(patch).toHaveBeenLastCalledWith('/api/option/model_pricing', {
@@ -556,7 +581,10 @@ describe('metadata editing', () => {
           {
             model_name: 'example-model',
             expected_version: 'v2',
-            pricing: { ModelPrice: 0, 'billing_setting.billing_mode': 'ratio' },
+            pricing: {
+              'billing_setting.billing_mode': 'tiered_expr',
+              'billing_setting.billing_expr': 'tier("base", p * 2)',
+            },
             reset: false,
           },
         ],

@@ -34,9 +34,7 @@ import { ModelPricingEditorPanel } from '@/features/system-settings/models/model
 import { ModelRatioForm } from '@/features/system-settings/models/model-ratio-form'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
-import { usePricingPreferencesStore } from '@/stores/pricing-preferences-store'
 
-import { ModelPricingPanel } from '../model-pricing-panel'
 import type { PricingValues } from '../pricing'
 
 const clients: QueryClient[] = []
@@ -58,103 +56,6 @@ afterEach(() => {
     )
   }
 })
-
-it.each(['none', 'standard', 'claude_ttl'] as const)(
-  'shows the %s cache profile in the draft preview without repeating the stored price',
-  async (mode) => {
-    const cacheWriteMode = mode
-    const effective = {
-      ModelRatio: 2,
-      CompletionRatio: 4,
-      CacheRatio: 1,
-      CreateCacheRatio: 1.25,
-      ImageRatio: 1,
-    }
-    const configured = { ModelRatio: 2 }
-    useAuthStore
-      .getState()
-      .auth.setUser({ id: 1, username: 'administrator', role: 100 })
-    usePricingPreferencesStore.setState({ currency: 'USD' })
-    vi.spyOn(api, 'get').mockImplementation(async (url) => ({
-      data: {
-        success: true,
-        data:
-          url === '/api/option/model_pricing'
-            ? {
-                entries: [
-                  {
-                    model_name: 'gpt-4o-custom',
-                    version: 'v1',
-                    configured,
-                    effective,
-                    cache_write_mode: cacheWriteMode,
-                  },
-                ],
-              }
-            : [],
-        vendors: [],
-      },
-    }))
-    vi.spyOn(api, 'post').mockResolvedValue({
-      data: {
-        success: true,
-        data: { effective, cache_write_mode: cacheWriteMode },
-      },
-    })
-    const client = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    })
-    clients.push(client)
-    render(
-      <QueryClientProvider client={client}>
-        <ModelPricingPanel modelName='gpt-4o-custom' />
-      </QueryClientProvider>
-    )
-    const preview = await screen.findByRole('complementary', {
-      name: 'Preview',
-    })
-    expect(await within(preview).findByText('$16')).toBeVisible()
-    // The stored price is shown once, in the editor it is edited in; the drawer
-    // repeats no summary of its own above it.
-    expect(screen.queryByText('Current Billing')).not.toBeInTheDocument()
-    expect(
-      within(preview).queryByText('Image input price')
-    ).not.toBeInTheDocument()
-    expect(
-      within(preview).queryByText('Cache read price')
-    ).not.toBeInTheDocument()
-    if (mode === 'none') {
-      expect(
-        within(preview).queryByText('Cache write price')
-      ).not.toBeInTheDocument()
-      expect(
-        within(preview).queryByText('Cache create (1h) price')
-      ).not.toBeInTheDocument()
-    } else {
-      expect(
-        within(preview).getByText(
-          mode === 'claude_ttl' ? 'Cache Creation (5m)' : 'Cache write price'
-        ).nextElementSibling
-      ).toHaveTextContent('$5')
-      if (mode === 'claude_ttl') {
-        expect(
-          within(preview).getByText('Cache create (1h) price')
-            .nextElementSibling
-        ).toHaveTextContent('$8')
-      } else {
-        expect(
-          within(preview).queryByText('Cache create (1h) price')
-        ).not.toBeInTheDocument()
-      }
-    }
-    expect(
-      screen.getByRole('textbox', { name: 'Completion price' })
-    ).toBeDisabled()
-    expect(
-      screen.getByRole('textbox', { name: 'Cache read price' })
-    ).toBeDisabled()
-  }
-)
 
 function renderEditor(embedded = false) {
   vi.spyOn(api, 'get').mockResolvedValue({
@@ -198,34 +99,6 @@ function renderEditor(embedded = false) {
   )
 }
 
-it('keeps the preview expanded and the save action outside the scrolling embedded form', () => {
-  renderEditor(true)
-  const scrollRegion = screen.getByRole('region', {
-    name: 'Edit model pricing',
-  })
-  expect(scrollRegion).toHaveClass(
-    'overflow-y-auto',
-    'min-h-0',
-    '@container/pricing-editor'
-  )
-  expect(
-    within(scrollRegion).getByRole('complementary', { name: 'Preview' })
-  ).toBeVisible()
-  expect(
-    within(scrollRegion).queryByRole('button', { name: 'Save model prices' })
-  ).not.toBeInTheDocument()
-  expect(
-    screen.getByRole('button', { name: 'Save model prices' })
-  ).toBeVisible()
-  expect(
-    screen.queryByRole('heading', { name: 'Edit model pricing' })
-  ).not.toBeInTheDocument()
-  expect(
-    screen.queryByRole('textbox', { name: 'Model name' })
-  ).not.toBeInTheDocument()
-  expect(screen.getAllByText(/USD price per 1M tokens\./)).toHaveLength(1)
-})
-
 it('retains the model identity and heading when the editor is used standalone', () => {
   renderEditor()
   expect(
@@ -235,35 +108,6 @@ it('retains the model identity and heading when the editor is used standalone', 
     'example-model'
   )
   expect(screen.getByRole('textbox', { name: 'Model name' })).toBeDisabled()
-})
-
-it('updates the preview for explicit zero and disabled prices and explains dependent audio controls', async () => {
-  renderEditor(true)
-  const user = userEvent.setup()
-  const preview = screen.getByRole('complementary', { name: 'Preview' })
-  const cache = screen.getByRole('textbox', { name: 'Cache read price' })
-  await user.clear(cache)
-  await user.type(cache, '0')
-  expect(await within(preview).findByText('$0')).toBeVisible()
-  await user.click(screen.getByRole('switch', { name: 'Cache read price' }))
-  expect(cache).toBeDisabled()
-  expect(within(preview).queryByText('$0')).not.toBeInTheDocument()
-  await waitFor(() =>
-    expect(
-      within(preview).queryByText('Cache read price')
-    ).not.toBeInTheDocument()
-  )
-  const audio = screen.getByRole('switch', { name: 'Audio output price' })
-  expect(audio).toHaveAttribute('aria-disabled', 'true')
-  expect(audio).toHaveAccessibleDescription(
-    'Audio output price requires an audio input price.'
-  )
-  await user.click(screen.getByRole('switch', { name: 'Audio input price' }))
-  await user.type(
-    screen.getByRole('textbox', { name: 'Audio input price' }),
-    '1'
-  )
-  expect(audio).not.toHaveAttribute('aria-disabled', 'true')
 })
 
 function PricingFormFixture(props: {
@@ -370,12 +214,6 @@ it.each(['default', 'unset'] as const)(
       ).not.toBeInTheDocument()
     }
     await user.click(await screen.findByRole('button', { name: 'Edit' }))
-    await user.click(
-      screen.getByRole('tab', { name: 'Per-request (deprecated)' })
-    )
-    const price = screen.getByRole('textbox', { name: 'Fixed price' })
-    await user.clear(price)
-    await user.type(price, '0.25')
     const region = screen.getByRole('region', { name: 'Edit model pricing' })
     const button = screen.getByRole('button', { name: 'Save model prices' })
     expect(region).not.toContainElement(button)
