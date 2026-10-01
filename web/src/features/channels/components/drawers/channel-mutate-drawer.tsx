@@ -695,18 +695,6 @@ export function ChannelMutateDrawer({
     [allModelsData]
   )
 
-  // Get basic models for the current channel type
-  const basicModels = useMemo(() => {
-    if (!allModelsList.length) return []
-    // Filter models based on common patterns for specific types
-    if (currentType === 1) {
-      return allModelsList.filter(
-        (model) => model.startsWith('gpt-') || model.startsWith('text-')
-      )
-    }
-    return allModelsList
-  }, [allModelsList, currentType])
-
   // Get prefill groups
   const prefillGroups = useMemo(
     () => prefillGroupsData?.data || [],
@@ -1147,17 +1135,6 @@ export function ChannelMutateDrawer({
   }, [isEditing, canDiscoverModels, form, t, fetchDiscoveredModels])
 
   // Handle model operations
-  const handleFillRelatedModels = useCallback(() => {
-    if (!basicModels.length) {
-      toast.info(t('No related models available for this channel type'))
-      return
-    }
-    updateModels(basicModels)
-    toast.success(
-      t('Filled {{count}} related model(s)', { count: basicModels.length })
-    )
-  }, [basicModels, updateModels, t])
-
   const handleClearModels = useCallback(() => {
     form.setValue('models', '')
     toast.success(t('Cleared all models'))
@@ -3147,25 +3124,7 @@ export function ChannelMutateDrawer({
             <Separator className='my-4' />
 
             <div className='space-y-3'>
-              <div>
-                <p className='text-sm font-medium'>{t('Quick actions')}</p>
-                <p className='text-muted-foreground text-xs'>
-                  {t(
-                    'Use presets or upstream discovery to populate the model list faster.'
-                  )}
-                </p>
-              </div>
               <div className='flex flex-wrap gap-2'>
-                <Button
-                  type='button'
-                  variant='outline'
-                  size='sm'
-                  onClick={handleFillRelatedModels}
-                  disabled={!basicModels.length}
-                >
-                  <FileText className='mr-2 h-4 w-4' aria-hidden='true' />
-                  {t('Fill Related Models')}
-                </Button>
                 {MODEL_FETCHABLE_TYPES.has(currentType) && (
                   <>
                     <Button

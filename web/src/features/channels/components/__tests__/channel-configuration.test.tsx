@@ -1995,7 +1995,10 @@ test('on wide screens the quick options move into the header as a compact toggle
       'Preserve upstream-specific fields when API formats match; bypasses model redirect, parameter override and format conversion'
     )
   ).not.toBeInTheDocument()
-  expect(screen.queryByText('Quick actions')).toBeVisible()
+  expect(screen.queryByText('Quick actions')).not.toBeInTheDocument()
+  expect(
+    screen.queryByRole('button', { name: 'Fill Related Models' })
+  ).not.toBeInTheDocument()
 
   const passthrough = within(quick).getByRole('switch', {
     name: 'Pass Through Body',
