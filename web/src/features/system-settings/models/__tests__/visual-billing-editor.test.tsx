@@ -271,7 +271,7 @@ test.each([
   }
 )
 
-test('keeps the condition tree as the default after switching models and applying presets', async () => {
+test('keeps the condition tree as the default after switching models and editing prices', async () => {
   const props = {
     requestRuleExpr: '',
     onBillingExprChange: vi.fn(),
@@ -296,8 +296,9 @@ test('keeps the condition tree as the default after switching models and applyin
   ).toBeVisible()
   expect(screen.getByRole('textbox', { name: 'Input price' })).toHaveValue('2')
   expect(props.onBillingExprChange).not.toHaveBeenCalled()
-  const user = userEvent.setup()
-  await user.click(screen.getByRole('button', { name: 'Flat' }))
+  fireEvent.change(screen.getByRole('textbox', { name: 'Output price' }), {
+    target: { value: '4' },
+  })
   expect(
     screen.getByRole('button', { name: 'Add pricing branch' })
   ).toBeVisible()

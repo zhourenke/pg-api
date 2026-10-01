@@ -227,7 +227,7 @@ it('keeps custom raw expressions byte-for-byte intact on currency changes', asyn
   expect(await commit(editor.ref)).toMatchObject({ billingExpr: expr })
   expect(
     screen.getByText(
-      'Raw expressions and presets use USD. Currency selection only converts visual price inputs and monetary previews.'
+      'Raw expressions use USD. Currency selection only converts visual price inputs and monetary previews.'
     )
   ).toBeVisible()
 })
