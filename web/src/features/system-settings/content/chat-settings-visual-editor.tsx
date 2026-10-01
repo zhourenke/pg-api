@@ -177,7 +177,6 @@ export function ChatSettingsVisualEditor({
               <StaticRowActions
                 editLabel={t('Edit')}
                 deleteLabel={t('Delete')}
-                menuLabel={t('Open menu')}
                 onEdit={() => handleEdit(chat)}
                 onDelete={() => handleDelete(chat.name)}
               />

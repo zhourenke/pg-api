@@ -370,7 +370,6 @@ export function WaffoSettingsSection({
                 <StaticRowActions
                   editLabel={t('Edit')}
                   deleteLabel={t('Delete')}
-                  menuLabel={t('Open menu')}
                   onEdit={() => openEdit(idx)}
                   onDelete={() =>
                     onPayMethodsChange((prev) =>

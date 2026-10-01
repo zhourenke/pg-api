@@ -54,6 +54,7 @@ async function renderEditor() {
     defaultOptions: { queries: { retry: false } },
   })
   client = queryClient
+  const onChange = vi.fn()
   const view = render(
     <QueryClientProvider client={client}>
       <ModelRatioVisualEditor
@@ -77,7 +78,7 @@ async function renderEditor() {
         audioCompletionRatio='{}'
         billingMode='{}'
         billingExpr='{}'
-        onChange={vi.fn()}
+        onChange={onChange}
         onSave={vi.fn()}
         isSaving={false}
       />
@@ -86,7 +87,7 @@ async function renderEditor() {
   // The real page has pricing metadata loaded long before the user drags over
   // a model name, so settle the pricing query before interacting.
   await waitFor(() => expect(queryClient.isFetching()).toBe(0))
-  return view
+  return { view, onChange }
 }
 
 // A drag-select ends with mousedown/mouseup inside the row and the browser
@@ -122,4 +123,18 @@ it('keeps other rows mounted when a different model is opened for editing', asyn
     await screen.findByRole('region', { name: 'Edit model pricing' })
   ).toBeInTheDocument()
   expect(otherName).toBeInTheDocument()
+})
+it('deletes one model price from its row without an actions menu', async () => {
+  const { onChange } = await renderEditor()
+  const row = await screen.findByRole('row', { name: /gpt-4\.1-mini/ })
+  expect(within(row).queryByRole('button', { name: 'Open menu' })).toBeNull()
+
+  fireEvent.click(within(row).getByRole('button', { name: 'Delete' }))
+
+  await waitFor(() => expect(onChange).toHaveBeenCalled())
+  const ratioCall = onChange.mock.calls.find(([key]) => key === 'ModelRatio')
+  expect(ratioCall).toBeTruthy()
+  expect(JSON.parse(ratioCall?.[1] as string)).toEqual({
+    'claude-sonnet': 1.5,
+  })
 })

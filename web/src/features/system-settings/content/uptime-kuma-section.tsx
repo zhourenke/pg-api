@@ -327,7 +327,6 @@ export function UptimeKumaSection({ enabled, data }: UptimeKumaSectionProps) {
                 <StaticRowActions
                   editLabel={t('Edit')}
                   deleteLabel={t('Delete')}
-                  menuLabel={t('Open menu')}
                   onEdit={() => handleEdit(group)}
                   onDelete={() => handleDelete(group)}
                 />

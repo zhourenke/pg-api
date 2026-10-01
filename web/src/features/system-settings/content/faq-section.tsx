@@ -310,7 +310,6 @@ export function FAQSection({ enabled, data }: FAQSectionProps) {
                 <StaticRowActions
                   editLabel={t('Edit')}
                   deleteLabel={t('Delete')}
-                  menuLabel={t('Open menu')}
                   onEdit={() => handleEdit(faq)}
                   onDelete={() => handleDelete(faq)}
                 />

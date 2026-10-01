@@ -371,7 +371,6 @@ export function PrefillGroupManagementDialog({
               <StaticRowActions
                 editLabel={t('Edit group')}
                 deleteLabel={t('Delete group')}
-                menuLabel={t('Open menu')}
                 onEdit={() => onEditGroup(group)}
                 onDelete={() => handleDeleteClick(group)}
               />

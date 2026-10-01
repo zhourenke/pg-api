@@ -19,17 +19,10 @@ For commercial licensing, please contact support@quantumnous.com
 import { Pencil, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenuItem,
-  DropdownMenuShortcut,
-} from '@/components/ui/dropdown-menu'
-
-import { DataTableRowActionMenu } from '../core/row-action-menu'
 
 type StaticRowActionsProps = {
   editLabel: string
   deleteLabel: string
-  menuLabel: string
   onEdit: () => void
   onDelete: () => void
   editDisabled?: boolean
@@ -48,18 +41,16 @@ export function StaticRowActions(props: StaticRowActionsProps) {
       >
         <Pencil />
       </Button>
-      <DataTableRowActionMenu ariaLabel={props.menuLabel}>
-        <DropdownMenuItem
-          onClick={props.onDelete}
-          disabled={props.deleteDisabled}
-          className='text-destructive focus:text-destructive'
-        >
-          {props.deleteLabel}
-          <DropdownMenuShortcut>
-            <Trash2 size={16} />
-          </DropdownMenuShortcut>
-        </DropdownMenuItem>
-      </DataTableRowActionMenu>
+      <Button
+        variant='ghost'
+        size='icon-sm'
+        onClick={props.onDelete}
+        disabled={props.deleteDisabled}
+        aria-label={props.deleteLabel}
+        className='text-destructive hover:text-destructive'
+      >
+        <Trash2 />
+      </Button>
     </div>
   )
 }

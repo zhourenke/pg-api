@@ -125,7 +125,6 @@ export function ProviderTable(props: ProviderTableProps) {
               <StaticRowActions
                 editLabel={t('Edit')}
                 deleteLabel={t('Delete')}
-                menuLabel={t('Open menu')}
                 onEdit={() => props.onEdit(provider)}
                 onDelete={() => setDeleteTarget(provider)}
               />

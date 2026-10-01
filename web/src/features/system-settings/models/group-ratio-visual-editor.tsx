@@ -1057,7 +1057,6 @@ function GroupOverrideRules({
                                   <StaticRowActions
                                     editLabel={t('Edit')}
                                     deleteLabel={t('Delete')}
-                                    menuLabel={t('Open menu')}
                                     onEdit={() =>
                                       handleOverrideEdit(
                                         userGroupData.userGroup,
