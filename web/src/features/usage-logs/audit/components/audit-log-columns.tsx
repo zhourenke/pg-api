@@ -128,7 +128,9 @@ export function useAuditLogColumns(
       {
         accessorKey: 'method',
         header: t('Method'),
-        size: 76,
+        // Wide enough for the "请求方法" header plus its sort control; 76px
+        // wrapped the header onto two lines.
+        size: 100,
         cell: ({ row }) => (
           <span className='text-muted-foreground font-mono'>
             {row.original.method || '—'}

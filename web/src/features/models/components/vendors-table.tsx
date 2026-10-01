@@ -187,7 +187,6 @@ export function VendorsTable() {
       id: 'actions',
       header: t('Actions'),
       enableHiding: false,
-      size: 70,
       cell: ({ row }) => (
         <DropdownMenu>
           <DropdownMenuTrigger
