@@ -17,14 +17,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import * as z from 'zod'
 
-import { ConfirmDialog } from '@/components/confirm-dialog'
 import { ErrorState } from '@/components/error-state'
 import { LoadingState } from '@/components/loading-state'
 import { Button } from '@/components/ui/button'
@@ -172,7 +170,6 @@ export function RatioSettingsCard({
 }: RatioSettingsCardProps) {
   const { t } = useTranslation()
   const updateOption = useUpdateOption()
-  const [confirmOpen, setConfirmOpen] = useState(false)
 
   const pricingQuery = useModelPricing()
   const savePricing = useSaveModelPricing()
@@ -197,26 +194,6 @@ export function RatioSettingsCard({
         : initialModelDefaults,
     [initialModelDefaults, pricingBaseline]
   )
-  const resetMutation = useMutation({
-    mutationFn: async () => {
-      if (!pricingBaseline) return
-      await savePricing.mutateAsync(
-        pricingBaseline.entries.map((entry) => ({
-          model_name: entry.model_name,
-          expected_version: entry.version,
-          pricing: {},
-          reset: true,
-        }))
-      )
-      const refreshed = await pricingQuery.refetch()
-      setPricingBaseline(refreshed.data ?? null)
-    },
-    onSuccess: () => {
-      toast.success(t('Model prices reset successfully'))
-      setConfirmOpen(false)
-    },
-    onError: (error) => handleServerError(error),
-  })
 
   const modelNormalizedDefaults = useRef({
     ModelPrice: normalizeJsonString(modelDefaults.ModelPrice),
@@ -436,15 +413,6 @@ export function RatioSettingsCard({
     [updateOption]
   )
 
-  const handleResetRatios = useCallback(() => {
-    setConfirmOpen(true)
-  }, [])
-
-  const { mutate: resetMutate } = resetMutation
-  const handleConfirmReset = useCallback(() => {
-    resetMutate()
-  }, [resetMutate])
-
   const tabLabels: Record<RatioTabId, string> = {
     models: 'Model prices',
     'unset-models': 'Unset price models',
@@ -492,9 +460,7 @@ export function RatioSettingsCard({
             form={modelForm}
             savedValues={savedModelValues}
             onSave={saveModelRatios}
-            onReset={handleResetRatios}
             isSaving={updateOption.isPending || savePricing.isPending}
-            isResetting={resetMutation.isPending}
             variant={tab === 'unset-models' ? 'unset' : 'default'}
           />
         </>
@@ -525,55 +491,38 @@ export function RatioSettingsCard({
     </TabsList>
   )
 
-  return (
-    <>
-      {visibleTabs.length === 1 ? (
-        <SettingsSection
-          title={t(titleKey)}
-          className={
-            defaultTab === 'models' || defaultTab === 'unset-models'
-              ? 'min-h-0 flex-1'
-              : undefined
-          }
-        >
-          {renderTabContent(defaultTab)}
-        </SettingsSection>
-      ) : (
-        <Tabs defaultValue={defaultTab} className='h-full min-h-0 gap-6'>
-          <SettingsPageTitleStatusPortal>
-            {renderTabSwitcher()}
-          </SettingsPageTitleStatusPortal>
+  return visibleTabs.length === 1 ? (
+    <SettingsSection
+      title={t(titleKey)}
+      className={
+        defaultTab === 'models' || defaultTab === 'unset-models'
+          ? 'min-h-0 flex-1'
+          : undefined
+      }
+    >
+      {renderTabContent(defaultTab)}
+    </SettingsSection>
+  ) : (
+    <Tabs defaultValue={defaultTab} className='h-full min-h-0 gap-6'>
+      <SettingsPageTitleStatusPortal>
+        {renderTabSwitcher()}
+      </SettingsPageTitleStatusPortal>
 
-          <SettingsSection title={t(titleKey)} className='min-h-0 flex-1'>
-            {visibleTabs.map((tab) => (
-              <TabsContent
-                key={tab}
-                value={tab}
-                className={
-                  tab === 'models' || tab === 'unset-models'
-                    ? 'flex min-h-0 flex-col data-hidden:hidden'
-                    : 'min-h-0'
-                }
-              >
-                {renderTabContent(tab)}
-              </TabsContent>
-            ))}
-          </SettingsSection>
-        </Tabs>
-      )}
-
-      <ConfirmDialog
-        open={confirmOpen}
-        onOpenChange={setConfirmOpen}
-        title={t('Reset all model prices?')}
-        desc={t(
-          'This will clear custom pricing ratios and revert to upstream defaults.'
-        )}
-        destructive
-        isLoading={resetMutation.isPending}
-        handleConfirm={handleConfirmReset}
-        confirmText={t('Reset')}
-      />
-    </>
+      <SettingsSection title={t(titleKey)} className='min-h-0 flex-1'>
+        {visibleTabs.map((tab) => (
+          <TabsContent
+            key={tab}
+            value={tab}
+            className={
+              tab === 'models' || tab === 'unset-models'
+                ? 'flex min-h-0 flex-col data-hidden:hidden'
+                : 'min-h-0'
+            }
+          >
+            {renderTabContent(tab)}
+          </TabsContent>
+        ))}
+      </SettingsSection>
+    </Tabs>
   )
 }

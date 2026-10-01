@@ -32,18 +32,6 @@ import { useUpdateOption } from '../hooks/use-update-option'
 
 const OPTION_KEY = 'tool_price_setting.prices'
 
-const DEFAULT_PRICES: Record<string, number> = {
-  web_search: 10.0,
-  web_search_preview: 10.0,
-  'web_search_preview:gpt-4o*': 25.0,
-  'web_search_preview:gpt-4.1*': 25.0,
-  'web_search_preview:gpt-4o-mini*': 25.0,
-  'web_search_preview:gpt-4.1-mini*': 25.0,
-  file_search: 2.5,
-  google_search: 14.0,
-  image_generation: 150.0,
-}
-
 type ToolPriceRow = {
   id: number
   key: string
@@ -80,7 +68,7 @@ function objectToRows(prices: Record<string, number>): ToolPriceRow[] {
 function parseInitialPrices(
   rawValue: string | undefined
 ): Record<string, number> {
-  if (!rawValue) return { ...DEFAULT_PRICES }
+  if (!rawValue) return {}
   try {
     const parsed = JSON.parse(rawValue) as unknown
     if (
@@ -95,17 +83,12 @@ function parseInitialPrices(
           validPrices[key] = value
         }
       }
-      // Merge defaults first so newly introduced tools appear for old stored
-      // configs, while explicit stored values (including 0) still win.
-      return {
-        ...DEFAULT_PRICES,
-        ...validPrices,
-      }
+      return validPrices
     }
   } catch {
-    // fall through to defaults
+    // fall through to an empty configuration
   }
-  return { ...DEFAULT_PRICES }
+  return {}
 }
 
 type ToolPriceSettingsProps = {
@@ -203,14 +186,6 @@ export const ToolPriceSettings = memo(function ToolPriceSettings({
     [rows, syncFromRows]
   )
 
-  const resetToDefault = useCallback(() => {
-    const initialRows = objectToRows(DEFAULT_PRICES)
-    setRows(initialRows)
-    setJsonText(JSON.stringify(DEFAULT_PRICES, null, 2))
-    setJsonError('')
-    setNextRowId(initialRows.length + 1)
-  }, [])
-
   const handleCopyJson = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(jsonText)
@@ -265,25 +240,15 @@ export const ToolPriceSettings = memo(function ToolPriceSettings({
       <div className='flex flex-wrap items-center justify-between gap-2'>
         <div className='flex flex-wrap items-center gap-2'>
           {editMode === 'visual' ? (
-            <>
-              <Button variant='outline' size='sm' onClick={addRow}>
-                <Plus className='mr-2 h-4 w-4' />
-                {t('Add')}
-              </Button>
-              <Button variant='ghost' size='sm' onClick={resetToDefault}>
-                {t('Restore defaults')}
-              </Button>
-            </>
+            <Button variant='outline' size='sm' onClick={addRow}>
+              <Plus className='mr-2 h-4 w-4' />
+              {t('Add')}
+            </Button>
           ) : (
-            <>
-              <Button variant='ghost' size='sm' onClick={handleCopyJson}>
-                <Copy className='mr-2 h-4 w-4' />
-                {t('Copy')}
-              </Button>
-              <Button variant='ghost' size='sm' onClick={resetToDefault}>
-                {t('Restore defaults')}
-              </Button>
-            </>
+            <Button variant='ghost' size='sm' onClick={handleCopyJson}>
+              <Copy className='mr-2 h-4 w-4' />
+              {t('Copy')}
+            </Button>
           )}
         </div>
         <Button variant='outline' size='sm' onClick={toggleEditMode}>

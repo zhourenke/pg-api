@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
-import { Code2, Eye, RotateCcw, Save } from 'lucide-react'
+import { Code2, Eye, Save } from 'lucide-react'
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -68,9 +68,7 @@ type ModelRatioFormProps = {
   form: UseFormReturn<ModelFormValues>
   savedValues: ModelFormValues
   onSave: (values: ModelFormValues) => Promise<void>
-  onReset: () => void
   isSaving: boolean
-  isResetting: boolean
   variant?: 'default' | 'unset'
 }
 
@@ -171,9 +169,7 @@ export const ModelRatioForm = memo(function ModelRatioForm({
   form,
   savedValues,
   onSave,
-  onReset,
   isSaving,
-  isResetting,
   variant = 'default',
 }: ModelRatioFormProps) {
   const { t } = useTranslation()
@@ -265,16 +261,6 @@ export const ModelRatioForm = memo(function ModelRatioForm({
                 )}
               />
             </SettingsPageActionsPortal>
-            <Button
-              type='button'
-              variant='destructive'
-              size='sm'
-              onClick={onReset}
-              disabled={isResetting}
-            >
-              <RotateCcw data-icon='inline-start' />
-              {t('Reset prices')}
-            </Button>
             {editMode === 'json' && (
               <Button
                 type='button'

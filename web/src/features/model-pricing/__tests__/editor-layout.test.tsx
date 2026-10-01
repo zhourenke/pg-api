@@ -141,9 +141,7 @@ function PricingFormFixture(props: {
           savedValues={values}
           variant={props.variant}
           onSave={props.onSave}
-          onReset={() => undefined}
           isSaving={false}
-          isResetting={false}
         />
       </SettingsPageProvider>
     </>
