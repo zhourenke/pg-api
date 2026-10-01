@@ -57,6 +57,11 @@ export function DataTableHeader<TData>({
               key={header.id}
               colSpan={header.colSpan}
               data-column-id={header.column.id}
+              aria-label={
+                shouldRenderColumnResizer(table, header)
+                  ? getColumnTitle(header)
+                  : undefined
+              }
               className={cn(
                 'relative',
                 getColumnClassName?.(header.column.id, 'header')
@@ -262,16 +267,28 @@ function getHeaderSizeStyle<TData>(
 
 function renderHeaderContent<TData>(header: Header<TData, unknown>) {
   if (header.isPlaceholder) return null
+
+  const title = getColumnTitle(header)
+
+  if (title) {
+    return <DataTableColumnHeader column={header.column} title={title} />
+  }
+
+  return flexRender(header.column.columnDef.header, header.getContext())
+}
+
+/**
+ * A string header (or `meta.label`) is the column's own title. It is also what
+ * the header cell must expose as its accessible name once a resize separator is
+ * rendered inside it, because that separator would otherwise be appended to the
+ * column header's computed name.
+ */
+function getColumnTitle<TData>(header: Header<TData, unknown>) {
   const { header: headerDef, meta } = header.column.columnDef
-  // A string header means the user wrote e.g. `header: t('Name')` — auto-render
-  // with DataTableColumnHeader so sorting works without boilerplate.
-  // A function (including TanStack's default accessor-key fallback) is passed
-  // through as-is. meta.label is kept as a fallback for legacy columns.
+
   if (typeof headerDef === 'string') {
-    return <DataTableColumnHeader column={header.column} title={headerDef} />
+    return headerDef
   }
-  if (meta?.label) {
-    return <DataTableColumnHeader column={header.column} title={meta.label} />
-  }
-  return flexRender(headerDef, header.getContext())
+
+  return meta?.label
 }

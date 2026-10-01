@@ -232,10 +232,9 @@ function getTableSizing<TData>(props: DataTableViewProps<TData>): {
     return { colgroup: props.colgroup }
   }
 
-  if (!props.splitHeader && !props.applyHeaderSize) {
-    return {}
-  }
-
+  // Every table renders a colgroup from the column sizes: the widths are the
+  // designed starting point, and column resizing only has an effect when the
+  // table actually applies them.
   return {
     colgroup: <DataTableColgroup table={props.table} />,
     style: getTableSizeStyle(props.table),

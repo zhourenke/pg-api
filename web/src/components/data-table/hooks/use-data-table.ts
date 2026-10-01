@@ -39,6 +39,8 @@ import {
 } from '@tanstack/react-table'
 import * as React from 'react'
 
+import { useMediaQuery } from '@/hooks/use-media-query'
+
 type DataTableFeatureOptions<TData> = Pick<
   TableOptions<TData>,
   | 'enableRowSelection'
@@ -377,6 +379,12 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>) {
       Boolean(options.sorting) ||
       Boolean(options.onSortingChange))
 
+  // Column resizing is on for every table on pointer-class viewports: columns
+  // are sized by the width each column definition declares, and the user can
+  // drag a header edge to adjust it. Sizing is never persisted, so a reload
+  // restores the designed widths.
+  const isNarrowViewport = useMediaQuery('(max-width: 640px)')
+
   const table = useReactTable({
     data,
     columns,
@@ -401,8 +409,12 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>) {
     manualFiltering,
     manualPagination,
     manualSorting,
-    enableColumnResizing: options.enableColumnResizing,
+    enableColumnResizing: options.enableColumnResizing ?? !isNarrowViewport,
     columnResizeMode: 'onChange',
+    // Columns without explicit sizing still need a usable floor: TanStack's
+    // default minimum is 20px, which lets a drag collapse a column into an
+    // unreadable sliver.
+    defaultColumn: { size: 150, minSize: 56 },
     onSortingChange,
     onColumnVisibilityChange,
     onColumnSizingChange,
