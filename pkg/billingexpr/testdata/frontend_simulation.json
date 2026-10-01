@@ -303,16 +303,7 @@
         },
         "conditionText": "Text-only requests"
       }
-    ],
-    "conversion": {
-      "model_name": "contract-audio",
-      "pricing": {
-        "ModelRatio": 1,
-        "CompletionRatio": 3,
-        "CacheRatio": 0.1,
-        "AudioRatio": 2
-      }
-    }
+    ]
   },
   {
     "name": "text requests retain configured cache discount",
