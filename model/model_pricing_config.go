@@ -33,9 +33,9 @@ type ModelPricingChange struct {
 
 type ModelPricingEntry struct {
 	ModelPricingDescription
-	ModelName   string        `json:"model_name"`
-	Version     string        `json:"version"`
-	Configured  PricingValues `json:"configured"`
+	ModelName  string        `json:"model_name"`
+	Version    string        `json:"version"`
+	Configured PricingValues `json:"configured"`
 }
 
 type ModelPricingSnapshot struct {
@@ -69,11 +69,6 @@ func defaultPricingMaps() map[string]map[string]any {
 	result := make(map[string]map[string]any, len(modelPricingOptionKeys))
 	for _, key := range modelPricingOptionKeys {
 		result[key] = make(map[string]any)
-	}
-	for key, values := range ratio_setting.GetDefaultPricingMaps() {
-		for name, value := range values {
-			result[key][name] = value
-		}
 	}
 	return result
 }
@@ -138,20 +133,8 @@ func effectiveModelPricing(values map[string]map[string]any, name string) Pricin
 		}
 	}
 	mode, _ := result["billing_setting.billing_mode"].(string)
-	if mode == "" {
-		_, hasPrice := result["ModelPrice"]
-		_, hasRatio := result["ModelRatio"]
-		if _, builtin := billing_setting.GetBuiltinBillingExpr(name); builtin && !hasPrice && !hasRatio {
-			mode = "tiered_expr"
-		}
-	}
 	if mode == "tiered_expr" {
 		result["billing_setting.billing_mode"] = mode
-		if _, exists := result["billing_setting.billing_expr"]; !exists {
-			if expression, ok := billing_setting.GetBuiltinBillingExpr(name); ok {
-				result["billing_setting.billing_expr"] = expression
-			}
-		}
 		return result
 	}
 	if _, exists := result["ModelPrice"]; exists {
@@ -209,9 +192,6 @@ func GetModelPricingSnapshot(names []string) (*ModelPricingSnapshot, error) {
 				nameSet[name] = true
 			}
 		}
-		for name := range billing_setting.GetBuiltinBillingExprCopy() {
-			nameSet[name] = true
-		}
 		for name := range nameSet {
 			names = append(names, name)
 		}
@@ -225,20 +205,6 @@ func GetModelPricingSnapshot(names []string) (*ModelPricingSnapshot, error) {
 		entry.CacheWriteMode = ResolveCacheWriteMode(name, configured)
 		entry.BillingDetails = ResolveLegacyBillingDetails(name, entry.Effective, configured)
 		result.Entries = append(result.Entries, entry)
-	}
-	// Preserve the existing settings editor's full-map interface. Built-in
-	// expressions are display defaults only; per-model writes do not persist them.
-	for name, expression := range billing_setting.GetBuiltinBillingExprCopy() {
-		effective := effectiveModelPricing(values, name)
-		if effective["billing_setting.billing_mode"] != "tiered_expr" {
-			continue
-		}
-		if _, ok := values["billing_setting.billing_mode"][name]; !ok {
-			values["billing_setting.billing_mode"][name] = "tiered_expr"
-		}
-		if _, ok := values["billing_setting.billing_expr"][name]; !ok {
-			values["billing_setting.billing_expr"][name] = expression
-		}
 	}
 	for key, entries := range values {
 		encoded, err := common.Marshal(entries)
@@ -298,9 +264,6 @@ func validateModelPricing(name string, values, previous PricingValues) error {
 	}
 	if values["billing_setting.billing_mode"] == "tiered_expr" {
 		if _, exists := values["billing_setting.billing_expr"]; !exists {
-			if _, builtin := billing_setting.GetBuiltinBillingExpr(name); !builtin {
-				return errors.New("billing expression is required")
-			}
 		}
 	}
 	return nil
