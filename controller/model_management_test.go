@@ -832,6 +832,31 @@ func TestModelManagementDatabaseMatrix(t *testing.T) {
 				assert.Equal(t, 1, successes)
 				assert.Equal(t, 1, conflicts)
 			})
+			t.Run("deleting_pricing_does_not_restore_a_default", func(t *testing.T) {
+				const name = "gpt-6-astra"
+				before, err := model.GetModelPricingSnapshot([]string{name})
+				require.NoError(t, err)
+				require.Empty(t, before.Entries[0].Configured)
+				require.NotContains(t, before.Entries[0].Effective, "ModelPrice")
+
+				change := model.ModelPricingChange{ModelName: name, ExpectedVersion: before.Entries[0].Version, Pricing: model.PricingValues{"ModelPrice": float64(0)}}
+				require.NoError(t, model.UpdateModelPricing([]model.ModelPricingChange{change}))
+				configured, err := model.GetModelPricingSnapshot([]string{name})
+				require.NoError(t, err)
+				assert.Equal(t, float64(0), configured.Entries[0].Effective["ModelPrice"])
+
+				change.ExpectedVersion, change.Pricing, change.Reset = configured.Entries[0].Version, nil, true
+				require.NoError(t, model.UpdateModelPricing([]model.ModelPricingChange{change}))
+
+				// The read path must not re-inject a shipped default, otherwise a
+				// deleted price would come back on the next page load.
+				for range 2 {
+					reset, err := model.GetModelPricingSnapshot([]string{name})
+					require.NoError(t, err)
+					assert.Empty(t, reset.Entries[0].Configured)
+					assert.NotContains(t, reset.Entries[0].Effective, "ModelPrice")
+				}
+			})
 			t.Run("concurrent_import_creates_one_record", func(t *testing.T) {
 				update := model.MetadataSyncUpdate{MetadataSyncSelection: model.MetadataSyncSelection{ModelName: "matrix-concurrent-import", RecordVersion: model.MetadataRecordVersion(nil, nil, nil), Create: true}, Values: model.MetadataValues{Description: "Imported", Status: 1}}
 				var wg sync.WaitGroup
