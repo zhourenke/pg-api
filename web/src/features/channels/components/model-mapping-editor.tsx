@@ -328,19 +328,6 @@ export function ModelMappingEditor(props: ModelMappingEditorProps) {
     parseJsonToRows(newJson)
   }
 
-  const handleFillTemplate = () => {
-    const template = JSON.stringify(
-      { 'gpt-3.5-turbo': 'gpt-3.5-turbo-0125' },
-      null,
-      2
-    )
-    setJsonValue(template)
-    lastEmittedRef.current = template
-    props.onChange(template)
-    parseJsonToRows(template)
-    commit()
-  }
-
   const handleModeChange = (nextMode: string) => {
     if (nextMode !== 'visual' && nextMode !== 'json') return
     if (nextMode === 'json') {
@@ -404,16 +391,6 @@ export function ModelMappingEditor(props: ModelMappingEditorProps) {
                 {t('Batch Add')}
               </Button>
             )}
-            <Button
-              type='button'
-              variant='link'
-              size='sm'
-              className='h-auto p-0'
-              onClick={handleFillTemplate}
-              disabled={props.disabled}
-            >
-              {t('Fill Template')}
-            </Button>
           </div>
         </div>
 
