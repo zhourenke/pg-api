@@ -6,6 +6,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/pkg/billingexpr"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
@@ -17,9 +20,6 @@ import (
 	"github.com/zhourenke/pg-api/setting/model_setting"
 	"github.com/zhourenke/pg-api/setting/operation_setting"
 	"github.com/zhourenke/pg-api/setting/ratio_setting"
-	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestModelPriceHelperTieredUsesPreloadedRequestInput(t *testing.T) {
@@ -688,7 +688,49 @@ func TestModelPriceHelperNativeGeminiNoThinkingDoesNotAliasBillingModel(t *testi
 	assert.Empty(t, info.BillingModelName)
 	assert.Equal(t, "gemini-3-pro", info.GetBillingModelName())
 	assert.Equal(t, 1.25, priceData.ModelRatio)
-	assert.NotEqual(t, 37.5, priceData.ModelRatio)
+}
+
+// A model the administrator never priced must not be charged an invented ratio,
+// and self-use mode must not resurrect one.
+func TestModelPriceHelperRejectsModelWithoutConfiguredPrice(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	savedRatios, savedPrices := ratio_setting.ModelRatio2JSONString(), ratio_setting.ModelPrice2JSONString()
+	t.Cleanup(func() {
+		require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(savedRatios))
+		require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(savedPrices))
+	})
+	ratios, prices := ratio_setting.GetModelRatioCopy(), ratio_setting.GetModelPriceCopy()
+	delete(ratios, "unit-unpriced-model")
+	delete(prices, "unit-unpriced-model")
+	ratioJSON, err := common.Marshal(ratios)
+	require.NoError(t, err)
+	require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(string(ratioJSON)))
+	priceJSON, err := common.Marshal(prices)
+	require.NoError(t, err)
+	require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(string(priceJSON)))
+
+	oldSelfUse := operation_setting.SelfUseModeEnabled
+	operation_setting.SelfUseModeEnabled = true
+	t.Cleanup(func() { operation_setting.SelfUseModeEnabled = oldSelfUse })
+
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Set("group", "default")
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "unit-unpriced-model",
+		UserGroup:       "default",
+		UsingGroup:      "default",
+	}
+
+	_, err = ModelPriceHelper(ctx, info, 1000, &types.TokenCountMeta{})
+	require.Error(t, err, "an unpriced model must be rejected instead of falling back to a shipped ratio")
+	assert.Contains(t, err.Error(), "unit-unpriced-model")
+
+	info.UserSetting.AcceptUnsetRatioModel = true
+	priceData, err := ModelPriceHelper(ctx, info, 1000, &types.TokenCountMeta{})
+	require.NoError(t, err, "a user who accepts unpriced models may still relay them")
+	assert.False(t, priceData.UsePrice)
+	assert.Zero(t, priceData.ModelRatio, "an unpriced model carries no ratio to charge")
 }
 
 func TestInputPreConsumeMultiplierLegacyAndRequestPrices(t *testing.T) {

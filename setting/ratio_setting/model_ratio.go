@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"github.com/zhourenke/pg-api/common"
-	"github.com/zhourenke/pg-api/setting/operation_setting"
 	hostreasoning "github.com/zhourenke/pg-api/setting/reasoning"
 	"github.com/zhourenke/pg-api/types"
 )
@@ -66,7 +65,7 @@ func GetModelRatio(name string) (float64, bool, string) {
 
 	ratio, ok := modelRatioMap.Get(name)
 	if !ok {
-		return 37.5, operation_setting.SelfUseModeEnabled, name
+		return 0, false, name
 	}
 	return ratio, true, name
 }
@@ -78,179 +77,25 @@ func UpdateCompletionRatioByJSONString(jsonStr string) error {
 	return types.LoadFromJsonStringWithCallback(completionRatioMap, jsonStr, InvalidateExposedDataCache)
 }
 
+// DefaultCompletionRatio is the neutral multiplier used when an administrator has
+// not configured one; no per-model completion ratio is shipped.
+const DefaultCompletionRatio = 1.0
+
 func GetCompletionRatio(name string) float64 {
-	return GetCompletionRatioInfo(name).Ratio
-}
-
-type CompletionRatioInfo struct {
-	Ratio  float64 `json:"ratio"`
-	Locked bool    `json:"locked"`
-}
-
-func GetCompletionRatioInfo(name string) CompletionRatioInfo {
 	name = FormatMatchingModelName(name)
-	var configured *float64
 	if ratio, ok := completionRatioMap.Get(name); ok {
-		configured = &ratio
+		return ratio
 	}
-	return ResolveCompletionRatio(name, configured)
+	return DefaultCompletionRatio
 }
 
-// ResolveCompletionRatio applies relay's enforced and fallback ratios to a
-// configuration snapshot or draft without consulting mutable saved settings.
-func ResolveCompletionRatio(name string, configured *float64) CompletionRatioInfo {
-	name = FormatMatchingModelName(name)
-	if strings.Contains(name, "/") && configured != nil {
-		return CompletionRatioInfo{Ratio: *configured}
+// ResolveCompletionRatio resolves the completion ratio for a configuration
+// snapshot or draft without consulting mutable saved settings.
+func ResolveCompletionRatio(configured *float64) float64 {
+	if configured == nil {
+		return DefaultCompletionRatio
 	}
-
-	hardCodedRatio, locked := getHardcodedCompletionModelRatio(name)
-	if locked {
-		return CompletionRatioInfo{
-			Ratio:  hardCodedRatio,
-			Locked: true,
-		}
-	}
-
-	if configured != nil {
-		return CompletionRatioInfo{
-			Ratio:  *configured,
-			Locked: false,
-		}
-	}
-
-	return CompletionRatioInfo{
-		Ratio:  hardCodedRatio,
-		Locked: false,
-	}
-}
-
-func getHardcodedCompletionModelRatio(name string) (float64, bool) {
-
-	isReservedModel := strings.HasSuffix(name, "-all") || strings.HasSuffix(name, "-gizmo-*")
-	if isReservedModel {
-		return 2, false
-	}
-
-	if strings.HasPrefix(name, "gpt-") {
-		if strings.HasPrefix(name, "gpt-4o") {
-			if name == "gpt-4o-2024-05-13" {
-				return 3, true
-			}
-			if strings.HasPrefix(name, "gpt-4o-mini-tts") {
-				return 20, false
-			}
-			return 4, false
-		}
-		// gpt-5 匹配
-		if strings.HasPrefix(name, "gpt-5") {
-			if !strings.Contains(name, ".") {
-				return 8, true
-			}
-			if strings.HasPrefix(name, "gpt-5.4") {
-				if strings.HasPrefix(name, "gpt-5.4-nano") {
-					return 6.25, true
-				}
-				return 6, true
-			}
-			// gpt-5.5 and later models are unlocked
-			return 6, false
-		}
-		// gpt-4.5-preview匹配
-		if strings.HasPrefix(name, "gpt-4.5-preview") {
-			return 2, true
-		}
-		if strings.HasPrefix(name, "gpt-4-turbo") || strings.HasSuffix(name, "gpt-4-1106") || strings.HasSuffix(name, "gpt-4-1105") {
-			return 3, true
-		}
-		// 没有特殊标记的 gpt-4 模型默认倍率为 2
-		return 2, false
-	}
-	if strings.HasPrefix(name, "o1") || strings.HasPrefix(name, "o3") {
-		return 4, true
-	}
-	if name == "chatgpt-4o-latest" {
-		return 3, true
-	}
-
-	if strings.Contains(name, "claude-3") {
-		return 5, true
-	} else if strings.Contains(name, "claude-sonnet-4") || strings.Contains(name, "claude-opus-4") || strings.Contains(name, "claude-haiku-4") {
-		return 5, true
-	}
-
-	if strings.HasPrefix(name, "gpt-3.5") {
-		if name == "gpt-3.5-turbo" || strings.HasSuffix(name, "0125") {
-			// https://openai.com/blog/new-embedding-models-and-api-updates
-			// Updated GPT-3.5 Turbo model and lower pricing
-			return 3, true
-		}
-		if strings.HasSuffix(name, "1106") {
-			return 2, true
-		}
-		return 4.0 / 3.0, true
-	}
-	if strings.HasPrefix(name, "mistral-") {
-		return 3, true
-	}
-	if strings.HasPrefix(name, "gemini-") {
-		if strings.HasPrefix(name, "gemini-1.5") {
-			return 4, true
-		} else if strings.HasPrefix(name, "gemini-2.0") {
-			return 4, true
-		} else if strings.HasPrefix(name, "gemini-2.5-pro") { // 移除preview来增加兼容性，这里假设正式版的倍率和preview一致
-			return 8, false
-		} else if strings.HasPrefix(name, "gemini-2.5-flash") { // 处理不同的flash模型倍率
-			if strings.HasPrefix(name, "gemini-2.5-flash-preview") {
-				return 3.5 / 0.15, false
-			}
-			if strings.HasPrefix(name, "gemini-2.5-flash-lite") {
-				return 4, false
-			}
-			return 2.5 / 0.3, false
-		} else if strings.HasPrefix(name, "gemini-robotics-er-1.5") {
-			return 2.5 / 0.3, false
-		} else if strings.HasPrefix(name, "gemini-3-pro") {
-			if strings.HasPrefix(name, "gemini-3-pro-image") {
-				return 60, false
-			}
-			return 6, false
-		}
-		return 4, false
-	}
-	if strings.HasPrefix(name, "command") {
-		switch name {
-		case "command-r":
-			return 3, true
-		case "command-r-plus":
-			return 5, true
-		case "command-r-08-2024":
-			return 4, true
-		case "command-r-plus-08-2024":
-			return 4, true
-		default:
-			return 4, false
-		}
-	}
-	// hint 只给官方上4倍率，由于开源模型供应商自行定价，不对其进行补全倍率进行强制对齐
-	if strings.HasPrefix(name, "ERNIE-Speed-") {
-		return 2, true
-	} else if strings.HasPrefix(name, "ERNIE-Lite-") {
-		return 2, true
-	} else if strings.HasPrefix(name, "ERNIE-Character") {
-		return 2, true
-	} else if strings.HasPrefix(name, "ERNIE-Functions") {
-		return 2, true
-	}
-	switch name {
-	case "llama2-70b-4096":
-		return 0.8 / 0.64, true
-	case "llama3-8b-8192":
-		return 2, true
-	case "llama3-70b-8192":
-		return 0.79 / 0.59, true
-	}
-	return 1, false
+	return *configured
 }
 
 func GetAudioRatio(name string) float64 {
@@ -391,5 +236,5 @@ func GetModelRatioOrPrice(model string) (float64, bool, bool) { // price or rati
 	if success {
 		return modelRatio, false, true
 	}
-	return 37.5, false, false
+	return 0, false, false
 }
