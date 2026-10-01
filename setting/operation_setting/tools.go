@@ -20,39 +20,15 @@ import (
 //   - "tool_name"              → default price for all models
 //   - "tool_name:model_prefix*" → override for models matching the prefix
 //
-// Effective index: hardcoded defaults → hardcoded model overrides → valid
-// operator values. Lookup uses the longest model prefix before the tool
-// default, and a matched numeric zero is terminal.
+// Effective index: valid operator values (a tool default, plus model-prefix
+// overrides). Lookup uses the longest model prefix before the tool default,
+// and a matched numeric zero is terminal.
 // ---------------------------------------------------------------------------
 
 const ToolPriceOptionKey = "tool_price_setting.prices"
 
-const (
-	defaultWebSearchToolPrice        = 10.0
-	defaultWebSearchPreviewToolPrice = 10.0
-	defaultFileSearchToolPrice       = 2.5
-	defaultGoogleSearchToolPrice     = 14.0
-	defaultImageGenerationToolPrice  = 150.0
-	defaultSearchPreviewModelPrice   = 25.0
-)
-
-// seedHardcodedToolPrices injects compile-time built-in fallbacks (tool
-// defaults and model-prefix overrides) into the destination. The source is
-// constants, not a mutable package map or operator configuration.
-func seedHardcodedToolPrices(prices map[string]float64) {
-	prices["web_search"] = defaultWebSearchToolPrice
-	prices["web_search_preview"] = defaultWebSearchPreviewToolPrice
-	prices["file_search"] = defaultFileSearchToolPrice
-	prices["google_search"] = defaultGoogleSearchToolPrice
-	prices["image_generation"] = defaultImageGenerationToolPrice
-	prices["web_search_preview:gpt-4o*"] = defaultSearchPreviewModelPrice
-	prices["web_search_preview:gpt-4.1*"] = defaultSearchPreviewModelPrice
-	prices["web_search_preview:gpt-4o-mini*"] = defaultSearchPreviewModelPrice
-	prices["web_search_preview:gpt-4.1-mini*"] = defaultSearchPreviewModelPrice
-}
-
 // ToolPriceSetting is managed by config.GlobalConfig.Register.
-// Prices holds operator overrides only; hardcoded fallbacks live in the index.
+// Prices holds the operator-configured price map.
 type ToolPriceSetting struct {
 	Prices map[string]float64 `json:"prices"`
 }
@@ -133,11 +109,11 @@ func ValidateToolPricesJSON(value string) error {
 
 // LoadToolPricesFromJSONString replaces the complete operator price map.
 // Invalid legacy entries are ignored individually so valid sibling overrides
-// survive, while missing built-in keys continue to use hardcoded fallbacks.
+// survive.
 func LoadToolPricesFromJSONString(value string) {
 	prices, err := decodeToolPricesJSON(value, true)
 	if err != nil {
-		common.SysError("加载工具价格失败，将使用硬编码兜底: " + err.Error())
+		common.SysError("加载工具价格失败，工具价格将为空: " + err.Error())
 		prices = make(map[string]float64)
 	}
 	toolPriceSetting.Prices = prices
@@ -147,8 +123,7 @@ func LoadToolPricesFromJSONString(value string) {
 // RebuildToolPriceIndex rebuilds the lookup index from the current config.
 // Called on init and after config updates. Not on the billing hot path.
 func RebuildToolPriceIndex() {
-	merged := make(map[string]float64, 9+len(toolPriceSetting.Prices))
-	seedHardcodedToolPrices(merged)
+	merged := make(map[string]float64, len(toolPriceSetting.Prices))
 	for k, v := range toolPriceSetting.Prices {
 		if !isValidToolPrice(v) {
 			continue

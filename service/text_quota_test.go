@@ -973,10 +973,34 @@ func TestCalculateTextQuotaSummaryKeepsPrePRClaudeOpenRouterBilling(t *testing.T
 	require.Equal(t, 798, summary.Quota)
 }
 
+// useToolPrices pins the tool prices a case relies on. Prices are operator
+// configuration only, so a case that needs a priced tool must set it.
+func useToolPrices(t *testing.T, prices map[string]float64) {
+
+	t.Helper()
+
+	for name, price := range prices {
+
+		operation_setting.SetToolPriceForTest(name, price)
+
+	}
+
+	t.Cleanup(func() {
+
+		for name := range prices {
+
+			operation_setting.DeleteToolPriceForTest(name)
+
+		}
+
+	})
+}
+
 func TestComposeTieredTextQuotaKeepsToolCallSurcharges(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(w)
+	useToolPrices(t, map[string]float64{dto.BuildInToolWebSearchPreview: 10, dto.BuildInToolFileSearch: 2.5})
 
 	// 11 $/1K => 0.011 per completed image output, matching the prior fixed low-tier charge.
 	operation_setting.SetToolPriceForTest(dto.BuildInToolImageGeneration, 11.0)
@@ -1032,6 +1056,7 @@ func TestComposeTieredTextQuotaFallbackKeepsToolCallSurcharges(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(w)
+	useToolPrices(t, map[string]float64{dto.BuildInToolWebSearch: 10})
 	ctx.Set("claude_web_search_requests", 2)
 
 	relayInfo := &relaycommon.RelayInfo{
@@ -1066,6 +1091,7 @@ func TestComposeTieredTextQuotaErrorFallbackUsesPreConsumedQuota(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(w)
+	useToolPrices(t, map[string]float64{dto.BuildInToolWebSearch: 10})
 	ctx.Set("claude_web_search_requests", 2)
 
 	relayInfo := &relaycommon.RelayInfo{
@@ -1181,6 +1207,7 @@ func TestCalculateTextQuotaSummaryFixedPriceAppliesImageCountOnceAndAllowsOverri
 func TestCalculateTextToolCallSurchargeGeneralizedBuiltInTools(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	useToolPrices(t, map[string]float64{dto.BuildInToolWebSearchPreview: 10})
 
 	operation_setting.SetToolPriceForTest("my_fn", 5.0)
 	t.Cleanup(func() {
@@ -1217,6 +1244,7 @@ func TestCalculateTextToolCallSurchargeGeneralizedBuiltInTools(t *testing.T) {
 func TestCalculateTextToolCallSurchargeKeepsSearchPreviewFallbackWithCustomFunctions(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	useToolPrices(t, map[string]float64{"web_search_preview:gpt-4o*": 25})
 
 	operation_setting.SetToolPriceForTest("my_fn", 5)
 	t.Cleanup(func() {
@@ -1271,6 +1299,7 @@ func TestCalculateTextToolCallSurchargeDoesNotInferSearchForResponses(t *testing
 func TestCalculateTextToolCallSurchargeMergesSameNameAndPrice(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	useToolPrices(t, map[string]float64{dto.BuildInToolWebSearch: 10})
 	ctx.Set("claude_web_search_requests", 3)
 
 	relayInfo := &relaycommon.RelayInfo{
@@ -1311,6 +1340,7 @@ func TestMergeToolSurchargeItemsSaturatesCountOverflow(t *testing.T) {
 func TestCalculateTextQuotaSummaryZeroTokensStillBillsToolSurcharge(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	useToolPrices(t, map[string]float64{dto.BuildInToolWebSearchPreview: 10})
 
 	relayInfo := &relaycommon.RelayInfo{
 		OriginModelName: "o1",
@@ -1335,6 +1365,7 @@ func TestCalculateTextQuotaSummaryZeroTokensStillBillsToolSurcharge(t *testing.T
 func TestCalculateTextQuotaSummaryDoesNotApplyRequestMultipliersToToolSurcharge(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	useToolPrices(t, map[string]float64{dto.BuildInToolWebSearchPreview: 10})
 
 	relayInfo := &relaycommon.RelayInfo{
 		OriginModelName: "o1",
@@ -1361,6 +1392,7 @@ func TestCalculateTextQuotaSummaryDoesNotApplyRequestMultipliersToToolSurcharge(
 func TestCalculateTextToolCallSurchargeGeminiGoogleSearch(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	useToolPrices(t, map[string]float64{dto.BuildInToolGoogleSearch: 14})
 	ctx.Set("gemini_google_search_call", true)
 
 	relayInfo := &relaycommon.RelayInfo{OriginModelName: "gemini-2.5-flash"}
@@ -1407,9 +1439,10 @@ func TestCalculateTextToolCallSurchargeGeminiFunctionCall(t *testing.T) {
 	assert.Equal(t, summary.ToolSurchargeItems, other.Snapshot()["tool_surcharges"])
 }
 
-func TestCalculateTextToolCallSurchargeImageGenerationDefaultPrice(t *testing.T) {
+func TestCalculateTextToolCallSurchargeImageGenerationConfiguredPrice(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	operation_setting.SetToolPriceForTest(dto.BuildInToolImageGeneration, 150.0)
 	t.Cleanup(func() {
 		operation_setting.DeleteToolPriceForTest(dto.BuildInToolImageGeneration)
 	})
@@ -1463,6 +1496,7 @@ func TestCalculateTextToolCallSurchargeImageGenerationExplicitZeroDisables(t *te
 func TestCalculateTextQuotaSummaryImageGenerationUsesStructuredSurcharge(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	operation_setting.SetToolPriceForTest(dto.BuildInToolImageGeneration, 150.0)
 	t.Cleanup(func() {
 		operation_setting.DeleteToolPriceForTest(dto.BuildInToolImageGeneration)
 	})

@@ -19,23 +19,18 @@ func preserveToolPrices(t *testing.T) {
 	})
 }
 
-func TestToolPriceHardcodedFallbacksSurviveMissingOperatorConfig(t *testing.T) {
+// The index is built from operator configuration only: an unconfigured tool is
+// free, including the tools the fork used to ship a hardcoded price for.
+func TestToolPriceUnconfiguredToolsAreFree(t *testing.T) {
 	preserveToolPrices(t)
 	toolPriceSetting.Prices = map[string]float64{}
 	RebuildToolPriceIndex()
 
-	expectedDefaults := map[string]float64{
-		"web_search":         10,
-		"web_search_preview": 10,
-		"file_search":        2.5,
-		"google_search":      14,
-		"image_generation":   150,
+	for _, name := range []string{"web_search", "web_search_preview", "file_search", "google_search", "image_generation"} {
+		assert.Equal(t, 0.0, GetToolPrice(name), name)
 	}
-	for name, expected := range expectedDefaults {
-		assert.Equal(t, expected, GetToolPrice(name), name)
-	}
-	assert.Equal(t, 25.0, GetToolPriceForModel("web_search_preview", "gpt-4o-2024-11-20"))
-	assert.Equal(t, 25.0, GetToolPriceForModel("web_search_preview", "gpt-4.1-mini"))
+	assert.Equal(t, 0.0, GetToolPriceForModel("web_search_preview", "gpt-4o-2024-11-20"))
+	assert.Equal(t, 0.0, GetToolPriceForModel("web_search_preview", "gpt-4.1-mini"))
 }
 
 func TestToolPriceOperatorOverridePrecedenceAndExplicitZero(t *testing.T) {
@@ -48,6 +43,7 @@ func TestToolPriceOperatorOverridePrecedenceAndExplicitZero(t *testing.T) {
 		"web_search_preview:gpt-4o-mini*":  0,
 		"web_search_preview:custom-model*": 7,
 	}
+
 	RebuildToolPriceIndex()
 
 	assert.Equal(t, 0.0, GetToolPrice("image_generation"))
@@ -55,16 +51,18 @@ func TestToolPriceOperatorOverridePrecedenceAndExplicitZero(t *testing.T) {
 	assert.Equal(t, 0.0, GetToolPriceForModel("web_search_preview", "o1"))
 	assert.Equal(t, 30.0, GetToolPriceForModel("web_search_preview", "gpt-4o"))
 	assert.Equal(t, 0.0, GetToolPriceForModel("web_search_preview", "gpt-4o-mini"))
-	assert.Equal(t, 25.0, GetToolPriceForModel("web_search_preview", "gpt-4.1"))
+	assert.Equal(t, 0.0, GetToolPriceForModel("web_search_preview", "gpt-4.1"))
 	assert.Equal(t, 7.0, GetToolPriceForModel("web_search_preview", "custom-model-v2"))
 
+	// Removing a model-prefix override falls back to the tool default, and
+	// removing the tool default leaves the tool free.
 	delete(toolPriceSetting.Prices, "web_search_preview:gpt-4o*")
 	RebuildToolPriceIndex()
-	assert.Equal(t, 25.0, GetToolPriceForModel("web_search_preview", "gpt-4o"))
+	assert.Equal(t, 0.0, GetToolPriceForModel("web_search_preview", "gpt-4o"))
 
 	delete(toolPriceSetting.Prices, "web_search")
 	RebuildToolPriceIndex()
-	assert.Equal(t, 10.0, GetToolPrice("web_search"))
+	assert.Equal(t, 0.0, GetToolPrice("web_search"))
 }
 
 func TestToolPriceCustomFunctionHasNoHardcodedFallback(t *testing.T) {
@@ -124,15 +122,16 @@ func TestLoadToolPricesFromJSONStringReplacesMapAndKeepsValidSiblings(t *testing
 	assert.Equal(t, 3.0, toolPriceSetting.Prices["custom_fn"])
 	assert.Equal(t, 0.0, GetToolPrice("web_search"))
 	assert.Equal(t, 3.0, GetToolPrice("custom_fn"))
-	assert.Equal(t, 2.5, GetToolPrice("file_search"))
-	assert.Equal(t, 14.0, GetToolPrice("google_search"))
-	assert.Equal(t, 150.0, GetToolPrice("image_generation"))
+	// Rejected entries are dropped, not replaced by a shipped default.
+	assert.Equal(t, 0.0, GetToolPrice("file_search"))
+	assert.Equal(t, 0.0, GetToolPrice("google_search"))
+	assert.Equal(t, 0.0, GetToolPrice("image_generation"))
 
 	LoadToolPricesFromJSONString(`{"image_generation":0}`)
 	require.Len(t, toolPriceSetting.Prices, 1)
 	assert.NotContains(t, toolPriceSetting.Prices, "web_search")
 	assert.NotContains(t, toolPriceSetting.Prices, "custom_fn")
-	assert.Equal(t, 10.0, GetToolPrice("web_search"))
+	assert.Equal(t, 0.0, GetToolPrice("web_search"))
 	assert.Equal(t, 0.0, GetToolPrice("custom_fn"))
 	assert.Equal(t, 0.0, GetToolPrice("image_generation"))
 }
@@ -147,8 +146,7 @@ func TestRebuildToolPriceIndexIgnoresInvalidDirectValues(t *testing.T) {
 	}
 	RebuildToolPriceIndex()
 
-	assert.Equal(t, 10.0, GetToolPrice("web_search"))
-	assert.Equal(t, 2.5, GetToolPrice("file_search"))
-	assert.Equal(t, 150.0, GetToolPrice("image_generation"))
-	assert.Equal(t, 0.0, GetToolPrice("custom_fn"))
+	for _, name := range []string{"web_search", "file_search", "image_generation", "custom_fn"} {
+		assert.Equal(t, 0.0, GetToolPrice(name), name)
+	}
 }
