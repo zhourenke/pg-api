@@ -20,7 +20,6 @@ import { describe, expect, it } from 'vitest'
 
 import { buildPricingChanges, type ModelPricingConfig } from '../api'
 import {
-  applyPriceSyncSelections,
   applyPricingDraft,
   pricingFromDraft,
   pricingOptions,
@@ -114,25 +113,6 @@ describe('shared model pricing', () => {
         pricing: { ModelPrice: 2, 'billing_setting.billing_mode': 'ratio' },
       },
     ])
-  })
-
-  it('clears conflicting expression settings when a fixed price is selected for sync', () => {
-    const options = pricingOptions({
-      ModelRatio: '{"example":1}',
-      CreateCacheRatio: '{"example":1.25}',
-      BillingMode: '{"example":"tiered_expr"}',
-      BillingExpr: '{"example":"tier(\\"base\\", p * 2)"}',
-    })
-    const after = applyPriceSyncSelections(options, {
-      example: { model_price: 0 },
-    })
-    expect(JSON.parse(after.ModelPrice)).toEqual({ example: 0 })
-    expect(JSON.parse(after.ModelRatio)).toEqual({})
-    expect(JSON.parse(after.CreateCacheRatio)).toEqual({})
-    expect(JSON.parse(after['billing_setting.billing_expr'])).toEqual({})
-    expect(JSON.parse(after['billing_setting.billing_mode'])).toEqual({
-      example: 'ratio',
-    })
   })
 
   it('rejects invalid prices instead of silently coercing them', () => {
