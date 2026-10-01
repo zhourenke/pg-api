@@ -99,6 +99,8 @@ export function VendorLinkedModels({
       header: t('Model'),
       enableHiding: false,
       meta: { mobileTitle: true },
+      size: 300,
+      minSize: 200,
       cell: ({ row }) => (
         <Button
           variant='link'
@@ -113,11 +115,15 @@ export function VendorLinkedModels({
     {
       accessorKey: 'name_rule',
       header: t('Name Matching Rule'),
+      size: 140,
+      minSize: 120,
       cell: ({ row }) => rules[row.original.name_rule as 0 | 1 | 2 | 3]?.label,
     },
     {
       accessorKey: 'matched_count',
       header: t('Matched models'),
+      size: 140,
+      minSize: 120,
       cell: ({ row }) =>
         row.original.name_rule === 0 ? '—' : (row.original.matched_count ?? 0),
     },

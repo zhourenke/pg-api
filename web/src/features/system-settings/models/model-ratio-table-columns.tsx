@@ -103,6 +103,9 @@ export function buildModelRatioColumns({
         </div>
       ),
       enableHiding: false,
+      size: 260,
+      minSize: 200,
+      meta: { label: t('Model name') },
     },
     {
       accessorKey: 'billingMode',
@@ -120,6 +123,8 @@ export function buildModelRatioColumns({
       ),
       filterFn: (row, id, value) =>
         filterBySelectedValues(row.getValue(id), value),
+      size: 140,
+      minSize: 110,
       meta: { label: t('Mode') },
     },
     {
@@ -141,6 +146,8 @@ export function buildModelRatioColumns({
         getPriceSummary(rowA.original, t).localeCompare(
           getPriceSummary(rowB.original, t)
         ),
+      size: 360,
+      minSize: 240,
       meta: { label: t('Price summary') },
     },
     {

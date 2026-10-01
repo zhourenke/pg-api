@@ -78,6 +78,7 @@ export function useDeploymentsColumns(opts: {
           />
         )
       },
+      size: 240,
       minSize: 220,
     },
     {
@@ -184,6 +185,7 @@ export function useDeploymentsColumns(opts: {
           </div>
         )
       },
+      size: 240,
       minSize: 220,
       enableSorting: false,
     },
@@ -220,6 +222,7 @@ export function useDeploymentsColumns(opts: {
           </div>
         )
       },
+      size: 240,
       minSize: 220,
       enableSorting: false,
     },
