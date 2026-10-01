@@ -250,10 +250,9 @@ function PricingRuleCard(
               <span className='flex flex-wrap gap-x-4 gap-y-1 text-xs tabular-nums'>
                 {tier.billingUnit === 'request' ? (
                   <span>
-                    {t('Price per request')}:{' '}
+                    {t('Per-call')}{' '}
                     {formatPricingAmount(tier.fixedPrice, props.currency) ||
                       '—'}
-                    /{t('request')}
                   </span>
                 ) : (
                   <>
@@ -263,14 +262,13 @@ function PricingRuleCard(
                           BILLING_VARS.find(
                             (variable) => variable.key === price.variable
                           )?.shortLabel ?? price.variable
-                        )}
-                        :{' '}
+                        )}{' '}
                         {formatPricingAmount(price.value, props.currency) ||
                           '—'}
                       </span>
                     ))}
                     <span className='text-muted-foreground'>
-                      /{t('1M token')}
+                      / {t('1M token')}
                     </span>
                   </>
                 )}

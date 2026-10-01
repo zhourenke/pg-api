@@ -60,7 +60,6 @@ const MEDIA_PRICE_VARS = PRICE_VARS.filter(
 type PriceFieldProps = {
   currency: PricingCurrency
   label: string
-  hint?: string
   value: number | string
   onChange: (next: string) => void
   included?: boolean
@@ -70,7 +69,6 @@ type PriceFieldProps = {
 
 function PriceField({
   label,
-  hint,
   value,
   onChange,
   currency,
@@ -104,7 +102,6 @@ function PriceField({
         aria-invalid={invalid || undefined}
         className='h-8 w-full'
       />
-      {hint && <p className='text-muted-foreground text-xs'>{hint}</p>}
     </div>
   )
 }
@@ -195,7 +192,6 @@ export function TierPriceFields(props: TierPriceFieldsProps) {
           label={t('Price per request')}
           value={props.fixedPrice ?? ''}
           onChange={(value) => props.onFixedPriceChange?.(value)}
-          hint={`${props.currency.symbol}/${t('request')}`}
           invalid={props.invalidVariables?.includes('fixed')}
         />
       </>
@@ -205,12 +201,7 @@ export function TierPriceFields(props: TierPriceFieldsProps) {
     <>
       {billingControl}
       <div className='space-y-2'>
-        <div className='flex items-center justify-between gap-3'>
-          <Label className='text-sm font-semibold'>{t('Token prices')}</Label>
-          <span className='bg-muted text-muted-foreground rounded-md px-2 py-1 text-xs'>
-            {props.currency.symbol}/{t('1M token')}
-          </span>
-        </div>
+        <Label className='text-sm font-semibold'>{t('Token prices')}</Label>
 
         <div className='space-y-3'>
           <div className='flex flex-wrap gap-x-4 gap-y-2'>

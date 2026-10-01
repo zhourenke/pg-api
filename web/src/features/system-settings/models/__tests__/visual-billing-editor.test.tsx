@@ -130,7 +130,7 @@ test('shows chained tiers as peer rules and edits a later rule without changing 
   }
   await user.click(expand)
   expect(expand).toHaveAttribute('aria-expanded', 'false')
-  expect(expand).toHaveTextContent('Output: $10')
+  expect(expand).toHaveTextContent('Output $10')
   await user.click(expand)
   expect(short.getByRole('textbox', { name: 'Output price' })).toHaveValue('10')
   expect(short.getByRole('textbox', { name: 'Condition value' })).toHaveValue(
@@ -201,6 +201,14 @@ test('retains all pricing inputs and switches inside an expanded rule', async ()
   expect(onBillingExprChange.mock.lastCall?.[0]).toContain(
     'tier("short", fixed(0.02))'
   )
+  // The collapsed rule states what it bills: the amount follows the per-call
+  // label and no request unit is repeated after it.
+  expect(
+    tier.getByRole('button', { name: 'Edit pricing rule short' })
+  ).toHaveTextContent('Per-call $0.02')
+  expect(
+    tier.getByRole('button', { name: 'Edit pricing rule short' })
+  ).not.toHaveTextContent('/ request')
   await user.click(tier.getByRole('combobox', { name: 'Tier billing mode' }))
   await user.click(screen.getByRole('option', { name: 'Per token' }))
   expect(
