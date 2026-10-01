@@ -36,14 +36,6 @@ type QuotaInfo struct {
 	GroupRatio    float64
 }
 
-func hasCustomModelRatio(modelName string, currentRatio float64) bool {
-	defaultRatio, exists := ratio_setting.GetDefaultModelRatioMap()[modelName]
-	if !exists {
-		return true
-	}
-	return currentRatio != defaultRatio
-}
-
 func calculateAudioQuota(info QuotaInfo) (int, *common.QuotaClamp) {
 	if info.UsePrice {
 		modelPrice := decimal.NewFromFloat(info.ModelPrice)

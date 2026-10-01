@@ -29,7 +29,6 @@ import (
 	"github.com/zhourenke/pg-api/service"
 	"github.com/zhourenke/pg-api/service/authz"
 	_ "github.com/zhourenke/pg-api/setting/performance_setting"
-	"github.com/zhourenke/pg-api/setting/ratio_setting"
 
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-gonic/gin"
@@ -283,7 +282,6 @@ func InitResources() error {
 	logger.SetupLogger()
 
 	// Initialize model settings
-	ratio_setting.InitRatioSettings()
 
 	service.InitHttpClient()
 
