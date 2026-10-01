@@ -558,11 +558,32 @@ func TestModelManagementDatabaseMatrix(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, float64(0), configured.Entries[0].Effective["ModelPrice"])
 
-				change.ExpectedVersion, change.Pricing, change.Reset = configured.Entries[0].Version, nil, true
+				// The admin table's delete button clears every field of the model, so
+				// the request it sends is an empty draft with no reset flag. That
+				// payload has to clear the stored price just like reset does.
+				change.ExpectedVersion, change.Pricing = configured.Entries[0].Version, model.PricingValues{}
 				require.NoError(t, model.UpdateModelPricing([]model.ModelPricingChange{change}))
 
 				// The read path must not re-inject a shipped default, otherwise a
 				// deleted price would come back on the next page load.
+				for range 2 {
+					cleared, err := model.GetModelPricingSnapshot([]string{name})
+					require.NoError(t, err)
+					assert.Empty(t, cleared.Entries[0].Configured)
+					assert.NotContains(t, cleared.Entries[0].Effective, "ModelPrice")
+				}
+
+				// Clearing through reset must reach the same state.
+				repriced, err := model.GetModelPricingSnapshot([]string{name})
+				require.NoError(t, err)
+				change = model.ModelPricingChange{ModelName: name, ExpectedVersion: repriced.Entries[0].Version, Pricing: model.PricingValues{"ModelPrice": float64(1)}}
+				require.NoError(t, model.UpdateModelPricing([]model.ModelPricingChange{change}))
+				priced, err := model.GetModelPricingSnapshot([]string{name})
+				require.NoError(t, err)
+				require.Equal(t, float64(1), priced.Entries[0].Effective["ModelPrice"])
+
+				change = model.ModelPricingChange{ModelName: name, ExpectedVersion: priced.Entries[0].Version, Reset: true}
+				require.NoError(t, model.UpdateModelPricing([]model.ModelPricingChange{change}))
 				for range 2 {
 					reset, err := model.GetModelPricingSnapshot([]string{name})
 					require.NoError(t, err)
