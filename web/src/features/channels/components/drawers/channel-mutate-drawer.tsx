@@ -130,7 +130,6 @@ import {
   getChannel,
   getChannelDefaultBaseURLs,
   getGroups,
-  getPrefillGroups,
   refreshCodexCredential,
 } from '../../api'
 import {
@@ -528,13 +527,6 @@ export function ChannelMutateDrawer({
     enabled: open && !showProviderPicker,
   })
 
-  // Fetch prefill model groups
-  const { data: prefillGroupsData } = useQuery({
-    queryKey: ['prefill_groups', 'model'],
-    queryFn: async () => requireServerSuccess(await getPrefillGroups('model')),
-    enabled: open && !showProviderPicker,
-  })
-
   const { copyToClipboard } = useCopyToClipboard()
 
   const { channelKey, isChannelKeyLoading, handleRevealKey, verification } =
@@ -693,12 +685,6 @@ export function ChannelMutateDrawer({
   const allModelsList = useMemo(
     () => allModelsData?.data?.map((model) => model.id).filter(Boolean) || [],
     [allModelsData]
-  )
-
-  // Get prefill groups
-  const prefillGroups = useMemo(
-    () => prefillGroupsData?.data || [],
-    [prefillGroupsData]
   )
 
   // Transform groups to multi-select options
@@ -1148,32 +1134,6 @@ export function ChannelMutateDrawer({
     }
     await copyToClipboard(models)
   }, [form, copyToClipboard, t])
-
-  // Handle adding prefill group models
-  const handleAddPrefillGroup = useCallback(
-    (group: { id: number; name: string; items: string | string[] }) => {
-      try {
-        const items = Array.isArray(group.items)
-          ? group.items
-          : JSON.parse(group.items)
-
-        if (!Array.isArray(items)) {
-          throw new Error('Invalid items format')
-        }
-
-        const count = updateModels(items, true)
-        toast.success(
-          t('Added {{count}} models from "{{name}}"', {
-            count,
-            name: group.name,
-          })
-        )
-      } catch {
-        toast.error(t('Failed to parse group items'))
-      }
-    },
-    [updateModels, t]
-  )
 
   // Handle model selection change from MultiSelect
   const handleModelsChange = useCallback(
@@ -3167,24 +3127,6 @@ export function ChannelMutateDrawer({
                   {t('Clear All')}
                 </Button>
               </div>
-              {prefillGroups.length > 0 && (
-                <div className='flex flex-wrap items-center gap-2'>
-                  <span className='text-muted-foreground text-xs'>
-                    {t('Preset groups')}:
-                  </span>
-                  {prefillGroups.map((group) => (
-                    <Button
-                      key={group.id}
-                      type='button'
-                      variant='secondary'
-                      size='sm'
-                      onClick={() => handleAddPrefillGroup(group)}
-                    >
-                      {group.name}
-                    </Button>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
 

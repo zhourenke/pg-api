@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Plus, MoreHorizontal, List, AlertCircle } from 'lucide-react'
+import { Plus, MoreHorizontal, AlertCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -24,7 +24,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
@@ -46,10 +45,6 @@ export function ModelsPrimaryButtons() {
 
   const handleSync = () => {
     setOpen('sync-wizard')
-  }
-
-  const handlePrefillGroups = () => {
-    setOpen('prefill-groups')
   }
 
   return (
@@ -77,15 +72,6 @@ export function ModelsPrimaryButtons() {
             {t('Missing Models')}
             <DropdownMenuShortcut>
               <AlertCircle className='h-4 w-4' />
-            </DropdownMenuShortcut>
-          </DropdownMenuItem>
-
-          <DropdownMenuSeparator />
-
-          <DropdownMenuItem onClick={handlePrefillGroups}>
-            {t('Prefill Groups')}
-            <DropdownMenuShortcut>
-              <List className='h-4 w-4' />
             </DropdownMenuShortcut>
           </DropdownMenuItem>
         </DropdownMenuContent>

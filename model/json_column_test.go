@@ -22,11 +22,6 @@ func TestJSONColumnValuersReturnString(t *testing.T) {
 			valuer: ChannelInfo{IsMultiKey: true, MultiKeySize: 2},
 			want:   `{"is_multi_key":true,"multi_key_size":2,"multi_key_status_list":null,"multi_key_polling_index":0,"multi_key_mode":""}`,
 		},
-		{
-			name:   "JSONValue",
-			valuer: JSONValue(`[{"k":"v"}]`),
-			want:   `[{"k":"v"}]`,
-		},
 	}
 
 	for _, testCase := range testCases {
@@ -36,19 +31,6 @@ func TestJSONColumnValuersReturnString(t *testing.T) {
 			str, ok := value.(string)
 			require.True(t, ok, "Value() must return string, got %T", value)
 			assert.JSONEq(t, testCase.want, str)
-		})
-	}
-}
-
-// 空值仍返回 nil,保持列的 NULL 语义。
-func TestJSONColumnValuersZeroValueIsNil(t *testing.T) {
-	for name, valuer := range map[string]driver.Valuer{
-		"JSONValue": JSONValue(nil),
-	} {
-		t.Run(name, func(t *testing.T) {
-			value, err := valuer.Value()
-			require.NoError(t, err)
-			assert.Nil(t, value)
 		})
 	}
 }

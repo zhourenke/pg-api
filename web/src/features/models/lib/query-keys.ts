@@ -40,16 +40,6 @@ export const vendorsQueryKeys = {
     [...vendorsQueryKeys.lists(), filters] as const,
   detail: (id: number) => [...vendorsQueryKeys.all, 'detail', id] as const,
 }
-
-/**
- * React Query cache keys for prefill groups
- */
-export const prefillGroupsQueryKeys = {
-  all: ['prefill-groups'] as const,
-  lists: () => [...prefillGroupsQueryKeys.all, 'list'] as const,
-  list: (type?: string) => [...prefillGroupsQueryKeys.lists(), type] as const,
-}
-
 /**
  * React Query cache keys for deployments
  */

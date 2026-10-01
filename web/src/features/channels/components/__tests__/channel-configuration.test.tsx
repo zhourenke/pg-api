@@ -150,9 +150,6 @@ beforeEach(() => {
     if (url === '/api/group/') {
       return { data: { success: true, data: ['default', 'premium'] } }
     }
-    if (url === '/api/prefill_group') {
-      return { data: { success: true, data: [] } }
-    }
     throw new Error(`Unexpected GET ${url}`)
   })
 })

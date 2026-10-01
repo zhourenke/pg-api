@@ -74,18 +74,6 @@ export interface Vendor {
   created_time: number
   updated_time: number
 }
-
-/**
- * Prefill group entity
- */
-export interface PrefillGroup {
-  id: number
-  name: string
-  type: 'model' | 'tag' | 'endpoint'
-  items: string | string[]
-  description?: string
-}
-
 // ============================================================================
 // API Request/Response Types
 // ============================================================================
@@ -248,16 +236,6 @@ export interface MissingModelsResponse {
   message?: string
   data?: string[]
 }
-
-/**
- * Prefill groups response
- */
-export interface PrefillGroupsResponse {
-  success: boolean
-  message?: string
-  data?: PrefillGroup[]
-}
-
 // ============================================================================
 // Form Data Types
 // ============================================================================
@@ -299,20 +277,6 @@ export const vendorFormSchema = z.object({
 })
 
 export type VendorFormValues = z.infer<typeof vendorFormSchema>
-
-/**
- * Prefill group form schema
- */
-export const prefillGroupFormSchema = z.object({
-  id: z.number().optional(),
-  name: z.string().min(1, 'Group name is required'),
-  description: z.string().optional(),
-  type: z.enum(['model', 'tag', 'endpoint']),
-  items: z.union([z.string(), z.array(z.string())]),
-})
-
-export type PrefillGroupFormValues = z.infer<typeof prefillGroupFormSchema>
-
 // ============================================================================
 // Utility Types
 // ============================================================================

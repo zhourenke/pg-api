@@ -321,9 +321,6 @@ func migrateDB() error {
 	if err := migrateTokenKeyUniqueness(DB); err != nil {
 		return err
 	}
-	if err := migratePrefillGroupUniqueness(DB); err != nil {
-		return err
-	}
 	// Migrate model_limits column from varchar to text for existing tables
 	if err := migrateTokenModelLimitsToText(); err != nil {
 		return err
@@ -349,7 +346,6 @@ func migrateDB() error {
 		&QuotaData{},
 		&Model{},
 		&Vendor{},
-		&PrefillGroup{},
 		&Setup{},
 		&TwoFA{},
 		&TwoFABackupCode{},

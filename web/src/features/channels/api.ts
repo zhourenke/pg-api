@@ -659,21 +659,3 @@ export async function getOllamaVersion(
  * Get all available groups (re-exported from users API for convenience)
  */
 export const getGroups = getUserGroups
-
-// ============================================================================
-// Prefill Groups (Model Groups)
-// ============================================================================
-
-/**
- * Get prefill groups for quick model selection
- */
-export async function getPrefillGroups(
-  type: 'model' | 'group' = 'model'
-): Promise<{
-  success: boolean
-  message?: string
-  data?: Array<{ id: number; name: string; items: string | string[] }>
-}> {
-  const res = await api.get('/api/prefill_group', { params: { type } })
-  return res.data
-}
