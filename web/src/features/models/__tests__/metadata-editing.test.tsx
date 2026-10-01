@@ -132,7 +132,7 @@ describe('model pricing entry', () => {
               'billing_setting.billing_mode': 'tiered_expr',
               'billing_setting.billing_expr': 'tier("base", p * 1.5)',
             },
-            reset: false,
+
           },
         ],
       })
@@ -564,7 +564,7 @@ describe('metadata editing', () => {
               'billing_setting.billing_mode': 'tiered_expr',
               'billing_setting.billing_expr': 'tier("base", p * 1.5)',
             },
-            reset: false,
+
           },
         ],
       })
@@ -585,7 +585,7 @@ describe('metadata editing', () => {
               'billing_setting.billing_mode': 'tiered_expr',
               'billing_setting.billing_expr': 'tier("base", p * 2)',
             },
-            reset: false,
+
           },
         ],
       })

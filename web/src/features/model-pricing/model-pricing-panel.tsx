@@ -20,7 +20,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { ConfirmDialog } from '@/components/confirm-dialog'
 import { ErrorState } from '@/components/error-state'
 import { LoadingState } from '@/components/loading-state'
 import { Button } from '@/components/ui/button'
@@ -48,7 +47,6 @@ export function ModelPricingPanel(props: {
   const query = useModelPricing([props.modelName], Boolean(props.modelName))
   const save = useSaveModelPricing()
   const [entry, setEntry] = useState<ModelPricingEntry | null>(null)
-  const [resetOpen, setResetOpen] = useState(false)
   const editor = useRef<ModelPricingEditorPanelHandle>(null)
   const editData = useMemo(() => {
     if (!entry) return null
@@ -70,17 +68,16 @@ export function ModelPricingPanel(props: {
     }
   }, [query.data, entry, props.modelName])
 
-  const persist = async (reset = false) => {
+  const persist = async () => {
     if (!entry) return
     try {
-      const draft = reset ? null : await editor.current?.commitDraft()
-      if (!reset && !draft) return
+      const draft = await editor.current?.commitDraft()
+      if (!draft) return
       await save.mutateAsync([
         {
           model_name: entry.model_name,
           expected_version: entry.version,
-          pricing: draft ? pricingFromDraft(draft) : {},
-          reset,
+          pricing: pricingFromDraft(draft),
         },
       ])
       const refreshed = await query.refetch()
@@ -89,7 +86,6 @@ export function ModelPricingPanel(props: {
           (item) => item.model_name === props.modelName
         ) ?? null
       )
-      setResetOpen(false)
       toast.success(t('Model pricing saved'))
     } catch (error) {
       handleServerError(error)
@@ -134,14 +130,6 @@ export function ModelPricingPanel(props: {
                     : t('Using built-in or default pricing')}
                 </p>
               </div>
-              <Button
-                variant='outline'
-                size='sm'
-                onClick={() => setResetOpen(true)}
-                disabled={save.isPending}
-              >
-                {t('Restore default pricing')}
-              </Button>
             </div>
             <div className='space-y-3 border-b pb-3'>
               {effectivePricing.billing_expr && (
@@ -176,17 +164,6 @@ export function ModelPricingPanel(props: {
             )}
           </>
         }
-      />
-      <ConfirmDialog
-        open={resetOpen}
-        onOpenChange={setResetOpen}
-        title={t('Restore default pricing')}
-        desc={t(
-          'Remove this model’s custom pricing and use the built-in defaults. A model without a default may become unpriced.'
-        )}
-        confirmText={t('Restore defaults')}
-        isLoading={save.isPending}
-        handleConfirm={() => void persist(true)}
       />
     </div>
   )
