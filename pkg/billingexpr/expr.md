@@ -94,52 +94,27 @@ Anthropic 的独立缓存计数语义不采用这一 OpenAI 图片拆分。
 文本/图片日志的 `cache_tokens` 继续保留上游缓存总量。Images 的 `output_tokens` 是图片输出，
 内置图片价格使用 `c`，无需上游额外报告 `output_tokens_details.image_tokens`。
 
-### 旧定价转换
+### 旧定价（倍率 / 按次）的读取与预览
 
-旧倍率和旧按次模式仍可运行，管理界面标记为弃用，新建定价默认使用表达式。
-`POST /api/option/model_pricing/convert` 接收 `{model_name, pricing}`，其中 `pricing`
-为完整的旧定价草稿，缺少的键继承运行时默认值。接口返回表达式及本次转换使用的生效定价快照，或具体不支持原因，不写数据库。
-管理界面先用该快照显示左右对照预览，确认后才更新草稿；取消不改变原草稿。
-保存仍使用现有 `PATCH /api/option/model_pricing` 及 `expected_version` 冲突检查。
+旧倍率与旧按次价格仍可运行，管理界面把它们标记为弃用，新建定价默认使用表达式。
+本 fork **不发布内置价格**（`.agents/rules/billing.md` 第 7 条），所以未配置价格的模型没有任何价格可用：
+计费入口以 `modelPriceNotConfiguredError` 拒绝，只有用户开启 `AcceptUnsetRatioModel` 时才按 ratio 0 转发。
 
-倍率转换以 `ModelRatio * 1000000 / QuotaPerUnit` 得到 USD/百万 tokens 的基础单价，
-保留输出、缓存读取、适用的缓存创建和图片输入的生效倍率及显式零值。
-常规按次价格转换为 `tier("request", fixed(price))`。旧价格字段继续保存，供切回旧模式使用。
-转换后的预扣及舍入采用表达式规则，不保证旧模式每笔舍入结果完全一致。
-迁移、已保存价格展示与草稿价格预览共用生效价格解析：输出使用模型族的硬编码兜底/强制倍率；
-缺少配置的缓存读取、缓存创建、图片输入分别使用运行时的 1、1.25、1 倍。
-图片倍率为 1 时，转换不生成独立 `img` 项，图片输入继续包含在 `p` 中按相同价格计费；
-图片倍率为其他值（包括显式 0）时才生成 `img` 项。
-缓存读取倍率为 1 时在价格预览中合并为输入价格；没有独立图片输入或缓存写入项时，转换同时省略 `cr`。
-存在这些独立项目时，缓存计数可能交叠，输入余量的零下限使直接合并不再等价，因此保留原 `cr` 计算项而不单列同价价格。
-基础输入价为 0 时可直接省略倍率为 1 的 `cr`；其他缓存读取倍率（包括显式 0）保留独立项。
-省略 `cr` 时，Anthropic 用量中单独报告的缓存读取数会加回 `p`，而 `len` 保持完整上下文长度。
-缓存创建按对外计费名和原始配置处理：名称包含 `claude`（不区分大小写）时保留 `cc` 和 `cc1h`，
-其中 1h 价格沿用旧引擎的 `CreateCacheRatio * 6 / 3.75`；其他名称仅在草稿已配置 `CreateCacheRatio`
-时生成通用 `cc`（包括显式 0），不生成 `cc1h`。没有配置的通用 1.25 倍兜底不产生新计费项。
-不按渠道映射或模型白名单扩展缓存类型，也不要求管理员另选类型。
-定价快照条目、草稿预览响应和转换结果附带只读 `cache_write_mode`（`none` / `standard` / `claude_ttl`），
-用于统一展示。`POST /api/option/model_pricing/preview` 的响应统一为
-`{success, message, data: {effective, cache_write_mode, billing_details}}`，调用者从 `data.effective`
-读取生效价格；转换接口和快照条目的 JSON 结构不变。元信息不保存、不参与表达式执行。
-未设置与显式 0 必须区分。草稿关闭某项覆盖后按保存后的回退规则解析，不能继续读取运行进程中尚未被保存替换的旧值。
-图片和普通音频规则均可自动迁移，具体规则如下；任务插件、视频、Realtime，以及依赖上游 cost
-反推缓存写入用量的 OpenRouter Claude 分支仍返回具体原因，不按渠道类型或未知端点一概拦截。
+**旧定价到表达式的转换已整体移除**（提交 `f963bd8f8`）：不再有 `POST /api/option/model_pricing/convert`，
+也没有草稿转换、转换前的冲突诊断与左右对照预览。被删掉的转换规则（旧倍率与按次、音频分支、
+图片与 DALL·E 尺寸质量的具体生成方式）可在 `git show f963bd8f8^:pkg/billingexpr/expr.md` 查到。
 
-Gemini 音频输入使用旧结算实际采用的美元单价生成 `ai`，不乘普通输入倍率，因此普通输入价为零时
-仍保留独立音频费用。普通音频的 `ai` 单价为基础输入价乘 AudioRatio，`ao` 再乘 AudioCompletionRatio，
-缺省倍率按 1 处理，显式零保留。普通音频结算不使用缓存/图片倍率；模型同时配置这些价格时，
-转换生成音频请求与纯文本请求两个分支。音频分支使用 `max(len - ai, 0)` 计量普通输入，避免纯文本
-分支中引用的缓存变量改变音频费用。Gemini 文本结算仍保留缓存/音频交叠后的输入余量零下限。
-只读 `billing_details` 为预览提供实际音频单价、图片数量和请求倍率规则，不成为新的持久化价格来源。
-同一计费名在 Gemini/兼容音频入口存在相互冲突的单价时，
-转换返回该具体冲突，不能静默选择其中一条规则覆盖其他入口。
+仍在用的是**只读的生效定价解析与预览**：`POST /api/option/model_pricing/preview` 接收
+`{model_name, pricing}`（`pricing` 是完整草稿，缺键按运行时默认值解析），返回生效定价、只读
+`billing_details` 与 `cache_write_mode`（`none` / `standard` / `claude_ttl`），不写数据库；
+保存仍使用 `PATCH /api/option/model_pricing` 及 `expected_version` 冲突检查。未设置与显式 0 必须区分。
 
-图片按次价格转换为 `tier("image", fixed(price)) * image_count`，再追加旧尺寸、质量条件倍率。
-DALL·E 尺寸/质量规则按原始请求模型名生成，模型映射不会额外引入这些规则。
-OpenAI 已于 2026-05-12 下线 DALL·E 2/3；其校验、默认值和倍率保留在独立 legacy 文件，
-仅用于历史配置及兼容上游。转换从 DTO 的旧计费逻辑获取倍率，不维护第二份价格表。
-图片 token 定价不额外乘数量。所有金额和倍率固化在表达式中，不再叠加旧 OtherRatios。
+`billing_details` 只用于展示：它给出实际音频单价（Gemini 原生输入音频价与兼容 chat 的
+AudioRatio/AudioCompletionRatio 路径冲突时只标记冲突，不静默改写其中一条）、图片按次计数的标记、
+DALL·E 的尺寸/质量规则，以及音频分支是否与文本分支并存。Gemini 音频在文本价为零时仍可单独计费，
+因此音频价不能只用倍率表示。`cache_write_mode` 同样只用于展示与迁移：名称包含 `claude`（不区分大小写）
+时是 `claude_ttl`（沿用旧引擎的双 TTL 规则），否则按草稿是否配置了 `CreateCacheRatio` 得到
+`standard` 或 `none`；通用引擎兜底不算「已配置缓存写入价格」。元信息不保存、不参与表达式执行。
 
 ### Image Quantity
 
