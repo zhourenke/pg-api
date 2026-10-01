@@ -62,43 +62,6 @@ export type ModelPricingChange = {
   reset?: boolean
 }
 
-export type ModelPricingConversion = Partial<ModelPricingDescription> & {
-  expression?: string
-  unsupported_reason?: string
-}
-
-export async function previewModelPricingConversion(request: {
-  model_name: string
-  pricing: PricingValues
-}): Promise<ModelPricingConversion> {
-  const response = await api.post('/api/option/model_pricing/convert', request)
-  if (!response.data.success) {
-    throw createServerError(
-      response.data,
-      t('Failed to prepare pricing conversion')
-    )
-  }
-  return response.data.data
-}
-
-export async function previewModelPricing(request: {
-  model_name: string
-  pricing: PricingValues
-}): Promise<{
-  effective: PricingValues
-  cacheWriteMode?: CacheWriteMode
-  billingDetails?: LegacyBillingDetails
-}> {
-  const response = await api.post('/api/option/model_pricing/preview', request)
-  if (!response.data.success) {
-    throw createServerError(response.data, t('Failed to load model pricing'))
-  }
-  return {
-    effective: response.data.data.effective,
-    cacheWriteMode: response.data.data.cache_write_mode,
-    billingDetails: response.data.data.billing_details,
-  }
-}
 
 export function useCanEditModelPricing() {
   return useAuthStore((state) => state.auth.user?.role === ROLE.SUPER_ADMIN)
