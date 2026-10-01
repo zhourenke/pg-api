@@ -17,12 +17,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { BILLING_CACHE_VAR_MAP } from './billing-expr'
-import { compileBillingExpression } from './billing-expression/parser'
-import { evaluateBillingExpression } from './billing-expression/runtime'
-import type {
-  BillingSimulationContext,
-  TokenVariable,
-} from './billing-expression/types'
 
 export const CACHE_MODE_TIMED = 'timed'
 export const CACHE_MODE_GENERIC = 'generic'
@@ -248,91 +242,4 @@ export function tryParseVisualConfig(
   } catch {
     return null
   }
-}
-
-// ---------------------------------------------------------------------------
-// Local cost evaluator (for the estimator preview)
-// ---------------------------------------------------------------------------
-
-const ESTIMATOR_VARS = [
-  { var: 'cr', stateKey: 'cacheReadTokens' },
-  { var: 'cc', stateKey: 'cacheCreateTokens' },
-  { var: 'cc1h', stateKey: 'cacheCreate1hTokens' },
-  { var: 'img', stateKey: 'imageTokens' },
-  { var: 'img_cr', stateKey: 'imageCacheTokens' },
-  { var: 'img_o', stateKey: 'imageOutputTokens' },
-  { var: 'ai', stateKey: 'audioInputTokens' },
-  { var: 'ao', stateKey: 'audioOutputTokens' },
-] as const
-
-export type ExtraTokenValues = Record<
-  (typeof ESTIMATOR_VARS)[number]['stateKey'],
-  number
->
-
-export type EvalResult = {
-  cost: number
-  matchedTier: string
-  error: string | null
-  billingUnit?: 'token' | 'request'
-}
-
-export function evalExprLocally(
-  exprStr: string,
-  promptTokens: number,
-  completionTokens: number,
-  extraTokenValues: ExtraTokenValues,
-  context?: BillingSimulationContext
-): EvalResult {
-  if (!exprStr.trim()) return { cost: 0, matchedTier: '', error: null }
-  const result = evaluateBillingExpression(exprStr, {
-    ...context,
-    tokens: {
-      ...buildEstimatorTokens(promptTokens, completionTokens, extraTokenValues),
-      ...context?.tokens,
-    },
-  })
-  if (result.status !== 'success') {
-    return { cost: 0, matchedTier: '', error: result.diagnostic.detail }
-  }
-  return {
-    cost: result.cost,
-    matchedTier: result.matchedTier,
-    error: null,
-    ...(result.billingUnit === 'request'
-      ? { billingUnit: result.billingUnit }
-      : {}),
-  }
-}
-
-export function buildEstimatorTokens(
-  promptTokens: number,
-  completionTokens: number,
-  extraTokenValues: ExtraTokenValues
-): Partial<Record<TokenVariable, number>> {
-  return {
-    p: promptTokens,
-    c: completionTokens,
-    len:
-      promptTokens +
-      extraTokenValues.cacheReadTokens +
-      extraTokenValues.imageCacheTokens +
-      extraTokenValues.imageTokens +
-      extraTokenValues.audioInputTokens +
-      extraTokenValues.cacheCreateTokens +
-      extraTokenValues.cacheCreate1hTokens,
-    ...Object.fromEntries(
-      ESTIMATOR_VARS.map((field) => [
-        field.var,
-        extraTokenValues[field.stateKey],
-      ])
-    ),
-  }
-}
-
-export function exprUsesExtraVars(exprStr: string): boolean {
-  if (!exprStr) return false
-  const compiled = compileBillingExpression(exprStr)
-  if (compiled.status !== 'ready') return false
-  return ESTIMATOR_VARS.some((field) => compiled.variables.has(field.var))
 }

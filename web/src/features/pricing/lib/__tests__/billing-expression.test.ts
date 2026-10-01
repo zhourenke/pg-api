@@ -41,35 +41,11 @@ import {
   visualNodeId,
   type VisualCondition,
 } from '../billing-expression/visual'
-import {
-  buildEstimatorTokens,
-  evalExprLocally,
-  type ExtraTokenValues,
-} from '../tier-expr'
-
-const extras: ExtraTokenValues = {
-  cacheReadTokens: 100,
-  cacheCreateTokens: 0,
-  cacheCreate1hTokens: 0,
-  imageTokens: 0,
-  imageOutputTokens: 0,
-  imageCacheTokens: 0,
-  audioInputTokens: 0,
-  audioOutputTokens: 0,
-}
 
 test('evaluates and round-trips separate image cache prices including an explicit zero', () => {
   const source =
     'tier("standard", p * 5 + cr * 1.25 + img * 8 + img_cr * 2 + c * 30)'
   const document = parseVisualBillingDocument(source)
-  expect(
-    buildEstimatorTokens(300, 100, {
-      ...extras,
-      cacheReadTokens: 100,
-      imageTokens: 400,
-      imageCacheTokens: 200,
-    }).len
-  ).toBe(1000)
   assert(document)
   const regenerated = serializeVisualBillingDocument(document)
   assert(regenerated.ok)
@@ -78,14 +54,6 @@ test('evaluates and round-trips separate image cache prices including an explici
       tokens: { p: 300, cr: 100, img: 400, img_cr: 200, c: 100, len: 1000 },
     })
   ).toMatchObject({ status: 'success', cost: 8225, matchedTier: 'standard' })
-  expect(
-    evalExprLocally(source, 300, 100, {
-      ...extras,
-      cacheReadTokens: 100,
-      imageTokens: 400,
-      imageCacheTokens: 200,
-    })
-  ).toMatchObject({ cost: 8225, error: null })
   const freeCache = parseVisualBillingDocument(
     source.replace('img_cr * 2', 'img_cr * 0')
   )
@@ -252,15 +220,18 @@ describe('local billing expression evaluation', () => {
     expect([...result.functions]).toEqual(['tier'])
   })
 
-  test('keeps legacy normalized tokens while accepting a full context length override', () => {
+  test('selects a tier from the normalized length and from a context length override', () => {
     const expression =
       'len < 2000 ? tier("short", p * 2 + cr * 0.1) : tier("long", p * 4 + cr * 0.2)'
-    expect(evalExprLocally(expression, 1000, 0, extras)).toMatchObject({
-      cost: 2010,
-      matchedTier: 'short',
-    })
     expect(
-      evalExprLocally(expression, 1000, 0, extras, { tokens: { len: 2500 } })
+      evaluateBillingExpression(expression, {
+        tokens: { p: 1000, c: 0, cr: 100, len: 1100 },
+      })
+    ).toMatchObject({ cost: 2010, matchedTier: 'short' })
+    expect(
+      evaluateBillingExpression(expression, {
+        tokens: { p: 1000, c: 0, cr: 100, len: 2500 },
+      })
     ).toMatchObject({ cost: 4020, matchedTier: 'long' })
   })
 
@@ -308,11 +279,11 @@ describe('local billing expression evaluation', () => {
     (now, matchedTier, cost) => {
       vi.useFakeTimers()
       vi.setSystemTime(new Date(now))
-      expect(evalExprLocally(deepSeekExpression, 1000, 100, extras)).toEqual({
-        cost,
-        matchedTier,
-        error: null,
-      })
+      expect(
+        evaluateBillingExpression(deepSeekExpression, {
+          tokens: { p: 1000, c: 100, cr: 100 },
+        })
+      ).toMatchObject({ cost, matchedTier })
     }
   )
 })

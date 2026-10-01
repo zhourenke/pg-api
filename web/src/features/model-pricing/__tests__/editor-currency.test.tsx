@@ -815,8 +815,7 @@ it('keeps custom raw expressions byte-for-byte intact on currency changes', asyn
   ).toBeVisible()
 })
 
-it('keeps time pricing and request rules unchanged when opening the simulator', async () => {
-  const user = userEvent.setup()
+it('switches currency without changing time pricing or request rules', async () => {
   const expression =
     'hour("Asia/Shanghai") < 12 ? tier("peak", p * 3 + c * 9) : tier("off_peak", p * 1.5 + c * 4.5)'
   const rules = '(header("tier") == "fast" ? 2 : 1)'
@@ -826,11 +825,6 @@ it('keeps time pricing and request rules unchanged when opening the simulator', 
     requestRuleExpr: rules,
   })
   const before = await commit(editor.ref)
-  await user.click(screen.getByRole('button', { name: 'Request simulation' }))
-  fireEvent.input(
-    screen.getByRole('textbox', { name: 'Simulated request body' }),
-    { target: { value: '{"unused":1}' } }
-  )
   await selectCurrency('Site currency (CNY)')
   expect(await commit(editor.ref)).toEqual(before)
   expect(before?.billingExpr).toBe(expression)
@@ -847,19 +841,6 @@ it('switches currency using the keyboard without changing the saved configuratio
     screen.getByRole('combobox', { name: 'Pricing currency' })
   ).toHaveTextContent('Site currency (CNY)')
   expect(await commit(editor.ref)).toEqual(original)
-})
-
-it('shows the estimated token cost in the selected currency while token quantities stay unchanged', async () => {
-  renderEditor({
-    billingMode: 'tiered_expr',
-    billingExpr: 'tier("base", p * 2 + c * 4)',
-  })
-  const tokens = screen.getByRole('spinbutton', { name: 'Input tokens' })
-  fireEvent.change(tokens, { target: { value: '1000000' } })
-  expect(screen.getByText('Estimated cost: $2')).toBeVisible()
-  await selectCurrency('Site currency (CNY)')
-  expect(tokens).toHaveValue(1000000)
-  expect(screen.getByText('Estimated cost: ¥14')).toBeVisible()
 })
 
 it('keeps an empty per-request amount empty when currencies change', async () => {

@@ -17,15 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { Copy, Plus, Trash2 } from 'lucide-react'
-import {
-  memo,
-  useCallback,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -50,13 +42,10 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import {
-  formatPricingAmount,
   USD_PRICING_CURRENCY,
   type PricingCurrency,
 } from '@/features/model-pricing/currency'
-import { useBillingTime } from '@/features/pricing/hooks/use-billing-time'
 import {
-  BILLING_EXTRA_VARS,
   MATCH_CONTAINS,
   MATCH_EQ,
   MATCH_EXISTS,
@@ -88,21 +77,15 @@ import {
   type VisualBillingDocument,
 } from '@/features/pricing/lib/billing-expression/visual'
 import {
-  type ExtraTokenValues,
   createDefaultVisualConfig,
-  evalExprLocally,
-  buildEstimatorTokens,
-  exprUsesExtraVars,
   generateExprFromVisualConfig,
 } from '@/features/pricing/lib/tier-expr'
-import { cn } from '@/lib/utils'
 
 import {
   BillingTimeProbeFields,
   BillingTimeRangeFields,
 } from './billing-time-fields'
 import { DraftNumberInput } from './draft-number-input'
-import { RequestSimulation } from './request-simulation'
 import { VisualBillingDocumentEditor } from './visual-billing-document-editor'
 
 type Preset = {
@@ -711,180 +694,6 @@ function PresetSection({ applyPreset }: PresetSectionProps) {
 }
 
 // ---------------------------------------------------------------------------
-// Cost estimator
-// ---------------------------------------------------------------------------
-
-type EstimatorProps = {
-  currency: PricingCurrency
-  effectiveExpr: string
-  fullExpr: string
-}
-
-function CostEstimator({ effectiveExpr, fullExpr, currency }: EstimatorProps) {
-  const { t } = useTranslation()
-  const inputId = useId()
-  const outputId = useId()
-  const lengthId = useId()
-  const [lengthOverride, setLengthOverride] = useState('')
-  const billingTime = useBillingTime(effectiveExpr)
-  const [promptTokens, setPromptTokens] = useState(0)
-  const [completionTokens, setCompletionTokens] = useState(0)
-  const [extras, setExtras] = useState<ExtraTokenValues>({
-    cacheReadTokens: 0,
-    cacheCreateTokens: 0,
-    cacheCreate1hTokens: 0,
-    imageTokens: 0,
-    imageCacheTokens: 0,
-    imageOutputTokens: 0,
-    audioInputTokens: 0,
-    audioOutputTokens: 0,
-  })
-
-  const usesExtras = useMemo(
-    () => exprUsesExtraVars(effectiveExpr),
-    [effectiveExpr]
-  )
-
-  const tokens = useMemo(() => {
-    const values = buildEstimatorTokens(promptTokens, completionTokens, extras)
-    if (lengthOverride.trim()) values.len = Number(lengthOverride)
-    return values
-  }, [promptTokens, completionTokens, extras, lengthOverride])
-
-  const result = useMemo(
-    () =>
-      evalExprLocally(effectiveExpr, promptTokens, completionTokens, extras, {
-        tokens,
-        now: billingTime === undefined ? undefined : new Date(billingTime),
-      }),
-    [effectiveExpr, promptTokens, completionTokens, extras, tokens, billingTime]
-  )
-
-  if (result.error === 'task usage') {
-    return (
-      <Alert>
-        <AlertDescription>
-          {t(
-            'This expression reads usage data with u(...), which the token estimator cannot supply.'
-          )}
-        </AlertDescription>
-      </Alert>
-    )
-  }
-
-  return (
-    <div className='bg-muted/30 space-y-3 rounded-md border p-3'>
-      <div className='space-y-1'>
-        <h4 className='text-sm font-medium'>{t('Token estimator')}</h4>
-        <p className='text-muted-foreground text-xs'>
-          {t(
-            'Enter token counts to preview the estimated cost (excluding group multipliers).'
-          )}
-        </p>
-      </div>
-      <div className='grid grid-cols-2 gap-3'>
-        <div className='space-y-1'>
-          <Label htmlFor={inputId} className='text-xs'>
-            {t('Input tokens')}
-          </Label>
-          <DraftNumberInput
-            id={inputId}
-            min={0}
-            value={promptTokens}
-            onValueChange={setPromptTokens}
-          />
-        </div>
-        <div className='space-y-1'>
-          <Label htmlFor={outputId} className='text-xs'>
-            {t('Output tokens')}
-          </Label>
-          <DraftNumberInput
-            id={outputId}
-            min={0}
-            value={completionTokens}
-            onValueChange={setCompletionTokens}
-          />
-        </div>
-      </div>
-      <Field>
-        <FieldLabel htmlFor={lengthId}>
-          {t('Full input length override')}
-        </FieldLabel>
-        <Input
-          id={lengthId}
-          type='number'
-          min={0}
-          value={lengthOverride}
-          onChange={(event) => setLengthOverride(event.target.value)}
-          placeholder={t('Use the existing token total')}
-        />
-      </Field>
-      {usesExtras && (
-        <div className='grid grid-cols-2 gap-3'>
-          {BILLING_EXTRA_VARS.map((variable) => {
-            // BILLING_EXTRA_VARS only contains pricing variables; they are
-            // guaranteed to have a non-null `field` (the `len` condition-only
-            // variable is filtered out). Narrow the type here for safety.
-            if (!variable.field) return null
-            const stateKey = variable.field.replace(
-              'Price',
-              'Tokens'
-            ) as keyof ExtraTokenValues
-            return (
-              <div key={variable.key} className='space-y-1'>
-                <Label className='text-xs'>{t(variable.shortLabel)}</Label>
-                <DraftNumberInput
-                  min={0}
-                  value={extras[stateKey]}
-                  onValueChange={(value) =>
-                    setExtras((prev) => ({
-                      ...prev,
-                      [stateKey]: value,
-                    }))
-                  }
-                />
-              </div>
-            )
-          })}
-        </div>
-      )}
-      <div
-        className={cn(
-          'rounded-md border p-3 text-sm',
-          result.error
-            ? 'border-destructive/50 bg-destructive/10 text-destructive'
-            : 'border-primary/50 bg-primary/10'
-        )}
-      >
-        {result.error ? (
-          <span>
-            {t('Expression error')}: {result.error}
-          </span>
-        ) : (
-          <div className='flex items-center gap-2'>
-            <span className='font-medium'>
-              {t('Estimated cost')}:{' '}
-              {formatPricingAmount(result.cost / 1_000_000, currency)}
-              {result.billingUnit === 'request' && `/${t('request')}`}
-            </span>
-            {result.matchedTier && (
-              <Badge variant='outline' className='text-xs'>
-                {t('Hit tier')}: {result.matchedTier}
-              </Badge>
-            )}
-          </div>
-        )}
-      </div>
-      <RequestSimulation
-        expression={fullExpr}
-        tokens={tokens}
-        currency={currency}
-      />
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
 // LLM prompt helper
 // ---------------------------------------------------------------------------
 
@@ -1100,7 +909,6 @@ export const TieredPricingEditor = memo(function TieredPricingEditor({
   const invalidDraft = editorMode === 'visual' && serialized?.ok === false
   const canUseVisualRules =
     !ruleExpr || tryParseRequestRuleExpr(ruleExpr) !== null
-  const effectiveExpr = baseExpr
 
   const handleDocumentChange = useCallback(
     (next: VisualBillingDocument) => {
@@ -1301,16 +1109,6 @@ export const TieredPricingEditor = memo(function TieredPricingEditor({
           </div>
         )}
       </div>
-
-      <CostEstimator
-        effectiveExpr={effectiveExpr}
-        fullExpr={
-          editorMode === 'raw'
-            ? rawExpr
-            : combineBillingExpr(effectiveExpr, ruleExpr)
-        }
-        currency={currency}
-      />
     </div>
   )
 })
