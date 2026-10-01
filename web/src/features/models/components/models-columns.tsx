@@ -147,8 +147,8 @@ export function useModelsColumns(
       },
       {
         id: 'pricing',
-        header: t('Pricing'),
-        meta: { label: t('Pricing') },
+        header: t('Price'),
+        meta: { label: t('Price') },
         size: 225,
         enableSorting: false,
         cell: ({ row }) => {
@@ -196,7 +196,6 @@ export function useModelsColumns(
                   }
                 )}
                 options={{ tokenUnit: 'M' }}
-                showExpression={false}
               />
             </Button>
           )

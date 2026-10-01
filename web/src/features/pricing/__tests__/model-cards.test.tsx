@@ -191,7 +191,7 @@ describe('model cards', () => {
     expect(row).not.toHaveClass('flex-wrap')
   })
 
-  it('shows fixed prices per request in both token display units', () => {
+  it('shows a fixed per-request price without repeating the unit on the value', () => {
     const model = pricingModel({
       billing_mode: 'tiered_expr',
       billing_expr: 'tier("request", fixed(0.01))',
@@ -199,8 +199,9 @@ describe('model cards', () => {
     const { rerender } = render(
       <ModelCard model={model} onClick={vi.fn()} tokenUnit='K' />
     )
+    expect(screen.getByText('Per-call')).toBeVisible()
     expect(screen.getByText('$0.01')).toBeVisible()
-    expect(screen.getByText('/ request')).toBeVisible()
+    expect(screen.queryByText('/ request')).toBeNull()
     rerender(<ModelCard model={model} onClick={vi.fn()} tokenUnit='M' />)
     expect(screen.getByText('$0.01')).toBeVisible()
     expect(screen.queryByText('/ 1M')).not.toBeInTheDocument()
@@ -396,7 +397,8 @@ describe('model cards', () => {
         tokenUnit='K'
       />
     )
-    expect(screen.getByText(/\$0.6/)).toHaveTextContent(/\$0.6\s*\/\s*request/)
+    expect(screen.getByText(/\$0.6/)).toHaveTextContent(/\$0\.6$/)
+    expect(screen.queryByText('/ request')).toBeNull()
     expect(screen.queryByText(/1K|1M/)).not.toBeInTheDocument()
     expect(screen.queryByText('Per Request')).not.toBeInTheDocument()
     expect(screen.queryByText('Per-request')).not.toBeInTheDocument()
@@ -440,7 +442,7 @@ describe('model cards', () => {
     expect(row.style.gridTemplateColumns).toBe('1fr auto 1fr')
     const group = screen.getByText('Per-call').parentElement as HTMLElement
     expect(group.style.gridColumnStart).toBe('2')
-    expect(group).toHaveTextContent(/\$0\.4\s*\/\s*request/)
+    expect(group).toHaveTextContent(/\$0\.4$/)
   })
 
   it('preserves expression prices without repeating the token unit', () => {

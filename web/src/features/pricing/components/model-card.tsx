@@ -31,7 +31,6 @@ import { DEFAULT_TOKEN_UNIT } from '../constants'
 import { useBillingTime } from '../hooks/use-billing-time'
 import {
   getDynamicDisplayGroupRatio,
-  getDynamicPriceUnitLabelKey,
   getDynamicPricingSummary,
 } from '../lib/dynamic-price'
 import { parseTags } from '../lib/filters'
@@ -143,10 +142,6 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
       priceSummary = (
         <>
           {cardPriceEntries.map((entry, index) => {
-            // Token prices drop the unit because the toolbar selects it; only
-            // per-request and per-image prices keep a suffix.
-            const unitLabelKey = getDynamicPriceUnitLabelKey(entry)
-            const unitLabel = unitLabelKey ? t(unitLabelKey) : ''
             const label: ReactNode = t(entry.shortLabel)
             return (
               <div
@@ -159,14 +154,8 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
                     {label}
                   </span>
                 )}
-                <span className='flex flex-wrap items-baseline gap-x-1 font-mono text-sm font-semibold tabular-nums'>
-                  <span>{entry.formattedRange ?? entry.formatted}</span>
-                  {unitLabel && (
-                    <span className='text-muted-foreground text-xs font-normal whitespace-nowrap'>
-                      {' '}
-                      / {unitLabel}
-                    </span>
-                  )}
+                <span className='font-mono text-sm font-semibold tabular-nums'>
+                  {entry.formattedRange ?? entry.formatted}
                 </span>
               </div>
             )
@@ -237,10 +226,6 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
             usdExchangeRate,
             props.selectedGroup
           )}
-          <span className='text-muted-foreground text-xs font-normal'>
-            {' '}
-            / {t('request')}
-          </span>
         </span>
       </div>
     )

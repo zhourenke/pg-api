@@ -47,12 +47,15 @@ function detailsModel(overrides: Partial<PricingModel> = {}): PricingModel {
   }
 }
 
-function renderDetails(model: PricingModel) {
+function renderDetails(
+  model: PricingModel,
+  usableGroup: Record<string, { desc: string; ratio: number }> = {}
+) {
   return render(
     <ModelDetailsContent
       model={model}
       groupRatio={{}}
-      usableGroup={{}}
+      usableGroup={usableGroup}
       endpointMap={{}}
       autoGroups={[]}
       priceRate={1}
@@ -83,5 +86,40 @@ describe('model details content', () => {
     expect(within(header).getByText('deepseek-v4.1-flash')).toBeVisible()
     expect(within(header).queryByText('DeepSeek')).toBeNull()
     expect(within(header).queryByText('Dynamic Pricing')).toBeNull()
+  })
+
+  it('heads the per-call column of group pricing with the billed unit only', () => {
+    renderDetails(detailsModel({ billing_expr: 'tier("base", fixed(0.02))' }), {
+      default: { desc: '', ratio: 1 },
+    })
+
+    const groupPricing = screen
+      .getByRole('heading', { name: 'Pricing by Group' })
+      .closest('section') as HTMLElement
+    expect(
+      within(groupPricing).getByRole('columnheader', { name: 'Per-call' })
+    ).toBeVisible()
+    for (const header of within(groupPricing).getAllByRole('columnheader')) {
+      expect(header.textContent).not.toMatch(/\/\s*(request|image)/)
+    }
+  })
+
+  it('heads the image column of group pricing with the billed unit only', () => {
+    renderDetails(
+      detailsModel({
+        billing_expr: 'tier("image", fixed(0.04)) * image_count',
+      }),
+      { default: { desc: '', ratio: 1 } }
+    )
+
+    const groupPricing = screen
+      .getByRole('heading', { name: 'Pricing by Group' })
+      .closest('section') as HTMLElement
+    expect(
+      within(groupPricing).getByRole('columnheader', { name: 'Per image' })
+    ).toBeVisible()
+    for (const header of within(groupPricing).getAllByRole('columnheader')) {
+      expect(header.textContent).not.toMatch(/\/\s*(request|image)/)
+    }
   })
 })

@@ -302,7 +302,9 @@ it('keeps long model names and translated channel labels truncated inside their 
     { ...metadata, status: 0, square_state: 'hidden' },
   ])
   expect(screen.getByText(longName)).toHaveClass('truncate')
-  expect(screen.getByText('Add metadata')).toHaveClass('truncate')
+  for (const label of screen.getAllByText('Model info')) {
+    expect(label).toHaveClass('truncate')
+  }
   const label = screen.getAllByText(
     i18n.t('Channels {{channels}} · Groups {{groups}}', {
       channels: 0,
@@ -326,7 +328,7 @@ it('prefills and creates metadata only when the user explicitly saves it', async
     data: { success: true, data: { ...channel, id: 9, has_metadata: true } },
   })
   const user = userEvent.setup()
-  await user.click(screen.getByRole('button', { name: 'Add metadata' }))
+  await user.click(screen.getByRole('button', { name: 'Model info' }))
   expect(screen.getByRole('textbox', { name: 'Model Name *' })).toHaveValue(
     'channel-only'
   )
@@ -360,8 +362,10 @@ it('keeps prices and channel explanations readable in the mobile card and detail
   const price = screen.getByRole('button', {
     name: 'View pricing for catalog-only',
   })
-  expect(within(price).getByText('1.25')).toHaveClass('whitespace-normal')
-  expect(within(price).getByText('USD / 1M tokens')).toHaveClass(
+  expect(within(price).getByText('$1.25')).toBeVisible()
+  // The models table names the token unit below the values; the caption is the
+  // part that may wrap on a narrow card.
+  expect(within(price).getByText('/ 1M Tokens')).toHaveClass(
     'whitespace-normal'
   )
   expect(screen.getByText('Channels 0 · Groups 0')).toHaveClass(
@@ -537,8 +541,8 @@ it.each([
   {
     name: 'legacy',
     effective: { ModelRatio: 1.5, CompletionRatio: 5, CacheRatio: 0.1 },
-    catalog: { model_ratio: 1.5, completion_ratio: 5 },
-    text: 'Input3Output15',
+    catalog: { model_ratio: 1.5, completion_ratio: 5, cache_ratio: 0.1 },
+    text: 'Input$3Output$15CacheRead$0.3/1MTokens',
   },
   {
     name: 'single-expression',
@@ -550,7 +554,7 @@ it.each([
       billing_mode: 'tiered_expr',
       billing_expr: 'tier("base", p * 3 + c * 15 + cr * 0.3)',
     },
-    text: 'Input3Output15',
+    text: 'Input$3Output$15CacheRead$0.3/1MTokens',
   },
   {
     name: 'tier-expression',
@@ -564,19 +568,19 @@ it.each([
       billing_expr:
         'len <= 200000 ? tier("standard", p * 3 + c * 15) : tier("long", p * 6 + c * 22.5)',
     },
-    text: 'Input3Output15',
+    text: 'Input$3Output$15/1MTokens',
   },
   {
     name: 'free-request',
     effective: { ModelPrice: 0 },
     catalog: { quota_type: 1, model_price: 0 },
-    text: 'Per-request0USD/request',
+    text: 'Per-call$0',
   },
   {
     name: 'free-tokens',
     effective: { ModelRatio: 0, CompletionRatio: 2 },
     catalog: { model_ratio: 0, completion_ratio: 2 },
-    text: 'Input0Output0',
+    text: 'Input$0Output$0/1MTokens',
   },
   {
     name: 'free-expression',
@@ -588,7 +592,7 @@ it.each([
       billing_mode: 'tiered_expr',
       billing_expr: 'tier("free", p * 0 + c * 0)',
     },
-    text: 'Input0Output0',
+    text: 'Input$0Output$0/1MTokens',
   },
 ])(
   'shows $name effective pricing like the catalog without requiring a listed model',
@@ -602,7 +606,6 @@ it.each([
     })
     expect(button.textContent?.replaceAll(/\s/g, '')).toContain(text)
     expect(button).not.toHaveTextContent('Unset price')
-    expect(button).not.toHaveTextContent('Cache')
     render(
       <CatalogPrice
         model={{
@@ -616,7 +619,9 @@ it.each([
         }}
       />
     )
-    expect(button.textContent).toBe(
+    // The table is the only surface that spells out the token unit the catalog
+    // toolbar owns, so its caption is the whole difference.
+    expect(button.textContent?.replace('/ 1M Tokens', '')).toBe(
       screen.getByRole('group', { name: 'Catalog price' }).textContent
     )
   }
@@ -642,7 +647,9 @@ it('opens the effective expression breakdown from the price without creating met
   await userEvent.click(
     screen.getByRole('button', { name: 'View pricing for channel-only' })
   )
-  const preview = await screen.findByRole('region', { name: 'Current Billing' })
+  const preview = (await screen.findByText('Tiered price table')).closest(
+    'section'
+  )
   expect(preview).toHaveTextContent('standard')
   expect(preview).toHaveTextContent('long')
   expect(preview).toHaveTextContent('0.3')
@@ -673,7 +680,7 @@ it('shows an unrecognized expression as special and retains its full source in p
   expect(button).not.toHaveTextContent('$2')
   expect(button).not.toHaveTextContent(expression)
   await userEvent.click(button)
-  const preview = await screen.findByRole('region', { name: 'Current Billing' })
+  const preview = (await screen.findByText('Raw expression')).closest('section')
   expect(preview).toHaveTextContent(expression)
 })
 
@@ -774,11 +781,11 @@ it('keeps an active visibility filter when its server result is empty', async ()
 })
 
 it.each([
-  { type: 'CUSTOM' as const, caption: '🐱 / 1M tokens' },
-  { type: 'TOKENS' as const, caption: 'USD / 1M tokens' },
+  { type: 'CUSTOM' as const, symbol: '🐱' },
+  { type: 'TOKENS' as const, symbol: '$' },
 ])(
-  'uses one currency caption in $type mode without replacing prices with quota counts',
-  async ({ type, caption }) => {
+  'keeps every price monetary and captions the token unit once in $type mode',
+  async ({ type, symbol }) => {
     useSystemConfigStore.getState().setConfig({
       currency: {
         ...DEFAULT_CURRENCY_CONFIG,
@@ -800,12 +807,12 @@ it.each([
     const button = screen.getByRole('button', {
       name: 'View pricing for channel-only',
     })
+    // The display mode changes the symbol, never the value or its unit: each
+    // price carries its own symbol and the unit is stated exactly once.
     expect(button.textContent?.replaceAll(/\s/g, '')).toContain(
-      'Input0.5Output1'
+      `Input${symbol}0.5Output${symbol}1`
     )
-    expect(within(button).getByText(caption)).toBeVisible()
-    if (type === 'CUSTOM') {
-      expect(button.textContent?.match(/🐱/g)).toHaveLength(1)
-    }
+    expect(within(button).getByText('/ 1M Tokens')).toBeVisible()
+    expect(button.textContent?.match(/1M Tokens/g)).toHaveLength(1)
   }
 )

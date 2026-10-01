@@ -951,10 +951,12 @@ function GroupPricingSection(
                       },
                     },
                     ...priceFields.map((fieldEntry) => {
-                      const unitLabelKey =
-                        getDynamicPriceUnitLabelKey(fieldEntry)
-                      let unitLabel = unitLabelKey ? t(unitLabelKey) : ''
-                      if (!unitLabel && hasRequestPrice) {
+                      // A per-call or per-image price names its unit in the
+                      // label, so only token prices state the token unit.
+                      const isCallPrice =
+                        getDynamicPriceUnitLabelKey(fieldEntry) != null
+                      let unitLabel = ''
+                      if (!isCallPrice && hasRequestPrice) {
                         unitLabel = t('{{unit}} tokens', {
                           unit: tokenUnitLabel,
                         })

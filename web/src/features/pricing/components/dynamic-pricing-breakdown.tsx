@@ -173,15 +173,15 @@ function formatBreakdownPrice(
   field: BreakdownPriceField,
   symbol: string,
   rate: number,
-  t: (key: string) => string,
   priceOptions: DynamicPricingBreakdownProps['priceOptions']
 ): string {
   if (field.unit === 'request' || field.unit === 'image') {
-    const amount = formatUnitPrice(value, {
+    // The column header already names the billed unit, so the value carries
+    // no suffix of its own.
+    return formatUnitPrice(value, {
       tokenUnit: 'M',
       ...priceOptions,
     })
-    return `${amount}/${t(field.unit)}`
   }
   return `${symbol}${(value * rate).toFixed(4)}`
 }
@@ -353,9 +353,7 @@ export function DynamicPricingBreakdown({
       for (const field of fields) field.showTokenUnit = true
       fields.push({
         id: 'fixedPrice',
-        label: tiers.some((tier) => tier.imageCount)
-          ? 'Price per image'
-          : 'Price per request',
+        label: tiers.some((tier) => tier.imageCount) ? 'Per image' : 'Per-call',
         labelKind: 'i18n',
         unit: tiers.some((tier) => tier.imageCount) ? 'image' : 'request',
         value: (tier) =>
@@ -470,7 +468,6 @@ export function DynamicPricingBreakdown({
                                   field,
                                   symbol,
                                   rate,
-                                  t,
                                   priceOptions
                                 )
                               : '-'}
@@ -578,7 +575,6 @@ export function DynamicPricingBreakdown({
                         field,
                         symbol,
                         rate,
-                        t,
                         priceOptions
                       )}
                     </span>

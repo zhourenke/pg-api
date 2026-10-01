@@ -60,7 +60,7 @@ afterEach(() => {
 })
 
 it.each(['none', 'standard', 'claude_ttl'] as const)(
-  'uses the %s cache profile consistently in current billing and draft previews',
+  'shows the %s cache profile in the draft preview without repeating the stored price',
   async (mode) => {
     const cacheWriteMode = mode
     const effective = {
@@ -110,46 +110,41 @@ it.each(['none', 'standard', 'claude_ttl'] as const)(
         <ModelPricingPanel modelName='gpt-4o-custom' />
       </QueryClientProvider>
     )
-    const billing = await screen.findByRole('region', {
-      name: 'Current Billing',
+    const preview = await screen.findByRole('complementary', {
+      name: 'Preview',
     })
-    expect(within(billing).getByText('16')).toBeVisible()
-    expect(within(billing).queryByText('Image input')).not.toBeInTheDocument()
-    const preview = screen.getByRole('complementary', { name: 'Preview' })
     expect(await within(preview).findByText('$16')).toBeVisible()
+    // The stored price is shown once, in the editor it is edited in; the drawer
+    // repeats no summary of its own above it.
+    expect(screen.queryByText('Current Billing')).not.toBeInTheDocument()
     expect(
       within(preview).queryByText('Image input price')
     ).not.toBeInTheDocument()
     expect(
       within(preview).queryByText('Cache read price')
     ).not.toBeInTheDocument()
-    expect(
-      within(billing).queryByText('Cache read price')
-    ).not.toBeInTheDocument()
-    for (const panel of [billing, preview]) {
-      if (mode === 'none') {
+    if (mode === 'none') {
+      expect(
+        within(preview).queryByText('Cache write price')
+      ).not.toBeInTheDocument()
+      expect(
+        within(preview).queryByText('Cache create (1h) price')
+      ).not.toBeInTheDocument()
+    } else {
+      expect(
+        within(preview).getByText(
+          mode === 'claude_ttl' ? 'Cache Creation (5m)' : 'Cache write price'
+        ).nextElementSibling
+      ).toHaveTextContent('$5')
+      if (mode === 'claude_ttl') {
         expect(
-          within(panel).queryByText('Cache write price')
-        ).not.toBeInTheDocument()
-        expect(
-          within(panel).queryByText('Cache create (1h) price')
-        ).not.toBeInTheDocument()
+          within(preview).getByText('Cache create (1h) price')
+            .nextElementSibling
+        ).toHaveTextContent('$8')
       } else {
         expect(
-          within(panel).getByText(
-            mode === 'claude_ttl' ? 'Cache Creation (5m)' : 'Cache write price'
-          ).nextElementSibling
-        ).toHaveTextContent('$5')
-        if (mode === 'claude_ttl') {
-          expect(
-            within(panel).getByText('Cache create (1h) price')
-              .nextElementSibling
-          ).toHaveTextContent('$8')
-        } else {
-          expect(
-            within(panel).queryByText('Cache create (1h) price')
-          ).not.toBeInTheDocument()
-        }
+          within(preview).queryByText('Cache create (1h) price')
+        ).not.toBeInTheDocument()
       }
     }
     expect(

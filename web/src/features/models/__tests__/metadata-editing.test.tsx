@@ -102,11 +102,14 @@ describe('model pricing entry', () => {
     })
     const client = renderModelActions(channelModel)
     const user = userEvent.setup()
-    expect(screen.getByRole('button', { name: 'Add metadata' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Model info' })).toBeVisible()
     expect(
       screen.queryByRole('button', { name: 'Open menu' })
     ).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Pricing' }))
+    // A channel-only model has no metadata record to hide or to delete.
+    expect(screen.getByRole('button', { name: 'Hide' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Price' }))
     expect(screen.getByRole('tab', { name: 'Pricing' })).not.toHaveAttribute(
       'aria-disabled',
       'true'
@@ -174,7 +177,7 @@ describe('model pricing entry', () => {
     })
     const client = renderModelActions()
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: 'Pricing' }))
+    await user.click(screen.getByRole('button', { name: 'Price' }))
     expect(screen.getByRole('tab', { name: 'Pricing' })).toHaveAttribute(
       'aria-selected',
       'true'
@@ -207,7 +210,7 @@ describe('model pricing entry', () => {
       ).toHaveClass('sm:max-w-[1280px]')
     }
     await user.click(screen.getByRole('button', { name: 'Close' }))
-    await user.click(screen.getByRole('button', { name: 'Edit' }))
+    await user.click(screen.getByRole('button', { name: 'Model info' }))
     expect(await screen.findByLabelText('Description')).toHaveValue('Original')
     expect(screen.getByRole('tab', { name: 'Model metadata' })).toHaveAttribute(
       'aria-selected',
@@ -221,9 +224,9 @@ describe('model pricing entry', () => {
       data: { success: true, data: { items: [] } },
     })
     const client = renderModelActions(model, 10)
-    expect(screen.getByRole('button', { name: 'Edit' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Model info' })).toBeVisible()
     expect(
-      screen.queryByRole('button', { name: 'Pricing' })
+      screen.queryByRole('button', { name: 'Price' })
     ).not.toBeInTheDocument()
     client.clear()
   })
@@ -261,7 +264,10 @@ describe('model pricing entry', () => {
     })
     const client = renderModelActions(matchedModel)
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: 'Pricing' }))
+    // A model with metadata can be hidden from the square and deleted.
+    expect(screen.getByRole('button', { name: 'Hide' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled()
+    await user.click(screen.getByRole('button', { name: 'Price' }))
     await user.click(
       await screen.findByRole('combobox', { name: 'Select model' })
     )

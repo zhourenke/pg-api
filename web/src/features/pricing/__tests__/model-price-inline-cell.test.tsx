@@ -118,7 +118,7 @@ describe('inline price cell', () => {
     expect(screen.queryByText(/\/ 1[KM]/)).toBeNull()
   })
 
-  it('shows a per-call price per request for pay-per-request models', () => {
+  it('shows a per-call price without a request suffix for pay-per-request models', () => {
     render(
       <ModelPriceInlineCell
         model={pricingModel({ quota_type: 1, model_price: 0.015 })}
@@ -128,8 +128,46 @@ describe('inline price cell', () => {
 
     expect(screen.getByText('Per-call')).toBeVisible()
     expect(screen.getByText('$0.015')).toBeVisible()
-    expect(screen.getByText('/ request')).toBeVisible()
+    // The label already names what a call is billed for, so the value repeats
+    // no unit of its own.
+    expect(screen.queryByText('/ request')).toBeNull()
     expect(screen.queryByText('/ 1K')).toBeNull()
+  })
+
+  it('labels an image-billed expression as per image without an image suffix', () => {
+    render(
+      <ModelPriceInlineCell
+        model={pricingModel({
+          billing_mode: 'tiered_expr',
+          billing_expr: 'tier("image", fixed(0.04)) * image_count',
+        })}
+        options={{ tokenUnit: 'M' }}
+      />
+    )
+
+    expect(screen.getByText('Per image')).toBeVisible()
+    expect(screen.getByText('$0.04')).toBeVisible()
+    expect(screen.queryByText('Per-call')).toBeNull()
+  })
+
+  it('states the token unit under token prices only when the surface asks for it', () => {
+    const { rerender } = render(
+      <ModelPriceInlineCell
+        model={pricingModel({ completion_ratio: 4 })}
+        options={{ tokenUnit: 'M' }}
+        showTokenUnitCaption
+      />
+    )
+    expect(screen.getByText('/ 1M Tokens')).toBeVisible()
+
+    rerender(
+      <ModelPriceInlineCell
+        model={pricingModel({ quota_type: 1, model_price: 0.015 })}
+        options={{ tokenUnit: 'M' }}
+        showTokenUnitCaption
+      />
+    )
+    expect(screen.queryByText('/ 1M Tokens')).toBeNull()
   })
 
   it('shows the tier prices of an expression model including its cache read price', () => {

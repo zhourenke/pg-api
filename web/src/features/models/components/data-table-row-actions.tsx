@@ -18,16 +18,10 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useQueryClient } from '@tanstack/react-query'
 import type { Row } from '@tanstack/react-table'
-import { Eye, EyeOff, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { DataTableRowActionMenu } from '@/components/data-table/core/row-action-menu'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenuItem,
-  DropdownMenuShortcut,
-} from '@/components/ui/dropdown-menu'
 import { useCanEditModelPricing } from '@/features/model-pricing/api'
 
 import { handleToggleModelStatus, isModelEnabled } from '../lib'
@@ -48,31 +42,21 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 
   const isEnabled = isModelEnabled(model)
-
-  const handleEdit = () => {
-    setCurrentRow(model)
-    setOpen('update-model')
-  }
-
-  const handleToggleStatus = () => {
-    handleToggleModelStatus(model.id, model.status, queryClient)
-  }
-
-  const toggleLabel = isEnabled
-    ? t('Hide from model square')
-    : t('Show in model square')
+  // A model that only exists on a channel has no metadata record yet, so there
+  // is nothing to hide from the model square or to delete.
+  const hasMetadata = model.id > 0
 
   return (
-    <div className='-ml-1.5 flex min-w-0 items-center gap-1 [&>button]:min-w-0 [&>button]:shrink'>
+    <div className='grid w-full grid-cols-2 gap-1 [&>button]:min-w-0 [&>button]:shrink'>
       <Button
         variant='ghost'
         size='sm'
-        onClick={handleEdit}
-        title={model.id > 0 ? t('Edit') : t('Add metadata')}
+        onClick={() => {
+          setCurrentRow(model)
+          setOpen('update-model')
+        }}
       >
-        <span className='truncate'>
-          {model.id > 0 ? t('Edit') : t('Add metadata')}
-        </span>
+        <span className='truncate'>{t('Model info')}</span>
       </Button>
 
       {canPrice && (
@@ -84,32 +68,30 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
             setOpen('price-model')
           }}
         >
-          <span className='truncate'>{t('Pricing')}</span>
+          <span className='truncate'>{t('Price')}</span>
         </Button>
       )}
 
-      {model.id > 0 && (
-        <DataTableRowActionMenu ariaLabel={t('Open menu')}>
-          <DropdownMenuItem onClick={handleToggleStatus}>
-            {toggleLabel}
-            <DropdownMenuShortcut>
-              {isEnabled ? <EyeOff size={16} /> : <Eye size={16} />}
-            </DropdownMenuShortcut>
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault()
-              setDeleteConfirmOpen(true)
-            }}
-            className='text-destructive focus:text-destructive'
-          >
-            {t('Delete')}
-            <DropdownMenuShortcut>
-              <Trash2 size={16} />
-            </DropdownMenuShortcut>
-          </DropdownMenuItem>
-        </DataTableRowActionMenu>
-      )}
+      <Button
+        variant='ghost'
+        size='sm'
+        disabled={!hasMetadata}
+        onClick={() => {
+          handleToggleModelStatus(model.id, model.status, queryClient)
+        }}
+      >
+        <span className='truncate'>{isEnabled ? t('Hide') : t('Show')}</span>
+      </Button>
+
+      <Button
+        variant='ghost'
+        size='sm'
+        className='text-destructive hover:text-destructive'
+        disabled={!hasMetadata}
+        onClick={() => setDeleteConfirmOpen(true)}
+      >
+        <span className='truncate'>{t('Delete')}</span>
+      </Button>
 
       {deleteConfirmOpen && (
         <ModelDeleteDialog

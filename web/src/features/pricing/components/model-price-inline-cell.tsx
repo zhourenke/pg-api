@@ -50,11 +50,22 @@ type PriceSegment = {
   unit: string
 }
 
+type PriceSummary = {
+  segments: PriceSegment[]
+  /** True when the prices are denominated per token rather than per call. */
+  perToken: boolean
+}
+
 const INLINE_CACHE_FIELDS = new Set(['cacheReadPrice', 'imageCachePrice'])
 
 export function ModelPriceInlineCell(props: {
   model: PricingModel
   options?: ModelPriceInlineCellOptions
+  /**
+   * States the token unit under the prices. Surfaces without a unit switcher,
+   * such as the model list, need it; the model square picks the unit itself.
+   */
+  showTokenUnitCaption?: boolean
 }) {
   const { t } = useTranslation()
   const currency = useSystemConfigStore((state) => state.config.currency)
@@ -89,31 +100,41 @@ export function ModelPriceInlineCell(props: {
     ]
   )
 
-  const segments = useMemo<PriceSegment[]>(() => {
+  const summary = useMemo<PriceSummary>(() => {
     if (dynamic) {
       if (dynamic.isSpecialExpression) {
-        return [
-          {
-            key: 'expression',
-            label: t('Special billing expression'),
-            value: '',
-            unit: '',
-          },
-        ]
+        return {
+          segments: [
+            {
+              key: 'expression',
+              label: t('Special billing expression'),
+              value: '',
+              unit: '',
+            },
+          ],
+          perToken: false,
+        }
       }
 
       const requestEntry = dynamic.entries.find(
         (entry) => entry.unit === 'request' || entry.unit === 'image'
       )
       if (requestEntry) {
-        return [
-          {
-            key: requestEntry.key,
-            label: t('Per-call'),
-            value: requestEntry.formattedRange ?? requestEntry.formatted,
-            unit: requestEntry.unit === 'image' ? t('image') : t('request'),
-          },
-        ]
+        const price = requestEntry.formattedRange ?? requestEntry.formatted
+        return {
+          segments: [
+            {
+              key: requestEntry.key,
+              // The label names the billed unit, so the value needs no suffix.
+              label: t(
+                requestEntry.unit === 'image' ? 'Per image' : 'Per-call'
+              ),
+              value: price,
+              unit: '',
+            },
+          ],
+          perToken: false,
+        }
       }
 
       const cacheEntry = dynamic.entries.find((entry) =>
@@ -122,14 +143,30 @@ export function ModelPriceInlineCell(props: {
       const priced = cacheEntry
         ? [...dynamic.primaryEntries, cacheEntry]
         : dynamic.primaryEntries
+      if (priced.length === 0) {
+        return {
+          segments: [
+            {
+              key: 'dynamic',
+              label: t('Dynamic Pricing'),
+              value: '',
+              unit: '',
+            },
+          ],
+          perToken: false,
+        }
+      }
 
       // The toolbar picks the token unit, so token prices carry no suffix.
-      return priced.map((entry) => ({
-        key: entry.key,
-        label: t(entry.shortLabel),
-        value: entry.formattedRange ?? entry.formatted,
-        unit: '',
-      }))
+      return {
+        segments: priced.map((entry) => ({
+          key: entry.key,
+          label: t(entry.shortLabel),
+          value: entry.formattedRange ?? entry.formatted,
+          unit: '',
+        })),
+        perToken: true,
+      }
     }
 
     if (isTokenBasedModel(props.model)) {
@@ -182,28 +219,36 @@ export function ModelPriceInlineCell(props: {
           unit: '',
         })
       }
-      return prices
+      return { segments: prices, perToken: true }
     }
 
     if (!Number.isFinite(props.model.model_price)) {
-      return [{ key: 'unset', label: t('Unset price'), value: '', unit: '' }]
+      return {
+        segments: [
+          { key: 'unset', label: t('Unset price'), value: '', unit: '' },
+        ],
+        perToken: false,
+      }
     }
 
-    return [
-      {
-        key: 'request',
-        label: t('Per-call'),
-        value: formatRequestPrice(
-          props.model,
-          options.showRechargePrice,
-          options.priceRate,
-          options.usdExchangeRate,
-          options.selectedGroup,
-          true
-        ),
-        unit: t('request'),
-      },
-    ]
+    return {
+      segments: [
+        {
+          key: 'request',
+          label: t('Per-call'),
+          value: formatRequestPrice(
+            props.model,
+            options.showRechargePrice,
+            options.priceRate,
+            options.usdExchangeRate,
+            options.selectedGroup,
+            true
+          ),
+          unit: '',
+        },
+      ],
+      perToken: false,
+    }
     // Currency is read indirectly by the price formatter.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -219,23 +264,32 @@ export function ModelPriceInlineCell(props: {
   ])
 
   return (
-    <span className='flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5 text-sm'>
-      {segments.map((segment) => (
-        <span
-          key={segment.key}
-          className='flex items-baseline gap-1 whitespace-nowrap'
-        >
-          <span className='text-muted-foreground text-xs'>{segment.label}</span>
-          {segment.value && (
-            <span className='font-mono tabular-nums'>{segment.value}</span>
-          )}
-          {segment.unit && (
+    <span className='block min-w-0'>
+      <span className='flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5 text-sm'>
+        {summary.segments.map((segment) => (
+          <span
+            key={segment.key}
+            className='flex items-baseline gap-1 whitespace-nowrap'
+          >
             <span className='text-muted-foreground text-xs'>
-              / {segment.unit}
+              {segment.label}
             </span>
-          )}
+            {segment.value && (
+              <span className='font-mono tabular-nums'>{segment.value}</span>
+            )}
+            {segment.unit && (
+              <span className='text-muted-foreground text-xs'>
+                / {segment.unit}
+              </span>
+            )}
+          </span>
+        ))}
+      </span>
+      {summary.perToken && props.showTokenUnitCaption && (
+        <span className='text-muted-foreground mt-1 block text-xs font-normal break-words whitespace-normal'>
+          {t('/ {{unit}} Tokens', { unit: `1${tokenUnit}` })}
         </span>
-      ))}
+      )}
     </span>
   )
 }
