@@ -150,7 +150,7 @@ describe('inline price cell', () => {
     expect(screen.queryByText('Per-call')).toBeNull()
   })
 
-  it('states the token unit under token prices only when the surface asks for it', () => {
+  it('states the token unit next to the last token price only when asked for', () => {
     const { rerender } = render(
       <ModelPriceInlineCell
         model={pricingModel({ completion_ratio: 4 })}
@@ -158,7 +158,7 @@ describe('inline price cell', () => {
         showTokenUnitCaption
       />
     )
-    expect(screen.getByText('/ 1M Tokens')).toBeVisible()
+    expect(screen.getByText('/ 1M')).toBeVisible()
 
     rerender(
       <ModelPriceInlineCell
@@ -167,7 +167,34 @@ describe('inline price cell', () => {
         showTokenUnitCaption
       />
     )
-    expect(screen.queryByText('/ 1M Tokens')).toBeNull()
+    expect(screen.queryByText('/ 1M')).toBeNull()
+  })
+
+  it('puts cache prices on their own line and ends that line with the unit', () => {
+    render(
+      <ModelPriceInlineCell
+        model={pricingModel({ cache_ratio: 0.1, completion_ratio: 4 })}
+        options={{ tokenUnit: 'M' }}
+        showTokenUnitCaption
+      />
+    )
+
+    const input = screen.getByText('Input')
+    const output = screen.getByText('Output')
+    const cache = screen.getByText('Cache Read')
+
+    // Input and output share the first line; the cache price starts a new line
+    // that carries the unit, so the column does not grow with the cache field.
+    expect(input.parentElement?.parentElement).toBe(
+      output.parentElement?.parentElement
+    )
+    expect(cache.parentElement?.parentElement).not.toBe(
+      input.parentElement?.parentElement
+    )
+    // The unit suffix closes that same line, right after the cache price.
+    const cacheLine = cache.parentElement?.parentElement
+    expect(cacheLine?.textContent).toMatch(/Cache Read.*\/ 1M$/)
+    expect(cacheLine?.textContent?.match(/1M/g)).toHaveLength(1)
   })
 
   it('shows the tier prices of an expression model including its cache read price', () => {

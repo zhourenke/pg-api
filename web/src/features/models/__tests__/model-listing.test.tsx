@@ -385,11 +385,9 @@ it('keeps prices and channel explanations readable in the mobile card and detail
     name: 'View pricing for catalog-only',
   })
   expect(within(price).getByText('$1.25')).toBeVisible()
-  // The models table names the token unit below the values; the caption is the
-  // part that may wrap on a narrow card.
-  expect(within(price).getByText('/ 1M Tokens')).toHaveClass(
-    'whitespace-normal'
-  )
+  // The token unit is appended to the last price line instead of occupying a
+  // line of its own, so the mobile card stays compact.
+  expect(within(price).getByText('/ 1M')).toBeVisible()
   expect(screen.getByText('Channels 0 · Groups 0')).toHaveClass(
     'whitespace-normal'
   )
@@ -566,7 +564,7 @@ it.each([
     name: 'legacy',
     effective: { ModelRatio: 1.5, CompletionRatio: 5, CacheRatio: 0.1 },
     catalog: { model_ratio: 1.5, completion_ratio: 5, cache_ratio: 0.1 },
-    text: 'Input$3Output$15CacheRead$0.3/1MTokens',
+    text: 'Input$3Output$15CacheRead$0.3/1M',
   },
   {
     name: 'single-expression',
@@ -578,7 +576,7 @@ it.each([
       billing_mode: 'tiered_expr',
       billing_expr: 'tier("base", p * 3 + c * 15 + cr * 0.3)',
     },
-    text: 'Input$3Output$15CacheRead$0.3/1MTokens',
+    text: 'Input$3Output$15CacheRead$0.3/1M',
   },
   {
     name: 'tier-expression',
@@ -592,7 +590,7 @@ it.each([
       billing_expr:
         'len <= 200000 ? tier("standard", p * 3 + c * 15) : tier("long", p * 6 + c * 22.5)',
     },
-    text: 'Input$3Output$15/1MTokens',
+    text: 'Input$3Output$15/1M',
   },
   {
     name: 'free-request',
@@ -604,7 +602,7 @@ it.each([
     name: 'free-tokens',
     effective: { ModelRatio: 0, CompletionRatio: 2 },
     catalog: { model_ratio: 0, completion_ratio: 2 },
-    text: 'Input$0Output$0/1MTokens',
+    text: 'Input$0Output$0/1M',
   },
   {
     name: 'free-expression',
@@ -616,7 +614,7 @@ it.each([
       billing_mode: 'tiered_expr',
       billing_expr: 'tier("free", p * 0 + c * 0)',
     },
-    text: 'Input$0Output$0/1MTokens',
+    text: 'Input$0Output$0/1M',
   },
 ])(
   'shows $name effective pricing like the catalog without requiring a listed model',
@@ -644,8 +642,8 @@ it.each([
       />
     )
     // The table is the only surface that spells out the token unit the catalog
-    // toolbar owns, so its caption is the whole difference.
-    expect(button.textContent?.replace('/ 1M Tokens', '')).toBe(
+    // toolbar owns, so its unit suffix is the whole difference.
+    expect(button.textContent?.replace('/ 1M', '')).toBe(
       screen.getByRole('group', { name: 'Catalog price' }).textContent
     )
   }
@@ -836,7 +834,7 @@ it.each([
     expect(button.textContent?.replaceAll(/\s/g, '')).toContain(
       `Input${symbol}0.5Output${symbol}1`
     )
-    expect(within(button).getByText('/ 1M Tokens')).toBeVisible()
-    expect(button.textContent?.match(/1M Tokens/g)).toHaveLength(1)
+    expect(within(button).getByText('/ 1M')).toBeVisible()
+    expect(button.textContent?.match(/1M/g)).toHaveLength(1)
   }
 )

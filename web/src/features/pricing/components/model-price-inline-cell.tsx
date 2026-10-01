@@ -48,6 +48,12 @@ type PriceSegment = {
   label: string
   value: string
   unit: string
+  /**
+   * Which line the segment belongs to. Token prices are laid out explicitly:
+   * the main prices (input/output) first, then the cache prices, so a narrow
+   * column does not depend on how the browser happens to wrap the row.
+   */
+  line?: number
 }
 
 type PriceSummary = {
@@ -164,6 +170,7 @@ export function ModelPriceInlineCell(props: {
           label: t(entry.shortLabel),
           value: entry.formattedRange ?? entry.formatted,
           unit: '',
+          line: entry === cacheEntry ? 1 : 0,
         })),
         perToken: true,
       }
@@ -217,6 +224,7 @@ export function ModelPriceInlineCell(props: {
             true
           ),
           unit: '',
+          line: 1,
         })
       }
       return { segments: prices, perToken: true }
@@ -263,33 +271,56 @@ export function ModelPriceInlineCell(props: {
     currency,
   ])
 
+  const lines = useMemo(() => {
+    const grouped = new Map<number, PriceSegment[]>()
+    for (const segment of summary.segments) {
+      const line = segment.line ?? 0
+      const existing = grouped.get(line)
+      if (existing) {
+        existing.push(segment)
+      } else {
+        grouped.set(line, [segment])
+      }
+    }
+    return [...grouped.entries()]
+      .sort(([left], [right]) => left - right)
+      .map(([, segments]) => segments)
+  }, [summary])
+
   return (
-    <span className='block min-w-0'>
-      <span className='flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5 text-sm'>
-        {summary.segments.map((segment) => (
-          <span
-            key={segment.key}
-            className='flex items-baseline gap-1 whitespace-nowrap'
-          >
-            <span className='text-muted-foreground text-xs'>
-              {segment.label}
-            </span>
-            {segment.value && (
-              <span className='font-mono tabular-nums'>{segment.value}</span>
-            )}
-            {segment.unit && (
+    <span className='flex min-w-0 flex-col gap-y-0.5 text-sm'>
+      {lines.map((segments, index) => (
+        <span
+          key={segments[0].key}
+          className='flex min-w-0 flex-wrap items-baseline gap-x-3'
+        >
+          {segments.map((segment) => (
+            <span
+              key={segment.key}
+              className='flex items-baseline gap-1 whitespace-nowrap'
+            >
               <span className='text-muted-foreground text-xs'>
-                / {segment.unit}
+                {segment.label}
+              </span>
+              {segment.value && (
+                <span className='font-mono tabular-nums'>{segment.value}</span>
+              )}
+              {segment.unit && (
+                <span className='text-muted-foreground text-xs'>
+                  / {segment.unit}
+                </span>
+              )}
+            </span>
+          ))}
+          {summary.perToken &&
+            props.showTokenUnitCaption &&
+            index === lines.length - 1 && (
+              <span className='text-muted-foreground text-xs'>
+                {t('/ {{unit}}', { unit: `1${tokenUnit}` })}
               </span>
             )}
-          </span>
-        ))}
-      </span>
-      {summary.perToken && props.showTokenUnitCaption && (
-        <span className='text-muted-foreground mt-1 block text-xs font-normal break-words whitespace-normal'>
-          {t('/ {{unit}} Tokens', { unit: `1${tokenUnit}` })}
         </span>
-      )}
+      ))}
     </span>
   )
 }

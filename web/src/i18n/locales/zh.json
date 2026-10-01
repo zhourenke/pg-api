@@ -105,7 +105,7 @@
     "{{value}}s": "{{value}} 秒",
     "@lobehub/icons key": "@lobehub/icons 键",
     "@lobehub/icons key name": "@lobehub/icons 键名",
-    "/ {{unit}} Tokens": "/ {{unit}} Tokens",
+    "/ {{unit}}": "/ {{unit}}",
     "/status/": "/status/",
     "/your/endpoint": "/your/endpoint",
     "#1 App": "#1 应用",
