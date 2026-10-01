@@ -178,7 +178,7 @@ it('lets a super administrator remove pricing independently of channel removal',
     screen.getByRole('checkbox', { name: 'Also remove pricing' })
   )
   expect(
-    screen.getByText(/Built-in pricing may become effective again/)
+    screen.getByText(/Removing pricing leaves the model unpriced\./)
   ).toBeVisible()
   expect(screen.queryByText(/Pricing will be retained/)).not.toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Delete' }))

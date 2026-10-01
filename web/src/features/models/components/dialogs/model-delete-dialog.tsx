@@ -144,7 +144,7 @@ export function ModelDeleteDialog(props: ModelDeleteDialogProps) {
         {(removePricing || !canEditPricing) && (
           <p className='text-muted-foreground text-sm'>
             {canEditPricing
-              ? t('Built-in pricing may become effective again.')
+              ? t('Removing pricing leaves the model unpriced.')
               : t('Model pricing is managed by a super administrator.')}
           </p>
         )}

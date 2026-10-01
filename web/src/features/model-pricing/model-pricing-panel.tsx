@@ -126,8 +126,8 @@ export function ModelPricingPanel(props: {
               <div className='min-w-0 flex-1 break-words'>
                 <p className='text-muted-foreground text-xs'>
                   {Object.keys(entry.configured).length
-                    ? t('Stored configuration with effective defaults')
-                    : t('Using built-in or default pricing')}
+                    ? t('Stored configuration')
+                    : t('No stored configuration')}
                 </p>
               </div>
             </div>
