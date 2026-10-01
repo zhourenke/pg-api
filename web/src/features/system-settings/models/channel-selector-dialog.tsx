@@ -46,10 +46,7 @@ import {
   CHANNEL_STATUS_CONFIG,
   DEFAULT_ENDPOINT,
   ENDPOINT_OPTIONS,
-  MODELS_DEV_PRESET_ID,
-  OFFICIAL_CHANNEL_ID,
 } from './constants'
-import { getUpstreamDisplayName } from './upstream-ratio-sync-helpers'
 
 type ChannelSelectorDialogProps = {
   open: boolean
@@ -62,13 +59,6 @@ type ChannelSelectorDialogProps = {
   onConfirm: (selectedIds: number[]) => void
 }
 
-// Synthesized presets from `controller/ratio_sync.go` always carry stable
-// negative IDs, so matching by ID alone is reliable and self-documenting.
-function isOfficialChannel(channel: UpstreamChannel): boolean {
-  return (
-    channel.id === OFFICIAL_CHANNEL_ID || channel.id === MODELS_DEV_PRESET_ID
-  )
-}
 
 export function ChannelSelectorDialog({
   open,
@@ -139,7 +129,7 @@ export function ChannelSelectorDialog({
             checked={row.getIsSelected()}
             onCheckedChange={(value) => row.toggleSelected(!!value)}
             aria-label={t('Select {{name}}', {
-              name: getUpstreamDisplayName(row.original.name, t),
+              name: row.original.name,
             })}
           />
         ),
@@ -152,21 +142,11 @@ export function ChannelSelectorDialog({
         size: 300,
         minSize: 220,
         cell: ({ row }) => {
-          const name = getUpstreamDisplayName(row.getValue('name') as string, t)
-          const channel = row.original
-          const isOfficial = isOfficialChannel(channel)
+          const name = row.getValue('name') as string
 
           return (
             <div className='flex items-center gap-2'>
               <span className='font-medium'>{name}</span>
-              {isOfficial && (
-                <StatusBadge
-                  label={t('Official')}
-                  variant='success'
-                  size='sm'
-                  copyable={false}
-                />
-              )}
             </div>
           )
         },
@@ -283,25 +263,15 @@ export function ChannelSelectorDialog({
     const searchLower = debouncedSearch.toLowerCase()
     return channels.filter(
       (ch) =>
-        getUpstreamDisplayName(ch.name, t)
+        ch.name
           .toLowerCase()
           .includes(searchLower) ||
         ch.base_url.toLowerCase().includes(searchLower)
     )
   }, [channels, debouncedSearch, t])
 
-  const sortedChannels = useMemo(() => {
-    return [...filteredChannels].sort((a, b) => {
-      const aIsOfficial = isOfficialChannel(a)
-      const bIsOfficial = isOfficialChannel(b)
-      if (aIsOfficial && !bIsOfficial) return -1
-      if (!aIsOfficial && bIsOfficial) return 1
-      return 0
-    })
-  }, [filteredChannels])
-
   const { table } = useDataTable({
-    data: sortedChannels,
+    data: filteredChannels,
     columns,
     rowSelection,
     getRowId: (row) => row.id.toString(),
