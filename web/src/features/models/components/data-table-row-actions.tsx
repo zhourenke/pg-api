@@ -50,12 +50,15 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   // grid must keep a real intrinsic width: `min-w-0`/`shrink` on the buttons
   // let the browser collapse the column to zero width, which hides every
   // action.
-  // A two-by-two block with no spacing at all: the four labels sit flush on
-  // both axes (`gap-0`), the buttons lose their horizontal padding, and the row
-  // pitch drops to the 20px button height. The column stays content-sized, so
-  // the buttons keep their intrinsic width.
+  // A two-by-two block matched to its measured references instead of a guessed
+  // rhythm: the price column stacks its two lines on a 22px pitch (20px text
+  // box plus a 2px visible gap), and the API key list leaves about 16px of
+  // visible space between its row actions, so the buttons here use a 22px
+  // height and 8px of horizontal padding on each side. `gap-x-0` plus the
+  // button's own padding is what controls the label gap; the column stays
+  // content-sized, so the buttons keep their intrinsic width.
   return (
-    <div className='grid w-fit grid-cols-2 gap-0 [&>button]:h-5 [&>button]:px-0'>
+    <div className='grid w-fit grid-cols-2 gap-x-0 gap-y-0 [&>button]:h-[22px] [&>button]:px-2'>
       <Button
         variant='ghost'
         size='sm'
