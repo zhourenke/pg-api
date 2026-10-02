@@ -41,6 +41,11 @@ import * as React from 'react'
 
 import { useMediaQuery } from '@/hooks/use-media-query'
 
+import {
+  FILLER_COLUMN_ID,
+  isContentSizedColumn,
+} from '../core/content-sized-columns'
+
 type DataTableFeatureOptions<TData> = Pick<
   TableOptions<TData>,
   | 'enableRowSelection'
@@ -384,10 +389,18 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>) {
   // drag a header edge to adjust it. Sizing is never persisted, so a reload
   // restores the designed widths.
   const isNarrowViewport = useMediaQuery('(max-width: 640px)')
+  const resolvedEnableColumnResizing =
+    options.enableColumnResizing ?? !isNarrowViewport
+
+  const tableColumns = React.useMemo(
+    () =>
+      resolvedEnableColumnResizing ? prepareColumns(columns) : columns,
+    [columns, resolvedEnableColumnResizing]
+  )
 
   const table = useReactTable({
     data,
-    columns,
+    columns: tableColumns,
     rowCount: totalCount,
     pageCount: resolvedPageCount,
     state: {
@@ -409,7 +422,7 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>) {
     manualFiltering,
     manualPagination,
     manualSorting,
-    enableColumnResizing: options.enableColumnResizing ?? !isNarrowViewport,
+    enableColumnResizing: resolvedEnableColumnResizing,
     columnResizeMode: 'onChange',
     // Columns without explicit sizing still need a usable floor: TanStack's
     // default minimum is 20px, which lets a drag collapse a column into an
@@ -536,4 +549,45 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>) {
   return {
     table,
   }
+}
+
+/**
+ * Prepares the columns of a resizable table: the widths themselves come from
+ * measuring the rendered table (see `useMeasuredColumnWidths`), and the smallest
+ * width a column can be dragged to is the width of its own header, measured at
+ * the moment it is dragged. Both make the hand-written `minSize` on each column
+ * definition obsolete, so it is cleared here: one rule instead of fifteen.
+ *
+ * The trailing spacer then absorbs the width the sized columns leave over, which
+ * is what keeps the table flush with its container while a drag moves exactly one
+ * column.
+ */
+function prepareColumns<TData>(
+  columns: ColumnDef<TData, unknown>[]
+): ColumnDef<TData, unknown>[] {
+  const columnsWithoutMinimums = columns.map((column) => ({
+    ...column,
+    minSize: 0,
+  }))
+
+  const filler: ColumnDef<TData, unknown> = {
+    id: FILLER_COLUMN_ID,
+    header: () => null,
+    cell: () => null,
+    size: 0,
+    minSize: 0,
+    maxSize: 0,
+    enableSorting: false,
+    enableHiding: false,
+    enableResizing: false,
+    enableColumnFilter: false,
+    enableGlobalFilter: false,
+  }
+
+  const lastColumn = columnsWithoutMinimums.at(-1)
+  if (lastColumn && isContentSizedColumn(lastColumn.id ?? '')) {
+    return [...columnsWithoutMinimums.slice(0, -1), filler, lastColumn]
+  }
+
+  return [...columnsWithoutMinimums, filler]
 }

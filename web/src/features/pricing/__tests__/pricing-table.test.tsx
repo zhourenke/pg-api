@@ -76,9 +76,20 @@ describe('pricing table', () => {
   it('renders the model, vendor, tags, price, groups and endpoints columns in order', () => {
     render(<PricingTable models={[pricingModel()]} tokenUnit='M' />)
 
-    expect(
-      screen.getAllByRole('columnheader').map((header) => header.textContent)
-    ).toEqual(['Model', 'Vendor', 'Tags', 'Price', 'Groups', 'Endpoints'])
+    const headers = screen
+      .getAllByRole('columnheader')
+      .map((header) => header.textContent)
+
+    // The trailing spacer column carries no header of its own.
+    expect(headers).toEqual([
+      'Model',
+      'Vendor',
+      'Tags',
+      'Price',
+      'Groups',
+      'Endpoints',
+      '',
+    ])
   })
 
   it('reserves the widest column for the price summary', () => {
@@ -86,10 +97,10 @@ describe('pricing table', () => {
       <PricingTable models={[pricingModel()]} tokenUnit='M' />
     )
 
-    const widths = Array.from(
-      container.querySelectorAll('colgroup col'),
-      (col) => Number.parseFloat((col as HTMLElement).style.width)
-    )
+    const widths = Array.from(container.querySelectorAll('colgroup col'), (col) =>
+      Number.parseFloat((col as HTMLElement).style.width)
+    ).filter((width) => !Number.isNaN(width))
+
     expect(widths).toHaveLength(6)
     // The price cell renders input, output and cache read on one line, so it
     // takes the largest share of the table width.

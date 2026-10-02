@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import type { Table as TanstackTable } from '@tanstack/react-table'
 
-import { isContentSizedColumn } from './content-sized-columns'
+import { isFillerColumn } from './content-sized-columns'
 
 export function DataTableColgroup<TData>({
   table,
@@ -26,9 +26,7 @@ export function DataTableColgroup<TData>({
   table: TanstackTable<TData>
 }) {
   const columns = table.getVisibleLeafColumns()
-  const sizedColumns = columns.filter(
-    (column) => !isContentSizedColumn(column.id)
-  )
+  const sizedColumns = columns.filter((column) => !isFillerColumn(column.id))
   const totalSize = sizedColumns.reduce((sum, col) => sum + col.getSize(), 0)
 
   return (
@@ -53,8 +51,10 @@ function getColumnWidth<TData>(
   columnSize: number,
   totalSize: number
 ) {
-  if (isContentSizedColumn(columnId)) {
-    return '1%'
+  // No width at all: the browser hands this column everything the sized columns
+  // leave over, which is what keeps the table flush with its container.
+  if (isFillerColumn(columnId)) {
+    return undefined
   }
 
   if (table.options.enableColumnResizing === true) {

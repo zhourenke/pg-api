@@ -22,6 +22,7 @@ import * as React from 'react'
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 
+import { useMeasuredColumnWidths } from '../hooks/use-measured-column-widths'
 import {
   getPinnedColumnMap,
   getResolvedColumnClassNameFromMap,
@@ -98,10 +99,18 @@ function UnifiedTableView<TData>({
   getColumnClassName: DataTableColumnClassName
 }) {
   const tableSizing = getTableSizing(props)
+  const tableElementRef = React.useRef<HTMLTableElement | null>(null)
+  useMeasuredColumnWidths(props.table, tableElementRef, canMeasureRows(props, rows))
 
   return (
     <div className={props.tableContainerClassName}>
-      <Table className={props.tableClassName} style={tableSizing.style}>
+      <Table
+        className={props.tableClassName}
+        style={tableSizing.style}
+        ref={(node: HTMLTableElement | null) => {
+          tableElementRef.current = node
+        }}
+      >
         {tableSizing.colgroup}
         <DataTableHeader
           table={props.table}
@@ -128,6 +137,12 @@ function SplitHeaderTableView<TData>({
   getColumnClassName: DataTableColumnClassName
 }) {
   const tableSizing = getTableSizing(props)
+  const tableElementRef = React.useRef<HTMLTableElement | null>(null)
+  useMeasuredColumnWidths(
+    props.table,
+    tableElementRef,
+    canMeasureRows(props, rows)
+  )
 
   return (
     <div
@@ -149,6 +164,9 @@ function SplitHeaderTableView<TData>({
           withContainer={false}
           className={props.tableClassName}
           style={tableSizing.style}
+          ref={(node: HTMLTableElement | null) => {
+            tableElementRef.current = node
+          }}
         >
           {tableSizing.colgroup}
           <DataTableHeader
@@ -239,6 +257,18 @@ function getTableSizing<TData>(props: DataTableViewProps<TData>): {
     colgroup: <DataTableColgroup table={props.table} />,
     style: getTableSizeStyle(props.table),
   }
+}
+
+/**
+ * Column widths are measured from rendered cells, so the measurement only makes
+ * sense once real rows are on screen: skeletons and empty states would fit every
+ * column to a placeholder.
+ */
+function canMeasureRows<TData>(
+  props: DataTableViewProps<TData>,
+  rows: Row<TData>[]
+): boolean {
+  return !props.isLoading && rows.length > 0
 }
 
 function renderTableBody<TData>(

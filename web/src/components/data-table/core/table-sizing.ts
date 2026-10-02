@@ -19,19 +19,35 @@ For commercial licensing, please contact support@quantumnous.com
 import type { Table as TanstackTable } from '@tanstack/react-table'
 import type * as React from 'react'
 
-import { isContentSizedColumn } from './content-sized-columns'
+import { isFillerColumn } from './content-sized-columns'
 
 export function getTableSizeStyle<TData>(
   table: TanstackTable<TData>
 ): React.CSSProperties {
-  const width = table
-    .getVisibleLeafColumns()
-    .filter((column) => !isContentSizedColumn(column.id))
-    .reduce((total, column) => total + column.getSize(), 0)
+  const width = getSizedColumnsWidth(table)
 
+  if (table.options.enableColumnResizing !== true) {
+    return {
+      minWidth: `max(100%, ${width}px)`,
+      tableLayout: 'auto',
+      width: '100%',
+    }
+  }
+
+  // A fixed layout is what makes a drag literal: the colgroup carries the only
+  // width each column has, so resizing one column cannot re-flow the others.
+  // The trailing spacer column keeps whichever pixels are left over.
   return {
     minWidth: `max(100%, ${width}px)`,
-    tableLayout: 'auto',
+    tableLayout: 'fixed',
     width: '100%',
   }
+}
+
+/** Total width of every column that declares a width, spacer excluded. */
+export function getSizedColumnsWidth<TData>(table: TanstackTable<TData>): number {
+  return table
+    .getVisibleLeafColumns()
+    .filter((column) => !isFillerColumn(column.id))
+    .reduce((total, column) => total + column.getSize(), 0)
 }

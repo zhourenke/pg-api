@@ -21,6 +21,7 @@ import * as React from 'react'
 
 import { StatusBadgeTypeContext } from '@/components/status-badge'
 
+import { isFillerColumn } from '../core/content-sized-columns'
 import { getCellLabel, renderCellContent } from './card-cell-utils'
 
 function orderCardCells<TData>(
@@ -65,6 +66,7 @@ function CompactContent<TData>({ row }: { row: Row<TData> }) {
   const allCells = row
     .getVisibleCells()
     .filter((cell) => cell.column.id !== 'select')
+    .filter((cell) => !isFillerColumn(cell.column.id))
 
   // Read each cell's meta once, then reuse for all categorisation checks.
   const cellMetas = React.useMemo(
@@ -143,6 +145,7 @@ function FallbackContent<TData>({ row }: { row: Row<TData> }) {
   const allCells = row
     .getVisibleCells()
     .filter((cell) => cell.column.id !== 'select')
+    .filter((cell) => !isFillerColumn(cell.column.id))
 
   const cellMetas = React.useMemo(
     () => allCells.map((c) => c.column.columnDef.meta),

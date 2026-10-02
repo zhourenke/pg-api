@@ -16,6 +16,22 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+/**
+ * Row actions never get a resize handle and are sized by their own content
+ * rather than by a declared width, so the controls stay whole at any zoom.
+ */
 export function isContentSizedColumn(columnId: string): boolean {
   return columnId === 'actions'
+}
+
+/**
+ * The invisible spacer that closes a resizable table. Its column has no declared
+ * width, so the browser gives it every pixel the sized columns do not use: the
+ * table still fills its container while each real column keeps exactly the width
+ * it was given, and dragging one column can no longer move its neighbours.
+ */
+export const FILLER_COLUMN_ID = '__filler'
+
+export function isFillerColumn(columnId: string): boolean {
+  return columnId === FILLER_COLUMN_ID
 }
