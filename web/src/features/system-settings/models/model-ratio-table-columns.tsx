@@ -133,7 +133,7 @@ export function buildModelRatioColumns({
         <DataTableColumnHeader column={column} title={t('Price summary')} />
       ),
       cell: ({ row }) => (
-        <div className='flex min-w-0 flex-col gap-1'>
+        <div className='flex min-w-0 flex-col gap-1 overflow-hidden'>
           <span className='truncate font-medium'>
             {getPriceSummary(row.original, t)}
           </span>
