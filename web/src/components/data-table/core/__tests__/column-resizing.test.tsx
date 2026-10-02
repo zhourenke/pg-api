@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { ColumnDef } from '@tanstack/react-table'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -85,6 +85,7 @@ async function dragSeparator(
 }
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
   window.localStorage.clear()
@@ -139,7 +140,7 @@ describe('column resizing', () => {
     expect(setItem).not.toHaveBeenCalled()
   })
 
-  it('keeps the column header’s accessible name when a resize separator is present', () => {
+  it('keeps the column header鈥檚 accessible name when a resize separator is present', () => {
     render(<Harness />)
 
     expect(screen.getByRole('columnheader', { name: 'Name' })).toBeVisible()
@@ -179,14 +180,36 @@ describe('column resizing', () => {
     expect(getColumnWidths()).toEqual(['56px', '', '72px'])
   })
 
-  it('keeps the measured widths when the page changes', () => {
+  it('re-measures a cell whose content only arrives after the first paint', () => {
+    vi.useFakeTimers()
+    stubScrollingWidth()
+    render(<Harness names={['alpha']} />)
+    expect(getColumnWidths()[0]).toBe('56px')
+
+    // A price whose currency arrives with the system configuration renders its
+    // numbers late; measuring only the first paint kept the column too narrow.
+    act(() => {
+      screen.getByText('alpha').textContent = 'alpha-with-a-late-width'
+      vi.advanceTimersByTime(250)
+    })
+
+    expect(getColumnWidths()[0]).toBe('200px')
+  })
+
+  it('keeps the measured widths once the table has settled', async () => {
+    vi.useFakeTimers()
     stubScrollingWidth()
     const view = render(<Harness names={['alpha']} />)
     expect(getColumnWidths()[0]).toBe('56px')
 
+    act(() => {
+      vi.advanceTimersByTime(3000)
+    })
+
     view.rerender(
       <Harness names={['a-much-longer-model-name-that-would-not-fit']} />
     )
+    await act(async () => {})
 
     expect(getColumnWidths()).toEqual(['56px', '', '72px'])
   })

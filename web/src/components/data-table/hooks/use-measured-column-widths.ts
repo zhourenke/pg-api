@@ -27,36 +27,64 @@ import {
 import { isFillerColumn } from '../core/content-sized-columns'
 
 /**
- * Gives every column the width its own content needs, once, on the first render
- * that actually has rows. Later pages, sorts and filters reuse those widths, so
- * the table does not reflow under the user; a reload starts the measurement
- * over from whatever page is shown then.
+ * How long the measurement keeps following the cells of a table. It is long
+ * enough for a price whose currency arrives with the system configuration and
+ * for a web font to swap in, and short enough that a table the user has already
+ * started working with never moves under them.
+ */
+const SETTLE_WINDOW_MS = 3000
+
+/** How often the measurement looks for content that arrived after the first paint. */
+const FOLLOW_UP_MS = 250
+
+/**
+ * Gives every column the width its own content needs, on the first render that
+ * actually has rows. Later pages, sorts and filters reuse those widths, so the
+ * table does not reflow under the user; a reload starts the measurement over
+ * from whatever page is shown then.
+ *
+ * Content that only arrives after that first paint would otherwise be measured
+ * at its shortest and leave the column too narrow, so the measurement keeps
+ * following the cells for the settle window. Dragging a separator, or the
+ * window running out, freezes the widths, so the follow-up never fights the
+ * user.
  */
 export function useMeasuredColumnWidths<TData>(
   table: TanstackTable<TData>,
   tableElementRef: React.RefObject<HTMLTableElement | null>,
   enabled: boolean
 ) {
-  const measuredRef = React.useRef(false)
+  const startedRef = React.useRef(false)
+  const appliedRef = React.useRef<ColumnSizingState | null>(null)
+  const frozenRef = React.useRef(false)
 
-  React.useLayoutEffect(() => {
+  /**
+   * Measures every column and applies the widths. Returns true once the widths
+   * must stop following the content, because the user has taken over.
+   */
+  const measureColumns = React.useCallback(() => {
     const tableElement = tableElementRef.current
-
-    if (measuredRef.current || !enabled || !tableElement) {
-      return
+    if (frozenRef.current || !tableElement) {
+      return frozenRef.current
     }
 
-    const columns = table
-      .getVisibleLeafColumns()
-      .filter((column) => !isFillerColumn(column.id))
-    if (columns.length === 0) {
-      return
+    const sizing = table.getState().columnSizing
+    const applied = appliedRef.current
+
+    if (
+      applied &&
+      Object.keys(applied).some((id) => sizing[id] !== applied[id])
+    ) {
+      frozenRef.current = true
+      return true
     }
 
     const measured: ColumnSizingState = {}
     let hasMeasurement = false
 
-    for (const column of columns) {
+    for (const column of table
+      .getVisibleLeafColumns()
+      .filter((column) => !isFillerColumn(column.id))) {
       const contentWidth = measureColumnContentWidth(tableElement, column.id)
       if (contentWidth === undefined) {
         continue
@@ -68,16 +96,67 @@ export function useMeasuredColumnWidths<TData>(
         headerWidth ?? 0
       )
 
+      measured[column.id] = fitWidth
       if (fitWidth !== column.getSize()) {
-        measured[column.id] = fitWidth
         hasMeasurement = true
       }
     }
 
-    measuredRef.current = true
+    appliedRef.current = measured
 
     if (hasMeasurement) {
       table.setColumnSizing((previous) => ({ ...previous, ...measured }))
     }
-  })
+
+    return false
+  }, [table, tableElementRef])
+
+  React.useLayoutEffect(() => {
+    if (startedRef.current || !enabled || !tableElementRef.current) {
+      return
+    }
+
+    const columns = table
+      .getVisibleLeafColumns()
+      .filter((column) => !isFillerColumn(column.id))
+    if (columns.length === 0) {
+      return
+    }
+
+    startedRef.current = true
+    measureColumns()
+  }, [enabled, measureColumns, table, tableElementRef])
+
+  React.useEffect(() => {
+    if (!enabled || !startedRef.current || frozenRef.current) {
+      return
+    }
+
+    // Polling, rather than watching the DOM, because the measurement itself
+    // re-renders the table: a mutation observer would see its own render and
+    // measure again without end. A poll that finds nothing new applies nothing.
+    const followUp = window.setInterval(() => {
+      if (measureColumns()) {
+        window.clearInterval(followUp)
+      }
+    }, FOLLOW_UP_MS)
+
+    if (document.fonts) {
+      void document.fonts.ready.catch(() => {}).then(() => {
+        if (!frozenRef.current) {
+          measureColumns()
+        }
+      })
+    }
+
+    const settleTimer = window.setTimeout(
+      () => window.clearInterval(followUp),
+      SETTLE_WINDOW_MS
+    )
+
+    return () => {
+      window.clearInterval(followUp)
+      window.clearTimeout(settleTimer)
+    }
+  }, [enabled, measureColumns])
 }
