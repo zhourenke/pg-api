@@ -287,19 +287,6 @@ const ModelRatioVisualEditorComponent = forwardRef<
     billingExpr,
   ])
 
-  const modeCounts = useMemo(() => {
-    const counts = { 'per-token': 0, 'per-request': 0, tiered_expr: 0 }
-    for (const model of models) {
-      const mode =
-        model.billingMode === 'per-request' ||
-        model.billingMode === 'tiered_expr'
-          ? model.billingMode
-          : 'per-token'
-      counts[mode] += 1
-    }
-    return counts
-  }, [models])
-
   const handleEdit = useCallback(
     (model: ModelRow) => {
       const editableModel = model.draft ?? model.saved ?? model
@@ -607,29 +594,7 @@ const ModelRatioVisualEditorComponent = forwardRef<
             table={table}
             searchPlaceholder={t('Search models...')}
             searchDebounceMs={250}
-            filters={[
-              {
-                columnId: 'billingMode',
-                title: t('Mode'),
-                options: [
-                  {
-                    label: 'Per-token (deprecated)',
-                    value: 'per-token',
-                    count: modeCounts['per-token'],
-                  },
-                  {
-                    label: 'Per-request (deprecated)',
-                    value: 'per-request',
-                    count: modeCounts['per-request'],
-                  },
-                  {
-                    label: 'Expression',
-                    value: 'tiered_expr',
-                    count: modeCounts.tiered_expr,
-                  },
-                ],
-              },
-            ]}
+            hideViewOptions
             preActions={
               filterMode === 'unset' ? undefined : (
                 <Button onClick={handleAdd}>
@@ -649,7 +614,6 @@ const ModelRatioVisualEditorComponent = forwardRef<
               table={table}
               containerClassName='min-h-0 flex-1 rounded-md'
               tableContainerClassName='h-full'
-              tableClassName='min-w-[852px]'
               tableHeaderClassName='[&_tr]:border-b-0'
               splitHeaderScrollClassName='h-full'
               bodyContainerClassName='[scrollbar-gutter:stable]'
