@@ -167,10 +167,14 @@ function handleColumnResizeStart<TData>(
   header: Header<TData, unknown>,
   callbacks: { onStart: () => void; onEnd: () => void }
 ) {
-  event.preventDefault()
   event.stopPropagation()
 
   const resizerElement = event.currentTarget
+  // Cancelling `pointerdown` also cancels the focus that the compatibility
+  // `mousedown` would give this element, which would leave the separator
+  // unreachable for arrow-key resizing. The selection the drag needs to suppress
+  // is already handled by `userSelect`, so focus it explicitly instead.
+  resizerElement.focus()
   const floor = getHeaderWidthFloor(resizerElement, header)
   const startX = event.clientX
   const startSize = header.column.getSize()

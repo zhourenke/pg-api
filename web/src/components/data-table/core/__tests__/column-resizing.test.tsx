@@ -215,6 +215,21 @@ describe('column resizing', () => {
     expect(getColumnWidths()[0]).toBe('56px')
   })
 
+  it('focuses the separator on pointer down so arrow keys can resize it', () => {
+    stubScrollingWidth()
+    render(<Harness names={['alpha']} />)
+
+    const separator = screen.getByRole('separator')
+    fireEvent.pointerDown(separator, { clientX: 200 })
+    fireEvent.pointerUp(window)
+
+    // A separator that never takes focus cannot be reached with the keyboard.
+    expect(document.activeElement).toBe(separator)
+
+    fireEvent.keyDown(separator, { key: 'ArrowRight' })
+    expect(getColumnWidths()[0]).toBe('66px')
+  })
+
   it('stops resizing when the window loses focus mid-drag', async () => {
     stubScrollingWidth()
     render(<Harness names={['alpha']} />)
