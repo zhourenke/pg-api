@@ -214,4 +214,23 @@ describe('column resizing', () => {
     fireEvent.doubleClick(screen.getByRole('separator'))
     expect(getColumnWidths()[0]).toBe('56px')
   })
+
+  it('stops resizing when the window loses focus mid-drag', async () => {
+    stubScrollingWidth()
+    render(<Harness names={['alpha']} />)
+
+    const originalPointerEvent = window.PointerEvent
+    window.PointerEvent = MouseEvent as unknown as typeof PointerEvent
+
+    try {
+      fireEvent.pointerDown(screen.getByRole('separator'), { clientX: 200 })
+      fireEvent.pointerMove(window, { clientX: 260 })
+      fireEvent.blur(window)
+      fireEvent.pointerMove(window, { clientX: 400 })
+    } finally {
+      window.PointerEvent = originalPointerEvent
+    }
+
+    expect(getColumnWidths()[0]).toBe('116px')
+  })
 })

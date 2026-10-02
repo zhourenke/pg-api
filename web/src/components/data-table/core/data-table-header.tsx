@@ -191,16 +191,20 @@ function handleColumnResizeStart<TData>(
   }
 
   const handleEnd = () => {
-    document.removeEventListener('pointermove', handleMove)
-    document.removeEventListener('pointerup', handleEnd)
-    document.removeEventListener('pointercancel', handleEnd)
+    window.removeEventListener('pointermove', handleMove)
+    window.removeEventListener('pointerup', handleEnd)
+    window.removeEventListener('pointercancel', handleEnd)
+    window.removeEventListener('blur', handleEnd)
     document.body.style.userSelect = previousUserSelect
     onEnd()
   }
 
-  document.addEventListener('pointermove', handleMove)
-  document.addEventListener('pointerup', handleEnd)
-  document.addEventListener('pointercancel', handleEnd)
+  // Listening on the window (and on blur) ends the drag even when the pointer is
+  // released outside the table or the window loses focus mid-drag.
+  window.addEventListener('pointermove', handleMove)
+  window.addEventListener('pointerup', handleEnd)
+  window.addEventListener('pointercancel', handleEnd)
+  window.addEventListener('blur', handleEnd)
 }
 
 function handleColumnAutoSize<TData>(
