@@ -170,11 +170,12 @@ function handleColumnResizeStart<TData>(
   event.stopPropagation()
 
   const resizerElement = event.currentTarget
-  // Cancelling `pointerdown` also cancels the focus that the compatibility
-  // `mousedown` would give this element, which would leave the separator
-  // unreachable for arrow-key resizing. The selection the drag needs to suppress
-  // is already handled by `userSelect`, so focus it explicitly instead.
-  resizerElement.focus()
+  // The press is deliberately not cancelled: that would also cancel the focus
+  // the compatibility `mousedown` gives this element, leaving the separator
+  // unreachable for arrow-key resizing. Focus has to come from the browser
+  // rather than from a scripted call, because a scripted focus is drawn as a
+  // `:focus-visible` ring when nothing has been clicked yet, such as just after
+  // a reload. The selection the drag needs to suppress is handled by `userSelect`.
   const floor = getHeaderWidthFloor(resizerElement, header)
   const startX = event.clientX
   const startSize = header.column.getSize()

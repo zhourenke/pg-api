@@ -238,17 +238,19 @@ describe('column resizing', () => {
     expect(getColumnWidths()[0]).toBe('56px')
   })
 
-  it('focuses the separator on pointer down so arrow keys can resize it', () => {
+  it('lets the browser focus the separator on a press so arrow keys can resize it', () => {
     stubScrollingWidth()
     render(<Harness names={['alpha']} />)
 
     const separator = screen.getByRole('separator')
-    fireEvent.pointerDown(separator, { clientX: 200 })
+
+    // An uncancelled press is what lets `mousedown` focus the separator. A
+    // scripted focus would draw a focus ring after a reload, where the browser
+    // still treats the script as the last input modality.
+    expect(fireEvent.pointerDown(separator, { clientX: 200 })).toBe(true)
     fireEvent.pointerUp(window)
 
-    // A separator that never takes focus cannot be reached with the keyboard.
-    expect(document.activeElement).toBe(separator)
-
+    separator.focus()
     fireEvent.keyDown(separator, { key: 'ArrowRight' })
     expect(getColumnWidths()[0]).toBe('66px')
   })
