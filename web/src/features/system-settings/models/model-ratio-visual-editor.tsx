@@ -595,6 +595,7 @@ const ModelRatioVisualEditorComponent = forwardRef<
             searchPlaceholder={t('Search models...')}
             searchDebounceMs={250}
             hideViewOptions
+            singleRow
             preActions={
               filterMode === 'unset' ? undefined : (
                 <Button onClick={handleAdd}>

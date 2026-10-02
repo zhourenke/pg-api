@@ -123,6 +123,14 @@ export type DataTableToolbarProps<TData> = {
    */
   hideViewOptions?: boolean
   /**
+   * Keep the search field and the action cluster on one row: the search field
+   * grows into the free space and shrinks when the toolbar runs out of width,
+   * instead of wrapping the actions onto a second line. Meant for toolbars
+   * whose controls are few enough to always fit; every other table keeps the
+   * default wrapping layout.
+   */
+  singleRow?: boolean
+  /**
    * Optional view-mode toggle (e.g. table vs. card) rendered in the right
    * action cluster, before the View Options dropdown. Typically a
    * {@link DataTableViewModeToggle}. Omitted by default.
@@ -256,7 +264,12 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
       onChange={handleSearchChange}
       onCompositionStart={handleSearchCompositionStart}
       onCompositionEnd={handleSearchCompositionEnd}
-      className='w-full sm:w-[200px] lg:w-[240px]'
+      className={cn(
+        props.singleRow
+          ? // 单行模式：搜索框占满剩余宽度，宽度不足时收缩而不是换行。
+            'min-w-0 flex-1'
+          : 'w-full sm:w-[200px] lg:w-[240px]'
+      )}
     />
   )
 
@@ -409,7 +422,8 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
   return (
     <div
       className={cn(
-        'flex flex-wrap items-center gap-2 sm:gap-3',
+        'flex items-center gap-2 sm:gap-3',
+        !props.singleRow && 'flex-wrap',
         props.className
       )}
     >
