@@ -92,6 +92,24 @@ describe('inline price cell', () => {
     expect(screen.queryByText(/CNY|USD/)).toBeNull()
   })
 
+  it('truncates a price line instead of wrapping it when the column is narrow', () => {
+    render(
+      <ModelPriceInlineCell
+        model={pricingModel({ completion_ratio: 4, cache_ratio: 0.1 })}
+        options={{ tokenUnit: 'M' }}
+      />
+    )
+
+    // A squeezed column must ellipsise each line; wrapping reflowed the prices
+    // into four lines and made the column measure its own wrapped width.
+    for (const label of screen.getAllByText(/^(Input|Output|Cache Read)$/)) {
+      const line = label.parentElement?.parentElement
+
+      expect(line).toHaveClass('truncate')
+      expect(line?.className).not.toContain('flex-wrap')
+    }
+  })
+
   it('omits the cache read price when the model has no cache ratio', () => {
     render(<ModelPriceInlineCell model={pricingModel()} options={{}} />)
 

@@ -290,23 +290,25 @@ export function ModelPriceInlineCell(props: {
   return (
     <span className='flex min-w-0 flex-col gap-y-0.5 text-sm'>
       {lines.map((segments, index) => (
+        // One line per group, ellipsised when the column is too narrow. Wrapping
+        // instead would reflow a squeezed column into more lines than the price
+        // layout is designed for.
         <span
           key={segments[0].key}
-          className='flex min-w-0 flex-wrap items-baseline gap-x-3'
+          className='min-w-0 truncate [&>span+span]:ml-3'
         >
           {segments.map((segment) => (
-            <span
-              key={segment.key}
-              className='flex items-baseline gap-1 whitespace-nowrap'
-            >
+            <span key={segment.key}>
               <span className='text-muted-foreground text-xs'>
                 {segment.label}
               </span>
               {segment.value && (
-                <span className='font-mono tabular-nums'>{segment.value}</span>
+                <span className='ml-1 font-mono tabular-nums'>
+                  {segment.value}
+                </span>
               )}
               {segment.unit && (
-                <span className='text-muted-foreground text-xs'>
+                <span className='ml-1 text-muted-foreground text-xs'>
                   / {segment.unit}
                 </span>
               )}
