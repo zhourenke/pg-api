@@ -50,7 +50,7 @@ import {
   type ModelRatioVisualEditorHandle,
 } from './model-ratio-visual-editor'
 
-type ModelFormValues = {
+export type ModelFormValues = {
   ModelPrice: string
   ModelRatio: string
   CacheRatio: string
@@ -87,6 +87,8 @@ type ModelJsonFieldName =
   | 'ImageRatio'
   | 'AudioRatio'
   | 'AudioCompletionRatio'
+  | 'BillingMode'
+  | 'BillingExpr'
 
 const modelJsonFields: Array<{
   name: ModelJsonFieldName
@@ -136,6 +138,18 @@ const modelJsonFields: Array<{
     name: 'AudioCompletionRatio',
     labelKey: 'Audio completion ratio',
     descriptionKey: 'Ratio applied to audio completions for streaming models.',
+  },
+  {
+    name: 'BillingMode',
+    labelKey: 'Billing mode',
+    descriptionKey:
+      'JSON map of model → billing mode; use tiered_expr for expression based pricing.',
+  },
+  {
+    name: 'BillingExpr',
+    labelKey: 'Billing expression',
+    descriptionKey:
+      'JSON map of model → billing expression, used when the mode is tiered_expr.',
   },
 ]
 
