@@ -119,6 +119,17 @@ export function measureElementWidth(element: HTMLElement) {
     resizer.remove()
   })
 
+  // The clone is measured outside the table, where the styles the table applies
+  // to its own cells no longer reach it, so the text would be measured at the
+  // page's font settings instead of the table's. Copying the typography keeps the
+  // measurement comparable with the column as it is rendered.
+  const styles = window.getComputedStyle(element)
+  clone.style.fontSize = styles.fontSize
+  clone.style.fontFamily = styles.fontFamily
+  clone.style.fontWeight = styles.fontWeight
+  clone.style.letterSpacing = styles.letterSpacing
+  clone.style.fontVariantNumeric = styles.fontVariantNumeric
+
   clone.style.position = 'absolute'
   clone.style.visibility = 'hidden'
   clone.style.pointerEvents = 'none'
