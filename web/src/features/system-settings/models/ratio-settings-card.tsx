@@ -374,6 +374,13 @@ export function RatioSettingsCard({
     [t, updateOption, pricingBaseline, savePricing, pricingQuery]
   )
 
+  // Removing a row rewrites the ten JSON maps in the form; saving them is a
+  // separate step, so the table deletion path has to ask for it explicitly.
+  const persistModelRatios = useCallback(
+    () => saveModelRatios(modelForm.getValues()),
+    [modelForm, saveModelRatios]
+  )
+
   const saveGroupRatios = useCallback(
     async (values: GroupFormValues) => {
       const normalized = {
@@ -457,6 +464,7 @@ export function RatioSettingsCard({
             form={modelForm}
             savedValues={savedModelValues}
             onSave={saveModelRatios}
+            onPersist={persistModelRatios}
             isSaving={updateOption.isPending || savePricing.isPending}
             variant={tab === 'unset-models' ? 'unset' : 'default'}
           />

@@ -55,6 +55,7 @@ async function renderEditor() {
   })
   client = queryClient
   const onChange = vi.fn()
+  const onPersist = vi.fn(async () => {})
   const view = render(
     <QueryClientProvider client={client}>
       <ModelRatioVisualEditor
@@ -79,6 +80,7 @@ async function renderEditor() {
         billingMode='{}'
         billingExpr='{}'
         onChange={onChange}
+        onPersist={onPersist}
         onSave={vi.fn()}
         isSaving={false}
       />
@@ -87,7 +89,7 @@ async function renderEditor() {
   // The real page has pricing metadata loaded long before the user drags over
   // a model name, so settle the pricing query before interacting.
   await waitFor(() => expect(queryClient.isFetching()).toBe(0))
-  return { view, onChange }
+  return { view, onChange, onPersist }
 }
 
 // A drag-select ends with mousedown/mouseup inside the row and the browser
@@ -124,17 +126,35 @@ it('keeps other rows mounted when a different model is opened for editing', asyn
   ).toBeInTheDocument()
   expect(otherName).toBeInTheDocument()
 })
-it('deletes one model price from its row without an actions menu', async () => {
-  const { onChange } = await renderEditor()
+it('deletes one model price from its row only after the confirmation is accepted', async () => {
+  const { onChange, onPersist } = await renderEditor()
   const row = await screen.findByRole('row', { name: /gpt-4\.1-mini/ })
   expect(within(row).queryByRole('button', { name: 'Open menu' })).toBeNull()
 
   fireEvent.click(within(row).getByRole('button', { name: 'Delete' }))
 
-  await waitFor(() => expect(onChange).toHaveBeenCalled())
+  const confirmation = await screen.findByRole('alertdialog')
+  expect(onChange).not.toHaveBeenCalled()
+  expect(onPersist).not.toHaveBeenCalled()
+
+  fireEvent.click(within(confirmation).getByRole('button', { name: 'Cancel' }))
+  await waitFor(() =>
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+  )
+  expect(onChange).not.toHaveBeenCalled()
+
+  fireEvent.click(within(row).getByRole('button', { name: 'Delete' }))
+  fireEvent.click(
+    within(await screen.findByRole('alertdialog')).getByRole('button', {
+      name: 'Delete',
+    })
+  )
+
+  await waitFor(() => expect(onPersist).toHaveBeenCalledTimes(1))
   const ratioCall = onChange.mock.calls.find(([key]) => key === 'ModelRatio')
   expect(ratioCall).toBeTruthy()
   expect(JSON.parse(ratioCall?.[1] as string)).toEqual({
     'claude-sonnet': 1.5,
   })
+  expect(JSON.parse(onChange.mock.calls[0][1] as string)).toEqual({})
 })

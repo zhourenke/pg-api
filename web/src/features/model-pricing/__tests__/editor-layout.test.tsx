@@ -141,6 +141,7 @@ function PricingFormFixture(props: {
           savedValues={values}
           variant={props.variant}
           onSave={props.onSave}
+          onPersist={vi.fn()}
           isSaving={false}
         />
       </SettingsPageProvider>

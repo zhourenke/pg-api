@@ -38,6 +38,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { ConfirmDialog } from '@/components/confirm-dialog'
 import {
   DataTableBulkActions,
   DataTableToolbar,
@@ -95,6 +96,13 @@ type ModelRatioVisualEditorProps = {
   filterMode?: 'all' | 'unset'
   onChange: (field: string, value: string) => void
   onSave: () => void | Promise<void>
+  /**
+   * Persists the pricing currently held by the form. Removing a model from the
+   * table writes the ten JSON maps through `onChange`, which only updates form
+   * state, so the removal must be saved explicitly or a reload brings the price
+   * back.
+   */
+  onPersist: () => void | Promise<void>
   isSaving: boolean
 }
 
@@ -134,6 +142,7 @@ const ModelRatioVisualEditorComponent = forwardRef<
     filterMode = 'all',
     onChange,
     onSave,
+    onPersist,
     isSaving,
   },
   ref
@@ -143,6 +152,7 @@ const ModelRatioVisualEditorComponent = forwardRef<
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editorOpen, setEditorOpen] = useState(false)
   const [editData, setEditData] = useState<ModelRatioData | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null)
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = useState('')
@@ -340,8 +350,12 @@ const ModelRatioVisualEditorComponent = forwardRef<
     []
   )
 
-  const handleDelete = useCallback(
-    (name: string) => {
+  const requestDelete = useCallback((name: string) => {
+    setPendingDelete(name)
+  }, [])
+
+  const confirmDelete = useCallback(
+    async (name: string) => {
       const priceMap = safeJsonParse<Record<string, number>>(modelPrice, {
         fallback: {},
         silent: true,
@@ -419,6 +433,12 @@ const ModelRatioVisualEditorComponent = forwardRef<
         setEditorOpen(false)
         setSheetOpen(false)
       }
+
+      try {
+        await onPersist()
+      } finally {
+        setPendingDelete(null)
+      }
     },
     [
       modelPrice,
@@ -432,18 +452,19 @@ const ModelRatioVisualEditorComponent = forwardRef<
       billingMode,
       billingExpr,
       onChange,
+      onPersist,
     ]
   )
 
   const columns = useMemo(
     () =>
       buildModelRatioColumns({
-        onDelete: handleDelete,
+        onDelete: requestDelete,
         onEdit: handleEdit,
         deleteDisabled: filterMode === 'unset',
         t,
       }),
-    [handleEdit, handleDelete, filterMode, t]
+    [handleEdit, requestDelete, filterMode, t]
   )
 
   const ensurePageInRange = useCallback((pageCount: number) => {
@@ -715,6 +736,23 @@ const ModelRatioVisualEditorComponent = forwardRef<
         </Button>
       </DataTableBulkActions>
 
+      {pendingDelete !== null && (
+        <ConfirmDialog
+          open
+          onOpenChange={(open) => !open && setPendingDelete(null)}
+          title={t('Delete the model price for "{{name}}"?', {
+            name: pendingDelete,
+          })}
+          desc={t(
+            'The model returns to the unconfigured state and must be priced again before it can be billed.'
+          )}
+          confirmText={t('Delete')}
+          isLoading={isSaving}
+          destructive
+          handleConfirm={() => void confirmDelete(pendingDelete)}
+        />
+      )}
+
       {isMobile && (
         <ModelPricingSheet
           ref={editorPanelRef}
@@ -760,6 +798,7 @@ export const ModelRatioVisualEditor = memo(
       prevProps.filterMode === nextProps.filterMode &&
       prevProps.onChange === nextProps.onChange &&
       prevProps.onSave === nextProps.onSave &&
+      prevProps.onPersist === nextProps.onPersist &&
       prevProps.isSaving === nextProps.isSaving
     )
   }

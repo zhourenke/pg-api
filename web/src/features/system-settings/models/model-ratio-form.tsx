@@ -68,6 +68,12 @@ type ModelRatioFormProps = {
   form: UseFormReturn<ModelFormValues>
   savedValues: ModelFormValues
   onSave: (values: ModelFormValues) => Promise<void>
+  /**
+   * Saves whatever the form currently holds. The visual editor calls it right
+   * after it writes a row deletion into the form, because those writes only
+   * change form state and an unsaved removal reappears after a reload.
+   */
+  onPersist: () => void | Promise<void>
   isSaving: boolean
   variant?: 'default' | 'unset'
 }
@@ -169,6 +175,7 @@ export const ModelRatioForm = memo(function ModelRatioForm({
   form,
   savedValues,
   onSave,
+  onPersist,
   isSaving,
   variant = 'default',
 }: ModelRatioFormProps) {
@@ -320,6 +327,7 @@ export const ModelRatioForm = memo(function ModelRatioForm({
               }
               filterMode={isUnsetVariant ? 'unset' : 'all'}
               onSave={handleSave}
+              onPersist={onPersist}
               isSaving={isSaving}
               onChange={(field, value) => {
                 const fieldMap: Record<string, keyof ModelFormValues> = {
