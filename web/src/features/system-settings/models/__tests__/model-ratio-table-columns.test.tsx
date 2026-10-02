@@ -43,7 +43,6 @@ function modelRow(): ModelRow {
 function renderCell(columnId: string) {
   const column = buildModelRatioColumns({
     onDelete: vi.fn(),
-    onEdit: vi.fn(),
     t,
   }).find((candidate) => candidate.id === columnId)
 
@@ -76,23 +75,35 @@ it('shows the base tier prices through the shared model list cell', () => {
 it('no longer offers a billing mode column', () => {
   const columns = buildModelRatioColumns({
     onDelete: vi.fn(),
-    onEdit: vi.fn(),
     t,
   })
 
-  expect(columns.map((column) => column.id)).not.toContain('billingMode')
+  expect(
+    columns.map((column) => (column as { accessorKey?: string }).accessorKey ?? column.id)
+  ).not.toContain('billingMode')
 })
 
-it('centres the row actions and spaces them like every other actions column', () => {
+it('offers delete only, because the row itself opens the editor', () => {
   renderCell('actions')
 
-  const editButton = screen.getByRole('button', { name: 'Edit' })
-  const actions = editButton.parentElement
+  const deleteButton = screen.getByRole('button', { name: 'Delete' })
+  const actions = deleteButton.parentElement
 
   expect(actions).toHaveClass('items-center')
   expect(actions).toHaveClass('justify-end')
   expect(actions).toHaveClass('gap-1')
   expect(
     within(actions as HTMLElement).getAllByRole('button')
-  ).toHaveLength(2)
+  ).toHaveLength(1)
+  expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull()
+})
+
+it('keeps only the model identity columns for the unset price page', () => {
+  const columns = buildModelRatioColumns({
+    onDelete: vi.fn(),
+    identityOnly: true,
+    t,
+  })
+
+  expect(columns.map((column) => column.id)).toEqual(['select', 'name'])
 })

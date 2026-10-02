@@ -21,10 +21,11 @@ import { Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 type StaticRowActionsProps = {
-  editLabel: string
   deleteLabel: string
-  onEdit: () => void
   onDelete: () => void
+  /** 省略时只渲染删除：有些表格的整行内容本身就可以点击编辑。 */
+  editLabel?: string
+  onEdit?: () => void
   editDisabled?: boolean
   deleteDisabled?: boolean
 }
@@ -32,15 +33,17 @@ type StaticRowActionsProps = {
 export function StaticRowActions(props: StaticRowActionsProps) {
   return (
     <div className='flex items-center justify-end gap-1'>
-      <Button
-        variant='ghost'
-        size='icon-sm'
-        onClick={props.onEdit}
-        disabled={props.editDisabled}
-        aria-label={props.editLabel}
-      >
-        <Pencil />
-      </Button>
+      {props.onEdit && (
+        <Button
+          variant='ghost'
+          size='icon-sm'
+          onClick={props.onEdit}
+          disabled={props.editDisabled}
+          aria-label={props.editLabel}
+        >
+          <Pencil />
+        </Button>
+      )}
       <Button
         variant='ghost'
         size='icon-sm'

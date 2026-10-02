@@ -447,11 +447,11 @@ const ModelRatioVisualEditorComponent = forwardRef<
     () =>
       buildModelRatioColumns({
         onDelete: requestDelete,
-        onEdit: handleEdit,
         deleteDisabled: filterMode === 'unset',
+        identityOnly: filterMode === 'unset',
         t,
       }),
-    [handleEdit, requestDelete, filterMode, t]
+    [requestDelete, filterMode, t]
   )
 
   const ensurePageInRange = useCallback((pageCount: number) => {

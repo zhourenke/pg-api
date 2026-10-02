@@ -33,18 +33,19 @@ const asNumber = (value?: string) => {
 
 type BuildModelRatioColumnsOptions = {
   onDelete: (name: string) => void
-  onEdit: (model: ModelRow) => void
   deleteDisabled?: boolean
+  /** 未设置价格模型：行内容本身可点击编辑，只需要认出模型的两列。 */
+  identityOnly?: boolean
   t: (key: string) => string
 }
 
 export function buildModelRatioColumns({
   onDelete,
-  onEdit,
   deleteDisabled,
+  identityOnly,
   t,
 }: BuildModelRatioColumnsOptions): ColumnDef<ModelRow>[] {
-  return [
+  const columns: ColumnDef<ModelRow>[] = [
     {
       id: 'select',
       header: ({ table }) => (
@@ -69,6 +70,7 @@ export function buildModelRatioColumns({
       size: 40,
     },
     {
+      id: 'name',
       accessorKey: 'name',
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('Model name')} />
@@ -129,11 +131,10 @@ export function buildModelRatioColumns({
     {
       id: 'actions',
       header: () => <div>{t('Actions')}</div>,
+      // 编辑不再是按钮：整行内容本身就可以点击编辑。
       cell: ({ row }) => (
         <StaticRowActions
-          editLabel={t('Edit')}
           deleteLabel={t('Delete')}
-          onEdit={() => onEdit(row.original)}
           onDelete={() => onDelete(row.original.name)}
           deleteDisabled={deleteDisabled}
         />
@@ -141,4 +142,10 @@ export function buildModelRatioColumns({
       enableHiding: false,
     },
   ]
+
+  return identityOnly
+    ? columns.filter(
+        (column) => column.id === 'select' || column.id === 'name'
+      )
+    : columns
 }
