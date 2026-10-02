@@ -337,6 +337,10 @@ it('keeps all four row actions visible inside the content-sized actions column',
   }
   const grid = (actions as HTMLElement).querySelector('.grid')
   expect(grid).toHaveClass('grid-cols-2')
+  // 间距契约：标签之间 12px（与价格列「输入/输出」一致），两行紧贴（与【API 密钥】一致）。
+  expect(grid).toHaveClass('gap-x-0')
+  expect(grid).toHaveClass('gap-y-0')
+  expect(grid).toHaveClass('[&>button]:px-1.5')
   // 该列由内容撑开：`w-full` / `min-w-0` / `truncate` 会让浏览器把它压到 0 宽，
   // 结果就是整列操作在界面上完全不可见。
   expect(grid).not.toHaveClass('w-full')
