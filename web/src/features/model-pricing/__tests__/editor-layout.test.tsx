@@ -212,8 +212,15 @@ it.each(['default', 'unset'] as const)(
         screen.queryByRole('switch', { name: 'Expose ratio API' })
       ).not.toBeInTheDocument()
     }
-    await user.click(await screen.findByRole('button', { name: 'Edit' }))
-    const region = screen.getByRole('region', { name: 'Edit model pricing' })
+    // 行操作列只保留删除，编辑器改由「勾选一行」打开。
+    await user.click(
+      within(
+        await screen.findByRole('row', { name: /example-model/ })
+      ).getByRole('checkbox')
+    )
+    const region = await screen.findByRole('region', {
+      name: 'Edit model pricing',
+    })
     const button = screen.getByRole('button', { name: 'Save model prices' })
     expect(region).not.toContainElement(button)
     expect(button.parentElement?.parentElement).toHaveClass('shrink-0')
