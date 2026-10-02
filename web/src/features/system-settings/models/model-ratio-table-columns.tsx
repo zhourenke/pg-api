@@ -22,21 +22,13 @@ import { DataTableColumnHeader } from '@/components/data-table/core/column-heade
 import { StaticRowActions } from '@/components/data-table/static/static-row-actions'
 import { StatusBadge } from '@/components/status-badge'
 import { Checkbox } from '@/components/ui/checkbox'
+import { ModelPriceCell } from '@/features/pricing/components/model-price-cell'
 
-import {
-  getModeLabel,
-  getModeVariant,
-  getPriceDetail,
-  getPriceSummary,
-  type ModelRow,
-} from './model-pricing-snapshots'
+import type { ModelRow } from './model-pricing-snapshots'
 
-const filterBySelectedValues = (
-  rowValue: unknown,
-  filterValue: unknown
-): boolean => {
-  if (!Array.isArray(filterValue) || filterValue.length === 0) return true
-  return filterValue.includes(String(rowValue))
+const asNumber = (value?: string) => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
 }
 
 type BuildModelRatioColumnsOptions = {
@@ -84,14 +76,6 @@ export function buildModelRatioColumns({
       cell: ({ row }) => (
         <div className='flex min-w-0 items-center gap-2 font-medium'>
           <span className='min-w-0 truncate'>{row.getValue('name')}</span>
-          {row.original.billingMode === 'tiered_expr' ? (
-            <StatusBadge
-              label={t('Tiered')}
-              variant='info'
-              copyable={false}
-              className='shrink-0'
-            />
-          ) : null}
           {row.original.hasConflict && (
             <StatusBadge
               label={t('Conflict')}
@@ -108,44 +92,36 @@ export function buildModelRatioColumns({
       meta: { label: t('Model name') },
     },
     {
-      accessorKey: 'billingMode',
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title={t('Mode')} />
-      ),
-      cell: ({ row }) => (
-        <StatusBadge
-          label={t(getModeLabel(row.original.billingMode))}
-          variant={getModeVariant(row.original.billingMode)}
-          copyable={false}
-          showDot={false}
-          className='-ml-1.5 px-0'
-        />
-      ),
-      filterFn: (row, id, value) =>
-        filterBySelectedValues(row.getValue(id), value),
-      size: 140,
-      minSize: 110,
-      meta: { label: t('Mode') },
-    },
-    {
       id: 'priceSummary',
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('Price summary')} />
       ),
-      cell: ({ row }) => (
-        <div className='flex min-w-0 flex-col gap-1 overflow-hidden'>
-          <span className='truncate font-medium'>
-            {getPriceSummary(row.original, t)}
-          </span>
-          <span className='text-muted-foreground truncate text-xs'>
-            {getPriceDetail(row.original, t)}
-          </span>
-        </div>
-      ),
-      sortingFn: (rowA, rowB) =>
-        getPriceSummary(rowA.original, t).localeCompare(
-          getPriceSummary(rowB.original, t)
-        ),
+      // The same cell the model list uses, so both pages quote the base tier's
+      // input, output and cache read price in the site currency per 1M tokens.
+      cell: ({ row }) => {
+        const model = row.original
+
+        return (
+          <ModelPriceCell
+            model={{
+              id: 0,
+              model_name: model.name,
+              quota_type: model.billingMode === 'per-request' ? 1 : 0,
+              model_ratio: asNumber(model.ratio),
+              completion_ratio: asNumber(model.completionRatio),
+              cache_ratio: model.cacheRatio ? asNumber(model.cacheRatio) : null,
+              create_cache_ratio: model.createCacheRatio
+                ? asNumber(model.createCacheRatio)
+                : null,
+              model_price: model.price ? asNumber(model.price) : undefined,
+              billing_mode: model.billingMode,
+              billing_expr: model.billingExpr,
+              enable_groups: [],
+            }}
+          />
+        )
+      },
+      enableSorting: false,
       size: 360,
       minSize: 240,
       meta: { label: t('Price summary') },

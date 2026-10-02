@@ -57,18 +57,30 @@ function renderCell(columnId: string) {
   return render(<>{cell({ row } as CellContext<ModelRow, unknown>)}</>)
 }
 
-it('ellipsises both price lines instead of wrapping them', () => {
-  const { container } = renderCell('priceSummary')
+it('shows the base tier prices through the shared model list cell', () => {
+  renderCell('priceSummary')
 
-  const lines = [...container.querySelectorAll('span')]
-  expect(lines).toHaveLength(2)
-  for (const line of lines) {
+  // 与【模型】管理页一致：base 档的输入/输出/缓存读取，每 1M Token、站点货币。
+  for (const label of screen.getAllByText(/^(Input|Output|Cache Read)$/)) {
+    const line = label.parentElement?.parentElement
+    // 挤压时逐行省略号，不换行（与【模型】页同一契约）。
     expect(line).toHaveClass('truncate')
+    expect(line?.className).not.toContain('flex-wrap')
   }
 
-  // `truncate` only produces an ellipsis while the cell also clips its content.
-  expect(lines[0].parentElement).toHaveClass('overflow-hidden')
-  expect(lines[0].parentElement).toHaveClass('min-w-0')
+  expect(screen.getByText('Input')).toBeVisible()
+  expect(screen.getByText('Output')).toBeVisible()
+  expect(screen.getByText('Cache Read')).toBeVisible()
+})
+
+it('no longer offers a billing mode column', () => {
+  const columns = buildModelRatioColumns({
+    onDelete: vi.fn(),
+    onEdit: vi.fn(),
+    t,
+  })
+
+  expect(columns.map((column) => column.id)).not.toContain('billingMode')
 })
 
 it('centres the row actions and spaces them like every other actions column', () => {

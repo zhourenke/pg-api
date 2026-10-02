@@ -138,7 +138,8 @@ it('lets the model list be sized by the shared table sizing', async () => {
   expect(table.style.tableLayout).toBe('fixed')
 
   const columns = [...table.querySelectorAll('colgroup col')]
-  expect(columns).toHaveLength(6)
+  // 选择框、模型名称、价格摘要、尾部填充列、操作。
+  expect(columns).toHaveLength(5)
   expect((columns.at(-2) as HTMLElement).style.width).toBe('')
 })
 it('deletes one model price from its row only after the confirmation is accepted', async () => {
