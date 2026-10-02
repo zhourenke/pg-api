@@ -27,6 +27,7 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import i18n from 'i18next'
 import { createRef } from 'react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
@@ -36,6 +37,7 @@ import {
   type ModelPricingEditorPanelHandle,
   type ModelRatioData,
 } from '@/features/system-settings/models/model-pricing-sheet'
+import zhCN from '@/i18n/locales/zh.json'
 import { api } from '@/lib/api'
 import { usePricingPreferencesStore } from '@/stores/pricing-preferences-store'
 import {
@@ -131,6 +133,22 @@ it('opens the billing expression editor without legacy pricing tabs', () => {
   ).toBeVisible()
   expect(screen.queryByRole('tab')).not.toBeInTheDocument()
   expect(editor.dirty).toHaveBeenLastCalledWith(false)
+})
+
+it('shows the billing expression preview heading in Simplified Chinese', async () => {
+  renderEditor({
+    ratio: '',
+    completionRatio: '',
+    billingMode: 'tiered_expr',
+    billingExpr: '',
+  })
+  await act(async () => {
+    i18n.addResourceBundle('zhCN', 'translation', zhCN.translation, true, true)
+    await i18n.changeLanguage('zhCN')
+  })
+  expect(
+    screen.getByRole('complementary', { name: '计费表达式 (USD)' })
+  ).toBeVisible()
 })
 
 it('defaults to USD, remembers a currency choice and restores it when reopened', async () => {

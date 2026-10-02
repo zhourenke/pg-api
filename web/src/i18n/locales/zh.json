@@ -770,6 +770,7 @@
     "Billing currency": "计费货币",
     "Billing Details": "计费详情",
     "Billing expression": "计费表达式",
+    "Billing expression (USD)": "计费表达式 (USD)",
     "Billing group": "计费分组",
     "Billing group = default (the token has a group, so use it)": "计费分组 = default（令牌设置了分组，就用令牌的）",
     "Billing group = premium (the token has a group, so use it)": "计费分组 = premium（令牌设置了分组，就用令牌的）",
