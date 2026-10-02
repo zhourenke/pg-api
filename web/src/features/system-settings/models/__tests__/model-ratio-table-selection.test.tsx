@@ -126,6 +126,21 @@ it('keeps other rows mounted when a different model is opened for editing', asyn
   ).toBeInTheDocument()
   expect(otherName).toBeInTheDocument()
 })
+
+it('lets the model list be sized by the shared table sizing', async () => {
+  await renderEditor()
+  await screen.findByRole('row', { name: /gpt-4\.1-mini/ })
+
+  const table = screen.getByRole('table')
+  // A fixed layout plus the trailing spacer column is what makes the shared
+  // measurement and the per-column drag work; a hard-coded colgroup would
+  // ignore both.
+  expect(table.style.tableLayout).toBe('fixed')
+
+  const columns = [...table.querySelectorAll('colgroup col')]
+  expect(columns).toHaveLength(6)
+  expect((columns.at(-2) as HTMLElement).style.width).toBe('')
+})
 it('deletes one model price from its row only after the confirmation is accepted', async () => {
   const { onChange, onPersist } = await renderEditor()
   const row = await screen.findByRole('row', { name: /gpt-4\.1-mini/ })

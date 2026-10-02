@@ -649,7 +649,7 @@ const ModelRatioVisualEditorComponent = forwardRef<
               table={table}
               containerClassName='min-h-0 flex-1 rounded-md'
               tableContainerClassName='h-full'
-              tableClassName='min-w-[852px] table-fixed'
+              tableClassName='min-w-[852px]'
               tableHeaderClassName='[&_tr]:border-b-0'
               splitHeaderScrollClassName='h-full'
               bodyContainerClassName='[scrollbar-gutter:stable]'
@@ -660,15 +660,6 @@ const ModelRatioVisualEditorComponent = forwardRef<
                   side: 'right',
                 },
               ]}
-              colgroup={
-                <colgroup>
-                  <col className='w-9' />
-                  <col className='w-[300px]' />
-                  <col className='w-[120px]' />
-                  <col className='w-[300px]' />
-                  <col className='w-auto' />
-                </colgroup>
-              }
               renderRow={(row, { getCellClassName }) => (
                 <DataTableRow
                   key={row.id}
