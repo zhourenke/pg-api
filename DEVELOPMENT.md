@@ -287,6 +287,7 @@ $env:AUDIT_MYSQL_DSN        = 'root@tcp(127.0.0.1:3307)/'
 - **`GET /v1/responses/:response_id` 不恢复**。上游该路由同样由已删除的 task plugin 协议表挂载；恢复 `POST /v1/responses` 时只补了 `POST`，owner 明确「只用同步/流式」，因此检索单条 response 的 GET 有意留空。
 - **`electron/main.js` 的默认 SQLite 文件名 `new-api.db`（`:264`）不改**：它是桌面版已有用户数据库的落点，改名会牵动数据迁移。`electron/README.md` 里的 `new-api*` 示例同理，属更广的改名收尾，需要 owner 单独决策。
 
+- **注册关闭时直接访问 `/sign-up` 不做重定向**（2026-10-03 owner 决定）。登录页已隐藏「还没有账号？注册」，首页与 CTA 的「开始使用」也已改为跳登录页；直接输入 `/sign-up` 仍会打开注册表单，提交时由后端按 `RegisterEnabled` 拒绝。owner 明确不加这个重定向，**不要再作为遗留在报**。
 ### 7.4 未验证（不要当成已验证）
 
 - **Electron 打包从未跑过**：本机没有 `electron/node_modules`，`npm install` / `electron-builder` / `npm run build:*` 都没执行，所以「安装包名与应用内版本是 1.1.1」只由配置推断，未经打包产物核对。
@@ -307,3 +308,5 @@ $env:AUDIT_MYSQL_DSN        = 'root@tcp(127.0.0.1:3307)/'
 - 模型定价页标签条窄屏无法滚动、被右上角开关遮挡，且失效的视图切换未隐藏 → `62e1c0377`。
 - `ModelPricingChange.reset` 冗余字段及其后端分支 → `113de64dd`。
 - 注册关闭时登录页仍显示注册入口、首页「开始使用」跳注册页 → `d1bcabbe0`。
+- 收尾清理（目标结束后）：删除 `db-verify\`（183 MB：验证截图、一次性探针脚本、`ui-check.db` 库副本、测试用二进制 `pg-api-ui.exe`）、`tools\`（835 MB：三库矩阵的 MySQL/PostgreSQL 数据目录、`mysql-data`、`visual-data` 的库副本与两个旧二进制）与工作区根目录第二轮的临时文件（`commit-msg-r2*.txt`、`rm-sync*`、`vitest-*.log`、`check-zh.mjs`、`orphans.mjs`、`widths.mjs`、`zh-*.txt` 等 30 个），`logs\` 一并删除；本设备没有生产库，所有库副本按 owner 口径可随意删除。**注意**：`tools\` 里的三库数据目录与 `mysql-legacy.sql` / `pg-legacy.sql` 两个旧版库转储没有保留，需要时按第 3 节重建；视觉核对用的库副本需重新从上游同步的数据文件生成。
+- 自研 CDP 驱动从 `db-verify\cdp.mjs` 移到 `C:\Users\ParkGarden\Scripts\cdp.mjs`（与 `CDP.ps1` 同级），模式 `pages | eval | shot | nav | emul-eval | emul-nav | emulate-off | drag | key | open | close`，用 `bun` 运行（用 `node` 会因脚本里的 `Bun.sleep` 报错）。
