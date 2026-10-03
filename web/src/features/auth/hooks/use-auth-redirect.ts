@@ -103,17 +103,9 @@ export function useAuthRedirect() {
     void navigate({ to: '/sign-in', replace: true })
   }, [navigate])
 
-  /**
-   * Redirect to register page
-   */
-  const redirectToRegister = useCallback(() => {
-    void navigate({ to: '/sign-up', replace: true })
-  }, [navigate])
-
   return {
     handleLoginSuccess,
     handleLoginResult,
     redirectToLogin,
-    redirectToRegister,
   }
 }
