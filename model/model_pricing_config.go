@@ -27,7 +27,6 @@ type ModelPricingChange struct {
 	ModelName       string        `json:"model_name"`
 	ExpectedVersion string        `json:"expected_version"`
 	Pricing         PricingValues `json:"pricing"`
-	Reset           bool          `json:"reset,omitempty"`
 }
 
 type ModelPricingEntry struct {
@@ -281,16 +280,12 @@ func UpdateModelPricing(changes []ModelPricingChange) error {
 		}
 	}
 	return mutateModelPricingOptions(func(_ *gorm.DB, values map[string]map[string]any) error {
-		defaults := defaultPricingMaps()
 		for _, change := range changes {
 			previous := modelPricingValues(values, change.ModelName)
 			if ModelPricingVersion(previous) != change.ExpectedVersion {
 				return fmt.Errorf("%w: %s", ErrModelPricingConflict, change.ModelName)
 			}
 			pricing := change.Pricing
-			if change.Reset {
-				pricing = modelPricingValues(defaults, change.ModelName)
-			}
 			if err := validateModelPricing(change.ModelName, pricing, previous); err != nil {
 				return err
 			}

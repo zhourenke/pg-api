@@ -69,7 +69,7 @@ it('reports the pricing rejection once when the request error reaches multiple h
   }
   api.defaults.adapter = adapter
   await saveModelPricing([
-    { model_name: 'example', expected_version: 'v1', pricing: {}, reset: true },
+    { model_name: 'example', expected_version: 'v1', pricing: {} },
   ]).catch((error) => {
     handleServerError(error)
     handleServerError(error)
@@ -128,7 +128,6 @@ it('uses production mutation callbacks to report nested pricing failures only on
             model_name: name,
             expected_version: 'v1',
             pricing: {},
-            reset: true,
           },
         ]),
       onError: (error) => handleServerError(error),

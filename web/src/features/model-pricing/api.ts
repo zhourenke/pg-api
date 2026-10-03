@@ -59,7 +59,6 @@ export type ModelPricingChange = {
   model_name: string
   expected_version: string
   pricing: PricingValues
-  reset?: boolean
 }
 
 

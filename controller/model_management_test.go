@@ -439,7 +439,7 @@ func TestModelManagementDatabaseMatrix(t *testing.T) {
 				t.Cleanup(func() {
 					snapshot, err := model.GetModelPricingSnapshot([]string{"listing-new"})
 					require.NoError(t, err)
-					require.NoError(t, model.UpdateModelPricing([]model.ModelPricingChange{{ModelName: "listing-new", ExpectedVersion: snapshot.Entries[0].Version, Reset: true}}))
+					require.NoError(t, model.UpdateModelPricing([]model.ModelPricingChange{{ModelName: "listing-new", ExpectedVersion: snapshot.Entries[0].Version, Pricing: model.PricingValues{}}}))
 				})
 				require.NoError(t, db.Model(&model.Model{}).Where("model_name = ?", "listing-new").Count(&count).Error)
 				assert.Zero(t, count)
@@ -559,8 +559,8 @@ func TestModelManagementDatabaseMatrix(t *testing.T) {
 				assert.Equal(t, float64(0), configured.Entries[0].Effective["ModelPrice"])
 
 				// The admin table's delete button clears every field of the model, so
-				// the request it sends is an empty draft with no reset flag. That
-				// payload has to clear the stored price just like reset does.
+				// the request it sends is an empty draft that has to clear the
+				// stored price.
 				change.ExpectedVersion, change.Pricing = configured.Entries[0].Version, model.PricingValues{}
 				require.NoError(t, model.UpdateModelPricing([]model.ModelPricingChange{change}))
 
@@ -571,24 +571,6 @@ func TestModelManagementDatabaseMatrix(t *testing.T) {
 					require.NoError(t, err)
 					assert.Empty(t, cleared.Entries[0].Configured)
 					assert.NotContains(t, cleared.Entries[0].Effective, "ModelPrice")
-				}
-
-				// Clearing through reset must reach the same state.
-				repriced, err := model.GetModelPricingSnapshot([]string{name})
-				require.NoError(t, err)
-				change = model.ModelPricingChange{ModelName: name, ExpectedVersion: repriced.Entries[0].Version, Pricing: model.PricingValues{"ModelPrice": float64(1)}}
-				require.NoError(t, model.UpdateModelPricing([]model.ModelPricingChange{change}))
-				priced, err := model.GetModelPricingSnapshot([]string{name})
-				require.NoError(t, err)
-				require.Equal(t, float64(1), priced.Entries[0].Effective["ModelPrice"])
-
-				change = model.ModelPricingChange{ModelName: name, ExpectedVersion: priced.Entries[0].Version, Reset: true}
-				require.NoError(t, model.UpdateModelPricing([]model.ModelPricingChange{change}))
-				for range 2 {
-					reset, err := model.GetModelPricingSnapshot([]string{name})
-					require.NoError(t, err)
-					assert.Empty(t, reset.Entries[0].Configured)
-					assert.NotContains(t, reset.Entries[0].Effective, "ModelPrice")
 				}
 			})
 			t.Run("concurrent_import_creates_one_record", func(t *testing.T) {
@@ -654,7 +636,7 @@ func TestModelManagementDatabaseMatrix(t *testing.T) {
 				assert.Equal(t, float64(0), prices.Entries[0].Configured["ModelPrice"])
 				assert.Empty(t, prices.Entries[1].Configured)
 				require.NoError(t, reloaded.Delete())
-				require.NoError(t, model.UpdateModelPricing([]model.ModelPricingChange{{ModelName: "matrix-hidden-unpriced", ExpectedVersion: prices.Entries[0].Version, Reset: true}}))
+				require.NoError(t, model.UpdateModelPricing([]model.ModelPricingChange{{ModelName: "matrix-hidden-unpriced", ExpectedVersion: prices.Entries[0].Version, Pricing: model.PricingValues{}}}))
 				prices, err = model.GetModelPricingSnapshot([]string{"matrix-hidden-unpriced"})
 				require.NoError(t, err)
 				assert.Empty(t, prices.Entries[0].Configured)
