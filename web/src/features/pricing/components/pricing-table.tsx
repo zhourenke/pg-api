@@ -23,7 +23,7 @@ import { useTranslation } from 'react-i18next'
 import {
   DataTablePagination,
   DataTableRow,
-  DataTableView,
+  ResponsiveDataTableView,
   useDataTable,
 } from '@/components/data-table'
 
@@ -89,7 +89,7 @@ export function PricingTable(props: PricingTableProps) {
 
   return (
     <div className='space-y-4'>
-      <DataTableView
+      <ResponsiveDataTableView
         table={table}
         isLoading={isLoading}
         emptyTitle={t('No Models Found')}

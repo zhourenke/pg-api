@@ -43,6 +43,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { useMediaQuery } from '@/hooks'
 import { cn } from '@/lib/utils'
 
 import {
@@ -90,6 +91,7 @@ export interface PricingToolbarProps {
 
 export function PricingToolbar(props: PricingToolbarProps) {
   const { t } = useTranslation()
+  const isMobile = useMediaQuery('(max-width: 640px)')
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const sortLabels = getSortLabels(t)
 
@@ -223,10 +225,12 @@ export function PricingToolbar(props: PricingToolbarProps) {
             )}
           </Button>
 
-          <DataTableViewModeToggle
-            value={props.viewMode}
-            onChange={props.onViewModeChange}
-          />
+          {!isMobile && (
+            <DataTableViewModeToggle
+              value={props.viewMode}
+              onChange={props.onViewModeChange}
+            />
+          )}
         </div>
       </div>
 

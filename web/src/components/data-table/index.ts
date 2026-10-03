@@ -40,6 +40,7 @@ export {
   type DataTableRenderRowHelpers,
 } from './core/data-table-view'
 export { MobileCardList } from './layout/mobile-card-list'
+export { ResponsiveDataTableView } from './layout/responsive-data-table-view'
 export {
   DataTableCardGrid,
   type DataTableCardGridProps,

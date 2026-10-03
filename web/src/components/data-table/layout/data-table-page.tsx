@@ -331,12 +331,15 @@ export function DataTablePage<TData>(props: DataTablePageProps<TData>) {
   const setViewMode = props.onViewModeChange ?? setInternalViewMode
   const cardViewActive = !!props.enableCardView
 
-  const viewToggle = cardViewActive ? (
-    <DataTableViewModeToggle value={viewMode} onChange={setViewMode} />
-  ) : undefined
+  // Narrow viewports always render the card list, so the table/card switch only
+  // applies where a table is actually shown.
+  const viewToggle =
+    cardViewActive && !isMobile ? (
+      <DataTableViewModeToggle value={viewMode} onChange={setViewMode} />
+    ) : undefined
 
   const toolbarNode = renderToolbar(props, viewToggle)
-  const mobileNode = renderMobile(props, showMobile, cardViewActive, viewMode)
+  const mobileNode = renderMobile(props, showMobile, cardViewActive)
   const desktopNode = renderDesktop(props, showMobile, cardViewActive, viewMode)
   const paginationNode = renderPagination(props)
 
@@ -412,14 +415,12 @@ function renderPagination<TData>(
 function renderMobile<TData>(
   props: DataTablePageProps<TData>,
   showMobile: boolean,
-  cardViewActive: boolean,
-  viewMode: DataTableViewMode
+  cardViewActive: boolean
 ): React.ReactNode {
   if (!showMobile) {
     return null
   }
 
-  const isFetchingOnly = props.isFetching && !props.isLoading
   const ownGetRowClassName = props.getRowClassName
   const mobileGetRowClassName =
     props.mobileProps?.getRowClassName ??
@@ -429,35 +430,7 @@ function renderMobile<TData>(
 
   let mobileContent = props.mobile
   if (mobileContent === undefined) {
-    if (cardViewActive && viewMode === DATA_TABLE_VIEW_MODES.TABLE) {
-      mobileContent = (
-        <DataTableView
-          table={props.table}
-          isLoading={props.isLoading}
-          emptyTitle={props.emptyTitle}
-          emptyDescription={props.emptyDescription}
-          emptyIcon={props.emptyIcon}
-          emptyAction={props.emptyAction}
-          skeletonKeyPrefix={props.skeletonKeyPrefix}
-          renderRow={props.renderRow}
-          applyHeaderSize={props.applyHeaderSize}
-          tableHeaderClassName={cn(
-            '[background-color:var(--table-header)]',
-            props.tableHeaderClassName
-          )}
-          getColumnClassName={props.getColumnClassName}
-          pinnedColumns={props.pinnedColumns}
-          containerClassName={cn(
-            'transition-opacity duration-150',
-            isFetchingOnly && 'pointer-events-none opacity-60',
-            props.tableClassName
-          )}
-          getRowClassName={(row) =>
-            props.getRowClassName?.(row, { isMobile: false })
-          }
-        />
-      )
-    } else if (cardViewActive) {
+    if (cardViewActive) {
       mobileContent = (
         <DataTableCardGrid
           table={props.table}

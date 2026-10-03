@@ -44,7 +44,7 @@ import {
   DataTableToolbar,
   DataTablePagination,
   DataTableRow,
-  DataTableView,
+  ResponsiveDataTableView,
   useDataTable,
 } from '@/components/data-table'
 import { Button } from '@/components/ui/button'
@@ -611,7 +611,7 @@ const ModelRatioVisualEditorComponent = forwardRef<
               {emptyStateText}
             </div>
           ) : (
-            <DataTableView
+            <ResponsiveDataTableView
               table={table}
               containerClassName='min-h-0 flex-1 rounded-md'
               tableContainerClassName='h-full'

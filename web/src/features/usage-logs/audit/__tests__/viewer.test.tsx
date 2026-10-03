@@ -301,6 +301,8 @@ it.each([
 ] as const)(
   'renders existing channel status audit records in %s',
   async (locale, resources, single, batch) => {
+    // 该用例断言桌面表格形态，先清掉前序用例遗留的视口 mock。
+    vi.restoreAllMocks()
     const i18n = createInstance()
     await i18n.init({
       lng: locale,

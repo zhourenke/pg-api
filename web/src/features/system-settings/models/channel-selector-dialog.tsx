@@ -23,7 +23,7 @@ import { useTranslation } from 'react-i18next'
 
 import {
   DataTablePagination,
-  DataTableView,
+  ResponsiveDataTableView,
   useDataTable,
 } from '@/components/data-table'
 import { Dialog } from '@/components/dialog'
@@ -58,7 +58,6 @@ type ChannelSelectorDialogProps = {
   onChannelEndpointsChange: (endpoints: Record<number, string>) => void
   onConfirm: (selectedIds: number[]) => void
 }
-
 
 export function ChannelSelectorDialog({
   open,
@@ -263,12 +262,10 @@ export function ChannelSelectorDialog({
     const searchLower = debouncedSearch.toLowerCase()
     return channels.filter(
       (ch) =>
-        ch.name
-          .toLowerCase()
-          .includes(searchLower) ||
+        ch.name.toLowerCase().includes(searchLower) ||
         ch.base_url.toLowerCase().includes(searchLower)
     )
-  }, [channels, debouncedSearch, t])
+  }, [channels, debouncedSearch])
 
   const { table } = useDataTable({
     data: filteredChannels,
@@ -320,7 +317,7 @@ export function ChannelSelectorDialog({
           </div>
         </div>
 
-        <DataTableView
+        <ResponsiveDataTableView
           table={table}
           containerClassName='min-h-0 flex-1 rounded-md'
           tableContainerClassName='h-full min-h-0'

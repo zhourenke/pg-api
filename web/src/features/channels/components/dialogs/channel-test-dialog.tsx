@@ -47,7 +47,7 @@ import { ConfirmDialog } from '@/components/confirm-dialog'
 import {
   DataTableBulkActions as BulkActionsToolbar,
   DataTablePagination,
-  DataTableView,
+  ResponsiveDataTableView,
   useDataTable,
 } from '@/components/data-table'
 import { Dialog } from '@/components/dialog'
@@ -1082,7 +1082,7 @@ function ChannelTestDialogContent({
             </div>
 
             <div className='space-y-3'>
-              <DataTableView
+              <ResponsiveDataTableView
                 table={table}
                 containerClassName='rounded-md'
                 containerProps={{
