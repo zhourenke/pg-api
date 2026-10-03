@@ -253,7 +253,7 @@ export const ModelRatioForm = memo(function ModelRatioForm({
       <div className='flex min-h-0 flex-1 flex-col gap-6'>
         {!isUnsetVariant && (
           <div className='flex shrink-0 flex-wrap items-center justify-end gap-2'>
-            <SettingsPageActionsPortal>
+            <SettingsPageActionsPortal fallbackInline>
               <FormField
                 control={form.control}
                 name='ExposeRatioEnabled'
@@ -281,6 +281,19 @@ export const ModelRatioForm = memo(function ModelRatioForm({
                   </SettingsSwitchItem>
                 )}
               />
+              <Button variant='outline' size='sm' onClick={toggleEditMode}>
+                {editMode === 'visual' ? (
+                  <>
+                    <Code2 className='mr-2 h-4 w-4' />
+                    {t('Switch to JSON')}
+                  </>
+                ) : (
+                  <>
+                    <Eye className='mr-2 h-4 w-4' />
+                    {t('Switch to Visual')}
+                  </>
+                )}
+              </Button>
             </SettingsPageActionsPortal>
             {editMode === 'json' && (
               <Button
@@ -293,19 +306,6 @@ export const ModelRatioForm = memo(function ModelRatioForm({
                 {isSaving ? t('Saving...') : t('Save model prices')}
               </Button>
             )}
-            <Button variant='outline' size='sm' onClick={toggleEditMode}>
-              {editMode === 'visual' ? (
-                <>
-                  <Code2 className='mr-2 h-4 w-4' />
-                  {t('Switch to JSON')}
-                </>
-              ) : (
-                <>
-                  <Eye className='mr-2 h-4 w-4' />
-                  {t('Switch to Visual')}
-                </>
-              )}
-            </Button>
           </div>
         )}
 

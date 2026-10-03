@@ -26,7 +26,7 @@ import * as z from 'zod'
 import { ErrorState } from '@/components/error-state'
 import { LoadingState } from '@/components/loading-state'
 import { Button } from '@/components/ui/button'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsContent } from '@/components/ui/tabs'
 import {
   buildPricingChanges,
   useModelPricing,
@@ -42,6 +42,7 @@ import { useUpdateOption } from '../hooks/use-update-option'
 import { positiveIntegerSchema } from '../utils/numeric-field'
 import { GroupRatioForm } from './group-ratio-form'
 import { ModelRatioForm } from './model-ratio-form'
+import { RatioTabStrip } from './ratio-tab-strip'
 import { ToolPriceSettings } from './tool-price-settings'
 import {
   formatJsonForTextarea,
@@ -145,11 +146,7 @@ const createGroupSchema = (t: Translate) =>
 
 type ModelFormValues = z.infer<ReturnType<typeof createModelSchema>>
 type GroupFormValues = z.infer<ReturnType<typeof createGroupSchema>>
-type RatioTabId =
-  | 'models'
-  | 'unset-models'
-  | 'groups'
-  | 'tool-prices'
+type RatioTabId = 'models' | 'unset-models' | 'groups' | 'tool-prices'
 
 type RatioSettingsCardProps = {
   modelDefaults: ModelFormValues
@@ -486,15 +483,14 @@ export function RatioSettingsCard({
   }
 
   const renderTabSwitcher = () => (
-    <TabsList className={`grid w-fit max-w-full ${tabsGridClass}`}>
-      {visibleTabs.map((tab) => (
-        <TabsTrigger key={tab} value={tab}>
-          {t(tabLabels[tab])}
-        </TabsTrigger>
-      ))}
-    </TabsList>
+    <RatioTabStrip
+      columnsClassName={tabsGridClass}
+      items={visibleTabs.map((tab) => ({
+        value: tab,
+        label: t(tabLabels[tab]),
+      }))}
+    />
   )
-
   return visibleTabs.length === 1 ? (
     <SettingsSection
       title={t(titleKey)}

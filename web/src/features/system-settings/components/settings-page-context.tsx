@@ -82,6 +82,12 @@ export function SettingsPageTitleStatusPortal(
 
 type SettingsPageActionsPortalProps = {
   children: ReactNode
+  /**
+   * Render the children in place when the surrounding page provides no actions
+   * area. Without it the content is dropped, which would hide controls that
+   * also appear outside a settings page (e.g. embedded editors).
+   */
+  fallbackInline?: boolean
 }
 
 export function SettingsPageActionsPortal(
@@ -89,14 +95,17 @@ export function SettingsPageActionsPortal(
 ) {
   const { actionsContainer } = useContext(SettingsPageContext)
 
-  if (!actionsContainer) return null
+  if (!actionsContainer && !props.fallbackInline) return null
 
-  return createPortal(
+  const content = (
     <div className='flex flex-wrap items-center justify-end gap-2'>
       {props.children}
-    </div>,
-    actionsContainer
+    </div>
   )
+
+  if (!actionsContainer) return content
+
+  return createPortal(content, actionsContainer)
 }
 
 type SettingsPageFormActionsProps = {
