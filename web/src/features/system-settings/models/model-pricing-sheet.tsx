@@ -281,7 +281,6 @@ export const ModelPricingEditorPanel = forwardRef<
             )}
             <div className='grid min-w-0 items-start gap-4 @min-[960px]/pricing-editor:grid-cols-[minmax(0,1fr)_260px]'>
               <FieldGroup className='min-w-0'>
-
                 {!embedded && (
                   <FormField
                     control={form.control}

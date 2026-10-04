@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { QueryClientProvider } from '@tanstack/react-query'
 import {
   createMemoryHistory,
   createRootRoute,
@@ -23,7 +24,6 @@ import {
   createRouter,
   RouterProvider,
 } from '@tanstack/react-router'
-import { QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 
@@ -119,10 +119,9 @@ it.each(cases)(
     currentStatus = status
     await renderSignIn()
     if (visible) {
-      expect(await screen.findByRole('link', { name: 'Sign up' })).toHaveAttribute(
-        'href',
-        '/sign-up'
-      )
+      expect(
+        await screen.findByRole('link', { name: 'Sign up' })
+      ).toHaveAttribute('href', '/sign-up')
     } else {
       expect(screen.queryByRole('link', { name: 'Sign up' })).toBeNull()
     }

@@ -97,8 +97,9 @@ describe('pricing table', () => {
       <PricingTable models={[pricingModel()]} tokenUnit='M' />
     )
 
-    const widths = Array.from(container.querySelectorAll('colgroup col'), (col) =>
-      Number.parseFloat((col as HTMLElement).style.width)
+    const widths = Array.from(
+      container.querySelectorAll('colgroup col'),
+      (col) => Number.parseFloat((col as HTMLElement).style.width)
     ).filter((width) => !Number.isNaN(width))
 
     expect(widths).toHaveLength(6)

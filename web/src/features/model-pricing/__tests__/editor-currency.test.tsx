@@ -45,7 +45,6 @@ import {
   useSystemConfigStore,
 } from '@/stores/system-config-store'
 
-
 const clients: QueryClient[] = []
 
 beforeEach(() => {

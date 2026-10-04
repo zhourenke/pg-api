@@ -308,7 +308,7 @@ export function ModelPriceInlineCell(props: {
                 </span>
               )}
               {segment.unit && (
-                <span className='ml-1 text-muted-foreground text-xs'>
+                <span className='text-muted-foreground ml-1 text-xs'>
                   / {segment.unit}
                 </span>
               )}

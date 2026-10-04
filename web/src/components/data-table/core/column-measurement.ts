@@ -23,7 +23,7 @@ import type { Column } from '@tanstack/react-table'
  * measuring clone already includes the cell padding, so this is only breathing
  * space.
  */
-export const COLUMN_WIDTH_PADDING = 16
+const COLUMN_WIDTH_PADDING = 16
 
 /**
  * Only used when a column's header cannot be measured at all (a custom header
@@ -47,10 +47,7 @@ export function measureColumnHeaderWidth(
   tableElement: HTMLElement,
   columnId: string
 ): number | undefined {
-  return measureCells(
-    tableElement,
-    `th${getColumnElementSelector(columnId)}`
-  )
+  return measureCells(tableElement, `th${getColumnElementSelector(columnId)}`)
 }
 
 /**
@@ -68,7 +65,7 @@ export function getContentFitWidth<TData>(
   )
 }
 
-export function clampColumnSize<TData>(
+function clampColumnSize<TData>(
   column: Column<TData, unknown>,
   size: number
 ): number {
@@ -112,7 +109,7 @@ function measureCells(
  * taken out of the table so the current column widths cannot influence the
  * result, and the resize handle is dropped so it never counts as content.
  */
-export function measureElementWidth(element: HTMLElement) {
+function measureElementWidth(element: HTMLElement) {
   const clone = element.cloneNode(true) as HTMLElement
 
   clone.querySelectorAll('[data-column-resizer]').forEach((resizer) => {

@@ -16,7 +16,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import type { ColumnSizingState, Table as TanstackTable } from '@tanstack/react-table'
+import type {
+  ColumnSizingState,
+  Table as TanstackTable,
+} from '@tanstack/react-table'
 import * as React from 'react'
 
 import {
@@ -142,11 +145,13 @@ export function useMeasuredColumnWidths<TData>(
     }, FOLLOW_UP_MS)
 
     if (document.fonts) {
-      void document.fonts.ready.catch(() => {}).then(() => {
-        if (!frozenRef.current) {
-          measureColumns()
-        }
-      })
+      void document.fonts.ready
+        .catch(() => {})
+        .then(() => {
+          if (!frozenRef.current) {
+            measureColumns()
+          }
+        })
     }
 
     const settleTimer = window.setTimeout(

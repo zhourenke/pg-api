@@ -38,7 +38,7 @@ import {
   type LegacyBillingDetails,
 } from './pricing'
 
-export type ModelPricingDescription = {
+type ModelPricingDescription = {
   billing_details?: LegacyBillingDetails
   effective: PricingValues
   cache_write_mode?: CacheWriteMode
@@ -61,12 +61,11 @@ export type ModelPricingChange = {
   pricing: PricingValues
 }
 
-
 export function useCanEditModelPricing() {
   return useAuthStore((state) => state.auth.user?.role === ROLE.SUPER_ADMIN)
 }
 
-export async function getModelPricing(
+async function getModelPricing(
   names: string[] = []
 ): Promise<ModelPricingConfig> {
   const params = new URLSearchParams()

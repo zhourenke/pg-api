@@ -19,7 +19,6 @@ For commercial licensing, please contact support@quantumnous.com
 import { splitBillingExprAndRequestRules } from '@/features/pricing/lib/billing-expr'
 
 import { safeJsonParse } from '../utils/json-parser'
-import { formatPricingNumber } from './pricing-format'
 
 export type ModelPricingSnapshotInput = {
   modelPrice: string
@@ -66,91 +65,6 @@ export const isBasePricingUnset = (snapshot?: ModelPricingSnapshot) =>
   (snapshot.billingMode !== 'tiered_expr' &&
     !hasPricingValue(snapshot.price) &&
     !hasPricingValue(snapshot.ratio))
-
-const toNumberOrNull = (value?: string) => {
-  if (!hasPricingValue(value)) return null
-  const num = Number(value)
-  return Number.isFinite(num) ? num : null
-}
-
-const ratioToPrice = (ratio?: string, denominator?: string) => {
-  const ratioNumber = toNumberOrNull(ratio)
-  const denominatorNumber = denominator ? toNumberOrNull(denominator) : 2
-  if (ratioNumber === null || denominatorNumber === null) return ''
-  return formatPricingNumber(ratioNumber * denominatorNumber)
-}
-
-export const getModeLabel = (mode?: string) => {
-  if (mode === 'per-request') return 'Per-request (deprecated)'
-  if (mode === 'tiered_expr') return 'Expression'
-  return 'Per-token (deprecated)'
-}
-
-export const getModeVariant = (
-  mode?: string
-): 'warning' | 'info' | 'success' => {
-  if (mode === 'per-request') return 'warning'
-  if (mode === 'tiered_expr') return 'info'
-  return 'success'
-}
-
-const getExpressionSummary = (
-  row: ModelPricingSnapshot,
-  t: (key: string) => string
-) => {
-  const tierCount = (row.billingExpr?.match(/tier\(/g) || []).length
-  if (tierCount > 0) {
-    return `${t('Tiered pricing')} · ${tierCount} ${t('tiers')}`
-  }
-  return t('Expression pricing')
-}
-
-export const getPriceSummary = (
-  row: ModelPricingSnapshot,
-  t: (key: string) => string
-) => {
-  if (row.billingMode === 'tiered_expr') {
-    return getExpressionSummary(row, t)
-  }
-  if (row.billingMode === 'per-request') {
-    return row.price ? `$${row.price} / ${t('request')}` : t('Unset price')
-  }
-
-  const inputPrice = ratioToPrice(row.ratio)
-  if (!inputPrice) return t('Unset price')
-
-  return `${t('Input')} $${inputPrice}`
-}
-
-export const getPriceDetail = (
-  row: ModelPricingSnapshot,
-  t: (key: string) => string
-) => {
-  if (row.billingMode === 'tiered_expr') {
-    return row.requestRuleExpr
-      ? t('Includes request rules')
-      : t('Expression based')
-  }
-  if (row.billingMode === 'per-request') {
-    return t('Fixed request price')
-  }
-
-  const inputPrice = ratioToPrice(row.ratio)
-  if (!inputPrice) return t('No base input price')
-
-  const details = [
-    row.completionRatio &&
-      `${t('Output')} $${ratioToPrice(row.completionRatio, inputPrice)}`,
-    row.cacheRatio &&
-      `${t('Cache')} $${ratioToPrice(row.cacheRatio, inputPrice)}`,
-    row.createCacheRatio &&
-      `${t('Cache write')} $${ratioToPrice(row.createCacheRatio, inputPrice)}`,
-  ]
-    .filter(Boolean)
-    .slice(0, 2)
-
-  return details.length > 0 ? details.join(' · ') : t('Base input price only')
-}
 
 export const buildModelSnapshots = ({
   modelPrice,

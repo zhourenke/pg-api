@@ -82,7 +82,7 @@ export type ExpressionNode = (
     }
 ) & { start: number; end: number }
 
-export type DiagnosticCode =
+type DiagnosticCode =
   | 'syntax'
   | 'unsupported'
   | 'missing_context'

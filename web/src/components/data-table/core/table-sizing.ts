@@ -45,7 +45,7 @@ export function getTableSizeStyle<TData>(
 }
 
 /** Total width of every column that declares a width, spacer excluded. */
-export function getSizedColumnsWidth<TData>(table: TanstackTable<TData>): number {
+function getSizedColumnsWidth<TData>(table: TanstackTable<TData>): number {
   return table
     .getVisibleLeafColumns()
     .filter((column) => !isFillerColumn(column.id))

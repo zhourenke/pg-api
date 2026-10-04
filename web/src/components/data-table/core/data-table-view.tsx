@@ -100,7 +100,11 @@ function UnifiedTableView<TData>({
 }) {
   const tableSizing = getTableSizing(props)
   const tableElementRef = React.useRef<HTMLTableElement | null>(null)
-  useMeasuredColumnWidths(props.table, tableElementRef, canMeasureRows(props, rows))
+  useMeasuredColumnWidths(
+    props.table,
+    tableElementRef,
+    canMeasureRows(props, rows)
+  )
 
   return (
     <div className={props.tableContainerClassName}>

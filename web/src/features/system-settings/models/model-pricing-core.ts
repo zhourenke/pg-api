@@ -43,16 +43,3 @@ export type ModelRatioData = {
   billingExpr?: string
   requestRuleExpr?: string
 }
-
-export function hasValue(value: unknown): boolean {
-  return (
-    value !== '' && value !== null && value !== undefined && value !== false
-  )
-}
-
-export function toNumberOrNull(value: unknown): number | null {
-  if (!hasValue(value) && value !== 0) return null
-  const num = Number(value)
-  return Number.isFinite(num) ? num : null
-}
-

@@ -393,8 +393,7 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>) {
     options.enableColumnResizing ?? !isNarrowViewport
 
   const tableColumns = React.useMemo(
-    () =>
-      resolvedEnableColumnResizing ? prepareColumns(columns) : columns,
+    () => (resolvedEnableColumnResizing ? prepareColumns(columns) : columns),
     [columns, resolvedEnableColumnResizing]
   )
 
@@ -424,10 +423,11 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>) {
     manualSorting,
     enableColumnResizing: resolvedEnableColumnResizing,
     columnResizeMode: 'onChange',
-    // Columns without explicit sizing still need a usable floor: TanStack's
-    // default minimum is 20px, which lets a drag collapse a column into an
-    // unreadable sliver.
-    defaultColumn: { size: 150, minSize: 56 },
+    // Columns that declare no size at all inherit this one. The declared
+    // minimum is not a drag floor here: `prepareColumns` clears it on a
+    // resizable table, and the floor a drag may not cross is measured from the
+    // column's own header instead (see `useMeasuredColumnWidths`).
+    defaultColumn: { size: 150 },
     onSortingChange,
     onColumnVisibilityChange,
     onColumnSizingChange,

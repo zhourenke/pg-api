@@ -65,11 +65,7 @@ function stubScrollingWidth() {
     })
 }
 
-async function dragSeparator(
-  separator: HTMLElement,
-  from: number,
-  to: number
-) {
+async function dragSeparator(separator: HTMLElement, from: number, to: number) {
   const originalPointerEvent = window.PointerEvent
   // jsdom ships no PointerEvent, and the generic fallback drops `clientX`,
   // which is the only thing a resize drag reads.

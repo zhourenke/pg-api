@@ -132,7 +132,6 @@ describe('model pricing entry', () => {
               'billing_setting.billing_mode': 'tiered_expr',
               'billing_setting.billing_expr': 'tier("base", p * 1.5)',
             },
-
           },
         ],
       })
@@ -475,7 +474,7 @@ describe('metadata editing', () => {
   it('keeps metadata drafts while saving pricing independently and preserves the price draft across tabs', async () => {
     useAuthStore.getState().auth.setUser({ id: 1, username: 'root', role: 100 })
     let version = 'v1'
-  let storedExpression = 'tier("base", p * 1.5)'
+    let storedExpression = 'tier("base", p * 1.5)'
     const get = vi.spyOn(api, 'get').mockImplementation(async (url) => {
       if (url === '/api/models/7') {
         return { data: { success: true, data: model } }
@@ -564,7 +563,6 @@ describe('metadata editing', () => {
               'billing_setting.billing_mode': 'tiered_expr',
               'billing_setting.billing_expr': 'tier("base", p * 1.5)',
             },
-
           },
         ],
       })
@@ -585,7 +583,6 @@ describe('metadata editing', () => {
               'billing_setting.billing_mode': 'tiered_expr',
               'billing_setting.billing_expr': 'tier("base", p * 2)',
             },
-
           },
         ],
       })

@@ -18,8 +18,9 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import { render, screen } from '@testing-library/react'
-import { Button } from '@/components/ui/button'
 import { describe, expect, it } from 'vitest'
+
+import { Button } from '@/components/ui/button'
 
 import { DataTableToolbar } from '../toolbar'
 
@@ -66,8 +67,6 @@ describe('single row toolbar', () => {
 
     // 动作簇自身不可收缩，被挤压的是搜索框。
     expect(search.nextElementSibling).toHaveClass('shrink-0')
-    expect(
-      screen.getByRole('button', { name: 'Add model' })
-    ).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Add model' })).toBeVisible()
   })
 })

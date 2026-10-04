@@ -50,7 +50,9 @@ function renderCell(columnId: string) {
     throw new Error(`Column ${columnId} has no cell renderer`)
   }
 
-  const cell = column.cell as (context: CellContext<ModelRow, unknown>) => ReactNode
+  const cell = column.cell as (
+    context: CellContext<ModelRow, unknown>
+  ) => ReactNode
   const row = { original: modelRow() } as unknown as Row<ModelRow>
 
   return render(<>{cell({ row } as CellContext<ModelRow, unknown>)}</>)
@@ -79,7 +81,9 @@ it('no longer offers a billing mode column', () => {
   })
 
   expect(
-    columns.map((column) => (column as { accessorKey?: string }).accessorKey ?? column.id)
+    columns.map(
+      (column) => (column as { accessorKey?: string }).accessorKey ?? column.id
+    )
   ).not.toContain('billingMode')
 })
 
@@ -92,9 +96,7 @@ it('offers delete only, because the row itself opens the editor', () => {
   expect(actions).toHaveClass('items-center')
   expect(actions).toHaveClass('justify-end')
   expect(actions).toHaveClass('gap-1')
-  expect(
-    within(actions as HTMLElement).getAllByRole('button')
-  ).toHaveLength(1)
+  expect(within(actions as HTMLElement).getAllByRole('button')).toHaveLength(1)
   expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull()
 })
 

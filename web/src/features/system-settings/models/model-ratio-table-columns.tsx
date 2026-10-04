@@ -144,8 +144,6 @@ export function buildModelRatioColumns({
   ]
 
   return identityOnly
-    ? columns.filter(
-        (column) => column.id === 'select' || column.id === 'name'
-      )
+    ? columns.filter((column) => column.id === 'select' || column.id === 'name')
     : columns
 }
