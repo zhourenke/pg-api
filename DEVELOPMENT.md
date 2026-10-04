@@ -161,19 +161,21 @@ $env:AUDIT_MYSQL_DSN        = 'root@tcp(127.0.0.1:3307)/'
 
 ### 复核工具：找出「本轮改动导致的死代码」（仓库外）
 
-两个脚本在 `C:\Users\ParkGarden\Scripts\pgapi-review\`（仓库外的机器工具目录，用法见该目录 `README.md`），用于一轮大改动收尾时判定哪些代码/文案真的失去了消费者：
+两个脚本在 `C:\Users\ParkGarden\DSH_Workspace\PGAPI\tools\dead-code-review\`（在 git 仓库之外的机器工具目录，用法见该目录 `README.md`），用于一轮大改动收尾时判定哪些代码/文案真的失去了消费者：
 
 ```powershell
 # 1) 死文案键：区分「本轮改动弄死的」与「基线上就已经是死的」
-cd C:\Users\ParkGarden\Scripts\pgapi-review
-bun find-dead-i18n-keys.mjs            # 默认仓库路径 + origin/main，输出 dead-i18n-keys.txt
+cd C:\Users\ParkGarden\DSH_Workspace\PGAPI\tools\dead-code-review
+bun find-dead-i18n-keys.mjs            # 自动向上找到仓库路径，基线取 origin/main，输出 dead-i18n-keys.txt
 
 # 2) 死导出/死文件：把 knip 的报告按同样口径拆开
 cd C:\Users\ParkGarden\DSH_Workspace\PGAPI\pg-api\web
 bunx knip --reporter json > $env:TEMP\knip.json
-cd C:\Users\ParkGarden\Scripts\pgapi-review
+cd C:\Users\ParkGarden\DSH_Workspace\PGAPI\tools\dead-code-review
 bun classify-dead-exports.mjs C:\Users\ParkGarden\DSH_Workspace\PGAPI\pg-api $env:TEMP\knip.json
 ```
+
+真机界面核对用的自研 CDP 驱动在同级 `C:\Users\ParkGarden\DSH_Workspace\PGAPI\tools\cdp\cdp.mjs`（连 `CDP.ps1` 起的 9222 端口，必须用 `bun` 运行），模式与坑见该目录 `README.md`。
 
 口径与已知盲区：i18n 侧按「键的字面量是否出现在 `web/src`」判定，运行时拼接的键（页脚署名用 `'new' + 'api'` 拼）会落进 PRE-EXISTING 假阳性；knip 侧按「同名符号的出现次数是否变少」判定，通用名与同名定义会掩盖真实孤儿，**逐条用 `git grep -w <name> -- web/src` 确认后再删**。2026-10-03 复核实测：i18n 侧 OURS 40 → 清理后 0；knip 侧 OURS 10 个符号 / 2 个真死文件（另有 13 个 noise），PRE-EXISTING 447 符号 / 50 文件。Go 侧没有等价工具（本机无法离线构建 `golang.org/x/tools/cmd/deadcode`：缺 `x/telemetry` 与 `go-cmp`），做法是「删除文件后 `git grep` 被删符号 + 人工核对包内引用」。
 
@@ -341,7 +343,7 @@ bun classify-dead-exports.mjs C:\Users\ParkGarden\DSH_Workspace\PGAPI\pg-api $en
 - `ModelPricingChange.reset` 冗余字段及其后端分支 → `113de64dd`。
 - 注册关闭时登录页仍显示注册入口、首页「开始使用」跳注册页 → `d1bcabbe0`。
 - 收尾清理（目标结束后）：删除 `db-verify\`（183 MB：验证截图、一次性探针脚本、`ui-check.db` 库副本、测试用二进制 `pg-api-ui.exe`）、`tools\`（835 MB：三库矩阵的 MySQL/PostgreSQL 数据目录、`mysql-data`、`visual-data` 的库副本与两个旧二进制）与工作区根目录第二轮的临时文件（`commit-msg-r2*.txt`、`rm-sync*`、`vitest-*.log`、`check-zh.mjs`、`orphans.mjs`、`widths.mjs`、`zh-*.txt` 等 30 个），`logs\` 一并删除；本设备没有生产库，所有库副本按 owner 口径可随意删除。**注意**：`tools\` 里的三库数据目录与 `mysql-legacy.sql` / `pg-legacy.sql` 两个旧版库转储没有保留，需要时按第 3 节重建；视觉核对用的库副本需重新从上游同步的数据文件生成。
-- 自研 CDP 驱动从 `db-verify\cdp.mjs` 移到 `C:\Users\ParkGarden\Scripts\cdp.mjs`（与 `CDP.ps1` 同级），模式 `pages | eval | shot | nav | emul-eval | emul-nav | emulate-off | drag | key | open | close`，用 `bun` 运行（用 `node` 会因脚本里的 `Bun.sleep` 报错）。
+- 自研 CDP 驱动从 `db-verify\cdp.mjs` 移到 `C:\Users\ParkGarden\Scripts\cdp.mjs`（与 `CDP.ps1` 同级；2026-10-04 又随工具整理移入工作区 `…\PGAPI\tools\cdp\cdp.mjs`），模式 `pages | eval | shot | nav | emul-eval | emul-nav | emulate-off | drag | key | open | close`，用 `bun` 运行（用 `node` 会因脚本里的 `Bun.sleep` 报错）。
 
 **2026-10-04 第四轮复核收掉的事项**（都已提交，别再重排）：
 
@@ -350,4 +352,5 @@ bun classify-dead-exports.mjs C:\Users\ParkGarden\DSH_Workspace\PGAPI\pg-api $en
 - 40 个「`origin/main` 还被引用、现在无人引用」的 `zh.json` 键删除（一次性脚本 + `bun run i18n:sync`，报告三计数全 0）→ `dd40fdfb0`。
 - 被这几轮弄红的门禁：`format:check` 18 个文件 + `copyright:check` 2 个文件 → `dd40fdfb0`。**注意**：这两个检查会被「每次同步上游」重新弄红（见第 6 节 2026-09-30 那条），不是一次修完就永久成立。
 - 既有测试竞态：`channels/__tests__/model-mapping-editor.test.tsx` 的焦点断言补 `waitFor`（草稿请求在 `requestAnimationFrame` 里落地）→ `12e32999e`。
-- 复核工具留在仓库外：`C:\Users\ParkGarden\Scripts\pgapi-review\`（`find-dead-i18n-keys.mjs`、`classify-dead-exports.mjs`、`README.md`），用法见第 3 节。
+- 复核工具从 `C:\Users\ParkGarden\Scripts\` 整理进工作区 `C:\Users\ParkGarden\DSH_Workspace\PGAPI\tools\`：`dead-code-review\`（`find-dead-i18n-keys.mjs`、`classify-dead-exports.mjs`、`README.md`）与 `cdp\`（`cdp.mjs` + `README.md`），用法见第 3 节。放这里的理由：它们是**本项目专用**的一次性复核/核对工具，`C:\Users\ParkGarden\Scripts\` 只留 owner 自己启动 DSH 用的通用脚本；两个目录都在 git 仓库之外，不受 pg-api 提交影响。同批修掉 `cdp.mjs` 的 `close` 取参错误（读 `args[1]`，而 `close` 的 URL 子串在 `args[0]`，所以 `close <子串>` 只会打印 `nothing matched` 且不关标签页；已用一次性 headless Chrome 复测：`close example.com` 只关匹配的那个标签页）。
+- 死代码复核工具的两处口径修正：`find-dead-i18n-keys.mjs` 的基线归属改用「带引号的字面量」判定（否则一个叫 `extras` 的局部变量会把 `extras` 这个键误判成本轮弄死的），`classify-dead-exports.mjs` 的参数解析改成「以 `.json` 结尾的参数即 knip 报告，否则当 repoRoot」，与各自 `README.md` 的示例一致。
