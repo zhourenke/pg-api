@@ -57,8 +57,9 @@ func GetOptions(c *gin.Context) {
 		})
 	}
 	common.OptionMapRWMutex.Unlock()
-	// Display the same effective expressions used by pricing and settlement,
-	// including built-in defaults absent from persisted administrator options.
+	// These two keys are skipped in the loop above and served here instead, so the
+	// settings UI receives the administrator configuration that pricing and
+	// settlement actually read.
 	for key, values := range map[string]map[string]string{
 		"billing_setting.billing_mode": billing_setting.GetBillingModeCopy(),
 		"billing_setting.billing_expr": billing_setting.GetBillingExprCopy(),

@@ -89,15 +89,6 @@ func GetCompletionRatio(name string) float64 {
 	return DefaultCompletionRatio
 }
 
-// ResolveCompletionRatio resolves the completion ratio for a configuration
-// snapshot or draft without consulting mutable saved settings.
-func ResolveCompletionRatio(configured *float64) float64 {
-	if configured == nil {
-		return DefaultCompletionRatio
-	}
-	return *configured
-}
-
 func GetAudioRatio(name string) float64 {
 	name = FormatMatchingModelName(name)
 	if ratio, ok := audioRatioMap.Get(name); ok {

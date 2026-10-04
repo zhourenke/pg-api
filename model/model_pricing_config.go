@@ -130,9 +130,7 @@ func effectiveModelPricing(values map[string]map[string]any, name string) Pricin
 			result[key] = value
 		}
 	}
-	mode, _ := result["billing_setting.billing_mode"].(string)
-	if mode == "tiered_expr" {
-		result["billing_setting.billing_mode"] = mode
+	if mode, _ := result["billing_setting.billing_mode"].(string); mode == "tiered_expr" {
 		return result
 	}
 	if _, exists := result["ModelPrice"]; exists {
@@ -141,11 +139,11 @@ func effectiveModelPricing(values map[string]map[string]any, name string) Pricin
 	// Completion and cache ratios fall back to neutral engine multipliers. Expose
 	// their effective value without persisting them into the editable
 	// configuration; no per-model ratio is shipped.
-	var configuredCompletion *float64
+	completion := ratio_setting.DefaultCompletionRatio
 	if ratio, exists := result["CompletionRatio"].(float64); exists {
-		configuredCompletion = &ratio
+		completion = ratio
 	}
-	result["CompletionRatio"] = ratio_setting.ResolveCompletionRatio(configuredCompletion)
+	result["CompletionRatio"] = completion
 	for key, fallback := range map[string]float64{
 		"CacheRatio":       ratio_setting.DefaultCacheRatio,
 		"CreateCacheRatio": ratio_setting.DefaultCreateCacheRatio,
@@ -182,9 +180,8 @@ func GetModelPricingSnapshot(names []string) (*ModelPricingSnapshot, error) {
 	}
 	if len(names) == 0 {
 		nameSet := make(map[string]bool)
-		for key, entries := range values {
+		for _, entries := range values {
 			for name := range entries {
-				_ = key
 				nameSet[name] = true
 			}
 		}
@@ -256,10 +253,6 @@ func validateModelPricing(name string, values, previous PricingValues) error {
 		number, ok := value.(float64)
 		if !ok || math.IsNaN(number) || math.IsInf(number, 0) || number < 0 {
 			return fmt.Errorf("%s must be a finite, non-negative number", key)
-		}
-	}
-	if values["billing_setting.billing_mode"] == "tiered_expr" {
-		if _, exists := values["billing_setting.billing_expr"]; !exists {
 		}
 	}
 	return nil
