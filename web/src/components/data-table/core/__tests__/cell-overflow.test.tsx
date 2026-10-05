@@ -40,7 +40,12 @@ function NameWithIcon() {
 
 const columns: ColumnDef<Row>[] = [
   { accessorKey: 'name', header: 'Name', size: 180 },
-  { id: 'component', header: 'Component', size: 180, cell: () => <NameWithIcon /> },
+  {
+    id: 'component',
+    header: 'Component',
+    size: 180,
+    cell: () => <NameWithIcon />,
+  },
 ]
 
 function Harness() {

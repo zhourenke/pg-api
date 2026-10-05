@@ -135,7 +135,10 @@ export function TimingMetricsCell(props: TimingMetricsCellProps) {
           {t('Duration')}
         </span>
         <span
-          className={cn('shrink-0 tabular-nums', textColorMap[totalTimeVariant])}
+          className={cn(
+            'shrink-0 tabular-nums',
+            textColorMap[totalTimeVariant]
+          )}
         >
           {totalTimeLabel}
         </span>

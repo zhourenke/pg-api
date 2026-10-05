@@ -540,7 +540,7 @@ export function useCommonLogsColumns(
                   <Tooltip>
                     <TooltipTrigger
                       render={
-                        <span className='text-muted-foreground min-w-0 max-w-full truncate text-sm hover:underline' />
+                        <span className='text-muted-foreground max-w-full min-w-0 truncate text-sm hover:underline' />
                       }
                     >
                       {sensitiveVisible ? log.username : '••••'}
@@ -785,7 +785,7 @@ export function useCommonLogsColumns(
             )
           } else if (log.content) {
             detailPreview = (
-              <span className='text-muted-foreground min-w-0 max-w-full truncate group-hover:underline'>
+              <span className='text-muted-foreground max-w-full min-w-0 truncate group-hover:underline'>
                 {log.content}
               </span>
             )

@@ -145,7 +145,7 @@ export function VendorsTable() {
       size: 350,
       cell: ({ row }) => (
         <p
-          className='text-muted-foreground line-clamp-2 min-w-0 max-w-full break-words whitespace-normal'
+          className='text-muted-foreground line-clamp-2 max-w-full min-w-0 break-words whitespace-normal'
           title={row.original.description}
         >
           {row.original.description || '—'}

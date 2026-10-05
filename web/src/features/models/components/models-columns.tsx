@@ -120,9 +120,7 @@ export function useModelsColumns(
                       setOpen('update-model')
                     }}
                   >
-                    <span className='min-w-0 truncate'>
-                      {model.model_name}
-                    </span>
+                    <span className='min-w-0 truncate'>{model.model_name}</span>
                   </Button>
                   <CopyButton
                     value={model.model_name}

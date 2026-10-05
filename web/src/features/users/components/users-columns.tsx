@@ -117,7 +117,7 @@ export function useUsersColumns(): ColumnDef<User>[] {
                         />
                       }
                     >
-                      <LongText className='min-w-0 max-w-[80px]'>
+                      <LongText className='max-w-[80px] min-w-0'>
                         {remark}
                       </LongText>
                     </TooltipTrigger>
@@ -130,7 +130,7 @@ export function useUsersColumns(): ColumnDef<User>[] {
               {displayName && displayName !== username && (
                 <div
                   data-table-text='secondary'
-                  className='text-muted-foreground min-w-0 max-w-full text-xs font-normal'
+                  className='text-muted-foreground max-w-full min-w-0 text-xs font-normal'
                 >
                   <LongText>{displayName}</LongText>
                 </div>
