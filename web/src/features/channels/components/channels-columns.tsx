@@ -707,7 +707,14 @@ export function useChannelsColumns(
                     <ChevronRight className='h-4 w-4' />
                   )}
                 </Button>
-                <div className='flex items-center gap-1.5'>
+                {/* The card gives this cell whatever the two fixed spinner
+                  columns leave, which is less than the tag name and the count
+                  badge need together. Wrapping lets the badge drop to a second
+                  line; without it the flex row cannot shrink past the sum of the
+                  two, so the badge truncates its own text (an unreadable
+                  "1 cha…") and the row overflows the cell. The table's name
+                  column is wide enough that nothing wraps there. */}
+                <div className='flex flex-wrap items-center gap-1.5'>
                   <span className='font-semibold'>Tag：{tag}</span>
                   <StatusBadge
                     label={`${childrenCount} channels`}
