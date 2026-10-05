@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import type { ColumnDef } from '@tanstack/react-table'
 import { useTranslation } from 'react-i18next'
 
+import { TruncatedCell } from '@/components/data-table'
 import { MaskedValueDisplay } from '@/components/masked-value-display'
 import { StatusBadge } from '@/components/status-badge'
 import { TableId } from '@/components/table-id'
@@ -77,7 +78,9 @@ export function useRedemptionsColumns(): ColumnDef<Redemption>[] {
       header: t('Name'),
       meta: { mobileTitle: true },
       cell: ({ row }) => (
-        <span className='font-medium'>{row.getValue('name')}</span>
+        <TruncatedCell className='font-medium'>
+          {row.getValue('name')}
+        </TruncatedCell>
       ),
       size: 180,
     },
@@ -176,7 +179,7 @@ export function useRedemptionsColumns(): ColumnDef<Redemption>[] {
       meta: { mobileHidden: true },
       cell: ({ row }) => {
         return (
-          <div className='min-w-[160px] font-mono text-sm'>
+          <div className='min-w-0 max-w-full truncate font-mono text-sm'>
             {formatTimestampToDate(row.getValue('created_time'))}
           </div>
         )
@@ -202,7 +205,7 @@ export function useRedemptionsColumns(): ColumnDef<Redemption>[] {
         const isExpired = isTimestampExpired(expiredTime)
         return (
           <div
-            className={`min-w-[160px] font-mono text-sm ${isExpired ? 'text-destructive' : ''}`}
+            className={`min-w-0 max-w-full truncate font-mono text-sm ${isExpired ? 'text-destructive' : ''}`}
           >
             {formatTimestampToDate(expiredTime)}
           </div>

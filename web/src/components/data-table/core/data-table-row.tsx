@@ -67,23 +67,18 @@ function DataTableRowInner<TData>({
       className={className}
       {...rowProps}
     >
-      {row.getVisibleCells().map((cell) => {
-        const renderedCell = renderCellContent(cell)
-
-        return (
-          <TableCell
-            key={cell.id}
-            data-column-id={cell.column.id}
-            className={cn(
-              'max-w-full min-w-0',
-              renderedCell.isPrimitive && 'overflow-hidden',
-              getColumnClassName?.(cell.column.id, 'cell')
-            )}
-          >
-            {renderedCell.content}
-          </TableCell>
-        )
-      })}
+      {row.getVisibleCells().map((cell) => (
+        <TableCell
+          key={cell.id}
+          data-column-id={cell.column.id}
+          className={cn(
+            'max-w-full min-w-0',
+            getColumnClassName?.(cell.column.id, 'cell')
+          )}
+        >
+          {renderCellContent(cell)}
+        </TableCell>
+      ))}
     </TableRow>
   )
 }
@@ -128,15 +123,10 @@ function renderCellContent<TData>(cell: Cell<TData, unknown>) {
   const textContent = getPrimitiveTextContent(content)
 
   if (!textContent) {
-    return { content, isPrimitive: false }
+    return content
   }
 
-  return {
-    content: (
-      <TruncatedCell tooltipContent={textContent}>{content}</TruncatedCell>
-    ),
-    isPrimitive: true,
-  }
+  return <TruncatedCell tooltipContent={textContent}>{content}</TruncatedCell>
 }
 
 function getPrimitiveTextContent(content: React.ReactNode): string | null {

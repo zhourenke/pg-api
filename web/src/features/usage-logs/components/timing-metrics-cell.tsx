@@ -98,7 +98,7 @@ export function TimingMetricsCell(props: TimingMetricsCellProps) {
       )}
     >
       {showFirstToken && (
-        <div className='flex items-baseline gap-1.5'>
+        <div className='flex min-w-0 items-baseline gap-1.5'>
           {indicator === 'dot' && (
             <span
               aria-hidden
@@ -108,15 +108,20 @@ export function TimingMetricsCell(props: TimingMetricsCellProps) {
               )}
             />
           )}
-          <span className='text-muted-foreground shrink-0'>
+          <span className='text-muted-foreground min-w-0 truncate'>
             {t('First token')}
           </span>
-          <span className={cn('tabular-nums', textColorMap[firstTokenVariant])}>
+          <span
+            className={cn(
+              'shrink-0 tabular-nums',
+              textColorMap[firstTokenVariant]
+            )}
+          >
             {firstTokenLabel}
           </span>
         </div>
       )}
-      <div className='flex items-baseline gap-1.5'>
+      <div className='flex min-w-0 items-baseline gap-1.5'>
         {indicator === 'dot' && (
           <span
             aria-hidden
@@ -126,8 +131,12 @@ export function TimingMetricsCell(props: TimingMetricsCellProps) {
             )}
           />
         )}
-        <span className='text-muted-foreground shrink-0'>{t('Duration')}</span>
-        <span className={cn('tabular-nums', textColorMap[totalTimeVariant])}>
+        <span className='text-muted-foreground min-w-0 truncate'>
+          {t('Duration')}
+        </span>
+        <span
+          className={cn('shrink-0 tabular-nums', textColorMap[totalTimeVariant])}
+        >
           {totalTimeLabel}
         </span>
       </div>
@@ -182,23 +191,25 @@ export function StreamTpsCell(props: StreamTpsCellProps) {
   return (
     <div
       className={cn(
-        'flex shrink-0 flex-col items-start justify-center gap-0.5 text-xs leading-tight',
+        'flex max-w-full min-w-0 shrink-0 flex-col items-start justify-center gap-0.5 text-xs leading-tight',
         props.compact && 'flex-row flex-wrap items-center gap-1.5',
         props.className
       )}
     >
       <span
         className={cn(
-          'inline-flex items-center gap-1 font-medium',
+          'inline-flex max-w-full min-w-0 items-center gap-1 font-medium',
           props.isStream ? 'text-info' : 'text-muted-foreground'
         )}
       >
-        {streamLabel}
+        <span className='min-w-0 truncate'>{streamLabel}</span>
         {showStreamError && (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger
-                render={<CircleAlert className='text-destructive size-3' />}
+                render={
+                  <CircleAlert className='text-destructive size-3 shrink-0' />
+                }
               />
               <TooltipContent>
                 <div className='space-y-0.5 text-xs'>
@@ -219,7 +230,7 @@ export function StreamTpsCell(props: StreamTpsCellProps) {
       </span>
       {(!props.compact ||
         (props.isStream && props.tokensPerSecond != null)) && (
-        <span className='text-muted-foreground/60 px-0.5 tabular-nums'>
+        <span className='text-muted-foreground/60 min-w-0 truncate px-0.5 tabular-nums'>
           {tpsLabel}
         </span>
       )}

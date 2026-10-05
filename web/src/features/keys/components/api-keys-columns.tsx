@@ -21,6 +21,7 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { TruncatedCell } from '@/components/data-table'
 import { StatusBadge } from '@/components/status-badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useMediaQuery } from '@/hooks'
@@ -107,7 +108,9 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
         accessorKey: 'name',
         header: t('Name'),
         cell: ({ row }) => (
-          <span className='font-medium'>{row.getValue('name')}</span>
+          <TruncatedCell className='font-medium'>
+            {row.getValue('name')}
+          </TruncatedCell>
         ),
         size: 180,
         meta: { mobileTitle: true },

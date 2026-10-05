@@ -39,9 +39,9 @@ export function useAuditLogColumns(
         header: t('Time'),
         size: 180,
         cell: ({ row }) => (
-          <span className='font-mono tabular-nums'>
+          <TruncatedCell className='font-mono tabular-nums'>
             {dayjs.unix(row.original.created_at).format('YYYY-MM-DD HH:mm:ss')}
-          </span>
+          </TruncatedCell>
         ),
         meta: { label: t('Time'), mobileTitle: true },
       },
@@ -67,11 +67,7 @@ export function useAuditLogColumns(
           cell: ({ row, getValue }) => {
             const operation = buildAuditDetails(row.original, t).operation
             if (!operation) {
-              return (
-                <TruncatedCell className='max-w-64'>
-                  {getValue<string>()}
-                </TruncatedCell>
-              )
+              return <TruncatedCell>{getValue<string>()}</TruncatedCell>
             }
             return (
               <div className='min-w-0 space-y-1'>
@@ -110,7 +106,9 @@ export function useAuditLogColumns(
         header: 'IP',
         size: 120,
         cell: ({ row }) => (
-          <span className='font-mono'>{row.original.ip || '—'}</span>
+          <TruncatedCell className='font-mono'>
+            {row.original.ip || '—'}
+          </TruncatedCell>
         ),
         meta: { label: 'IP' },
       },
@@ -119,9 +117,7 @@ export function useAuditLogColumns(
         header: t('Client'),
         size: 180,
         cell: ({ row }) => (
-          <TruncatedCell className='max-w-48'>
-            {row.original.user_agent || '—'}
-          </TruncatedCell>
+          <TruncatedCell>{row.original.user_agent || '—'}</TruncatedCell>
         ),
         meta: { label: t('Client'), mobileHidden: true },
       },
@@ -132,9 +128,9 @@ export function useAuditLogColumns(
         // wrapped the header onto two lines.
         size: 100,
         cell: ({ row }) => (
-          <span className='text-muted-foreground font-mono'>
+          <TruncatedCell className='text-muted-foreground font-mono'>
             {row.original.method || '—'}
-          </span>
+          </TruncatedCell>
         ),
         meta: { label: t('Method') },
       },
@@ -143,7 +139,7 @@ export function useAuditLogColumns(
         header: t('Route'),
         size: 220,
         cell: ({ row }) => (
-          <TruncatedCell className='max-w-60 font-mono'>
+          <TruncatedCell className='font-mono'>
             {row.original.route || '—'}
           </TruncatedCell>
         ),
@@ -154,9 +150,9 @@ export function useAuditLogColumns(
         header: 'HTTP',
         size: 60,
         cell: ({ row }) => (
-          <span className='font-mono tabular-nums'>
+          <TruncatedCell className='font-mono tabular-nums'>
             {row.original.status || '—'}
-          </span>
+          </TruncatedCell>
         ),
         meta: { label: 'HTTP' },
       },

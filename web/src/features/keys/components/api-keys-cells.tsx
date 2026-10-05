@@ -88,7 +88,7 @@ export function ApiKeyCell({ apiKey }: { apiKey: ApiKey }) {
     <div className='flex max-w-full min-w-0 items-center'>
       <Popover open={popoverOpen} onOpenChange={handlePopoverOpen}>
         <PopoverTrigger render={<MaskedValueTrigger />}>
-          <span className='truncate'>{maskedKey}</span>
+          <span className='min-w-0 truncate'>{maskedKey}</span>
         </PopoverTrigger>
         <PopoverContent
           className='w-auto max-w-[min(90vw,28rem)]'

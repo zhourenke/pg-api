@@ -516,14 +516,14 @@ export function BalanceCell({ channel }: { channel: Channel }) {
       size='sm'
       copyable={false}
       showDot={false}
-      className='cursor-pointer'
+      className='min-w-0 cursor-pointer'
       onClick={isInferenceChannel ? undefined : handleClickUpdate}
     />
   )
 
   return (
     <TooltipProvider>
-      <div className='-ml-1.5 flex items-center gap-1'>
+      <div className='-ml-1.5 flex max-w-full min-w-0 items-center gap-1'>
         <Tooltip>
           <TooltipTrigger
             render={
@@ -533,7 +533,7 @@ export function BalanceCell({ channel }: { channel: Channel }) {
                 size='sm'
                 copyable={false}
                 showDot={false}
-                className='cursor-help'
+                className='min-w-0 cursor-help'
               />
             }
           />

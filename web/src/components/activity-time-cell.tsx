@@ -47,7 +47,7 @@ export function TimestampCell(props: TimestampCellProps) {
     return (
       <time
         dateTime={new Date(timestampMs).toISOString()}
-        className={cn('block whitespace-nowrap tabular-nums', props.className)}
+        className={cn('block truncate tabular-nums', props.className)}
       >
         {absoluteTime}
       </time>
@@ -109,7 +109,9 @@ export function ActivityTimeCell(props: {
           : 'grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2'
       )}
     >
-      <span className='text-muted-foreground'>{t('Created')}</span>
+      <span className='text-muted-foreground min-w-0 truncate'>
+        {t('Created')}
+      </span>
       <TimestampCell
         timestamp={props.createdAt}
         now={props.now}
@@ -121,7 +123,9 @@ export function ActivityTimeCell(props: {
           props.layout === 'columns' && 'whitespace-normal'
         )}
       />
-      <span className='text-muted-foreground'>{props.lastLabel}</span>
+      <span className='text-muted-foreground min-w-0 truncate'>
+        {props.lastLabel}
+      </span>
       <TimestampCell
         timestamp={props.lastAt}
         now={props.now}

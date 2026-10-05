@@ -34,7 +34,7 @@ export function MaskedValueTrigger(props: ComponentProps<typeof Button>) {
       size='sm'
       {...props}
       className={cn(
-        'text-muted-foreground h-7 max-w-full min-w-0 justify-start truncate px-0 font-mono text-xs hover:bg-transparent aria-expanded:bg-transparent',
+        'text-muted-foreground h-7 max-w-full min-w-0 shrink justify-start truncate px-0 font-mono text-xs hover:bg-transparent aria-expanded:bg-transparent',
         props.className
       )}
     />
@@ -62,7 +62,7 @@ export function MaskedValueDisplay(props: MaskedValueDisplayProps) {
     <div className='flex max-w-full min-w-0 items-center'>
       <Popover>
         <PopoverTrigger render={<MaskedValueTrigger />}>
-          <span className='truncate'>{props.maskedValue}</span>
+          <span className='min-w-0 truncate'>{props.maskedValue}</span>
         </PopoverTrigger>
         <PopoverContent
           className='w-auto max-w-[min(90vw,28rem)]'

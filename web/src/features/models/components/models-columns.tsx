@@ -105,8 +105,8 @@ export function useModelsColumns(
           const vendor = vendorMap.get(model.vendor_id ?? 0)
           const iconKey = model.icon || vendor?.icon || model.model_name[0]
           return (
-            <div className='flex max-w-[320px] min-w-0 items-start gap-2.5 py-1'>
-              <span className='mt-1 flex size-6 shrink-0 items-center justify-center'>
+            <div className='@container/cell flex max-w-full min-w-0 items-start gap-2.5 py-1'>
+              <span className='mt-1 hidden size-6 shrink-0 items-center justify-center @[5rem]/cell:flex'>
                 {getLobeIcon(iconKey, 24)}
               </span>
               <div className='min-w-0 flex-1'>
@@ -120,7 +120,9 @@ export function useModelsColumns(
                       setOpen('update-model')
                     }}
                   >
-                    <span className='truncate'>{model.model_name}</span>
+                    <span className='min-w-0 truncate'>
+                      {model.model_name}
+                    </span>
                   </Button>
                   <CopyButton
                     value={model.model_name}
@@ -128,7 +130,7 @@ export function useModelsColumns(
                   />
                 </div>
                 <div className='text-muted-foreground mt-1 flex min-w-0 items-center gap-2 text-xs'>
-                  <span className='truncate' title={vendor?.name}>
+                  <span className='min-w-0 truncate' title={vendor?.name}>
                     {model.id > 0
                       ? (vendor?.name ?? t('No vendor'))
                       : t('Missing metadata')}

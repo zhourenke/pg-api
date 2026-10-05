@@ -48,7 +48,7 @@ function ToolSurchargeMarker() {
         render={
           <Badge
             variant='warning'
-            className='h-5 min-w-5 cursor-help gap-0 rounded-full px-1'
+            className='h-5 min-w-5 shrink-0 cursor-help gap-0 rounded-full px-1'
             role='img'
             aria-label={label}
             tabIndex={0}
@@ -78,15 +78,15 @@ export function LogCostDisplay(props: LogCostDisplayProps) {
 
   return (
     <TooltipProvider>
-      <div className='inline-flex w-fit items-center gap-1.5'>
+      <div className='inline-flex max-w-full min-w-0 items-center gap-1.5'>
         <StatusBadge
           type='badge'
           variant='neutral'
           size='lg'
           copyable={false}
-          className='border-border/80 bg-muted/60 text-foreground rounded-md border font-semibold tabular-nums'
+          className='border-border/80 bg-muted/60 text-foreground min-w-0 rounded-md border font-semibold tabular-nums'
         >
-          <span className='whitespace-nowrap'>
+          <span className='min-w-0 truncate whitespace-nowrap'>
             {formatLogQuota(props.quota)}
           </span>
         </StatusBadge>

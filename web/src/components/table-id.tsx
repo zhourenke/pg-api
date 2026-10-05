@@ -27,7 +27,7 @@ export function TableId(props: TableIdProps) {
   return (
     <span
       className={cn(
-        'text-muted-foreground inline-block font-mono tabular-nums',
+        'text-muted-foreground inline-block max-w-full truncate font-mono tabular-nums',
         props.className
       )}
     >

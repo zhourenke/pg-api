@@ -512,14 +512,14 @@ export function useCommonLogsColumns(
             return (
               <button
                 type='button'
-                className='flex items-center gap-1.5 text-left'
+                className='flex max-w-full min-w-0 items-center gap-1.5 text-left'
                 onClick={(e) => {
                   e.stopPropagation()
                   setSelectedUserId(log.user_id)
                   setUserInfoDialogOpen(true)
                 }}
               >
-                <Avatar className='ring-border/60 size-6 ring-1 max-sm:hidden'>
+                <Avatar className='ring-border/60 size-6 shrink-0 ring-1 max-sm:hidden'>
                   <AvatarFallback
                     className={cn(
                       'text-[11px] font-semibold',
@@ -540,7 +540,7 @@ export function useCommonLogsColumns(
                   <Tooltip>
                     <TooltipTrigger
                       render={
-                        <span className='text-muted-foreground max-w-[100px] truncate text-sm hover:underline' />
+                        <span className='text-muted-foreground min-w-0 max-w-full truncate text-sm hover:underline' />
                       }
                     >
                       {sensitiveVisible ? log.username : '••••'}
@@ -575,7 +575,7 @@ export function useCommonLogsColumns(
         const groupRatio = getGroupRatio(other)
 
         return (
-          <div className='flex max-w-[200px] flex-col gap-0.5'>
+          <div className='flex max-w-full min-w-0 flex-col gap-0.5'>
             <TooltipProvider delay={300}>
               <Tooltip>
                 <TooltipTrigger render={<div className='max-w-full' />}>
@@ -631,7 +631,7 @@ export function useCommonLogsColumns(
           const modelInfo = formatModelName(log)
 
           return (
-            <div className='flex w-fit flex-col gap-0.5'>
+            <div className='flex max-w-full min-w-0 flex-col gap-0.5'>
               <ModelBadge
                 modelName={modelInfo.name}
                 actualModel={modelInfo.actualModel}
@@ -688,20 +688,20 @@ export function useCommonLogsColumns(
             : other?.cache_creation_tokens || 0
 
           return (
-            <div className='flex flex-col gap-0.5'>
-              <span className='font-mono text-xs font-medium tabular-nums'>
+            <div className='flex max-w-full min-w-0 flex-col gap-0.5'>
+              <span className='min-w-0 truncate font-mono text-xs font-medium tabular-nums'>
                 {promptTokens.toLocaleString()} /{' '}
                 {completionTokens.toLocaleString()}
               </span>
               {(cacheReadTokens > 0 || cacheWriteTokens > 0) && (
-                <div className='flex items-center gap-1 text-[11px]'>
+                <div className='flex min-w-0 items-center gap-1 text-[11px]'>
                   {cacheReadTokens > 0 && (
-                    <span className='text-muted-foreground/60'>
+                    <span className='text-muted-foreground/60 min-w-0 truncate'>
                       {t('Cache')}↓ {cacheReadTokens.toLocaleString()}
                     </span>
                   )}
                   {cacheWriteTokens > 0 && (
-                    <span className='text-muted-foreground/60'>
+                    <span className='text-muted-foreground/60 min-w-0 truncate'>
                       ↑ {cacheWriteTokens.toLocaleString()}
                     </span>
                   )}
@@ -771,7 +771,7 @@ export function useCommonLogsColumns(
             detailPreview = (
               <span
                 className={cn(
-                  'truncate leading-snug group-hover:underline',
+                  'min-w-0 truncate leading-snug group-hover:underline',
                   primaryTextClass
                 )}
               >
@@ -785,7 +785,7 @@ export function useCommonLogsColumns(
             )
           } else if (log.content) {
             detailPreview = (
-              <span className='text-muted-foreground truncate group-hover:underline'>
+              <span className='text-muted-foreground min-w-0 max-w-full truncate group-hover:underline'>
                 {log.content}
               </span>
             )
@@ -795,7 +795,7 @@ export function useCommonLogsColumns(
             <>
               <button
                 type='button'
-                className='group flex max-w-[200px] items-center gap-1 text-left text-xs'
+                className='group flex max-w-full min-w-0 items-center gap-1 text-left text-xs'
                 onClick={() => setDialogOpen(true)}
                 title={t('Click to view full details')}
               >

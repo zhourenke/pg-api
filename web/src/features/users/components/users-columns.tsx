@@ -101,9 +101,9 @@ export function useUsersColumns(): ColumnDef<User>[] {
           const remark = row.original.remark
 
           return (
-            <div className='flex min-w-[160px] flex-col gap-1'>
-              <div className='flex items-center gap-2'>
-                <LongText className='max-w-[140px] text-sm font-normal'>
+            <div className='flex max-w-full min-w-0 flex-col gap-1'>
+              <div className='flex min-w-0 items-center gap-2'>
+                <LongText className='min-w-0 text-sm font-normal'>
                   {username}
                 </LongText>
                 {remark && (
@@ -113,11 +113,13 @@ export function useUsersColumns(): ColumnDef<User>[] {
                         <StatusBadge
                           variant='success'
                           copyable={false}
-                          className='font-normal'
+                          className='shrink-0 font-normal'
                         />
                       }
                     >
-                      <LongText className='max-w-[80px]'>{remark}</LongText>
+                      <LongText className='min-w-0 max-w-[80px]'>
+                        {remark}
+                      </LongText>
                     </TooltipTrigger>
                     <TooltipContent>
                       <p className='text-xs'>{remark}</p>
@@ -128,7 +130,7 @@ export function useUsersColumns(): ColumnDef<User>[] {
               {displayName && displayName !== username && (
                 <div
                   data-table-text='secondary'
-                  className='text-muted-foreground max-w-[180px] text-xs font-normal'
+                  className='text-muted-foreground min-w-0 max-w-full text-xs font-normal'
                 >
                   <LongText>{displayName}</LongText>
                 </div>
@@ -157,7 +159,9 @@ export function useUsersColumns(): ColumnDef<User>[] {
 
           return (
             <Tooltip>
-              <TooltipTrigger render={<div className='-ml-1.5 cursor-help' />}>
+              <TooltipTrigger
+                render={<div className='-ml-1.5 min-w-0 cursor-help' />}
+              >
                 <StatusBadge
                   label={t(statusConfig.labelKey)}
                   variant={
