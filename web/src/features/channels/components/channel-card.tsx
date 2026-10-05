@@ -103,9 +103,15 @@ function ChannelCardComponent({
         </div>
 
         {/* Both rows share their columns: identity/balance on the left,
-          priority/response and weight/last tested on the right. */}
+          priority/response and weight/last tested on the right. The two
+          spinner columns are a fixed 5.5rem, because the +/- buttons inside the
+          inline spinner appear through a container query and a query container
+          has to be given a definite width here. Sized by its content instead,
+          the spinner would be sized by the very buttons the query gates: hidden
+          buttons measure a few pixels, the query stays false, and the spinner
+          collapses. The table gets that definite width from its colgroup. */}
         <StatusBadgeTypeContext.Provider value='text'>
-          <div className='grid grid-cols-[minmax(0,1fr)_auto_auto] items-start gap-3'>
+          <div className='grid grid-cols-[minmax(0,1fr)_5.5rem_5.5rem] items-start gap-3'>
             <div className='min-w-0 overflow-hidden text-sm'>
               {!isTagRow && (
                 <div className={labelClass}>
@@ -141,7 +147,11 @@ function ChannelCardComponent({
               </div>
               <div className='row-span-2 grid min-w-0 grid-rows-subgrid'>
                 <dt className={labelClass}>{t('Last Tested')}</dt>
-                <dd className='min-w-0 text-sm [&_[data-slot=status-badge]]:!ml-0'>
+                {/* The value is a plain span here: its cell renders a badge
+                  inside a tooltip trigger, and the trigger's own `data-slot`
+                  replaces the badge's, so the negative margin the badge carries
+                  for the table's padding is cancelled on the child instead. */}
+                <dd className='min-w-0 text-sm [&>span]:ml-0'>
                   {testCell ?? <span className='text-muted-foreground'>-</span>}
                 </dd>
               </div>
