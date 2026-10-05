@@ -35,10 +35,39 @@ const columns: ColumnDef<Row>[] = [
   },
 ]
 
-function Harness({ names = ['alpha'] }: { names?: string[] }) {
+/**
+ * Mirrors the model list, whose name cell answers its own container query: the
+ * provider icon appears once the cell is wide enough for it.
+ */
+const containerColumns: ColumnDef<Row>[] = [
+  {
+    accessorKey: 'name',
+    header: 'Name',
+    size: 220,
+    cell: ({ row }) => (
+      <div style={{ containerType: 'inline-size', containerName: 'cell' }}>
+        <span>{row.original.name}</span>
+      </div>
+    ),
+  },
+  {
+    id: 'actions',
+    header: 'Actions',
+    size: 120,
+    cell: () => <button type='button'>Edit</button>,
+  },
+]
+
+function Harness({
+  names = ['alpha'],
+  tableColumns = columns,
+}: {
+  names?: string[]
+  tableColumns?: ColumnDef<Row>[]
+}) {
   const { table } = useDataTable({
     data: names.map((name, index) => ({ id: index + 1, name })),
-    columns,
+    columns: tableColumns,
   })
 
   return <DataTableView table={table} applyHeaderSize />
@@ -53,7 +82,9 @@ function getColumnWidths() {
 /**
  * jsdom does not lay anything out, so `scrollWidth` is always 0 and the real
  * measurement would look like empty content. A deterministic stand-in keeps the
- * production measuring code in play.
+ * production measuring code in play. It also carries the one rule that decides a
+ * measurement with no layout at all: inline-size containment, which makes the
+ * contents of a size container invisible to the box around it.
  */
 const CHARACTER_WIDTH = 8
 
@@ -61,6 +92,18 @@ function stubScrollingWidth() {
   return vi
     .spyOn(HTMLElement.prototype, 'scrollWidth', 'get')
     .mockImplementation(function (this: HTMLElement) {
+      const insideActiveContainer = [...this.querySelectorAll('*')].some(
+        (node) => {
+          const containerType = window.getComputedStyle(node).containerType
+
+          return containerType !== '' && containerType !== 'normal'
+        }
+      )
+
+      if (insideActiveContainer) {
+        return 0
+      }
+
       return (this.textContent ?? '').trim().length * CHARACTER_WIDTH
     })
 }
@@ -174,6 +217,19 @@ describe('column resizing', () => {
     // `alpha` needs 5 characters, `Name` needs 4, plus the breathing space; the
     // actions column needs its widest cell (`Actions`), not the declared 120px.
     expect(getColumnWidths()).toEqual(['56px', '', '72px'])
+  })
+
+  it('measures the content a cell hides behind its own container query', () => {
+    stubScrollingWidth()
+    render(
+      <Harness names={['alpha-model-name']} tableColumns={containerColumns} />
+    )
+
+    // The cell establishes a size container for its own query, and containment
+    // makes the box around it look empty, so a measurement that does not lift it
+    // leaves the column at its header width instead of the 16 characters of the
+    // name the column has to show.
+    expect(getColumnWidths()).toEqual(['144px', '', '72px'])
   })
 
   it('re-measures a cell whose content only arrives after the first paint', () => {

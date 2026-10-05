@@ -31,6 +31,15 @@ const COLUMN_WIDTH_PADDING = 16
  */
 export const FALLBACK_COLUMN_MIN_WIDTH = 56
 
+/**
+ * Width of the container a measured clone sits in, and the offset it is parked
+ * at. The container only has to be wider than any `min-width` a cell queries,
+ * and the offset puts the whole thing to the left of the viewport, where it
+ * cannot add anything to the page's own scrollable area.
+ */
+const MEASUREMENT_CONTAINER_WIDTH = 100000
+const MEASUREMENT_OFFSET_LEFT = -200000
+
 /** Measured width of the widest cell in a column, header included. */
 export function measureColumnContentWidth(
   tableElement: HTMLElement,
@@ -127,22 +136,74 @@ function measureElementWidth(element: HTMLElement) {
   clone.style.letterSpacing = styles.letterSpacing
   clone.style.fontVariantNumeric = styles.fontVariantNumeric
 
-  clone.style.position = 'absolute'
-  clone.style.visibility = 'hidden'
-  clone.style.pointerEvents = 'none'
-  clone.style.left = '-10000px'
-  clone.style.top = '0'
   clone.style.width = 'max-content'
   clone.style.minWidth = '0'
   clone.style.maxWidth = 'none'
   clone.style.height = 'auto'
   clone.style.whiteSpace = 'nowrap'
 
-  document.body.append(clone)
+  const container = createMeasurementContainer(clone)
+
+  // In the document, not beside it: a detached subtree reports no computed
+  // `container-type`, so the containment could not be found before this point.
+  document.body.append(container)
+  moveSizeContainment(clone, container)
   const width = clone.scrollWidth
-  clone.remove()
+  container.remove()
 
   return width
+}
+
+/** The offscreen box a measured clone is placed in. */
+function createMeasurementContainer(clone: HTMLElement) {
+  const container = document.createElement('div')
+
+  container.style.position = 'absolute'
+  container.style.left = `${MEASUREMENT_OFFSET_LEFT}px`
+  container.style.top = '0'
+  container.style.visibility = 'hidden'
+  container.style.pointerEvents = 'none'
+  container.style.width = `${MEASUREMENT_CONTAINER_WIDTH}px`
+  container.append(clone)
+
+  return container
+}
+
+/**
+ * A cell that adapts to its own width with a container query establishes size
+ * containment, and inline-size containment makes an element declare no width of
+ * its own: cloned into an unconstrained box, such a cell measures as empty, so
+ * its column would come out as narrow as its header and neither a drag nor a
+ * double click could put the content back. The containment is lifted from the
+ * clone and established on the box the measurement happens in instead, which is
+ * deliberately wide, so a query inside the cell sees the room its content asks
+ * for and content a narrow column drops still counts towards the width that is
+ * measured.
+ */
+function moveSizeContainment(clone: HTMLElement, container: HTMLElement) {
+  const containerNames = new Set<string>()
+
+  for (const node of clone.querySelectorAll<HTMLElement>('*')) {
+    const nodeStyles = window.getComputedStyle(node)
+
+    if (!nodeStyles.containerType || nodeStyles.containerType === 'normal') {
+      continue
+    }
+
+    if (nodeStyles.containerName && nodeStyles.containerName !== 'none') {
+      containerNames.add(nodeStyles.containerName)
+    }
+
+    node.style.containerType = 'normal'
+    node.style.containerName = 'none'
+  }
+
+  if (containerNames.size === 0) {
+    return
+  }
+
+  container.style.containerType = 'inline-size'
+  container.style.containerName = [...containerNames].join(' ')
 }
 
 function getColumnElementSelector(columnId: string) {
