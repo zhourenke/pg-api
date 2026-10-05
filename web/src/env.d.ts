@@ -18,6 +18,11 @@ For commercial licensing, please contact support@quantumnous.com
 */
 /// <reference types="@rsbuild/core/types" />
 
+// 由 rsbuild.config.ts 的 source.define 注入。开发模式下设为 off 可以隐藏 TanStack 调试浮标。
+interface ImportMetaEnv {
+  readonly VITE_DEVTOOLS?: string
+}
+
 declare module '@visactor/react-vchart' {
   export const VChart: React.ComponentType<Record<string, unknown>>
 }

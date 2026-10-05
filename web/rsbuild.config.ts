@@ -56,6 +56,13 @@ export default defineConfig(({ envMode }) => {
       entry: {
         index: './src/main.tsx',
       },
+      define: {
+        // Rsbuild injects only PUBLIC_-prefixed vars into client code, so the
+        // VITE_ devtools switch has to be exposed explicitly.
+        'import.meta.env.VITE_DEVTOOLS': JSON.stringify(
+          env.rawPublicVars.VITE_DEVTOOLS ?? ''
+        ),
+      },
     },
     resolve: {
       alias: {

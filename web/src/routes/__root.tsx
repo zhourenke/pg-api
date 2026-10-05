@@ -44,6 +44,13 @@ import { subscribeAuthSessionEvents } from '@/lib/auth-session-sync'
 import { resolveLegacyRoute } from '@/lib/legacy-route'
 import { useAuthStore } from '@/stores/auth-store'
 
+// 开发模式下默认渲染两个 TanStack 调试浮标；设置 VITE_DEVTOOLS=off 可在截图与量测时隐藏。
+const showDevtools =
+  import.meta.env.MODE === 'development' &&
+  !['off', 'false', '0'].includes(
+    (import.meta.env.VITE_DEVTOOLS ?? '').trim().toLowerCase()
+  )
+
 function RootComponent() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -97,7 +104,7 @@ function RootComponent() {
       <NavigationProgress />
       <Outlet />
       <Toaster closeButton duration={5000} position='top-center' richColors />
-      {import.meta.env.MODE === 'development' && (
+      {showDevtools && (
         <>
           <ReactQueryDevtools buttonPosition='bottom-left' />
           <TanStackRouterDevtools position='bottom-right' />
