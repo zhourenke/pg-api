@@ -138,7 +138,12 @@ export function NumericSpinnerInput({
   return (
     <div
       className={cn(
-        '@container/spinner inline-flex max-w-full min-w-0 items-center',
+        // `w-full` matters: the query below decides whether the +/- buttons are
+        // rendered, and the buttons are part of the content this box would
+        // otherwise size itself from. Sized by its column instead, the box is
+        // stable, so a wide column can turn the buttons on and a squeezed one
+        // turns them off.
+        '@container/spinner inline-flex w-full max-w-full min-w-0 items-center',
         className
       )}
     >
@@ -162,7 +167,7 @@ export function NumericSpinnerInput({
           onClick={handleDecrement}
           disabled={disabled || atMin}
           className={cn(
-            'text-muted-foreground/0 group-hover/spinner:text-muted-foreground hidden h-7 w-6 shrink-0 items-center justify-center rounded-l-md transition-colors @[3.5rem]/spinner:flex',
+            'text-muted-foreground/0 group-hover/spinner:text-muted-foreground hidden h-7 w-6 shrink-0 items-center justify-center rounded-l-md transition-colors @[5rem]/spinner:flex',
             !disabled &&
               !atMin &&
               'group-hover/spinner:hover:text-foreground group-hover/spinner:hover:bg-muted',
@@ -205,7 +210,7 @@ export function NumericSpinnerInput({
           onClick={handleIncrement}
           disabled={disabled || atMax}
           className={cn(
-            'text-muted-foreground/0 group-hover/spinner:text-muted-foreground hidden h-7 w-6 shrink-0 items-center justify-center rounded-r-md transition-colors @[3.5rem]/spinner:flex',
+            'text-muted-foreground/0 group-hover/spinner:text-muted-foreground hidden h-7 w-6 shrink-0 items-center justify-center rounded-r-md transition-colors @[5rem]/spinner:flex',
             !disabled &&
               !atMax &&
               'group-hover/spinner:hover:text-foreground group-hover/spinner:hover:bg-muted',

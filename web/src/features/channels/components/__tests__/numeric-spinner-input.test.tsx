@@ -23,39 +23,51 @@ import { NumericSpinnerInput } from '../numeric-spinner-input'
 
 /**
  * jsdom lays nothing out, so the container query cannot be evaluated here; what
- * these cases protect is the degradation order that the query encodes — the
- * value is allowed to shrink, and the +/- buttons are the first thing to go
- * when the column is too narrow for them.
+ * these cases protect is the contract the query encodes — which element is
+ * sized by the column, and the order in which the value and the +/- buttons
+ * give way. The class list is read as tokens, because a substring check would
+ * let `max-w-full` pass for `w-full` and hide exactly the regression below.
  */
+const classesOf = (element: HTMLElement) =>
+  (element.className || '').split(/\s+/)
+
 describe('channel numeric spinner', () => {
   it('keeps the value shrinkable so text gives way before the buttons', () => {
     render(<NumericSpinnerInput value={99} onChange={() => {}} />)
 
-    const value = screen.getByTitle('99')
-    expect(value.className).toContain('min-w-0')
-    expect(value.className).toContain('flex-1')
+    const value = classesOf(screen.getByTitle('99'))
+    expect(value).toContain('min-w-0')
+    expect(value).toContain('flex-1')
   })
 
-  it('hides the increment and decrement buttons in a narrow column', () => {
+  it('hides the increment and decrement buttons until the column can hold them', () => {
     render(<NumericSpinnerInput value={99} onChange={() => {}} />)
 
     for (const label of ['Decrement', 'Increment']) {
-      const button = screen.getByLabelText(label)
       // `hidden` until the container is wide enough, then `flex`: the buttons
-      // are dropped rather than hanging half outside the column.
-      expect(button.className).toContain('hidden')
-      expect(button.className).toContain('@[3.5rem]/spinner:flex')
+      // are dropped rather than hanging half outside the column. The threshold
+      // is the width at which the buttons and a readable value both fit, so a
+      // column that shows them never squeezes the value down to a sliver.
+      const button = classesOf(screen.getByLabelText(label))
+      expect(button).toContain('hidden')
+      expect(button).toContain('@[5rem]/spinner:flex')
     }
   })
 
-  it('makes the wrapper a query container sized by its column', () => {
+  it('sizes the query container from its column, not from the content it gates', () => {
     const { container } = render(
       <NumericSpinnerInput value={1} onChange={() => {}} />
     )
 
     const wrapper = container.firstElementChild as HTMLElement
+    // The +/- buttons are part of this box's content, and the query on this box
+    // decides whether they are rendered. A box sized by its own content is
+    // therefore sized by the answer to its own question: with the buttons hidden
+    // the content measures a few pixels and the query stays false, so the
+    // spinner collapses inside a column with room to spare. Taking its width
+    // from the column breaks that loop, which is what `w-full` is for.
     expect(wrapper.className).toContain('@container/spinner')
-    expect(wrapper.className).toContain('min-w-0')
-    expect(wrapper.className).toContain('max-w-full')
+    expect(classesOf(wrapper)).toContain('w-full')
+    expect(classesOf(wrapper)).toContain('min-w-0')
   })
 })
