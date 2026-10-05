@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import type { ColumnDef } from '@tanstack/react-table'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ResponsiveDataTableView, useDataTable } from '@/components/data-table'
@@ -29,10 +30,11 @@ const columns: ColumnDef<Row>[] = [
   { accessorKey: 'status', header: 'Status', meta: { mobileBadge: true } },
 ]
 
-function Harness() {
+function Harness(props: { enableRowSelection?: boolean } = {}) {
   const { table } = useDataTable({
     data: [{ id: 1, name: 'alpha', status: 'ready' }],
     columns,
+    enableRowSelection: props.enableRowSelection,
   })
 
   return <ResponsiveDataTableView table={table} />
@@ -72,5 +74,35 @@ describe('responsive data table view', () => {
 
     expect(screen.getByRole('table')).toBeTruthy()
     expect(screen.getByText('alpha')).toBeTruthy()
+  })
+
+  it('puts the narrow card list in its own bounded scroll area', () => {
+    mockViewport(true)
+    render(<Harness />)
+
+    const list = screen.getByText('alpha').closest('div.divide-y')
+    expect(list).not.toBeNull()
+
+    // The list clips its own overflow, so without a scrollable wrapper the
+    // rows past the fold are unreachable and the page cannot scroll to them.
+    const scroller = list?.parentElement as HTMLElement
+    expect(scroller.className).toContain('overflow-y-auto')
+    expect(scroller.className).toContain('min-h-0')
+    expect(scroller.className).toContain('flex-1')
+  })
+
+  it('marks a selected narrow card so the selection is visible', async () => {
+    const user = userEvent.setup()
+    mockViewport(true)
+    render(<Harness enableRowSelection />)
+
+    const checkbox = screen.getByRole('checkbox', { name: 'Select row 1' })
+    const row = screen.getByText('alpha').closest('div.divide-y > div')
+    expect(row?.getAttribute('data-state')).toBeNull()
+
+    await user.click(checkbox)
+
+    expect(checkbox).toBeChecked()
+    expect(row?.getAttribute('data-state')).toBe('selected')
   })
 })

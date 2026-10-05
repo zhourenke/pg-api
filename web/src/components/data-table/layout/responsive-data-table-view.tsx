@@ -29,6 +29,14 @@ import { MobileCardList } from './mobile-card-list'
  * table — including the ones rendered inside dialogs and panels that do not go
  * through `DataTablePage` — renders the same {@link MobileCardList} instead.
  * Tablet widths and up keep the table.
+ *
+ * The card list is content-height and clips its own overflow, so the narrow
+ * branch owns the scroll area the same way `DataTablePage` does. Without it the
+ * list is clipped by whichever ancestor hides overflow (the page content area
+ * does) and every row past the fold becomes unreachable: in the narrow
+ * model-pricing table that meant no scrolling and no way to select those rows.
+ * Where the caller is not a bounded flex column (a dialog body that scrolls
+ * itself) the wrapper stays inert.
  */
 export function ResponsiveDataTableView<TData>(
   props: DataTableViewProps<TData>
@@ -40,12 +48,14 @@ export function ResponsiveDataTableView<TData>(
   }
 
   return (
-    <MobileCardList
-      table={props.table}
-      enableRowSelection={props.table.options.enableRowSelection === true}
-      isLoading={props.isLoading}
-      emptyTitle={props.emptyTitle}
-      emptyDescription={props.emptyDescription}
-    />
+    <div className='min-h-0 flex-1 overflow-y-auto'>
+      <MobileCardList
+        table={props.table}
+        enableRowSelection={props.table.options.enableRowSelection === true}
+        isLoading={props.isLoading}
+        emptyTitle={props.emptyTitle}
+        emptyDescription={props.emptyDescription}
+      />
+    </div>
   )
 }

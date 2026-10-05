@@ -114,6 +114,12 @@ function FallbackListSkeleton() {
  * Per-row content is shared with the desktop card view via
  * {@link CardRowContent}; see `card-row-content.tsx` for the column-meta
  * extensions (`mobileTitle`, `mobileBadge`, `mobileHidden`).
+ *
+ * The list is content-height and clips its own overflow, so the caller decides
+ * how much of it is reachable: it has to sit in a bounded scroll area
+ * (`DataTablePage` and `ResponsiveDataTableView` both provide one). Selected
+ * rows carry `data-state="selected"` with the same tint as the desktop card
+ * grid, so a narrow-screen selection is visible.
  */
 export function MobileCardList<TData>(props: MobileCardListProps<TData>) {
   const {
@@ -175,11 +181,13 @@ export function MobileCardList<TData>(props: MobileCardListProps<TData>) {
       )}
       {rows.map((row) => {
         const key = getRowKey ? getRowKey(row) : row.id
+        const isSelected = row.getIsSelected()
         return (
           <div
             key={key}
+            data-state={isSelected ? 'selected' : undefined}
             className={cn(
-              '[background-color:var(--data-table-card-bg,var(--table-row))] px-3 py-2.5',
+              '[background-color:var(--data-table-card-bg,var(--table-row))] px-3 py-2.5 transition-[background-color] duration-150 data-[state=selected]:[--data-table-card-bg:color-mix(in_oklch,var(--primary)_7%,var(--table-row))]',
               getRowClassName?.(row)
             )}
           >
