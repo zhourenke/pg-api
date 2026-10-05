@@ -1082,41 +1082,55 @@ function ChannelTestDialogContent({
             </div>
 
             <div className='space-y-3'>
-              <ResponsiveDataTableView
-                table={table}
-                containerClassName='rounded-md'
-                containerProps={{
-                  role: 'region',
-                  'aria-label': t('Channel models'),
-                }}
-                tableContainerClassName='max-h-90 overflow-auto **:data-[slot=table-container]:overflow-visible'
-                tableClassName='w-max min-w-full table-auto'
-                pinnedColumns={[
-                  {
-                    columnId: 'actions',
-                    side: 'right',
-                    cellClassName: 'bg-popover',
-                  },
-                ]}
-                colgroup={
-                  <colgroup>
-                    <col className='w-10 min-w-10' />
-                    <col className='w-auto' />
-                    <col className='w-28' />
-                    <col className='w-80' />
-                    <col className='w-px' />
-                  </colgroup>
-                }
-                getColumnClassName={(columnId) =>
-                  getTestTableColumnClass(columnId)
-                }
-                emptyContent={
-                  models.length
-                    ? t('No models matched your search.')
-                    : t('This channel has no configured models.')
-                }
-                emptyCellClassName='text-muted-foreground h-16 text-center text-sm'
-              />
+              {/*
+                Bounded height for both layouts: the wide table caps its own
+                scroll box (`max-h-90` below), but the narrow card list grows to
+                its content, and inside a dialog body that is taller than the
+                viewport it stretched the dialog to a few thousand pixels —
+                the model list had no scroll area of its own, so the pagination
+                and the bulk actions ended up far below the fold. This wrapper
+                gives the list the same 360px window the table has.
+              */}
+              <div
+                className='max-h-90 overflow-y-auto'
+                data-testid='channel-test-model-list'
+              >
+                <ResponsiveDataTableView
+                  table={table}
+                  containerClassName='rounded-md'
+                  containerProps={{
+                    role: 'region',
+                    'aria-label': t('Channel models'),
+                  }}
+                  tableContainerClassName='max-h-90 overflow-auto **:data-[slot=table-container]:overflow-visible'
+                  tableClassName='w-max min-w-full table-auto'
+                  pinnedColumns={[
+                    {
+                      columnId: 'actions',
+                      side: 'right',
+                      cellClassName: 'bg-popover',
+                    },
+                  ]}
+                  colgroup={
+                    <colgroup>
+                      <col className='w-10 min-w-10' />
+                      <col className='w-auto' />
+                      <col className='w-28' />
+                      <col className='w-80' />
+                      <col className='w-px' />
+                    </colgroup>
+                  }
+                  getColumnClassName={(columnId) =>
+                    getTestTableColumnClass(columnId)
+                  }
+                  emptyContent={
+                    models.length
+                      ? t('No models matched your search.')
+                      : t('This channel has no configured models.')
+                  }
+                  emptyCellClassName='text-muted-foreground h-16 text-center text-sm'
+                />
+              </div>
 
               <DataTablePagination table={table} />
             </div>
