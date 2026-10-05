@@ -281,13 +281,6 @@ export function useModelsColumns(
         ),
       },
       {
-        id: 'actions',
-        header: t('Actions'),
-        enableSorting: false,
-        enableHiding: false,
-        cell: ({ row }) => <DataTableRowActions row={row} />,
-      },
-      {
         accessorKey: 'status',
         header: t('Display policy'),
         enableHiding: false,
@@ -377,6 +370,21 @@ export function useModelsColumns(
             ? formatTimestampToDate(row.original.updated_time)
             : '—',
         meta: { mobileHidden: true },
+      },
+      // Row actions come last. The shared table sizes every column by its
+      // declared width and closes the row with a filler that swallows the
+      // leftover space, and it only places that filler *before* the last
+      // column when the last column is `actions`; declared anywhere else, the
+      // pinned column keeps its in-flow position and the filler parks itself
+      // to its right, which leaves the actions stranded next to the previous
+      // column instead of against the right edge. Every other table in the
+      // project declares its actions column last for the same reason.
+      {
+        id: 'actions',
+        header: t('Actions'),
+        enableSorting: false,
+        enableHiding: false,
+        cell: ({ row }) => <DataTableRowActions row={row} />,
       },
     ]
   }, [t, canPrice, vendorMap, priceMap, pricingState, setCurrentRow, setOpen])
