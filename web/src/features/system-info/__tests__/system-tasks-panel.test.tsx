@@ -55,6 +55,40 @@ function renderPanel() {
   return client
 }
 
+function mockViewport(isNarrow: boolean) {
+  const original = window.matchMedia
+  return vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({
+    ...original(query),
+    matches: isNarrow,
+    onchange: null,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    dispatchEvent: () => false,
+  }))
+}
+
+function mockActiveAndHistory() {
+  vi.spyOn(api, 'get').mockImplementation(async (_url, config) => ({
+    data: {
+      success: true,
+      data:
+        config?.params?.scope === 'active'
+          ? [
+              {
+                ...task,
+                task_id: 'active',
+                status: 'running',
+                locked_by: 'active-runner',
+              },
+            ]
+          : [task],
+      total: 21,
+    },
+  }))
+}
+
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
@@ -272,5 +306,36 @@ it('refreshes history when the last running task finishes', async () => {
     ).not.toBeInTheDocument()
   )
   expect(screen.getByText('history-runner')).toBeVisible()
+  client.clear()
+})
+
+it('renders both task tables as the shared table on wide viewports', async () => {
+  mockViewport(false)
+  mockActiveAndHistory()
+  const client = renderPanel()
+
+  expect(await screen.findByText('active-runner')).toBeVisible()
+  expect(screen.getAllByRole('table')).toHaveLength(2)
+  expect(screen.getAllByRole('columnheader', { name: 'Type' })).toHaveLength(2)
+  expect(screen.getByText('history-runner')).toBeVisible()
+  client.clear()
+})
+
+it('renders both task tables as the shared card list on narrow viewports', async () => {
+  mockViewport(true)
+  mockActiveAndHistory()
+  const client = renderPanel()
+
+  expect(await screen.findByText('active-runner')).toBeVisible()
+  expect(screen.queryByRole('table')).toBeNull()
+  // The narrow form is the shared list, and both surfaces share the columns.
+  expect(screen.getByText('active-runner').closest('div.divide-y')).not.toBe(
+    null
+  )
+  // One type cell per card list; the history filter lists the same label once.
+  expect(screen.getAllByText('model_update')).toHaveLength(2)
+  expect(screen.getByText('history-runner')).toBeVisible()
+  // The history keeps its own pagination under the card form.
+  expect(screen.getByRole('button', { name: 'Go to next page' })).toBeVisible()
   client.clear()
 })

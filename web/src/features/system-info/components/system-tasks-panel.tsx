@@ -20,6 +20,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ListChecks, RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import { useDataTable } from '@/components/data-table'
 import { ErrorState } from '@/components/error-state'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -29,6 +30,7 @@ import { createServerError } from '@/lib/server-error-message'
 import { cn } from '@/lib/utils'
 
 import { SystemTaskHistory } from './system-task-history'
+import { useSystemTasksColumns } from './system-tasks-columns'
 import { SystemTasksTable } from './system-tasks-table'
 
 const ACTIVE_POLL_INTERVAL_MS = 8000
@@ -54,6 +56,13 @@ export function SystemTasksPanel() {
   const loading = tasksQuery.isLoading
   const refreshing = tasksQuery.isFetching && !loading
   const hasActiveTasks = activeTasks.length > 0
+  const columns = useSystemTasksColumns()
+  const { table } = useDataTable({
+    data: activeTasks,
+    columns,
+    getRowId: (task) => task.task_id,
+    enableSorting: false,
+  })
 
   return (
     <section className='bg-card overflow-hidden rounded-lg border shadow-xs'>
@@ -145,7 +154,7 @@ export function SystemTasksPanel() {
                 <Badge variant='outline'>{activeTasks.length}</Badge>
               </div>
               {activeTasks.length > 0 ? (
-                <SystemTasksTable tasks={activeTasks} />
+                <SystemTasksTable table={table} />
               ) : (
                 <div className='text-muted-foreground rounded-md border border-dashed px-4 py-6 text-center text-sm'>
                   {t('No active system tasks.')}

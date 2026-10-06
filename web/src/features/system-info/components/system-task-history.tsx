@@ -42,6 +42,7 @@ import { createServerError } from '@/lib/server-error-message'
 
 import { deleteSystemTaskHistory } from '../api'
 import { SYSTEM_TASK_TYPE_LABEL } from '../constants'
+import { useSystemTasksColumns } from './system-tasks-columns'
 import { SystemTasksTable } from './system-tasks-table'
 
 const EMPTY_TASKS: SystemTask[] = []
@@ -80,9 +81,11 @@ export function SystemTaskHistory(props: { activeRefreshAt: number }) {
   }, [props.activeRefreshAt, queryClient])
 
   const tasks = historyQuery.data?.tasks ?? EMPTY_TASKS
+  const columns = useSystemTasksColumns()
   const { table } = useDataTable({
     data: tasks,
-    columns: [],
+    columns,
+    getRowId: (task) => task.task_id,
     totalCount: historyQuery.data?.total ?? 0,
     manualPagination: true,
     columnFilters: [],
@@ -207,7 +210,7 @@ export function SystemTaskHistory(props: { activeRefreshAt: number }) {
         {!historyQuery.isLoading && !historyQuery.isError && (
           <>
             {tasks.length > 0 ? (
-              <SystemTasksTable tasks={tasks} />
+              <SystemTasksTable table={table} />
             ) : (
               <EmptyState
                 title={t('No historical system tasks.')}
