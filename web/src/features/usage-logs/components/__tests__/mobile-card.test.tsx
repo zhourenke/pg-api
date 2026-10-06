@@ -216,8 +216,11 @@ it('respects hidden columns and omits admin fields in the self view', () => {
 
 it('keeps input, output and cache quantities readable without empty metric cells', () => {
   renderLogs()
+  // "Output" labels both the output tokens and the output duration on the card,
+  // so scope this to the token row it belongs to.
+  const tokenRow = screen.getByText('Input').closest('div') as HTMLElement
   expect(screen.getByText('Input')).toBeVisible()
-  expect(screen.getByText('Output')).toBeVisible()
+  expect(within(tokenRow).getByText('Output')).toBeVisible()
   expect(screen.getByText(/300/)).toBeVisible()
   expect(screen.getByText('Cache ↑ 200')).toBeVisible()
 })
@@ -249,7 +252,7 @@ it.each([false, true])(
     ).toHaveClass('flex-col', 'justify-between')
     expect(
       within(row as HTMLElement)
-        .getByText('Duration')
+        .getByText('Output')
         .closest('.col-start-2')
     ).not.toBeNull()
     if (streaming) {
@@ -257,6 +260,29 @@ it.each([false, true])(
     }
   }
 )
+
+it('shows the output duration without the first-token wait', () => {
+  renderLogs({
+    logs: [
+      {
+        ...log,
+        is_stream: true,
+        use_time: 10,
+        completion_tokens: 500,
+        other: JSON.stringify({ frt: 2000 }),
+      },
+    ],
+  })
+  const timing = screen
+    .getByRole('button', { name: /^Time:/ })
+    .closest('[data-slot="log-time-and-timing"]') as HTMLElement
+  expect(within(timing).getByText('First token')).toBeVisible()
+  expect(within(timing).getByText('2.0 s')).toBeVisible()
+  // 10s of wall clock minus the 2s wait: the card reports the 8s that produced
+  // the reply, not the whole request.
+  expect(within(timing).getByText('8.0 s')).toBeVisible()
+  expect(within(timing).queryByText('10.0 s')).not.toBeInTheDocument()
+})
 
 it('reports streamed throughput over the generation window', () => {
   renderLogs({

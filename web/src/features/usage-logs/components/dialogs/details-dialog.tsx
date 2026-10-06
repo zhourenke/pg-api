@@ -61,12 +61,7 @@ import { BILLING_PRICING_VARS } from '@/features/pricing/lib/billing-expr'
 import { PolicyDecisionRecord } from '@/features/system-settings/request-policies/decision-record'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { formatBillingCurrencyFromUSD } from '@/lib/currency'
-import {
-  formatLogQuota,
-  formatTokens,
-  formatUseTime,
-  formatUseTimeMs,
-} from '@/lib/format'
+import { formatLogQuota, formatTokens, formatUseTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { AuditDetailFields } from '../../audit/components/audit-detail-fields'
@@ -82,6 +77,7 @@ import {
   getFirstResponseTimeColor,
   getResponseTimeColor,
   getLogDurationMs,
+  getOutputDurationMs,
   getReasoningEffortVariant,
   renderAuditContent,
 } from '../../lib/format'
@@ -473,6 +469,13 @@ export function DetailsDialog(props: DetailsDialogProps) {
     !!other?.expr_b64
   const hasAudioTokens = other?.ws || other?.audio
   const showTiming = isTimingLogType(props.log.type)
+  const durationMs = getLogDurationMs(props.log, other)
+  const outputSeconds =
+    getOutputDurationMs(durationMs, other?.frt, props.log.is_stream) / 1000
+  const firstTokenSeconds =
+    props.log.is_stream && other?.frt != null && other.frt > 0
+      ? other.frt / 1000
+      : null
   const showAdminIp =
     !!props.log.ip && (showTiming || (props.isAdmin && isTopup))
   const adminInfo = other?.admin_info
@@ -685,40 +688,49 @@ export function DetailsDialog(props: DetailsDialogProps) {
             />
           )}
 
-          {showTiming && getLogDurationMs(props.log, other) > 0 && (
-            <DetailRow
-              label={t('Response Time')}
-              value={
-                <span
-                  className={cn(
-                    'font-medium',
-                    timingTextColorClass(
-                      getResponseTimeColor(
-                        getLogDurationMs(props.log, other) / 1000,
-                        props.log.completion_tokens
-                      )
-                    )
-                  )}
-                >
-                  {formatUseTimeMs(getLogDurationMs(props.log, other))}
-                  {props.log.is_stream &&
-                    other?.frt != null &&
-                    other.frt > 0 && (
+          {showTiming && durationMs > 0 && (
+            <>
+              {props.log.is_stream && (
+                <DetailRow
+                  label={t('First token latency')}
+                  muted={firstTokenSeconds == null}
+                  value={
+                    firstTokenSeconds == null ? (
+                      t('N/A')
+                    ) : (
                       <span
                         className={cn(
-                          'font-normal',
+                          'font-medium',
                           timingTextColorClass(
-                            getFirstResponseTimeColor(other.frt / 1000)
+                            getFirstResponseTimeColor(firstTokenSeconds)
                           )
                         )}
                       >
-                        {' '}
-                        (FRT: {formatUseTime(other.frt / 1000)})
+                        {formatUseTime(firstTokenSeconds)}
                       </span>
+                    )
+                  }
+                />
+              )}
+              <DetailRow
+                label={t('Output duration')}
+                value={
+                  <span
+                    className={cn(
+                      'font-medium',
+                      timingTextColorClass(
+                        getResponseTimeColor(
+                          outputSeconds,
+                          props.log.completion_tokens
+                        )
+                      )
                     )}
-                </span>
-              }
-            />
+                  >
+                    {formatUseTime(outputSeconds)}
+                  </span>
+                }
+              />
+            </>
           )}
         </div>
 

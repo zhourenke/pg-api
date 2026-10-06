@@ -30,10 +30,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { formatUseTime, formatUseTimeMs } from '@/lib/format'
+import { formatUseTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
-import { getFirstResponseTimeColor, getResponseTimeColor } from '../lib/format'
+import {
+  getFirstResponseTimeColor,
+  getOutputDurationMs,
+  getResponseTimeColor,
+} from '../lib/format'
 import type { LogOtherData } from '../types'
 
 /**
@@ -58,6 +62,11 @@ interface TimingMetricsCellProps {
    */
   durationMs: number
   completionTokens: number
+  /**
+   * First-token latency in milliseconds. For a streamed reply it is subtracted
+   * from the total duration, because the cell labels the remainder as the
+   * output duration rather than as the whole request.
+   */
   frtMs?: number
   isStream: boolean
   className?: string
@@ -81,13 +90,15 @@ export function TimingMetricsCell(props: TimingMetricsCellProps) {
     firstTokenSeconds == null
       ? 'neutral'
       : getFirstResponseTimeColor(firstTokenSeconds)
-  const totalTimeVariant = getResponseTimeColor(
-    props.durationMs / 1000,
+  const outputSeconds =
+    getOutputDurationMs(props.durationMs, props.frtMs, props.isStream) / 1000
+  const outputVariant = getResponseTimeColor(
+    outputSeconds,
     props.completionTokens
   )
   const firstTokenLabel =
     firstTokenSeconds == null ? t('N/A') : formatUseTime(firstTokenSeconds)
-  const totalTimeLabel = formatUseTimeMs(props.durationMs)
+  const outputLabel = formatUseTime(outputSeconds)
 
   const labels = (
     <div
@@ -127,20 +138,17 @@ export function TimingMetricsCell(props: TimingMetricsCellProps) {
             aria-hidden
             className={cn(
               'size-1.5 shrink-0 rounded-full',
-              dotColorMap[totalTimeVariant]
+              dotColorMap[outputVariant]
             )}
           />
         )}
         <span className='text-muted-foreground min-w-0 truncate'>
-          {t('Duration')}
+          {t('Output')}
         </span>
         <span
-          className={cn(
-            'shrink-0 tabular-nums',
-            textColorMap[totalTimeVariant]
-          )}
+          className={cn('shrink-0 tabular-nums', textColorMap[outputVariant])}
         >
-          {totalTimeLabel}
+          {outputLabel}
         </span>
       </div>
     </div>
@@ -158,13 +166,13 @@ export function TimingMetricsCell(props: TimingMetricsCellProps) {
         aria-hidden
         className={cn(
           'flex w-1 shrink-0 flex-col overflow-hidden rounded-full',
-          !showFirstToken && barColorMap[totalTimeVariant]
+          !showFirstToken && barColorMap[outputVariant]
         )}
       >
         {showFirstToken && (
           <>
             <span className={cn('flex-1', barColorMap[firstTokenVariant])} />
-            <span className={cn('flex-1', barColorMap[totalTimeVariant])} />
+            <span className={cn('flex-1', barColorMap[outputVariant])} />
           </>
         )}
       </span>

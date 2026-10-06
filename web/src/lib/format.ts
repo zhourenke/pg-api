@@ -253,28 +253,16 @@ export function formatTokens(tokens: number): string {
 }
 
 /**
- * Format use time in seconds with appropriate unit
+ * Format a request duration in seconds for the usage log.
+ *
+ * The log shows two durations side by side — the first-token latency and the
+ * output duration — so both read as the same shape: one decimal, a space, then
+ * the unit (`1.2 s`). Long requests keep that shape instead of switching to
+ * minutes and seconds, because a figure like `187.3 s` stays comparable with
+ * the other durations in the same column at a glance.
  */
 export function formatUseTime(seconds: number): string {
-  if (seconds < 60) return `${seconds.toFixed(1)}s`
-  const minutes = Math.floor(seconds / 60)
-  const remainingSeconds = seconds % 60
-  return `${minutes}m ${remainingSeconds.toFixed(0)}s`
-}
-
-/**
- * Format a duration given in milliseconds, keeping millisecond resolution.
- *
- * The usage log's `use_time` column only holds whole seconds, so a duration
- * derived from it cannot show the sub-second part. The backend additionally
- * records the exact `use_time_ms`, and this formatter keeps those digits
- * instead of rounding them back to a tenth of a second.
- */
-export function formatUseTimeMs(milliseconds: number): string {
-  const seconds = milliseconds / 1000
-  if (seconds < 60) return `${seconds.toFixed(3)}s`
-  const minutes = Math.floor(seconds / 60)
-  return `${minutes}m ${(seconds % 60).toFixed(0)}s`
+  return `${seconds.toFixed(1)} s`
 }
 
 /**
