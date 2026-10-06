@@ -27,6 +27,7 @@ import { CHANNEL_STATUS } from '../constants'
 import { isTagAggregateRow, parseGroupsList } from '../lib'
 import type { Channel } from '../types'
 import { ChannelRowActionsLayoutContext } from './channel-row-actions-context'
+import { BalanceCell } from './channels-columns'
 import { useChannels } from './channels-provider'
 
 const SENSITIVE_MASK = '••••'
@@ -37,7 +38,9 @@ const SENSITIVE_MASK = '••••'
  * preserved: row selection, provider/multi-key/IO.NET type badge, id,
  * name/remark + warning icons, status (with tooltips), groups, inline
  * priority/weight spinners, balance refresh, response/test times, tag
- * expand-collapse, and the per-row (or per-tag) actions menu.
+ * expand-collapse, and the per-row (or per-tag) actions menu. The balance cell
+ * is the one exception: it is rendered here directly, because the card splits
+ * the used and remaining figures into two cells of its own.
  */
 function ChannelCardComponent({
   row,
@@ -68,9 +71,14 @@ function ChannelCardComponent({
   const actionsCell = renderCell('actions')
   const priorityCell = renderCell('priority')
   const weightCell = renderCell('weight')
-  const balanceCell = renderCell('balance')
   const responseCell = renderCell('response_time')
   const testCell = renderCell('test_time')
+  // A tag row aggregates several channels and has no single remaining figure, so
+  // the card shows a dash there.
+  const usedBalanceCell = <BalanceCell channel={row.original} part='used' />
+  const remainingBalanceCell = isTagRow ? null : (
+    <BalanceCell channel={row.original} part='remaining' />
+  )
 
   const labelClass = 'text-muted-foreground text-[11px] font-medium select-none'
 
@@ -102,22 +110,19 @@ function ChannelCardComponent({
           </div>
         </div>
 
-        {/* The identity gets a row of its own and the two spinners move to the
-          right two cells of the next row. Sharing a row with them left the
-          identity whatever the two fixed tracks did not use, which in a narrow
-          card is a few dozen pixels: the channel name was cut to eight
-          characters at 320px, the aggregate row's chevron and count badge had
-          32px clipped off, and a card cannot be widened by dragging. The cost is
-          one extra row per card.
-          The two spinner columns stay a fixed 5.5rem, because the +/- buttons
-          inside the inline spinner appear through a container query and a query
-          container has to be given a definite width here: sized by its content
-          instead, the spinner would be sized by the very buttons the query
-          gates, hidden buttons would measure a few pixels, the query would stay
-          false, and the spinner would collapse. The table gets that definite
-          width from its colgroup, the card gets it from these two tracks. */}
+        {/* The identity gets a row of its own and the six facts on it share the
+          two rows below in three equal columns, so nothing is pushed to the
+          right edge and no figure has to give way for the spinners the way the
+          identity did when it shared their row. The cost is one extra row per
+          card.
+          The two spinner columns take their width from the grid, not from their
+          content: the +/- buttons inside the inline spinner appear through a
+          container query, and a box sized by the very buttons that query gates
+          would collapse — hidden buttons measure a few pixels, the query stays
+          false, and the buttons stay hidden. The table gets that definite width
+          from its colgroup, the card gets it from the equal tracks. */}
         <StatusBadgeTypeContext.Provider value='text'>
-          <div className='grid grid-cols-[minmax(0,1fr)_5.5rem_5.5rem] items-start gap-3'>
+          <div className='grid grid-cols-3 items-start gap-3'>
             <div className='col-span-3 min-w-0 overflow-hidden text-sm'>
               {!isTagRow && (
                 <div className={labelClass}>
@@ -125,6 +130,12 @@ function ChannelCardComponent({
                 </div>
               )}
               {nameCell}
+            </div>
+            <div className='flex min-w-0 flex-col gap-1'>
+              <span className={labelClass}>{t('Used')}</span>
+              <div className='min-w-0 text-sm tabular-nums [&>*]:!ml-0'>
+                {usedBalanceCell}
+              </div>
             </div>
             <div className='col-start-2 flex min-w-0 flex-col gap-1'>
               <span className={labelClass}>{t('Priority')}</span>
@@ -136,9 +147,9 @@ function ChannelCardComponent({
             </div>
             <dl className='col-span-3 grid grid-cols-subgrid gap-y-1'>
               <div className='row-span-2 grid min-w-0 grid-rows-subgrid'>
-                <dt className={labelClass}>{t('Used / Remaining')}</dt>
-                <dd className='min-w-0 text-sm tabular-nums [&_[data-slot=status-badge]]:!ml-0 [&>div]:ml-0 [&>div]:flex-wrap [&>div]:gap-x-3'>
-                  {balanceCell ?? (
+                <dt className={labelClass}>{t('Remaining')}</dt>
+                <dd className='min-w-0 text-sm tabular-nums [&>*]:!ml-0'>
+                  {remainingBalanceCell ?? (
                     <span className='text-muted-foreground'>-</span>
                   )}
                 </dd>

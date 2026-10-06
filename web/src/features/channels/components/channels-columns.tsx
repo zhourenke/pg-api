@@ -378,10 +378,20 @@ function TagWeightCell({ channel }: { channel: TagRow }) {
 const MAX_INLINE_BALANCE_CHARS = 8
 const SENSITIVE_MASK = '••••'
 
+interface BalanceCellProps {
+  channel: Channel
+  /**
+   * Which half of the balance to render. The table shows both in one cell; the
+   * card gives each half a cell of its own, so it asks for one half at a time.
+   * A tag row has no single remaining figure at all, so that half is null.
+   */
+  part?: 'used' | 'remaining'
+}
+
 /**
  * Balance cell component with click to update
  */
-export function BalanceCell({ channel }: { channel: Channel }) {
+export function BalanceCell({ channel, part }: BalanceCellProps) {
   const { t, i18n } = useTranslation()
   const queryClient = useQueryClient()
   const layout = useContext(ChannelRowActionsLayoutContext)
@@ -447,17 +457,25 @@ export function BalanceCell({ channel }: { channel: Channel }) {
 
   // Tag row: only show cumulative used quota
   if (isTagRow) {
+    if (part === 'remaining') {
+      return null
+    }
+    // In the card this badge sits under a "Used" label of its own, so it does not
+    // name the figure again; the table's column header names both figures, which
+    // is why the badge says which one it is there.
+    let tagBadgeLabel = sensitiveVisible ? usedDisplay : SENSITIVE_MASK
+    if (layout !== 'card') {
+      tagBadgeLabel = sensitiveVisible
+        ? `${t('Used:')} ${usedDisplay}`
+        : maskedUsedLabel
+    }
     return (
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger
             render={
               <StatusBadge
-                label={
-                  sensitiveVisible
-                    ? `${t('Used:')} ${usedDisplay}`
-                    : maskedUsedLabel
-                }
+                label={tagBadgeLabel}
                 variant='neutral'
                 size='sm'
                 copyable={false}
@@ -569,52 +587,66 @@ export function BalanceCell({ channel }: { channel: Channel }) {
     />
   )
 
+  const usedBadgeNode = (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <StatusBadge
+            label={sensitiveVisible ? usedDisplay : SENSITIVE_MASK}
+            variant='neutral'
+            size='sm'
+            copyable={false}
+            showDot={false}
+            className='min-w-0 cursor-help'
+          />
+        }
+      />
+      <TooltipContent>
+        <p>{sensitiveVisible ? usedLabel : maskedUsedLabel}</p>
+      </TooltipContent>
+    </Tooltip>
+  )
+
+  const remainingBadgeNode = (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          isInferenceChannel ? (
+            <Button
+              variant='ghost'
+              size='sm'
+              className='h-auto rounded-full p-0'
+              aria-haspopup='dialog'
+              onClick={handleClickUpdate}
+            >
+              {remainingBadge}
+            </Button>
+          ) : (
+            remainingBadge
+          )
+        }
+      />
+      <TooltipContent>
+        <p>{remainingTooltipLabel}</p>
+        {channel.type !== 57 && !isInferenceChannel && (
+          <p>{t('Click to update balance')}</p>
+        )}
+      </TooltipContent>
+    </Tooltip>
+  )
+
   return (
-    <TooltipProvider>
-      <div className='-ml-1.5 flex max-w-full min-w-0 items-center gap-1'>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <StatusBadge
-                label={sensitiveVisible ? usedDisplay : SENSITIVE_MASK}
-                variant='neutral'
-                size='sm'
-                copyable={false}
-                showDot={false}
-                className='min-w-0 cursor-help'
-              />
-            }
-          />
-          <TooltipContent>
-            <p>{sensitiveVisible ? usedLabel : maskedUsedLabel}</p>
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              isInferenceChannel ? (
-                <Button
-                  variant='ghost'
-                  size='sm'
-                  className='h-auto rounded-full p-0'
-                  aria-haspopup='dialog'
-                  onClick={handleClickUpdate}
-                >
-                  {remainingBadge}
-                </Button>
-              ) : (
-                remainingBadge
-              )
-            }
-          />
-          <TooltipContent>
-            <p>{remainingTooltipLabel}</p>
-            {channel.type !== 57 && !isInferenceChannel && (
-              <p>{t('Click to update balance')}</p>
-            )}
-          </TooltipContent>
-        </Tooltip>
-      </div>
+    <>
+      <TooltipProvider>
+        {part === undefined && (
+          <div className='-ml-1.5 flex max-w-full min-w-0 items-center gap-1'>
+            {usedBadgeNode}
+            {remainingBadgeNode}
+          </div>
+        )}
+        {part === 'used' && usedBadgeNode}
+        {part === 'remaining' && remainingBadgeNode}
+      </TooltipProvider>
 
       <CodexUsageDialog
         open={codexUsageOpen}
@@ -654,7 +686,7 @@ export function BalanceCell({ channel }: { channel: Channel }) {
           }}
         />
       )}
-    </TooltipProvider>
+    </>
   )
 }
 

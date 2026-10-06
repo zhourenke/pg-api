@@ -22,7 +22,8 @@ import { render, renderHook, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 import type { Channel } from '../../types'
-import { useChannelsColumns } from '../channels-columns'
+import { ChannelRowActionsLayoutContext } from '../channel-row-actions-context'
+import { BalanceCell, useChannelsColumns } from '../channels-columns'
 
 vi.mock('../channels-provider', () => ({
   useChannels: () => ({ sensitiveVisible: true }),
@@ -108,6 +109,44 @@ function renderAggregatePriorityCell(
   )
 }
 
+/**
+ * The balance cell serves two layouts from the same computation: the table shows
+ * both figures in one cell, and the card gives each figure a cell of its own with
+ * a label, so the cell has to be able to render one half at a time.
+ */
+function renderBalanceCell(
+  channel: Channel,
+  options: { part?: 'used' | 'remaining'; layout?: 'table' | 'card' } = {}
+) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <ChannelRowActionsLayoutContext.Provider
+        value={options.layout ?? 'table'}
+      >
+        <BalanceCell channel={channel} part={options.part} />
+      </ChannelRowActionsLayoutContext.Provider>
+    </QueryClientProvider>
+  )
+}
+
+const plainChannel = {
+  id: 1,
+  name: 'balance-fixture',
+  used_quota: 12.3456,
+  balance: 5.25,
+} as unknown as Channel
+
+const tagChannel = {
+  id: 'tag:Command',
+  name: 'Command',
+  tag: 'Command',
+  used_quota: 12.3456,
+  children: [{ id: 1 }, { id: 2 }],
+} as unknown as Channel
+
 describe('channel aggregate row', () => {
   it('lets the tag name row wrap so the channel count is not truncated', () => {
     renderAggregateNameCell()
@@ -141,5 +180,42 @@ describe('channel aggregate row', () => {
 
     expect(screen.getByTitle('5')).toHaveTextContent('5')
     expect(screen.getByLabelText('Increment')).toBeEnabled()
+  })
+})
+
+describe('channel balance cell', () => {
+  it('renders one figure when the card asks for half of the balance', () => {
+    const text = ({ container }: { container: HTMLElement }) =>
+      (container.textContent ?? '').trim()
+
+    const both = text(renderBalanceCell(plainChannel))
+    const used = text(renderBalanceCell(plainChannel, { part: 'used' }))
+    const remaining = text(
+      renderBalanceCell(plainChannel, { part: 'remaining' })
+    )
+
+    // The card puts the used figure in one cell and the remaining figure in
+    // another, so each half has to stand on its own, and the two together have to
+    // be exactly what the shared cell renders — no figure dropped, none doubled.
+    expect(used.length).toBeGreaterThan(0)
+    expect(remaining.length).toBeGreaterThan(0)
+    expect(used).not.toBe(remaining)
+    expect(both).toBe(`${used}${remaining}`)
+  })
+
+  it('shows only the used figure for a tag row, unnamed where the card labels it', () => {
+    expect(renderBalanceCell(tagChannel).container.textContent).toContain(
+      'Used:'
+    )
+    expect(
+      renderBalanceCell(tagChannel, { part: 'remaining' }).container.textContent
+    ).toBe('')
+
+    // The card's own "Used" label names the figure, so the badge does not repeat
+    // the word there; the table's column header names both figures, which is why
+    // the badge says which one it is.
+    const card = renderBalanceCell(tagChannel, { layout: 'card' })
+    expect(card.container.textContent).not.toContain('Used:')
+    expect((card.container.textContent ?? '').trim().length).toBeGreaterThan(0)
   })
 })
