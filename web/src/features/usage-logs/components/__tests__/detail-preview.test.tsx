@@ -130,7 +130,7 @@ test('keeps log details open when the parent refreshes with unchanged data', asy
   const { rerender } = render(<DetailPreview other={other} isAdmin />, {
     wrapper,
   })
-  fireEvent.click(screen.getByRole('button', { name: 'Per-call · $0.25' }))
+  fireEvent.click(screen.getByRole('button', { name: '$0.25 /request' }))
   expect(await screen.findByRole('dialog')).toBeVisible()
   rerender(<DetailPreview other={other} isAdmin />)
   expect(screen.getByRole('dialog')).toBeVisible()
@@ -146,7 +146,7 @@ test.each([
       matched_tier: 'free',
       expr_b64: btoa('tier("free", fixed(0))'),
     },
-    expected: 'free · Per-call $0/request',
+    expected: '$0 /request',
   },
   {
     name: 'fixed expression trace outside the display grammar',
@@ -159,17 +159,39 @@ test.each([
         'param("fast") == true ? tier("priority", fixed(0.01)) : tier("tokens", p * 2)'
       ),
     },
-    expected: 'priority · Per-call $0.01/request',
+    expected: '$0.01 /request',
+  },
+  {
+    name: 'fixed expression charged per image',
+    other: {
+      billing_mode: 'tiered_expr',
+      billing_unit: 'request' as const,
+      fixed_price: 0.05,
+      image_count: 3,
+      matched_tier: 'img',
+      expr_b64: btoa('tier("img", fixed(0.05))'),
+    },
+    expected: '$0.05 /image',
   },
   {
     name: 'per-call',
     other: { model_price: 0.25 },
-    expected: 'Per-call · $0.25',
+    expected: '$0.25 /request',
   },
   {
     name: 'standard',
     other: { model_ratio: 1, completion_ratio: 2 },
-    expected: 'Standard · $2 / $4/M',
+    expected: '$2 / $4 /1M',
+  },
+  {
+    name: 'standard with a cache price',
+    other: {
+      model_ratio: 1,
+      completion_ratio: 2,
+      cache_tokens: 100,
+      cache_ratio: 0.1,
+    },
+    expected: '$2 / $4 / $0.2 /1M',
   },
   {
     name: 'tiered expression prices',
