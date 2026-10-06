@@ -18,7 +18,10 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
+import i18n from 'i18next'
 import { afterEach, describe, expect, test } from 'vitest'
+
+import zhCN from '@/i18n/locales/zh.json'
 
 import type { UsageLog } from '../../data/schema'
 import type { LogOtherData } from '../../types'
@@ -80,23 +83,23 @@ afterEach(() => {
 })
 
 describe('usage log timing details', () => {
-  test('splits the response time into the first-token latency and the output duration', () => {
+  test('splits the response time into the first-token latency and the generation duration', () => {
     renderDetails({ frt: 2000 }, true)
 
     expect(screen.queryByText('Response Time')).toBeNull()
     expect(screen.getByText('First token latency')).toBeInTheDocument()
     expect(screen.getByText('2.0 s')).toBeInTheDocument()
-    expect(screen.getByText('Output duration')).toBeInTheDocument()
+    expect(screen.getByText('Generation duration')).toBeInTheDocument()
     // 10s of wall clock minus the 2s wait.
     expect(screen.getByText('8.0 s')).toBeInTheDocument()
     expect(screen.queryByText('10.0 s')).toBeNull()
   })
 
-  test('reports the whole duration as the output duration for a non-streamed log', () => {
+  test('reports the whole duration as the generation duration for a non-streamed log', () => {
     renderDetails({}, false)
 
     expect(screen.queryByText('First token latency')).toBeNull()
-    expect(screen.getByText('Output duration')).toBeInTheDocument()
+    expect(screen.getByText('Generation duration')).toBeInTheDocument()
     expect(screen.getByText('10.0 s')).toBeInTheDocument()
   })
 
@@ -106,5 +109,14 @@ describe('usage log timing details', () => {
     expect(screen.getByText('First token latency')).toBeInTheDocument()
     expect(screen.getByText('N/A')).toBeInTheDocument()
     expect(screen.getByText('10.0 s')).toBeInTheDocument()
+  })
+
+  test('writes the two rows in the shipped Simplified Chinese copy', () => {
+    i18n.addResourceBundle('zhCN', 'translation', zhCN.translation, true, true)
+    renderDetails({ frt: 2000 }, true)
+
+    expect(screen.getByText('首字延迟')).toBeInTheDocument()
+    expect(screen.getByText('生成耗时')).toBeInTheDocument()
+    expect(screen.queryByText('输出耗时')).toBeNull()
   })
 })

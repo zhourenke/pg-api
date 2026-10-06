@@ -718,7 +718,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
                 />
               )}
               <DetailRow
-                label={t('Output duration')}
+                label={t('Generation duration')}
                 value={
                   <span
                     className={cn(
