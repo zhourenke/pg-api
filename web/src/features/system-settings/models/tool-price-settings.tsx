@@ -279,7 +279,7 @@ export const ToolPriceSettings = memo(function ToolPriceSettings({
               cell: (row) => (
                 <Input
                   value={row.key}
-                  placeholder='web_search_preview:gpt-4o*'
+                  aria-label={t('Tool identifier')}
                   onChange={(e) => updateRow(row.id, 'key', e.target.value)}
                 />
               ),

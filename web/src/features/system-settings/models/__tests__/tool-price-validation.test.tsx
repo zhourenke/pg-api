@@ -78,4 +78,25 @@ describe('tool price validation', () => {
 
     queryClient.clear()
   })
+
+  test('does not dress the empty tool identifier up as a default value', () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { mutations: { retry: false } },
+    })
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ToolPriceSettings defaultValue='{"web_search":10}' />
+      </QueryClientProvider>
+    )
+
+    const toolInput = screen.getByRole('textbox', {
+      name: 'Tool identifier',
+    })
+
+    expect(toolInput).toHaveValue('web_search')
+    expect(toolInput).not.toHaveAttribute('placeholder')
+
+    queryClient.clear()
+  })
 })
