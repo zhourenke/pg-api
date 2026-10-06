@@ -81,6 +81,21 @@ describe('channel card', () => {
     expect(priority?.className).toContain('col-start-2')
     expect(weight?.className).toContain('col-start-3')
     expect(grid?.querySelector('dl div dt')?.textContent).toBe('Remaining')
+
+    // Each figure is centred in its own column, label and value alike, so the
+    // column's slack falls on both sides of it. The identity and the groups
+    // footer stay left-aligned: they are full-width lines, not figures in a
+    // column.
+    const figureCells = [
+      // The three cells of the second row, then the `dl`'s three of the third.
+      ...[...(grid?.children ?? [])].slice(1, -1),
+      ...(grid?.querySelectorAll('dl > div') ?? []),
+    ]
+    expect(figureCells).toHaveLength(6)
+    for (const cell of figureCells) {
+      expect(cell.className).toContain('text-center')
+    }
+    expect(identity?.className).not.toContain('text-center')
   })
 
   it('lets the two spinner columns take their width from the grid tracks', () => {

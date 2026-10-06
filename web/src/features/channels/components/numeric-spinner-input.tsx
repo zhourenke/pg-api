@@ -161,17 +161,17 @@ export function NumericSpinnerInput({
   const atMin = min !== undefined && Number(localValue) <= min
   const atMax = max !== undefined && Number(localValue) >= max
 
-  // The card gives the spinner a column of its own in an equal-thirds grid. The
-  // control takes most of it but keeps the width the spinner used to be given —
-  // `min(5.5rem, 85%)`: never wider than the 5.5rem track it once sat in, and 85%
-  // of the column where the column cannot hold that width, which keeps the box
-  // short of the column's right edge instead of stretching to it. `min-w-fit` is
-  // the number's own floor: the two 24px buttons already take 48px of the box, so
-  // at the narrowest card 85% would leave a two-digit value about a pixel short
-  // and ellipsize it (a fixed 4.5rem floor was short as well). The table measures
-  // its columns from the content instead, where a box that stretched would be
-  // asking the column to size itself from the box filling it, so there the control
-  // stays as wide as what it holds.
+  // The card gives the spinner a column of its own in an equal-thirds grid, where
+  // every figure is centred in its column. The control takes most of that column
+  // but keeps the width the spinner used to be given — `min(5.5rem, 85%)`: never
+  // wider than the 5.5rem track it once sat in, and 85% of the column where the
+  // column cannot hold that width, which keeps the box short of the column's edges
+  // instead of stretching to them. `min-w-fit` is the number's own floor: the two
+  // 24px buttons already take 48px of the box, so at the narrowest card 85% would
+  // leave a two-digit value about a pixel short and ellipsize it (a fixed 4.5rem
+  // floor was short as well). The table measures its columns from the content
+  // instead, where a box that stretched would be asking the column to size itself
+  // from the box filling it, so there the control stays as wide as what it holds.
   const fillsColumn = useContext(ChannelRowActionsLayoutContext) === 'card'
 
   return (
@@ -183,6 +183,9 @@ export function NumericSpinnerInput({
         // stable, so a wide column can turn the buttons on and a squeezed one
         // turns them off.
         '@container/spinner inline-flex w-full max-w-full min-w-0 items-center',
+        // Centred in the card, against the track's left edge in the table, where
+        // the box is the width of its own content.
+        fillsColumn && 'justify-center',
         className
       )}
     >

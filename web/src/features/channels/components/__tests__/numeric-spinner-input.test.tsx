@@ -77,7 +77,7 @@ describe('channel numeric spinner', () => {
     const parts = (container: HTMLElement) => {
       const wrapper = container.firstElementChild as HTMLElement
       const control = wrapper.firstElementChild as HTMLElement
-      return { control, value: control.querySelectorAll('button')[1] }
+      return { wrapper, control, value: control.querySelectorAll('button')[1] }
     }
 
     const table = parts(
@@ -107,6 +107,11 @@ describe('channel numeric spinner', () => {
     expect(classesOf(card.control)).toContain('w-[min(5.5rem,85%)]')
     expect(classesOf(card.control)).toContain('min-w-fit')
     expect(classesOf(card.value as HTMLElement)).toContain('max-w-16')
+    // The card centres each figure in its column, so the box sits in the middle
+    // of the track rather than against its left edge; the table's box is the
+    // width of its own content, so there is nothing left to centre.
+    expect(classesOf(card.wrapper)).toContain('justify-center')
+    expect(classesOf(table.wrapper)).not.toContain('justify-center')
   })
 
   it('shows the placeholder instead of a zero when the caller has no single value', () => {

@@ -60,7 +60,9 @@ const CARD_CACHE_FIELDS = new Set([
 /**
  * Lays the price groups out as blank / group / blank / blank / group / … / blank,
  * so the first group sits near the left edge, the last near the right edge, and
- * every blank shares the same flexible width.
+ * every blank shares the same flexible width. The group columns are `auto`, sized
+ * by the group itself, so the label and the figure are centred on each other
+ * inside the group rather than against its left edge.
  */
 function getPriceGroupGridTemplate(groupCount: number): string {
   return Array.from({ length: groupCount * 3 }, (_, index) =>
@@ -146,7 +148,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
             return (
               <div
                 key={entry.key}
-                className='flex min-w-0 flex-col items-start gap-1'
+                className='flex min-w-0 flex-col items-center gap-1 text-center'
                 style={{ gridColumnStart: index * 3 + 2 }}
               >
                 {label && (
@@ -191,7 +193,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
     priceSummary = prices.map((price, index) => (
       <div
         key={price.type}
-        className='flex min-w-0 flex-col items-start gap-1'
+        className='flex min-w-0 flex-col items-center gap-1 text-center'
         style={{ gridColumnStart: index * 3 + 2 }}
       >
         <span className='text-muted-foreground text-xs'>{price.label}</span>
@@ -214,7 +216,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
     priceGroupCount = 1
     priceSummary = (
       <div
-        className='flex min-w-0 flex-col items-start gap-1'
+        className='flex min-w-0 flex-col items-center gap-1 text-center'
         style={{ gridColumnStart: 2 }}
       >
         <span className='text-muted-foreground text-xs'>{t('Per-call')}</span>

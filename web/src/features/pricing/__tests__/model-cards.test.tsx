@@ -146,6 +146,43 @@ describe('model cards', () => {
     expect(screen.queryByText('Cache Write')).not.toBeInTheDocument()
   })
 
+  it('centres each price label and its figure on one another', () => {
+    const classTokens = (element: HTMLElement) => element.className.split(/\s+/)
+    const groupOf = (label: string) =>
+      screen.getByText(label).parentElement as HTMLElement
+
+    // The group's grid column is `auto`, sized by the group itself, so the slack
+    // left over is the width difference between the label and the figure: centring
+    // them on one another keeps the figure under the middle of its label instead
+    // of pinning both to the group's left edge.
+    const { unmount } = render(
+      <ModelCard
+        model={pricingModel({
+          billing_mode: 'tiered_expr',
+          billing_expr: 'tier("standard", p * 0.05 + c * 0.2 + cr * 0.001)',
+        })}
+        onClick={vi.fn()}
+        tokenUnit='M'
+      />
+    )
+    for (const label of ['Input', 'Output', 'Cache Read']) {
+      expect(classTokens(groupOf(label))).toContain('items-center')
+      expect(classTokens(groupOf(label))).toContain('text-center')
+    }
+    unmount()
+
+    // The per-call group is laid out by its own branch of the same renderer.
+    render(
+      <ModelCard
+        model={pricingModel({ quota_type: 1, model_price: 0.4 })}
+        onClick={vi.fn()}
+        tokenUnit='M'
+      />
+    )
+    expect(classTokens(groupOf('Per-call'))).toContain('items-center')
+    expect(classTokens(groupOf('Per-call'))).toContain('text-center')
+  })
+
   it('labels the card performance figures as latency and speed', () => {
     render(
       <ModelCard

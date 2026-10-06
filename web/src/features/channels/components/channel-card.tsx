@@ -114,7 +114,10 @@ function ChannelCardComponent({
           two rows below in three equal columns, so nothing is pushed to the
           right edge and no figure has to give way for the spinners the way the
           identity did when it shared their row. The cost is one extra row per
-          card.
+          card. Each figure is centred in its own column, label and value alike,
+          which leaves the column's slack on both sides of it instead of stacking
+          it all against the left edge; the identity and the groups footer stay
+          left-aligned, being full-width lines rather than figures in a column.
           The two spinner columns take their width from the grid, not from their
           content: the +/- buttons inside the inline spinner appear through a
           container query, and a box sized by the very buttons that query gates
@@ -131,22 +134,22 @@ function ChannelCardComponent({
               )}
               {nameCell}
             </div>
-            <div className='flex min-w-0 flex-col gap-1'>
+            <div className='flex min-w-0 flex-col gap-1 text-center'>
               <span className={labelClass}>{t('Used')}</span>
               <div className='min-w-0 text-sm tabular-nums [&>*]:!ml-0'>
                 {usedBalanceCell}
               </div>
             </div>
-            <div className='col-start-2 flex min-w-0 flex-col gap-1'>
+            <div className='col-start-2 flex min-w-0 flex-col gap-1 text-center'>
               <span className={labelClass}>{t('Priority')}</span>
               {priorityCell}
             </div>
-            <div className='col-start-3 flex min-w-0 flex-col gap-1'>
+            <div className='col-start-3 flex min-w-0 flex-col gap-1 text-center'>
               <span className={labelClass}>{t('Weight')}</span>
               {weightCell}
             </div>
             <dl className='col-span-3 grid grid-cols-subgrid gap-y-1'>
-              <div className='row-span-2 grid min-w-0 grid-rows-subgrid'>
+              <div className='row-span-2 grid min-w-0 grid-rows-subgrid text-center'>
                 <dt className={labelClass}>{t('Remaining')}</dt>
                 <dd className='min-w-0 text-sm tabular-nums [&>*]:!ml-0'>
                   {remainingBalanceCell ?? (
@@ -154,7 +157,7 @@ function ChannelCardComponent({
                   )}
                 </dd>
               </div>
-              <div className='row-span-2 grid min-w-0 grid-rows-subgrid'>
+              <div className='row-span-2 grid min-w-0 grid-rows-subgrid text-center'>
                 <dt className={labelClass}>{t('Response')}</dt>
                 <dd className='min-w-0 text-sm tabular-nums [&_[data-slot=status-badge]]:!ml-0'>
                   {responseCell ?? (
@@ -162,7 +165,7 @@ function ChannelCardComponent({
                   )}
                 </dd>
               </div>
-              <div className='row-span-2 grid min-w-0 grid-rows-subgrid'>
+              <div className='row-span-2 grid min-w-0 grid-rows-subgrid text-center'>
                 <dt className={labelClass}>{t('Last Tested')}</dt>
                 {/* The value is a plain span here: its cell renders a badge
                   inside a tooltip trigger, and the trigger's own `data-slot`
