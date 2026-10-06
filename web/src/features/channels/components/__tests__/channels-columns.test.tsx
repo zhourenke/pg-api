@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { CellContext, Row } from '@tanstack/react-table'
 import { render, renderHook, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
@@ -63,6 +64,50 @@ function renderAggregateNameCell() {
   return render(<>{renderCell(context)}</>)
 }
 
+/**
+ * The tag row reports null for priority or weight when its channels disagree,
+ * and the cell turns that into a dash plus the values actually in the group, so
+ * the two cells need the same shape as the name cell above.
+ */
+function renderAggregatePriorityCell(
+  priority: number | null,
+  children: Array<{ id: number; priority: number }>
+) {
+  const tagRow = {
+    id: 'tag:Command',
+    name: 'Command',
+    tag: 'Command',
+    priority,
+    weight: 99,
+    children,
+  } as unknown as Channel
+  const row = { original: tagRow } as unknown as Row<Channel>
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  const wrapper = ({ children: node }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={queryClient}>{node}</QueryClientProvider>
+  )
+
+  const { result } = renderHook(() => useChannelsColumns(), { wrapper })
+  const priorityColumn = result.current.find(
+    (column) => 'accessorKey' in column && column.accessorKey === 'priority'
+  )
+  if (!priorityColumn?.cell) {
+    throw new Error('the priority column has no cell renderer')
+  }
+  const renderCell = priorityColumn.cell as (
+    context: CellContext<Channel, unknown>
+  ) => React.ReactNode
+
+  const context = { row } as unknown as CellContext<Channel, unknown>
+  return render(
+    <QueryClientProvider client={queryClient}>
+      {renderCell(context)}
+    </QueryClientProvider>
+  )
+}
+
 describe('channel aggregate row', () => {
   it('lets the tag name row wrap so the channel count is not truncated', () => {
     renderAggregateNameCell()
@@ -72,5 +117,29 @@ describe('channel aggregate row', () => {
 
     expect(row.textContent).toContain('channels')
     expect(row.className.split(/\s+/)).toContain('flex-wrap')
+  })
+
+  it('shows a dash instead of a zero when the tag channels disagree on priority', () => {
+    renderAggregatePriorityCell(null, [
+      { id: 1, priority: 0 },
+      { id: 2, priority: 5 },
+    ])
+
+    // "channels disagree" used to render as 0, which is also what a group where
+    // every channel really is 0 looks like; the dash keeps the two apart and the
+    // explanation names the values that are actually in the group.
+    const value = screen.getByLabelText(/with values 0、5/)
+    expect(value).toHaveTextContent('—')
+    expect(screen.getByLabelText('Decrement')).toBeDisabled()
+  })
+
+  it('still shows the shared priority when the tag channels agree', () => {
+    renderAggregatePriorityCell(5, [
+      { id: 1, priority: 5 },
+      { id: 2, priority: 5 },
+    ])
+
+    expect(screen.getByTitle('5')).toHaveTextContent('5')
+    expect(screen.getByLabelText('Increment')).toBeEnabled()
   })
 })

@@ -195,6 +195,17 @@ function PriorityCell({ channel }: { channel: Channel }) {
   )
 }
 
+/**
+ * Lists the distinct values a tag row's children use, sorted, for the
+ * explanation a mixed aggregate shows: the row cannot report one number when
+ * its channels disagree, so the dash is paired with what is actually there.
+ */
+function describeChildValues(values: Array<number | null | undefined>): string {
+  return [...new Set(values.map((value) => value ?? 0))]
+    .sort((a, b) => a - b)
+    .join('、')
+}
+
 function TagPriorityCell({ channel }: { channel: TagRow }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -203,16 +214,35 @@ function TagPriorityCell({ channel }: { channel: TagRow }) {
   const [pendingValue, setPendingValue] = useState<number | null>(null)
   const tag = channel.tag || ''
   const channelCount = channel.children?.length || 0
+  // The aggregate row reports null when its channels disagree, and a shared
+  // control that prints 0 for it reads as "every channel is 0". The dash plus
+  // this explanation shows the disagreement without inventing a number.
+  const mixedProps =
+    priority == null
+      ? {
+          placeholder: '—',
+          placeholderDescription: t(
+            'Priority differs across the {{count}} channels with this tag, with values {{values}}',
+            {
+              count: channelCount,
+              values: describeChildValues(
+                (channel.children ?? []).map((child) => child.priority)
+              ),
+            }
+          ),
+        }
+      : {}
 
   return (
     <>
       <NumericSpinnerInput
-        value={priority ?? 0}
+        value={priority}
+        min={-999}
+        {...mixedProps}
         onChange={(value) => {
           setPendingValue(value)
           setConfirmOpen(true)
         }}
-        min={-999}
       />
       <ConfirmDialog
         open={confirmOpen}
@@ -292,16 +322,34 @@ function TagWeightCell({ channel }: { channel: TagRow }) {
   const [pendingValue, setPendingValue] = useState<number | null>(null)
   const tag = channel.tag || ''
   const channelCount = channel.children?.length || 0
+  // Same shape as the priority cell above: a dash instead of a made-up 0, with
+  // the values the channels actually use.
+  const mixedProps =
+    weight == null
+      ? {
+          placeholder: '—',
+          placeholderDescription: t(
+            'Weight differs across the {{count}} channels with this tag, with values {{values}}',
+            {
+              count: channelCount,
+              values: describeChildValues(
+                (channel.children ?? []).map((child) => child.weight)
+              ),
+            }
+          ),
+        }
+      : {}
 
   return (
     <>
       <NumericSpinnerInput
-        value={weight ?? 0}
+        value={weight}
+        min={0}
+        {...mixedProps}
         onChange={(value) => {
           setPendingValue(value)
           setConfirmOpen(true)
         }}
-        min={0}
       />
       <ConfirmDialog
         open={confirmOpen}

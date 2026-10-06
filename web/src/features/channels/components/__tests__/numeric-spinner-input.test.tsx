@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 
 import { NumericSpinnerInput } from '../numeric-spinner-input'
@@ -69,5 +70,56 @@ describe('channel numeric spinner', () => {
     expect(wrapper.className).toContain('@container/spinner')
     expect(classesOf(wrapper)).toContain('w-full')
     expect(classesOf(wrapper)).toContain('min-w-0')
+  })
+
+  it('shows the placeholder instead of a zero when the caller has no single value', () => {
+    render(
+      <NumericSpinnerInput
+        value={null}
+        placeholder='—'
+        placeholderDescription='the channels disagree'
+        onChange={() => {}}
+      />
+    )
+
+    const value = screen.getByLabelText('the channels disagree')
+    expect(value).toHaveTextContent('—')
+    // Nothing to step from, so the buttons are taken out of the layout and
+    // disabled rather than nudging a number that is not there.
+    for (const label of ['Decrement', 'Increment']) {
+      const button = screen.getByLabelText(label)
+      expect(button).toBeDisabled()
+      expect(classesOf(button)).not.toContain('@[5rem]/spinner:flex')
+    }
+  })
+
+  it('keeps printing a real zero for a caller that passes no placeholder', () => {
+    render(<NumericSpinnerInput value={null} onChange={() => {}} />)
+
+    expect(screen.getByTitle('0')).toHaveTextContent('0')
+    expect(screen.getByLabelText('Increment')).toBeEnabled()
+  })
+
+  it('treats the first number typed into a value-less control as a change', async () => {
+    const user = userEvent.setup()
+    const changes: number[] = []
+    render(
+      <NumericSpinnerInput
+        value={null}
+        placeholder='—'
+        placeholderDescription='the channels disagree'
+        onChange={(value) => changes.push(value)}
+      />
+    )
+
+    await user.click(screen.getByLabelText('the channels disagree'))
+    const input = screen.getByRole('textbox')
+    expect(input).toHaveValue('')
+    await user.type(input, '0')
+    await user.keyboard('{Enter}')
+
+    // Zero equals the display a missing value used to fall back to, but here it
+    // is a value the user chose and it has to reach the caller.
+    expect(changes).toEqual([0])
   })
 })
