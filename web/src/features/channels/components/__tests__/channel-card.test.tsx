@@ -31,9 +31,10 @@ vi.mock('../channels-provider', () => ({
 /**
  * jsdom lays nothing out and does not evaluate container queries, so what these
  * cases can protect is the markup contract that lets the card's inline spinners
- * settle at all: the columns that hold them must be given a definite width,
+ * settle at all — the columns that hold them must be given a definite width,
  * because the query container inside the spinner cannot be sized by the very
- * buttons that query gates.
+ * buttons that query gates — plus the row arrangement, which only the placement
+ * classes can express without a layout engine.
  */
 function fixtureCard() {
   const spinnerCell = () => (
@@ -64,6 +65,22 @@ describe('channel card', () => {
       column.querySelector('[class*="@container/spinner"]')
     )
     expect(withSpinner).toHaveLength(2)
+  })
+
+  it('gives the identity a row of its own and the spinners the row below', () => {
+    const { container } = fixtureCard()
+
+    const grid = container.querySelector('dl')?.parentElement
+    const [identity, priority, weight] = [...(grid?.children ?? [])]
+
+    // Sharing a row with the two fixed 5.5rem tracks left the identity only what
+    // those tracks did not use, which in a narrow card is a few dozen pixels and
+    // cut the channel name off. The identity therefore spans the whole row, and
+    // the two spinner columns move to the right two cells of the one below.
+    expect(identity?.className).toContain('col-span-3')
+    expect(identity?.textContent).toContain('#7')
+    expect(priority?.className).toContain('col-start-2')
+    expect(weight?.className).toContain('col-start-3')
   })
 
   it('aligns the last tested value with its label', () => {

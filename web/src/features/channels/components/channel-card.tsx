@@ -102,17 +102,23 @@ function ChannelCardComponent({
           </div>
         </div>
 
-        {/* Both rows share their columns: identity/balance on the left,
-          priority/response and weight/last tested on the right. The two
-          spinner columns are a fixed 5.5rem, because the +/- buttons inside the
-          inline spinner appear through a container query and a query container
-          has to be given a definite width here. Sized by its content instead,
-          the spinner would be sized by the very buttons the query gates: hidden
-          buttons measure a few pixels, the query stays false, and the spinner
-          collapses. The table gets that definite width from its colgroup. */}
+        {/* The identity gets a row of its own and the two spinners move to the
+          right two cells of the next row. Sharing a row with them left the
+          identity whatever the two fixed tracks did not use, which in a narrow
+          card is a few dozen pixels: the channel name was cut to eight
+          characters at 320px, the aggregate row's chevron and count badge had
+          32px clipped off, and a card cannot be widened by dragging. The cost is
+          one extra row per card.
+          The two spinner columns stay a fixed 5.5rem, because the +/- buttons
+          inside the inline spinner appear through a container query and a query
+          container has to be given a definite width here: sized by its content
+          instead, the spinner would be sized by the very buttons the query
+          gates, hidden buttons would measure a few pixels, the query would stay
+          false, and the spinner would collapse. The table gets that definite
+          width from its colgroup, the card gets it from these two tracks. */}
         <StatusBadgeTypeContext.Provider value='text'>
           <div className='grid grid-cols-[minmax(0,1fr)_5.5rem_5.5rem] items-start gap-3'>
-            <div className='min-w-0 overflow-hidden text-sm'>
+            <div className='col-span-3 min-w-0 overflow-hidden text-sm'>
               {!isTagRow && (
                 <div className={labelClass}>
                   #{sensitiveVisible ? row.original.id : SENSITIVE_MASK}
@@ -120,11 +126,11 @@ function ChannelCardComponent({
               )}
               {nameCell}
             </div>
-            <div className='flex min-w-0 flex-col gap-1'>
+            <div className='col-start-2 flex min-w-0 flex-col gap-1'>
               <span className={labelClass}>{t('Priority')}</span>
               {priorityCell}
             </div>
-            <div className='flex min-w-0 flex-col gap-1'>
+            <div className='col-start-3 flex min-w-0 flex-col gap-1'>
               <span className={labelClass}>{t('Weight')}</span>
               {weightCell}
             </div>
