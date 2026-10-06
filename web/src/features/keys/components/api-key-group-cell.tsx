@@ -53,11 +53,15 @@ export function ApiKeyGroupCell(props: ApiKeyGroupCellProps) {
         tooltipContent={group || t('Follow user group')}
         tooltipClassName='break-all'
       >
+        {/* Plain text, like the group column of the usage log table: the group
+            column sits flush against the cell edge so the name lines up with
+            the rest of the row, and a pill with no padding left its fully
+            rounded clip path shaving the corners of the first and last glyph. */}
         <GroupBadge
           group={group}
           ratio={ratio}
           ratioLabel={group ? undefined : t('Inherited')}
-          className='px-0'
+          type='text'
           containerClassName={cn('gap-3', isMobile && 'w-full justify-between')}
         />
       </TruncatedCell>
