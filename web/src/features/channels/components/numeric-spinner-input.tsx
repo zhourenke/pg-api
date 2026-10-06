@@ -161,17 +161,15 @@ export function NumericSpinnerInput({
   const atMin = min !== undefined && Number(localValue) <= min
   const atMax = max !== undefined && Number(localValue) >= max
 
-  // The card gives the spinner a column of its own in an equal-thirds grid, where
-  // every figure is centred in its column. The control takes most of that column
-  // but keeps the width the spinner used to be given — `min(5.5rem, 85%)`: never
-  // wider than the 5.5rem track it once sat in, and 85% of the column where the
-  // column cannot hold that width, which keeps the box short of the column's edges
-  // instead of stretching to them. `min-w-fit` is the number's own floor: the two
-  // 24px buttons already take 48px of the box, so at the narrowest card 85% would
-  // leave a two-digit value about a pixel short and ellipsize it (a fixed 4.5rem
-  // floor was short as well). The table measures its columns from the content
-  // instead, where a box that stretched would be asking the column to size itself
-  // from the box filling it, so there the control stays as wide as what it holds.
+  // The card lays its figures out in content-sized columns (blank / figure /
+  // blank, as the marketplace's model card does), so the control is sized by the
+  // number it holds — up to the same 5.5rem ceiling, and never squeezed below what
+  // the number and its two buttons need. A percentage of the column is no longer
+  // available there: a column sized by its content has no width for a percentage
+  // to resolve against. The wrapper keeps a 5rem floor in that layout, which is
+  // the width the +/- buttons appear at through their container query: whether
+  // they are rendered cannot be left to a box the buttons themselves would size,
+  // or hidden buttons would measure a few pixels and the query would stay false.
   const fillsColumn = useContext(ChannelRowActionsLayoutContext) === 'card'
 
   return (
@@ -183,9 +181,9 @@ export function NumericSpinnerInput({
         // stable, so a wide column can turn the buttons on and a squeezed one
         // turns them off.
         '@container/spinner inline-flex w-full max-w-full min-w-0 items-center',
-        // Centred in the card, against the track's left edge in the table, where
-        // the box is the width of its own content.
-        fillsColumn && 'justify-center',
+        // In the card this box gives the query its floor and centres the control
+        // in the column; in the table the column is the box, so neither is needed.
+        fillsColumn && 'min-w-[5rem] justify-center',
         className
       )}
     >
@@ -198,7 +196,7 @@ export function NumericSpinnerInput({
         onBlur={handleControlBlur}
         className={cn(
           'group/spinner border-input inline-flex h-7 max-w-full min-w-0 items-center gap-0 rounded-md border transition-colors',
-          fillsColumn && 'w-[min(5.5rem,85%)] min-w-fit',
+          fillsColumn && 'min-w-fit max-w-[5.5rem]',
           !disabled && 'hover:bg-muted/60',
           editing && 'bg-muted/60 ring-primary/30 ring-1'
         )}

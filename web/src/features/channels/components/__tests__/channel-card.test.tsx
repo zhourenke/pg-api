@@ -63,23 +63,27 @@ function fixtureCard() {
 }
 
 describe('channel card', () => {
-  it('gives the identity a row of its own and the six figures three equal columns', () => {
+  it('gives the identity a row of its own and the six figures content-sized columns', () => {
     const { container } = fixtureCard()
 
     const grid = container.querySelector('dl')?.parentElement
     const [identity, used, priority, weight] = [...(grid?.children ?? [])]
 
-    // Equal thirds, with the identity keeping the whole first row. It used to
-    // share a row with the two spinners and keep only what their fixed tracks
-    // did not use, which in a narrow card cut the channel name to a few
-    // characters and trimmed the aggregate row's chevron and count badge.
-    expect(grid?.className).toContain('grid-cols-3')
-    expect(identity?.className).toContain('col-span-3')
+    // Content-sized columns laid out as blank / fact / blank…, the way the
+    // marketplace's model card lays out its prices, so each fact takes the width
+    // it needs instead of a third of the row, and the blanks share what is left.
+    // The identity keeps the whole first row.
+    expect(grid?.className).toContain(
+      'grid-cols-[1fr_auto_1fr_1fr_auto_1fr_1fr_auto_1fr]'
+    )
+    expect(identity?.className).toContain('col-span-9')
     // The used figure opens the second row, so nothing is left hanging at the
     // right edge, and the remaining figure opens the third.
     expect(used?.textContent).toContain('Used')
-    expect(priority?.className).toContain('col-start-2')
-    expect(weight?.className).toContain('col-start-3')
+    expect(used?.className).toContain('col-start-2')
+    expect(priority?.className).toContain('col-start-5')
+    expect(weight?.className).toContain('col-start-8')
+    expect(grid?.querySelector('dl div')?.className).toContain('col-start-2')
     expect(grid?.querySelector('dl div dt')?.textContent).toBe('Remaining')
 
     // Each figure is centred in its own column, label and value alike, so the

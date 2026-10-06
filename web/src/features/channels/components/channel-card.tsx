@@ -111,22 +111,20 @@ function ChannelCardComponent({
         </div>
 
         {/* The identity gets a row of its own and the six facts on it share the
-          two rows below in three equal columns, so nothing is pushed to the
-          right edge and no figure has to give way for the spinners the way the
-          identity did when it shared their row. The cost is one extra row per
-          card. Each figure is centred in its own column, label and value alike,
-          which leaves the column's slack on both sides of it instead of stacking
-          it all against the left edge; the identity and the groups footer stay
-          left-aligned, being full-width lines rather than figures in a column.
-          The two spinner columns take their width from the grid, not from their
-          content: the +/- buttons inside the inline spinner appear through a
-          container query, and a box sized by the very buttons that query gates
-          would collapse — hidden buttons measure a few pixels, the query stays
-          false, and the buttons stay hidden. The table gets that definite width
-          from its colgroup, the card gets it from the equal tracks. */}
+          two rows below, in content-sized columns laid out as blank / fact /
+          blank…, the way the marketplace's model card lays out its prices. Equal
+          thirds gave a balance badge the same column as a spinner, so the row's
+          left looked empty and its right looked tight; here each fact takes the
+          width it needs and the blanks share what is left, the outer ones the
+          same width as those between. Every fact is centred in its column, label
+          and value alike; the identity and the groups footer stay left-aligned,
+          being full-width lines rather than figures in a column. The cost is one
+          extra row per card.
+          Why a spinner's box is sized the way it is, and what keeps its +/- buttons
+          answering their container query, is documented next to the spinner. */}
         <StatusBadgeTypeContext.Provider value='text'>
-          <div className='grid grid-cols-3 items-start gap-3'>
-            <div className='col-span-3 min-w-0 overflow-hidden text-sm'>
+          <div className='grid grid-cols-[1fr_auto_1fr_1fr_auto_1fr_1fr_auto_1fr] items-start gap-y-3'>
+            <div className='col-span-9 min-w-0 overflow-hidden text-sm'>
               {!isTagRow && (
                 <div className={labelClass}>
                   #{sensitiveVisible ? row.original.id : SENSITIVE_MASK}
@@ -134,22 +132,22 @@ function ChannelCardComponent({
               )}
               {nameCell}
             </div>
-            <div className='flex min-w-0 flex-col gap-1 text-center'>
+            <div className='col-start-2 flex min-w-0 flex-col gap-1 text-center'>
               <span className={labelClass}>{t('Used')}</span>
               <div className='min-w-0 text-sm tabular-nums [&>*]:!ml-0'>
                 {usedBalanceCell}
               </div>
             </div>
-            <div className='col-start-2 flex min-w-0 flex-col gap-1 text-center'>
+            <div className='col-start-5 flex min-w-0 flex-col gap-1 text-center'>
               <span className={labelClass}>{t('Priority')}</span>
               {priorityCell}
             </div>
-            <div className='col-start-3 flex min-w-0 flex-col gap-1 text-center'>
+            <div className='col-start-8 flex min-w-0 flex-col gap-1 text-center'>
               <span className={labelClass}>{t('Weight')}</span>
               {weightCell}
             </div>
-            <dl className='col-span-3 grid grid-cols-subgrid gap-y-1'>
-              <div className='row-span-2 grid min-w-0 grid-rows-subgrid text-center'>
+            <dl className='col-span-9 grid grid-cols-subgrid gap-y-1'>
+              <div className='col-start-2 row-span-2 grid min-w-0 grid-rows-subgrid text-center'>
                 <dt className={labelClass}>{t('Remaining')}</dt>
                 <dd className='min-w-0 text-sm tabular-nums [&>*]:!ml-0'>
                   {remainingBalanceCell ?? (
@@ -157,7 +155,7 @@ function ChannelCardComponent({
                   )}
                 </dd>
               </div>
-              <div className='row-span-2 grid min-w-0 grid-rows-subgrid text-center'>
+              <div className='col-start-5 row-span-2 grid min-w-0 grid-rows-subgrid text-center'>
                 <dt className={labelClass}>{t('Response')}</dt>
                 <dd className='min-w-0 text-sm tabular-nums [&_[data-slot=status-badge]]:!ml-0'>
                   {responseCell ?? (
@@ -165,7 +163,7 @@ function ChannelCardComponent({
                   )}
                 </dd>
               </div>
-              <div className='row-span-2 grid min-w-0 grid-rows-subgrid text-center'>
+              <div className='col-start-8 row-span-2 grid min-w-0 grid-rows-subgrid text-center'>
                 <dt className={labelClass}>{t('Last Tested')}</dt>
                 {/* The value is a plain span here: its cell renders a badge
                   inside a tooltip trigger, and the trigger's own `data-slot`
