@@ -108,6 +108,34 @@ function stubScrollingWidth() {
     })
 }
 
+/**
+ * Counts how often a render reaches the document with the box a measured clone
+ * is laid out in. `scrollWidth` stands in for layout here, so this is the only
+ * cost a jsdom render can show: the number of joins, not their duration.
+ */
+function countBodyMeasurementJoins(names: string[]) {
+  const originalAppend = Element.prototype.append
+  const joined: Node[] = []
+
+  Element.prototype.append = function (this: Element, ...nodes: Node[]) {
+    if (this === document.body) {
+      joined.push(...nodes)
+    }
+
+    return originalAppend.apply(this, nodes)
+  }
+
+  try {
+    render(<Harness names={names} />)
+  } finally {
+    Element.prototype.append = originalAppend
+  }
+
+  return joined.filter(
+    (node) => node instanceof HTMLElement && node.style.position === 'absolute'
+  ).length
+}
+
 async function dragSeparator(separator: HTMLElement, from: number, to: number) {
   const originalPointerEvent = window.PointerEvent
   // jsdom ships no PointerEvent, and the generic fallback drops `clientX`,
@@ -230,6 +258,18 @@ describe('column resizing', () => {
     // leaves the column at its header width instead of the 16 characters of the
     // name the column has to show.
     expect(getColumnWidths()).toEqual(['144px', '', '72px'])
+  })
+
+  it('measures a whole table through one offscreen box, not one per cell', () => {
+    stubScrollingWidth()
+
+    // Five rows and two measured columns ask for twelve clones. They are all
+    // measured inside one box for the whole table: a join of the document is what
+    // forces a style and layout pass, so a box per clone made a wide table block
+    // the page for seconds while it settled.
+    expect(
+      countBodyMeasurementJoins(['alpha', 'beta', 'gamma', 'delta', 'eta'])
+    ).toBeLessThanOrEqual(1)
   })
 
   it('re-measures a cell whose content only arrives after the first paint', () => {

@@ -105,20 +105,56 @@ function measureCells(
     return undefined
   }
 
-  const measuredWidth = cells.reduce(
-    (maxWidth, cell) => Math.max(maxWidth, measureElementWidth(cell)),
-    0
-  )
+  // Every clone of a column goes into the box in one go, and only then are the
+  // widths read: joining and leaving the document is what forces the browser to
+  // recalculate styles and layout, so one join per column instead of one per cell
+  // is most of what measuring a table costs.
+  const box = getMeasurementBox()
+  const clones = cells.map((cell) => createMeasurementClone(cell))
+
+  // A stale containment from the previous column would answer a query this
+  // column does not ask, so the box starts each column unconstrained.
+  box.style.containerType = ''
+  box.style.containerName = ''
+
+  for (const { holder } of clones) {
+    box.append(holder)
+  }
+
+  let measuredWidth = 0
+  try {
+    for (const { clone } of clones) {
+      moveSizeContainment(clone, box)
+    }
+
+    for (const { clone } of clones) {
+      measuredWidth = Math.max(measuredWidth, clone.scrollWidth)
+    }
+  } finally {
+    for (const { holder } of clones) {
+      holder.remove()
+    }
+  }
 
   return measuredWidth > 0 ? Math.ceil(measuredWidth) : undefined
+}
+
+type MeasurementClone = {
+  /** Wrapper the clone is measured inside; see {@link createMeasurementClone}. */
+  holder: HTMLElement
+  clone: HTMLElement
 }
 
 /**
  * Reads the width an element needs when nothing constrains it. The clone is
  * taken out of the table so the current column widths cannot influence the
  * result, and the resize handle is dropped so it never counts as content.
+ *
+ * Each clone gets its own wrapper: two table cells appended side by side would
+ * be laid out as one anonymous row, where their widths would influence each
+ * other instead of being read one by one.
  */
-function measureElementWidth(element: HTMLElement) {
+function createMeasurementClone(element: HTMLElement): MeasurementClone {
   const clone = element.cloneNode(true) as HTMLElement
 
   clone.querySelectorAll('[data-column-resizer]').forEach((resizer) => {
@@ -142,31 +178,42 @@ function measureElementWidth(element: HTMLElement) {
   clone.style.height = 'auto'
   clone.style.whiteSpace = 'nowrap'
 
-  const container = createMeasurementContainer(clone)
+  const holder = document.createElement('div')
+  holder.append(clone)
 
-  // In the document, not beside it: a detached subtree reports no computed
-  // `container-type`, so the containment could not be found before this point.
-  document.body.append(container)
-  moveSizeContainment(clone, container)
-  const width = clone.scrollWidth
-  container.remove()
-
-  return width
+  return { holder, clone }
 }
 
-/** The offscreen box a measured clone is placed in. */
-function createMeasurementContainer(clone: HTMLElement) {
-  const container = document.createElement('div')
+/**
+ * The offscreen box measured clones are laid out in, created on first use and
+ * then kept: the box itself is what costs, not the clone, and it stays out of
+ * the page's own scrollable area. It is empty between measurements, and the
+ * containment a cell needs is established on it per column (see
+ * {@link moveSizeContainment}).
+ *
+ * The box is in the document, not beside it: a detached subtree reports no
+ * computed `container-type`, so the containment could not be found before this
+ * point.
+ */
+let measurementBox: HTMLElement | null = null
 
-  container.style.position = 'absolute'
-  container.style.left = `${MEASUREMENT_OFFSET_LEFT}px`
-  container.style.top = '0'
-  container.style.visibility = 'hidden'
-  container.style.pointerEvents = 'none'
-  container.style.width = `${MEASUREMENT_CONTAINER_WIDTH}px`
-  container.append(clone)
+function getMeasurementBox(): HTMLElement {
+  if (measurementBox?.isConnected) {
+    return measurementBox
+  }
 
-  return container
+  const box = document.createElement('div')
+  box.style.position = 'absolute'
+  box.style.left = `${MEASUREMENT_OFFSET_LEFT}px`
+  box.style.top = '0'
+  box.style.visibility = 'hidden'
+  box.style.pointerEvents = 'none'
+  box.style.width = `${MEASUREMENT_CONTAINER_WIDTH}px`
+
+  document.body.append(box)
+  measurementBox = box
+
+  return box
 }
 
 /**
