@@ -58,7 +58,6 @@ export function useDeploymentsColumns(opts: {
         const id = row.original.id
         return <TableId value={id} />
       },
-      size: 120,
     },
     {
       id: 'name',
@@ -78,8 +77,6 @@ export function useDeploymentsColumns(opts: {
           />
         )
       },
-      size: 240,
-      minSize: 220,
     },
     {
       accessorKey: 'status',
@@ -114,7 +111,6 @@ export function useDeploymentsColumns(opts: {
         const status = normalizeDeploymentStatus(row.getValue(id))
         return value.includes(status)
       },
-      size: 160,
       enableSorting: false,
     },
     {
@@ -135,7 +131,6 @@ export function useDeploymentsColumns(opts: {
           />
         )
       },
-      size: 140,
       enableSorting: false,
     },
     {
@@ -185,8 +180,6 @@ export function useDeploymentsColumns(opts: {
           </div>
         )
       },
-      size: 240,
-      minSize: 220,
       enableSorting: false,
     },
     {
@@ -222,8 +215,6 @@ export function useDeploymentsColumns(opts: {
           </div>
         )
       },
-      size: 240,
-      minSize: 220,
       enableSorting: false,
     },
     {
@@ -243,7 +234,6 @@ export function useDeploymentsColumns(opts: {
           </div>
         )
       },
-      size: 180,
     },
     {
       id: 'actions',

@@ -316,7 +316,6 @@ export function useCommonLogsColumns(
           return value.includes(String(row.original.type))
         },
         enableHiding: false,
-        size: 180,
       },
     ]
 
@@ -325,7 +324,6 @@ export function useCommonLogsColumns(
         {
           id: 'channel',
           header: t('Channel'),
-          size: 180,
           accessorFn: (row) => row.channel,
           cell: function ChannelCell({ row }) {
             const {
@@ -486,7 +484,6 @@ export function useCommonLogsColumns(
         {
           id: 'user',
           header: t('User'),
-          size: 160,
           accessorFn: (row) => row.username,
           cell: function UserCell({ row }) {
             const {
@@ -606,13 +603,11 @@ export function useCommonLogsColumns(
           </div>
         )
       },
-      size: 160,
     })
     columns.push(
       {
         accessorKey: 'model_name',
         header: t('Model'),
-        size: 220,
         cell: function ModelCell({ row }) {
           const log = row.original
           if (!isDisplayableLogType(log.type)) return null
@@ -634,7 +629,6 @@ export function useCommonLogsColumns(
       {
         accessorKey: 'is_stream',
         header: t('Stream'),
-        size: 90,
         cell: ({ row }) => {
           const log = row.original
           if (!isTimingLogType(log.type)) return null
@@ -655,7 +649,6 @@ export function useCommonLogsColumns(
       {
         accessorKey: 'prompt_tokens',
         header: 'Tokens',
-        size: 130,
         cell: ({ row }) => {
           const log = row.original
           if (!isDisplayableLogType(log.type)) return null
@@ -703,7 +696,6 @@ export function useCommonLogsColumns(
       {
         accessorKey: 'quota',
         header: t('Cost'),
-        size: 130,
         cell: ({ row }) => {
           const log = row.original
           if (!isDisplayableLogType(log.type)) return null
@@ -717,7 +709,6 @@ export function useCommonLogsColumns(
       {
         accessorKey: 'use_time',
         header: t('Timing'),
-        size: 110,
         cell: ({ row }) => {
           const log = row.original
           if (!isTimingLogType(log.type)) return null

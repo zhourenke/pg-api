@@ -831,8 +831,6 @@ function ChannelTestDialogContent({
         ),
         enableSorting: false,
         enableHiding: false,
-        size: 40,
-        minSize: 40,
       },
       {
         accessorKey: 'model',
@@ -858,8 +856,6 @@ function ChannelTestDialogContent({
           )
         },
         enableSorting: false,
-        size: 192,
-        minSize: 192,
       },
       {
         id: 'status',
@@ -870,8 +866,6 @@ function ChannelTestDialogContent({
           return <TestStatusCell result={result} />
         },
         enableSorting: false,
-        size: 112,
-        minSize: 112,
       },
       {
         id: 'result',

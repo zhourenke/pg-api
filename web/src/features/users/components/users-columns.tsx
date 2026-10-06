@@ -76,7 +76,6 @@ export function useUsersColumns(): ColumnDef<User>[] {
         ),
         enableSorting: false,
         enableHiding: false,
-        size: 40,
       },
       {
         accessorKey: 'id',
@@ -89,7 +88,6 @@ export function useUsersColumns(): ColumnDef<User>[] {
             />
           )
         },
-        size: 80,
         meta: { mobileOrder: 10 },
       },
       {
@@ -139,7 +137,6 @@ export function useUsersColumns(): ColumnDef<User>[] {
           )
         },
         enableHiding: false,
-        size: 220,
         meta: { mobileTitle: true },
       },
       {
@@ -183,7 +180,6 @@ export function useUsersColumns(): ColumnDef<User>[] {
           return value.includes(String(row.getValue(id)))
         },
         enableSorting: false,
-        size: 120,
         meta: { mobileBadge: true },
       },
       {
@@ -194,8 +190,6 @@ export function useUsersColumns(): ColumnDef<User>[] {
           const user = row.original
           return <UserQuotaCell remaining={user.quota} used={user.used_quota} />
         },
-        size: 180,
-        minSize: 160,
         meta: { mobileOrder: 40 },
       },
       {
@@ -216,7 +210,6 @@ export function useUsersColumns(): ColumnDef<User>[] {
           const searchValue = String(value).toLowerCase()
           return group.includes(searchValue)
         },
-        size: 140,
         meta: { mobileOrder: 30 },
       },
       {
@@ -236,7 +229,6 @@ export function useUsersColumns(): ColumnDef<User>[] {
           return value.includes(String(row.getValue(id)))
         },
         enableSorting: false,
-        size: 120,
         meta: { mobileOrder: 20 },
       },
       {
@@ -274,7 +266,6 @@ export function useUsersColumns(): ColumnDef<User>[] {
             </div>
           )
         },
-        size: 240,
         enableSorting: false,
         meta: { mobileHidden: true },
       },
@@ -289,8 +280,6 @@ export function useUsersColumns(): ColumnDef<User>[] {
             format='absolute'
           />
         ),
-        size: 260,
-        minSize: 240,
         meta: { mobileHidden: true },
       },
       {

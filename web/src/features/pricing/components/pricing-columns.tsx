@@ -71,8 +71,6 @@ export function usePricingColumns(
             </div>
           )
         },
-        minSize: 170,
-        size: 190,
         enableSorting: false,
       },
 
@@ -100,7 +98,6 @@ export function usePricingColumns(
             </BadgeCell>
           )
         },
-        size: 140,
         enableSorting: false,
       },
 
@@ -124,7 +121,6 @@ export function usePricingColumns(
             />
           )
         },
-        size: 140,
         enableSorting: false,
       },
 
@@ -145,8 +141,6 @@ export function usePricingColumns(
             }}
           />
         ),
-        size: 380,
-        minSize: 280,
         enableSorting: false,
       },
 
@@ -165,7 +159,6 @@ export function usePricingColumns(
             />
           )
         },
-        size: 110,
         enableSorting: false,
       },
 
@@ -189,7 +182,6 @@ export function usePricingColumns(
             />
           )
         },
-        size: 250,
         enableSorting: false,
       },
     ],

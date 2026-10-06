@@ -710,7 +710,6 @@ export function useChannelsColumns(
               enableSorting: false,
               enableHiding: false,
               enableResizing: false,
-              size: 40,
             } satisfies ColumnDef<Channel>,
           ]
         : []),
@@ -724,7 +723,6 @@ export function useChannelsColumns(
           const id = row.getValue('id') as number
           return <TableId value={sensitiveVisible ? id : SENSITIVE_MASK} />
         },
-        size: 80,
       },
       // Name column
       {
@@ -841,8 +839,6 @@ export function useChannelsColumns(
             </div>
           )
         },
-        size: 260,
-        minSize: 200,
       },
 
       // Type column
@@ -976,7 +972,6 @@ export function useChannelsColumns(
           }
           return value.includes(String(row.getValue(id)))
         },
-        size: 220,
         enableSorting: false,
       },
 
@@ -1107,7 +1102,6 @@ export function useChannelsColumns(
           }
           return false
         },
-        size: 120,
         enableSorting: false,
       },
 
@@ -1133,7 +1127,6 @@ export function useChannelsColumns(
             />
           )
         },
-        size: 200,
         enableSorting: false,
       },
 
@@ -1166,7 +1159,6 @@ export function useChannelsColumns(
           const groupArray = parseGroupsList(group)
           return groupArray.some((g) => value.includes(g))
         },
-        size: 150,
         enableSorting: false,
       },
 
@@ -1190,7 +1182,6 @@ export function useChannelsColumns(
             />
           )
         },
-        size: 120,
         enableSorting: false,
       },
 
@@ -1200,7 +1191,6 @@ export function useChannelsColumns(
         header: t('Priority'),
         meta: { mobileHidden: true },
         cell: ({ row }) => <PriorityCell channel={row.original} />,
-        size: 100,
       },
 
       // Weight column
@@ -1209,7 +1199,6 @@ export function useChannelsColumns(
         header: t('Weight'),
         meta: { mobileHidden: true },
         cell: ({ row }) => <WeightCell channel={row.original} />,
-        size: 90,
         enableSorting: false,
       },
 
@@ -1218,7 +1207,6 @@ export function useChannelsColumns(
         accessorKey: 'balance',
         header: t('Used / Remaining'),
         cell: ({ row }) => <BalanceCell channel={row.original} />,
-        size: 180,
       },
 
       // Response Time column
@@ -1240,7 +1228,6 @@ export function useChannelsColumns(
             />
           )
         },
-        size: 110,
       },
 
       // Test Time column
@@ -1281,7 +1268,6 @@ export function useChannelsColumns(
             </TooltipProvider>
           )
         },
-        size: 120,
         enableSorting: false,
       },
 

@@ -216,7 +216,6 @@ export function useSystemInstancesColumns(
         id: 'node_name',
         accessorKey: 'node_name',
         header: t('Instances'),
-        size: 240,
         cell: ({ row }) => {
           const instance = row.original
           const shouldConfigure =
@@ -293,7 +292,6 @@ export function useSystemInstancesColumns(
         id: 'status',
         accessorKey: 'status',
         header: t('Status'),
-        size: 110,
         cell: ({ row }) => (
           <Badge
             variant='secondary'
@@ -314,7 +312,6 @@ export function useSystemInstancesColumns(
       {
         id: 'role',
         header: t('Role'),
-        size: 100,
         cell: ({ row }) => (
           <TooltipProvider delay={100}>
             <Tooltip>
@@ -335,7 +332,6 @@ export function useSystemInstancesColumns(
       {
         id: 'cpu',
         header: t('CPU'),
-        size: 96,
         cell: ({ row }) => (
           <ResourceCell
             value={row.original.info?.resources?.cpu?.usage_percent}
@@ -346,7 +342,6 @@ export function useSystemInstancesColumns(
       {
         id: 'memory',
         header: t('Memory'),
-        size: 96,
         cell: ({ row }) => (
           <ResourceCell
             value={row.original.info?.resources?.memory?.usage_percent}
@@ -357,7 +352,6 @@ export function useSystemInstancesColumns(
       {
         id: 'storage',
         header: t('Storage'),
-        size: 96,
         cell: ({ row }) => {
           const storage = row.original.info?.resources?.storage
 
@@ -394,7 +388,6 @@ export function useSystemInstancesColumns(
       {
         id: 'version',
         header: t('Version'),
-        size: 100,
         cell: ({ row }) => (
           <TruncatedCell>
             {row.original.info?.runtime?.version || '-'}
@@ -405,7 +398,6 @@ export function useSystemInstancesColumns(
       {
         id: 'runtime',
         header: t('Runtime'),
-        size: 140,
         cell: ({ row }) => (
           <TruncatedCell>{runtimeLabel(row.original)}</TruncatedCell>
         ),
@@ -415,7 +407,6 @@ export function useSystemInstancesColumns(
         id: 'started',
         accessorKey: 'started_at',
         header: t('Started'),
-        size: 170,
         cell: ({ row }) => (
           <TruncatedCell className='text-muted-foreground'>
             {formatTimestampToDate(row.original.started_at)}
@@ -427,7 +418,6 @@ export function useSystemInstancesColumns(
         id: 'last_seen',
         accessorKey: 'last_seen_at',
         header: t('Last Seen'),
-        size: 170,
         cell: ({ row }) => (
           <TruncatedCell
             className='text-muted-foreground'
@@ -445,7 +435,6 @@ export function useSystemInstancesColumns(
       {
         id: 'actions',
         header: t('Actions'),
-        size: 90,
         enableSorting: false,
         enableHiding: false,
         cell: ({ row }) => {

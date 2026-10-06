@@ -95,7 +95,6 @@ export function VendorsTable() {
       id: 'select',
       enableHiding: false,
       enableSorting: false,
-      size: 40,
       header: ({ table }) => (
         <Checkbox
           checked={table.getIsAllPageRowsSelected()}
@@ -118,7 +117,6 @@ export function VendorsTable() {
       accessorKey: 'name',
       header: t('Vendor'),
       enableHiding: false,
-      size: 250,
       meta: { mobileTitle: true },
       cell: ({ row }) => (
         <div className='flex min-w-0 items-center gap-2'>
@@ -142,7 +140,6 @@ export function VendorsTable() {
     {
       accessorKey: 'description',
       header: t('Description'),
-      size: 350,
       cell: ({ row }) => (
         <p
           className='text-muted-foreground line-clamp-2 max-w-full min-w-0 break-words whitespace-normal'
@@ -155,7 +152,6 @@ export function VendorsTable() {
     {
       accessorKey: 'model_count',
       header: t('Linked models'),
-      size: 160,
       cell: ({ row }) => (
         <Button
           variant='link'

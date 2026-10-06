@@ -80,7 +80,6 @@ export function useSystemTasksColumns(): ColumnDef<SystemTask>[] {
         id: 'type',
         accessorKey: 'type',
         header: t('Type'),
-        size: 260,
         cell: ({ row }) => (
           <div className='space-y-0.5'>
             <div>
@@ -97,7 +96,6 @@ export function useSystemTasksColumns(): ColumnDef<SystemTask>[] {
         id: 'status',
         accessorKey: 'status',
         header: t('Status'),
-        size: 130,
         cell: ({ row }) => (
           <Badge
             variant={STATUS_VARIANT[row.original.status]}
@@ -118,7 +116,6 @@ export function useSystemTasksColumns(): ColumnDef<SystemTask>[] {
       {
         id: 'progress',
         header: t('Progress'),
-        size: 180,
         cell: ({ row }) => {
           const progress = getProgress(row.original)
 
@@ -143,7 +140,6 @@ export function useSystemTasksColumns(): ColumnDef<SystemTask>[] {
         id: 'executor',
         accessorKey: 'locked_by',
         header: t('Executor'),
-        size: 260,
         cell: ({ row }) => {
           // An empty executor is shown as a dash, and a dash is not worth a
           // tooltip, so the tooltip content is what decides whether one exists.
@@ -164,7 +160,6 @@ export function useSystemTasksColumns(): ColumnDef<SystemTask>[] {
         id: 'updated',
         accessorKey: 'updated_at',
         header: t('Updated'),
-        size: 190,
         cell: ({ row }) => (
           <TruncatedCell
             className='text-muted-foreground'
@@ -183,7 +178,6 @@ export function useSystemTasksColumns(): ColumnDef<SystemTask>[] {
         id: 'detail',
         accessorKey: 'error',
         header: t('Detail'),
-        size: 220,
         cell: ({ row }) => {
           const detail = row.original.error || ''
 

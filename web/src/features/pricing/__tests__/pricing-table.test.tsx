@@ -69,6 +69,7 @@ afterEach(() => {
     .getState()
     .setConfig({ currency: { ...DEFAULT_CURRENCY_CONFIG } })
   vi.unstubAllGlobals()
+  vi.restoreAllMocks()
   useSystemConfigStore.persist.setOptions({ storage: originalStorage })
 })
 
@@ -93,6 +94,17 @@ describe('pricing table', () => {
   })
 
   it('reserves the widest column for the price summary', () => {
+    // jsdom lays nothing out, so the measurement reads a scripted width instead:
+    // the price cell renders input, output and cache read on one line and needs
+    // far more room than any column beside it.
+    vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(
+      function (this: HTMLElement) {
+        if (this.tagName === 'TH') return 0
+
+        return this.getAttribute('data-column-id') === 'price' ? 300 : 40
+      }
+    )
+
     const { container } = render(
       <PricingTable models={[pricingModel()]} tokenUnit='M' />
     )
@@ -103,8 +115,8 @@ describe('pricing table', () => {
     ).filter((width) => !Number.isNaN(width))
 
     expect(widths).toHaveLength(6)
-    // The price cell renders input, output and cache read on one line, so it
-    // takes the largest share of the table width.
+    // The price cell renders input, output and cache read on one line, so the
+    // shared measurement gives it the largest share of the table width.
     expect(widths[3]).toBe(Math.max(...widths))
     expect(widths[3]).toBeGreaterThanOrEqual(30)
   })

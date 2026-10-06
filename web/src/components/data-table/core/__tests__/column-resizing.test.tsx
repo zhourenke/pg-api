@@ -78,6 +78,19 @@ const windowColumns: ColumnDef<Row>[] = [
   },
 ]
 
+/**
+ * Mirrors the column definitions the feature tables carry now: no declared
+ * width at all, so nothing but the measurement can size a column.
+ */
+const contentOnlyColumns: ColumnDef<Row>[] = [
+  { accessorKey: 'name', header: 'Name' },
+  {
+    id: 'actions',
+    header: 'Actions',
+    cell: () => <button type='button'>Edit</button>,
+  },
+]
+
 function Harness({
   names = ['alpha'],
   tableColumns = columns,
@@ -236,6 +249,26 @@ describe('column resizing', () => {
     // window onto it rather than the content itself, so the declared width is
     // what it keeps. The columns beside it are still fitted to their content.
     expect(getColumnWidths()).toEqual(['320px', '', '72px'])
+  })
+
+  it('shares a table whose columns declare no widths out evenly until its rows arrive', () => {
+    render(
+      <Harness names={['alpha']} tableColumns={contentOnlyColumns} isLoading />
+    )
+
+    // No column declares a width here, so the frame must not fall back to the
+    // shared default of 150px each, which would be wider than its container.
+    expect(getColumnWidths()).toEqual(['', '0px', ''])
+    expect(screen.getByRole('table').style.minWidth).toBe('')
+  })
+
+  it('fits a column that declares no width of its own to its own content', () => {
+    stubScrollingWidth()
+    render(<Harness names={['alpha']} tableColumns={contentOnlyColumns} />)
+
+    // The declaration was never what sized a column that has rows: the
+    // measurement is, and it does not need one.
+    expect(getColumnWidths()).toEqual(['56px', '', '72px'])
   })
 
   it('keeps every other column width when a single column is dragged', async () => {

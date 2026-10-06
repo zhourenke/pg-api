@@ -89,15 +89,12 @@ export function useModelsColumns(
             aria-label={t('Select {{name}}', { name: row.original.model_name })}
           />
         ),
-        size: 40,
         enableSorting: false,
         enableHiding: false,
       },
       {
         accessorKey: 'model_name',
         header: t('Model'),
-        size: 310,
-        minSize: 250,
         enableHiding: false,
         meta: { mobileTitle: true },
         cell: ({ row }) => {
@@ -149,7 +146,6 @@ export function useModelsColumns(
         id: 'pricing',
         header: t('Price'),
         meta: { label: t('Price') },
-        size: 225,
         enableSorting: false,
         cell: ({ row }) => {
           if (!canPrice) {
@@ -204,7 +200,6 @@ export function useModelsColumns(
       {
         accessorKey: 'square_state',
         header: t('Model square visibility'),
-        size: 115,
         enableSorting: false,
         meta: { mobileBadge: true },
         cell: ({ row }) => <ModelSquareStatus model={row.original} />,
@@ -212,7 +207,6 @@ export function useModelsColumns(
       {
         id: 'connections',
         header: t('Channels and groups'),
-        size: 180,
         enableSorting: false,
         cell: ({ row }) => {
           const state = getModelChannelState(row.original)
@@ -245,7 +239,6 @@ export function useModelsColumns(
       {
         accessorKey: 'tags',
         header: t('Tags'),
-        size: 180,
         enableSorting: false,
         meta: { mobileHidden: true },
         cell: ({ row }) => (
@@ -265,7 +258,6 @@ export function useModelsColumns(
             {t('Sync policy')}
           </TruncatedCell>
         ),
-        size: 145,
         enableSorting: false,
         meta: { mobileHidden: true, label: t('Sync policy') },
         cell: ({ row }) => (
@@ -290,13 +282,11 @@ export function useModelsColumns(
         accessorKey: 'id',
         header: t('ID'),
         cell: ({ row }) => row.original.id || '—',
-        size: 65,
         meta: { mobileHidden: true },
       },
       {
         accessorKey: 'vendor_id',
         header: t('Vendor'),
-        size: 150,
         enableSorting: false,
         cell: ({ row }) => (
           <TruncatedCell>
@@ -308,7 +298,6 @@ export function useModelsColumns(
       {
         accessorKey: 'name_rule',
         header: t('Match Type'),
-        size: 100,
         enableSorting: false,
         cell: ({ row }) =>
           rules[row.original.name_rule as 0 | 1 | 2 | 3]?.label,
@@ -317,7 +306,6 @@ export function useModelsColumns(
       {
         accessorKey: 'description',
         header: t('Description'),
-        size: 180,
         enableSorting: false,
         cell: ({ row }) => (
           <DescriptionCell
@@ -330,7 +318,6 @@ export function useModelsColumns(
       {
         accessorKey: 'endpoints',
         header: t('Custom endpoints'),
-        size: 180,
         enableSorting: false,
         cell: ({ row }) => (
           <BadgeListCell
@@ -352,7 +339,6 @@ export function useModelsColumns(
       {
         accessorKey: 'created_time',
         header: t('Created'),
-        size: 160,
         cell: ({ row }) =>
           row.original.id
             ? formatTimestampToDate(row.original.created_time)
@@ -362,17 +348,15 @@ export function useModelsColumns(
       {
         accessorKey: 'updated_time',
         header: t('Updated'),
-        size: 160,
         cell: ({ row }) =>
           row.original.id
             ? formatTimestampToDate(row.original.updated_time)
             : '—',
         meta: { mobileHidden: true },
       },
-      // Row actions come last. The shared table sizes every column by its
-      // declared width and closes the row with a filler that swallows the
-      // leftover space, and it only places that filler *before* the last
-      // column when the last column is `actions`; declared anywhere else, the
+      // Row actions come last. The shared table closes the row with a filler that
+      // swallows the leftover space, and it only places that filler *before* the
+      // last column when the last column is `actions`; declared anywhere else, the
       // pinned column keeps its in-flow position and the filler parks itself
       // to its right, which leaves the actions stranded next to the previous
       // column instead of against the right edge. Every other table in the

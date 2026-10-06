@@ -103,21 +103,18 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-it('takes the model table widths from the column definitions through the shared colgroup', async () => {
+it('lays the model table out through the shared table', async () => {
   const client = renderDialog()
   const { table, widthsByColumn } = await findModelTable()
 
   // The dialog used to hand-write this set of widths into a colgroup and into
-  // per-column classes; both are now the column definitions' own sizes.
-  expect(widthsByColumn).toMatchObject({
-    select: '40px',
-    model: '192px',
-    status: '112px',
-    result: '320px',
-  })
-  // And it is the shared table that lays the columns out, which is what makes
-  // the separators, the drag and the double-click fit work here.
+  // per-column classes; the shared table owns the colgroup, the sizing style and
+  // the trailing spacer now, which is what makes the separators, the drag and
+  // the double-click fit work here. The only column that declares a width of its
+  // own is the result window — the rest are fitted to their content.
   expect(table.style.tableLayout).toBe('fixed')
+  expect(widthsByColumn).toHaveProperty('__filler', '')
+  expect(widthsByColumn.result).toBe('320px')
   client.clear()
 })
 

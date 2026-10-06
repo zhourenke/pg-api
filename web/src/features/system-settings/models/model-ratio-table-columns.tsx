@@ -67,7 +67,6 @@ export function buildModelRatioColumns({
       ),
       enableSorting: false,
       enableHiding: false,
-      size: 40,
     },
     {
       id: 'name',
@@ -89,8 +88,6 @@ export function buildModelRatioColumns({
         </div>
       ),
       enableHiding: false,
-      size: 260,
-      minSize: 200,
       meta: { label: t('Model name') },
     },
     {
@@ -124,8 +121,6 @@ export function buildModelRatioColumns({
         )
       },
       enableSorting: false,
-      size: 360,
-      minSize: 240,
       meta: { label: t('Price summary') },
     },
     {

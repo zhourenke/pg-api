@@ -37,7 +37,6 @@ export function useAuditLogColumns(
       {
         accessorKey: 'created_at',
         header: t('Time'),
-        size: 180,
         cell: ({ row }) => (
           <TruncatedCell className='font-mono tabular-nums'>
             {dayjs.unix(row.original.created_at).format('YYYY-MM-DD HH:mm:ss')}
@@ -51,13 +50,11 @@ export function useAuditLogColumns(
         {
           accessorKey: 'username',
           header: t('Username'),
-          size: 100,
           meta: { label: t('Username') },
         },
         {
           id: 'event',
           header: t('Event'),
-          size: 360,
           accessorFn: (entry) => {
             const detail = buildAuditDetails(entry, t)
             return [detail.summary, detail.operation?.description]
@@ -104,7 +101,6 @@ export function useAuditLogColumns(
       {
         accessorKey: 'ip',
         header: 'IP',
-        size: 120,
         cell: ({ row }) => (
           <TruncatedCell className='font-mono'>
             {row.original.ip || '—'}
@@ -115,9 +111,6 @@ export function useAuditLogColumns(
       {
         accessorKey: 'method',
         header: t('Method'),
-        // Wide enough for the "请求方法" header plus its sort control; 76px
-        // wrapped the header onto two lines.
-        size: 100,
         cell: ({ row }) => (
           <TruncatedCell className='text-muted-foreground font-mono'>
             {row.original.method || '—'}
@@ -128,7 +121,6 @@ export function useAuditLogColumns(
       {
         accessorKey: 'route',
         header: t('Route'),
-        size: 220,
         cell: ({ row }) => (
           <TruncatedCell className='font-mono'>
             {row.original.route || '—'}
@@ -139,7 +131,6 @@ export function useAuditLogColumns(
       {
         accessorKey: 'status',
         header: 'HTTP',
-        size: 60,
         cell: ({ row }) => (
           <TruncatedCell className='font-mono tabular-nums'>
             {row.original.status || '—'}
@@ -150,7 +141,6 @@ export function useAuditLogColumns(
       {
         accessorKey: 'success',
         header: t('Result'),
-        size: 82,
         cell: ({ row }) => (
           <StatusBadge
             label={row.original.success ? t('Success') : t('Failed')}
@@ -163,7 +153,6 @@ export function useAuditLogColumns(
       {
         id: 'details',
         header: t('Details'),
-        size: 70,
         enableHiding: false,
         cell: ({ row }) => <AuditLogDetailsDialog entry={row.original} />,
         meta: { label: t('Details') },
