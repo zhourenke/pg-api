@@ -801,7 +801,10 @@ export function useCommonLogsColumns(
           )
         },
         size: 180,
-        maxSize: 200,
+        // The cell shows one truncated line of a log's details, so the length of
+        // that line says nothing about the width the column needs: it is a
+        // window, kept at the width declared here in every state.
+        meta: { measurement: 'window' },
       }
     )
 

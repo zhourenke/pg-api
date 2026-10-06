@@ -22,8 +22,19 @@ import type * as React from 'react'
 import { isFillerColumn } from './content-sized-columns'
 
 export function getTableSizeStyle<TData>(
-  table: TanstackTable<TData>
+  table: TanstackTable<TData>,
+  equalColumns?: boolean
 ): React.CSSProperties {
+  if (equalColumns) {
+    // The frame a table shows before a single row has arrived, and the one it
+    // keeps when a filter leaves nothing: no column holds a width yet, so the
+    // browser spreads the table over its columns evenly. Sizing that frame from
+    // the declared widths instead made it wider than its own container — the
+    // declared widths are only a guess at the measured ones — and the frame then
+    // scrolled sideways for as long as the data took to load.
+    return { tableLayout: 'fixed', width: '100%' }
+  }
+
   const width = getSizedColumnsWidth(table)
 
   if (table.options.enableColumnResizing !== true) {

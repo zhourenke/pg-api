@@ -880,28 +880,22 @@ function ChannelTestDialogContent({
           const model = row.original.model
           const result = testResults[model]
           return (
-            // The summary window. The shared measurement fits a column to the
-            // content it holds at that moment, and this cell holds a dash until
-            // a test has run, so the floor is what keeps the designed width in
-            // every state. It is scoped to the table because the narrow card
-            // lays the result out in its own rows.
-            <div className='min-[641px]:min-w-72'>
-              <TestResultCell
-                result={result}
-                model={model}
-                onOpenDetails={setFailureDetails}
-              />
-            </div>
+            <TestResultCell
+              result={result}
+              model={model}
+              onOpenDetails={setFailureDetails}
+            />
           )
         },
         enableSorting: false,
-        // The result is a wrapping window on purpose: an upstream error can be
+        // The result is a window on purpose: an upstream error can be
         // arbitrarily long, and the dialog shows it clamped to two lines with
-        // its Details button beside it. The cap is what keeps the column from
-        // being measured to the full length of that error.
+        // its Details button beside it. Declaring the column a window is what
+        // keeps this width in every state — a measured column would take the
+        // length of that error, or of the dash that stands in for it before a
+        // test has run.
         size: 320,
-        minSize: 320,
-        maxSize: 320,
+        meta: { measurement: 'window' },
       },
       {
         id: 'actions',

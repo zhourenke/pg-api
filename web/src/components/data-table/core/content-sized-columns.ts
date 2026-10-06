@@ -16,12 +16,24 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import type { Column } from '@tanstack/react-table'
+
 /**
  * Row actions never get a resize handle and are sized by their own content
  * rather than by a declared width, so the controls stay whole at any zoom.
  */
 export function isContentSizedColumn(columnId: string): boolean {
   return columnId === 'actions'
+}
+
+/**
+ * A window column keeps the width its own definition declares and is never
+ * measured: it shows a window onto content of its own length — an upstream error
+ * clamped to two lines, a truncated preview — where the length of the content
+ * says nothing about how wide the column should be.
+ */
+export function isWindowColumn<TData>(column: Column<TData, unknown>): boolean {
+  return column.columnDef.meta?.measurement === 'window'
 }
 
 /**

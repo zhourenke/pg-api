@@ -59,6 +59,9 @@ export function DataTableView<TData>(props: DataTableViewProps<TData>) {
     props.getColumnClassName,
     props.pinnedColumns
   )
+  // Before a row arrives there is nothing to give a column its width, and a
+  // declared width is not a substitute: see `getTableSizeStyle`.
+  const equalColumns = !canMeasureRows(props, rows)
 
   return (
     <div
@@ -73,6 +76,7 @@ export function DataTableView<TData>(props: DataTableViewProps<TData>) {
           props={props}
           rows={rows}
           colSpan={colSpan}
+          equalColumns={equalColumns}
           getColumnClassName={columnClassName}
         />
       ) : (
@@ -80,6 +84,7 @@ export function DataTableView<TData>(props: DataTableViewProps<TData>) {
           props={props}
           rows={rows}
           colSpan={colSpan}
+          equalColumns={equalColumns}
           getColumnClassName={columnClassName}
         />
       )}
@@ -91,14 +96,16 @@ function UnifiedTableView<TData>({
   props,
   rows,
   colSpan,
+  equalColumns,
   getColumnClassName,
 }: {
   props: DataTableViewProps<TData>
   rows: Row<TData>[]
   colSpan: number
+  equalColumns: boolean
   getColumnClassName: DataTableColumnClassName
 }) {
-  const tableSizing = getTableSizing(props)
+  const tableSizing = getTableSizing(props, equalColumns)
   const tableElementRef = React.useRef<HTMLTableElement | null>(null)
   useMeasuredColumnWidths(
     props.table,
@@ -118,7 +125,7 @@ function UnifiedTableView<TData>({
         {tableSizing.colgroup}
         <DataTableHeader
           table={props.table}
-          applyHeaderSize={props.applyHeaderSize}
+          applyHeaderSize={props.applyHeaderSize && !equalColumns}
           className={props.tableHeaderClassName}
           rowClassName={props.tableHeaderRowClassName}
           getColumnClassName={getColumnClassName}
@@ -133,14 +140,16 @@ function SplitHeaderTableView<TData>({
   props,
   rows,
   colSpan,
+  equalColumns,
   getColumnClassName,
 }: {
   props: DataTableViewProps<TData>
   rows: Row<TData>[]
   colSpan: number
+  equalColumns: boolean
   getColumnClassName: DataTableColumnClassName
 }) {
-  const tableSizing = getTableSizing(props)
+  const tableSizing = getTableSizing(props, equalColumns)
   const tableElementRef = React.useRef<HTMLTableElement | null>(null)
   useMeasuredColumnWidths(
     props.table,
@@ -175,7 +184,7 @@ function SplitHeaderTableView<TData>({
           {tableSizing.colgroup}
           <DataTableHeader
             table={props.table}
-            applyHeaderSize={props.applyHeaderSize}
+            applyHeaderSize={props.applyHeaderSize && !equalColumns}
             className={cn('sticky top-0 z-10', props.tableHeaderClassName)}
             rowClassName={props.tableHeaderRowClassName}
             getColumnClassName={getColumnClassName}
@@ -246,7 +255,10 @@ function mergePinnedColumns(
   ]
 }
 
-function getTableSizing<TData>(props: DataTableViewProps<TData>): {
+function getTableSizing<TData>(
+  props: DataTableViewProps<TData>,
+  equalColumns: boolean
+): {
   colgroup?: React.ReactNode
   style?: React.CSSProperties
 } {
@@ -256,17 +268,22 @@ function getTableSizing<TData>(props: DataTableViewProps<TData>): {
 
   // Every table renders a colgroup from the column sizes: the widths are the
   // designed starting point, and column resizing only has an effect when the
-  // table actually applies them.
+  // table actually applies them. An even frame is the exception — it is the one
+  // state in which the table has no widths to apply.
   return {
-    colgroup: <DataTableColgroup table={props.table} />,
-    style: getTableSizeStyle(props.table),
+    colgroup: (
+      <DataTableColgroup table={props.table} equalColumns={equalColumns} />
+    ),
+    style: getTableSizeStyle(props.table, equalColumns),
   }
 }
 
 /**
  * Column widths are measured from rendered cells, so the measurement only makes
  * sense once real rows are on screen: skeletons and empty states would fit every
- * column to a placeholder.
+ * column to a placeholder. The same condition decides the frame those states are
+ * rendered in, so a column never shows a declared width in one and a measured
+ * one in the other.
  */
 function canMeasureRows<TData>(
   props: DataTableViewProps<TData>,

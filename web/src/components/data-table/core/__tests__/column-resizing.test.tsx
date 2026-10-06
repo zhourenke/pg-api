@@ -58,25 +58,53 @@ const containerColumns: ColumnDef<Row>[] = [
   },
 ]
 
+/**
+ * Mirrors a column that shows a window onto content of its own length — the
+ * upstream error a channel test summarizes, the one-line preview of a log's
+ * details — where the content itself is never the width the column needs.
+ */
+const windowColumns: ColumnDef<Row>[] = [
+  {
+    accessorKey: 'name',
+    header: 'Name',
+    size: 320,
+    meta: { measurement: 'window' },
+  },
+  {
+    id: 'actions',
+    header: 'Actions',
+    size: 120,
+    cell: () => <button type='button'>Edit</button>,
+  },
+]
+
 function Harness({
   names = ['alpha'],
   tableColumns = columns,
+  isLoading,
 }: {
   names?: string[]
   tableColumns?: ColumnDef<Row>[]
+  isLoading?: boolean
 }) {
   const { table } = useDataTable({
     data: names.map((name, index) => ({ id: index + 1, name })),
     columns: tableColumns,
   })
 
-  return <DataTableView table={table} applyHeaderSize />
+  return <DataTableView table={table} applyHeaderSize isLoading={isLoading} />
 }
 
 function getColumnWidths() {
   return [...screen.getByRole('table').querySelectorAll('col')].map(
     (col) => (col as HTMLElement).style.width
   )
+}
+
+function getHeaderWidths() {
+  return screen
+    .getAllByRole('columnheader')
+    .map((header) => (header as HTMLElement).style.width)
 }
 
 /**
@@ -169,6 +197,45 @@ describe('column resizing', () => {
     const table = screen.getByRole('table')
     expect(table.style.tableLayout).toBe('fixed')
     expect(table.style.minWidth).toBe('max(100%, 340px)')
+  })
+
+  it('renders an even frame while the rows are still loading', () => {
+    render(<Harness names={['alpha']} isLoading />)
+
+    // There is nothing to measure yet, so no column holds a width: the frame
+    // shares the table evenly and can no longer be wider than its container,
+    // which is where the declared widths used to leave it.
+    expect(getColumnWidths()).toEqual(['', '0px', ''])
+    const table = screen.getByRole('table')
+    expect(table.style.tableLayout).toBe('fixed')
+    expect(table.style.width).toBe('100%')
+    expect(table.style.minWidth).toBe('')
+
+    // The declared widths are not on the header cells either, where a fixed
+    // layout would read them as the widths of the columns.
+    expect(getHeaderWidths()).toEqual(['', '', ''])
+  })
+
+  it('keeps the even frame when a filter leaves the table without rows', () => {
+    render(<Harness names={[]} />)
+
+    expect(getColumnWidths()).toEqual(['', '0px', ''])
+    expect(screen.getByRole('table').style.minWidth).toBe('')
+  })
+
+  it('keeps a window column at the width it declares instead of measuring it', () => {
+    stubScrollingWidth()
+    render(
+      <Harness
+        names={['alpha-with-a-much-longer-name']}
+        tableColumns={windowColumns}
+      />
+    )
+
+    // The content would measure 29 characters wide, but a window column shows a
+    // window onto it rather than the content itself, so the declared width is
+    // what it keeps. The columns beside it are still fitted to their content.
+    expect(getColumnWidths()).toEqual(['320px', '', '72px'])
   })
 
   it('keeps every other column width when a single column is dragged', async () => {

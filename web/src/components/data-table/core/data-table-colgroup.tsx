@@ -22,8 +22,11 @@ import { isFillerColumn } from './content-sized-columns'
 
 export function DataTableColgroup<TData>({
   table,
+  equalColumns,
 }: {
   table: TanstackTable<TData>
+  /** No column holds a width yet, so every column shares the table evenly. */
+  equalColumns?: boolean
 }) {
   const columns = table.getVisibleLeafColumns()
   const sizedColumns = columns.filter((column) => !isFillerColumn(column.id))
@@ -32,17 +35,25 @@ export function DataTableColgroup<TData>({
   return (
     <colgroup>
       {columns.map((column) => {
-        const width = getColumnWidth(
-          table,
-          column.id,
-          column.getSize(),
-          totalSize
-        )
+        const width = equalColumns
+          ? getEqualColumnWidth(column.id)
+          : getColumnWidth(table, column.id, column.getSize(), totalSize)
 
         return <col key={column.id} style={{ width }} />
       })}
     </colgroup>
   )
+}
+
+/**
+ * An even frame lets the browser divide the table, which it does over every
+ * column that declares no width — including the spacer, whose share would then
+ * come out of the visible columns and, on a loading frame, be filled by the
+ * placeholder bar of a column that holds nothing. Taking the spacer out of the
+ * division leaves the whole table to the columns that are actually rendered.
+ */
+function getEqualColumnWidth(columnId: string) {
+  return isFillerColumn(columnId) ? '0px' : undefined
 }
 
 function getColumnWidth<TData>(

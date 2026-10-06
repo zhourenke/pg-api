@@ -27,7 +27,7 @@ import {
   measureColumnContentWidth,
   measureColumnHeaderWidth,
 } from '../core/column-measurement'
-import { isFillerColumn } from '../core/content-sized-columns'
+import { isFillerColumn, isWindowColumn } from '../core/content-sized-columns'
 
 /**
  * How long the measurement keeps following the cells of a table. It is long
@@ -41,6 +41,17 @@ const SETTLE_WINDOW_MS = 3000
 const FOLLOW_UP_MS = 250
 
 /**
+ * The columns the measurement is responsible for: everything the table renders,
+ * except the spacer that closes it and the columns whose width is declared
+ * rather than measured.
+ */
+function getMeasuredColumns<TData>(table: TanstackTable<TData>) {
+  return table
+    .getVisibleLeafColumns()
+    .filter((column) => !isFillerColumn(column.id) && !isWindowColumn(column))
+}
+
+/**
  * Gives every column the width its own content needs, on the first render that
  * actually has rows. Later pages, sorts and filters reuse those widths, so the
  * table does not reflow under the user; a reload starts the measurement over
@@ -51,6 +62,13 @@ const FOLLOW_UP_MS = 250
  * following the cells for the settle window. Dragging a separator, or the
  * window running out, freezes the widths, so the follow-up never fights the
  * user.
+ *
+ * Three states, one rule each. The first render that has rows is measured before
+ * it is painted, so a declared width never reaches the screen on a table with
+ * data. A table with no rows — loading, or empty — is not measured at all and is
+ * rendered as an even frame instead (see `getTableSizeStyle`). And once the user
+ * has dragged a separator the widths are theirs: a double click on that
+ * separator, or the arrow keys on it, asks for the content width again.
  */
 export function useMeasuredColumnWidths<TData>(
   table: TanstackTable<TData>,
@@ -85,9 +103,7 @@ export function useMeasuredColumnWidths<TData>(
     const measured: ColumnSizingState = {}
     let hasMeasurement = false
 
-    for (const column of table
-      .getVisibleLeafColumns()
-      .filter((column) => !isFillerColumn(column.id))) {
+    for (const column of getMeasuredColumns(table)) {
       const contentWidth = measureColumnContentWidth(tableElement, column.id)
       if (contentWidth === undefined) {
         continue
@@ -119,9 +135,7 @@ export function useMeasuredColumnWidths<TData>(
       return
     }
 
-    const columns = table
-      .getVisibleLeafColumns()
-      .filter((column) => !isFillerColumn(column.id))
+    const columns = getMeasuredColumns(table)
     if (columns.length === 0) {
       return
     }

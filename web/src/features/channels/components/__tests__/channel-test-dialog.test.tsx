@@ -137,8 +137,8 @@ it('lets the measured content widen the model column but never the result window
   const { widthsByColumn } = await findModelTable()
 
   await waitFor(() => expect(widthsByColumn).toMatchObject({ model: '916px' }))
-  // The result cell is a wrapping window, so its length must not reach the
-  // column: the declared maximum keeps it at the width it was designed with.
+  // The result cell is a window rather than content: the 4000px it would
+  // measure must not reach the column, so it keeps the width it declares.
   expect(widthsByColumn.result).toBe('320px')
   client.clear()
 })

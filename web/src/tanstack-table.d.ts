@@ -24,6 +24,14 @@ declare module '@tanstack/react-table' {
     description?: string
     className?: string
     pinned?: 'left' | 'right'
+    /**
+     * How a resizable table gives this column its width. `fit` (the default)
+     * measures the column to the widest content it holds; `window` leaves the
+     * declared `size` untouched and is never measured, for a column that renders
+     * a window onto content of its own length rather than the content itself
+     * (an error summary clamped to two lines, a truncated preview).
+     */
+    measurement?: 'fit' | 'window'
     // Mobile card list layout hints (used by MobileCardList)
     mobileTitle?: boolean // card title area (left, larger text)
     mobileBadge?: boolean // status badge alongside title (right)
