@@ -17,10 +17,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { Minus, Plus } from 'lucide-react'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useContext } from 'react'
 
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
+
+import { ChannelRowActionsLayoutContext } from './channel-row-actions-context'
 
 interface NumericSpinnerInputProps {
   value: number | null | undefined
@@ -159,6 +161,19 @@ export function NumericSpinnerInput({
   const atMin = min !== undefined && Number(localValue) <= min
   const atMax = max !== undefined && Number(localValue) >= max
 
+  // The card gives the spinner a column of its own in an equal-thirds grid. The
+  // control takes most of it but keeps the width the spinner used to be given —
+  // `min(5.5rem, 85%)`: never wider than the 5.5rem track it once sat in, and 85%
+  // of the column where the column cannot hold that width, which keeps the box
+  // short of the column's right edge instead of stretching to it. `min-w-fit` is
+  // the number's own floor: the two 24px buttons already take 48px of the box, so
+  // at the narrowest card 85% would leave a two-digit value about a pixel short
+  // and ellipsize it (a fixed 4.5rem floor was short as well). The table measures
+  // its columns from the content instead, where a box that stretched would be
+  // asking the column to size itself from the box filling it, so there the control
+  // stays as wide as what it holds.
+  const fillsColumn = useContext(ChannelRowActionsLayoutContext) === 'card'
+
   return (
     <div
       className={cn(
@@ -180,6 +195,7 @@ export function NumericSpinnerInput({
         onBlur={handleControlBlur}
         className={cn(
           'group/spinner border-input inline-flex h-7 max-w-full min-w-0 items-center gap-0 rounded-md border transition-colors',
+          fillsColumn && 'w-[min(5.5rem,85%)] min-w-fit',
           !disabled && 'hover:bg-muted/60',
           editing && 'bg-muted/60 ring-primary/30 ring-1'
         )}

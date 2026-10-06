@@ -20,6 +20,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 
+import { ChannelRowActionsLayoutContext } from '../channel-row-actions-context'
 import { NumericSpinnerInput } from '../numeric-spinner-input'
 
 /**
@@ -70,6 +71,42 @@ describe('channel numeric spinner', () => {
     expect(wrapper.className).toContain('@container/spinner')
     expect(classesOf(wrapper)).toContain('w-full')
     expect(classesOf(wrapper)).toContain('min-w-0')
+  })
+
+  it('takes 85% of its column in the card, up to the width it used to be given', () => {
+    const parts = (container: HTMLElement) => {
+      const wrapper = container.firstElementChild as HTMLElement
+      const control = wrapper.firstElementChild as HTMLElement
+      return { control, value: control.querySelectorAll('button')[1] }
+    }
+
+    const table = parts(
+      render(
+        <ChannelRowActionsLayoutContext.Provider value='table'>
+          <NumericSpinnerInput value={99} onChange={() => {}} />
+        </ChannelRowActionsLayoutContext.Provider>
+      ).container
+    )
+    const card = parts(
+      render(
+        <ChannelRowActionsLayoutContext.Provider value='card'>
+          <NumericSpinnerInput value={99} onChange={() => {}} />
+        </ChannelRowActionsLayoutContext.Provider>
+      ).container
+    )
+
+    // The table measures its columns from the content, where a box that stretched
+    // would be asking the column to size itself from the box filling it, so there
+    // the control stays as wide as what it holds.
+    expect(classesOf(table.control)).not.toContain('w-[min(5.5rem,85%)]')
+    // The card gives the spinner a column of its own in an equal-thirds grid: the
+    // control takes 85% of it, never more than the 5.5rem track the spinner used
+    // to be given, and never less than the number and its two buttons need — the
+    // buttons alone are 48px of the box, so 85% of the narrowest card would
+    // ellipsize a two-digit value.
+    expect(classesOf(card.control)).toContain('w-[min(5.5rem,85%)]')
+    expect(classesOf(card.control)).toContain('min-w-fit')
+    expect(classesOf(card.value as HTMLElement)).toContain('max-w-16')
   })
 
   it('shows the placeholder instead of a zero when the caller has no single value', () => {

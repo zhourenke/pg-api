@@ -421,7 +421,10 @@ export function ChannelsTable() {
       renderCard={(row, { isSelected }) => (
         <ChannelCard row={row} isSelected={isSelected} />
       )}
-      cardGridClassName='grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-3'
+      // Two cards across until `xl`: three only fit once a card can hold three
+      // equal columns wide enough for the spinner's +/- buttons, and below that a
+      // third of a 248px card is 66px — under the 5rem the buttons appear at.
+      cardGridClassName='grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2 xl:grid-cols-3'
       applyHeaderSize
       toolbarProps={{
         collapsibleOnMobile: true,
