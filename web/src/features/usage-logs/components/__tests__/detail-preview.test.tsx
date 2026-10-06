@@ -172,6 +172,16 @@ test.each([
     expected: 'Standard · $2 / $4/M',
   },
   {
+    name: 'tiered expression prices',
+    other: {
+      billing_mode: 'tiered_expr',
+      matched_tier: 'basic',
+      cache_tokens: 100,
+      expr_b64: btoa('tier("basic", p * 0.3 + c * 1.2 + cr * 0.006)'),
+    },
+    expected: '$0.3 / $1.2 / $0.006 /1M',
+  },
+  {
     name: 'zero price fallback',
     other: { model_price: 0, group_ratio: 1 },
     expected: 'Group Ratio 1x',

@@ -166,30 +166,24 @@ function buildTypeDetailSegments(
   const tieredSummary = getTieredBillingSummary(other)
   if (isTieredExpr) {
     if (tieredSummary) {
-      const baseEntries = tieredSummary.priceEntries
-        .filter((entry) => ['inputPrice', 'outputPrice'].includes(entry.field))
-        .map((entry) => formatPriceCompact(entry.price))
-      if (baseEntries.length > 0) {
-        const tierLabel = tieredSummary.tier.label || t('Default')
-        segments.push({
-          text: `${tierLabel} · ${formatPriceList(baseEntries, true)}`,
-        })
-      }
-
-      const cacheEntries = tieredSummary.priceEntries
+      // Input, output and cache prices read as one list with a single unit at
+      // the end. Listing them together keeps the cache price visible next to
+      // the prices it belongs with, instead of the cell hiding it behind its
+      // "+N" counter, and the tier label stays out of the preview because the
+      // log's own detail dialog names the matched tier.
+      const prices = tieredSummary.priceEntries
         .filter((entry) =>
-          ['cacheReadPrice', 'cacheCreatePrice', 'cacheCreate1hPrice'].includes(
-            entry.field
-          )
+          [
+            'inputPrice',
+            'outputPrice',
+            'cacheReadPrice',
+            'cacheCreatePrice',
+            'cacheCreate1hPrice',
+          ].includes(entry.field)
         )
-        .map((entry) => {
-          return formatPriceCompact(entry.price)
-        })
-      if (cacheEntries.length > 0) {
-        segments.push({
-          text: `${t('Cache')} ${formatPriceList(cacheEntries, false)}`,
-          muted: true,
-        })
+        .map((entry) => formatPriceCompact(entry.price))
+      if (prices.length > 0) {
+        segments.push({ text: `${prices.join(' / ')} /1M` })
       }
 
       const otherEntries = tieredSummary.priceEntries
@@ -748,7 +742,7 @@ export function useCommonLogsColumns(
 
       {
         accessorKey: 'content',
-        header: t('Details'),
+        header: t('Log Details'),
         cell: function DetailsCell({ row }) {
           const { t } = useTranslation()
           const [dialogOpen, setDialogOpen] = useState(false)
