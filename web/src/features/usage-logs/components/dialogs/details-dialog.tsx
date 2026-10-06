@@ -169,7 +169,6 @@ function BillingBreakdown(props: {
   const { t } = useTranslation()
   const { log, other, isAdmin } = props
   const isPerCall = isPerCallBilling(other.model_price)
-  const isClaude = other.claude === true
   const isTieredExpr = other.billing_mode === 'tiered_expr'
   const tieredSummary = getTieredBillingSummary(other)
 
@@ -226,17 +225,13 @@ function BillingBreakdown(props: {
     }
   }
 
-  const userGR = other.user_group_ratio
-  const isUserGR = userGR != null && Number.isFinite(userGR) && userGR !== -1
-  const effectiveGR = isUserGR ? userGR : other.group_ratio
-  if (effectiveGR != null && Number.isFinite(effectiveGR)) {
-    rows.push({
-      label: isUserGR ? t('User Exclusive Ratio') : t('Group Ratio'),
-      value: `${formatRatio(effectiveGR)}x`,
-    })
-  }
-
-  if (!isTieredExpr && isClaude && hasAnyCacheTokens(other)) {
+  // Cache prices are part of the price list the details column previews, so they
+  // are listed for every non-tiered mode that prices by ratio, not only for
+  // Claude logs: a standard-ratio log was showing a cache price in the list and
+  // nothing about it here. They sit with the other prices, ahead of the ratio,
+  // which is where a tiered log lists them too. Tiered expressions need none of
+  // this because the loop above already lists every price the tier charged.
+  if (!isTieredExpr && other.model_ratio != null && hasAnyCacheTokens(other)) {
     if (other.cache_ratio != null && other.cache_ratio !== 1) {
       rows.push({
         label: t('Cache Read'),
@@ -270,6 +265,16 @@ function BillingBreakdown(props: {
         value: `${fmtPrice(baseInputUSD * other.cache_creation_ratio_1h)}/M`,
       })
     }
+  }
+
+  const userGR = other.user_group_ratio
+  const isUserGR = userGR != null && Number.isFinite(userGR) && userGR !== -1
+  const effectiveGR = isUserGR ? userGR : other.group_ratio
+  if (effectiveGR != null && Number.isFinite(effectiveGR)) {
+    rows.push({
+      label: isUserGR ? t('User Exclusive Ratio') : t('Group Ratio'),
+      value: `${formatRatio(effectiveGR)}x`,
+    })
   }
 
   if (!isTieredExpr) {
