@@ -629,6 +629,26 @@ export function getChannelTableRowId(row: Channel | TagRow): string {
 }
 
 /**
+ * The value every child shares, or null when they disagree.
+ *
+ * Priority and weight accept -1 and 0 as real values, and a channel row can even
+ * omit them, so a sentinel inside that range cannot mark "nothing seen yet": a
+ * group whose channels were -1 and 5 used to report 5, because the -1 was taken
+ * for the unset marker and the 5 overwrote it, while the same pair in the other
+ * order was correctly reported as a disagreement. Whether a value has been seen
+ * is tracked here as a separate step instead of as a value.
+ */
+function sharedChildValue(
+  children: Channel[],
+  read: (child: Channel) => number | null | undefined
+): number | null {
+  if (children.length === 0) return null
+  const first = read(children[0]) ?? null
+  const shared = children.every((child) => (read(child) ?? null) === first)
+  return shared ? first : null
+}
+
+/**
  * Aggregate channels by tag for tag mode display
  * Converts flat array into tree structure grouped by tag
  */
@@ -642,7 +662,8 @@ export function aggregateChannelsByTag(
     const tag = channel.tag || ''
 
     if (!tagMap.has(tag)) {
-      // Create tag aggregate row
+      // Create tag aggregate row. Priority and weight are filled in after the
+      // loop, when every child of the tag is known.
       const tagRow = {
         ...channel,
         key: tag,
@@ -654,8 +675,6 @@ export function aggregateChannelsByTag(
         group: '',
         used_quota: 0,
         response_time: 0,
-        priority: -1 as unknown as number | null,
-        weight: -1 as unknown as number | null,
         balance: 0,
         test_time: 0,
         created_time: 0,
@@ -684,20 +703,6 @@ export function aggregateChannelsByTag(
       (tagRow.response_time * (childCount - 1) + channel.response_time) /
       childCount
 
-    // Aggregate priority (same value or null if different)
-    if (tagRow.priority === -1) {
-      tagRow.priority = channel.priority
-    } else if (tagRow.priority !== channel.priority) {
-      tagRow.priority = null
-    }
-
-    // Aggregate weight (same value or null if different)
-    if (tagRow.weight === -1) {
-      tagRow.weight = channel.weight
-    } else if (tagRow.weight !== channel.weight) {
-      tagRow.weight = null
-    }
-
     // Aggregate group (concatenate and deduplicate)
     if (tagRow.group === '') {
       tagRow.group = channel.group
@@ -717,6 +722,16 @@ export function aggregateChannelsByTag(
     } else if (tagRow.status === undefined) {
       tagRow.status = channel.status
     }
+  }
+
+  // Priority and weight are the value every child shares, or nothing at all when
+  // they disagree, which the cells render as a dash rather than as a number.
+  for (const tagRow of tagMap.values()) {
+    tagRow.priority = sharedChildValue(
+      tagRow.children,
+      (child) => child.priority
+    )
+    tagRow.weight = sharedChildValue(tagRow.children, (child) => child.weight)
   }
 
   return result
