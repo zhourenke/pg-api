@@ -143,7 +143,7 @@ export function TimingMetricsCell(props: TimingMetricsCellProps) {
           />
         )}
         <span className='text-muted-foreground min-w-0 truncate'>
-          {t('Output')}
+          {t('Generate')}
         </span>
         <span
           className={cn('shrink-0 tabular-nums', textColorMap[outputVariant])}

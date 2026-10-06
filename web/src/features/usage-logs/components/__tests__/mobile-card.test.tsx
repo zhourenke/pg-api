@@ -216,11 +216,10 @@ it('respects hidden columns and omits admin fields in the self view', () => {
 
 it('keeps input, output and cache quantities readable without empty metric cells', () => {
   renderLogs()
-  // "Output" labels both the output tokens and the output duration on the card,
-  // so scope this to the token row it belongs to.
-  const tokenRow = screen.getByText('Input').closest('div') as HTMLElement
   expect(screen.getByText('Input')).toBeVisible()
-  expect(within(tokenRow).getByText('Output')).toBeVisible()
+  // Exactly one "Output" on the card: the token row. The duration beside it says
+  // "Generate", so the two no longer compete for the same word.
+  expect(screen.getByText('Output')).toBeVisible()
   expect(screen.getByText(/300/)).toBeVisible()
   expect(screen.getByText('Cache ↑ 200')).toBeVisible()
 })
@@ -252,7 +251,7 @@ it.each([false, true])(
     ).toHaveClass('flex-col', 'justify-between')
     expect(
       within(row as HTMLElement)
-        .getByText('Output')
+        .getByText('Generate')
         .closest('.col-start-2')
     ).not.toBeNull()
     if (streaming) {
