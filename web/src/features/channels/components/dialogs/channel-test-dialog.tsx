@@ -22,6 +22,7 @@ import type {
   RowSelectionState,
   Table as TanStackTable,
 } from '@tanstack/react-table'
+import type { TFunction } from 'i18next'
 import {
   Check,
   CheckCircle2,
@@ -910,26 +911,11 @@ function ChannelTestDialogContent({
           const isTestingModel = testingModels.has(model)
 
           return (
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    variant='ghost'
-                    size='icon-sm'
-                    onClick={() => testSingleModel(model)}
-                    disabled={isTestingModel || isBatchTesting}
-                    aria-label={t('Test Connection')}
-                  />
-                }
-              >
-                {isTestingModel ? (
-                  <Loader2 className='size-4 animate-spin' />
-                ) : (
-                  <Gauge className='size-4' />
-                )}
-              </TooltipTrigger>
-              <TooltipContent>{t('Test Connection')}</TooltipContent>
-            </Tooltip>
+            <ModelTestAction
+              isTesting={isTestingModel}
+              disabled={isTestingModel || isBatchTesting}
+              onTest={() => testSingleModel(model)}
+            />
           )
         },
         enableSorting: false,
@@ -1114,6 +1100,23 @@ function ChannelTestDialogContent({
                   getColumnClassName={(columnId) =>
                     columnId === 'result' ? 'whitespace-normal' : undefined
                   }
+                  renderCard={(row) => {
+                    const model = row.original.model
+
+                    return (
+                      <ModelTestCard
+                        model={model}
+                        isDefault={defaultTestModel === model}
+                        result={testResults[model]}
+                        isTesting={testingModels.has(model)}
+                        testDisabled={
+                          testingModels.has(model) || isBatchTesting
+                        }
+                        onTest={testSingleModel}
+                        onOpenDetails={setFailureDetails}
+                      />
+                    )
+                  }}
                   emptyContent={
                     models.length
                       ? t('No models matched your search.')
@@ -1155,6 +1158,114 @@ function ChannelTestDialogContent({
   )
 }
 
+/**
+ * The per-row test button with its tooltip, shared by the table's action column
+ * and the card's bottom-right corner.
+ */
+function ModelTestAction({
+  isTesting,
+  disabled,
+  onTest,
+}: {
+  isTesting: boolean
+  disabled: boolean
+  onTest: () => void
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            variant='ghost'
+            size='icon-sm'
+            onClick={onTest}
+            disabled={disabled}
+            aria-label={t('Test Connection')}
+          />
+        }
+      >
+        {isTesting ? (
+          <Loader2 className='size-4 animate-spin' />
+        ) : (
+          <Gauge className='size-4' />
+        )}
+      </TooltipTrigger>
+      <TooltipContent>{t('Test Connection')}</TooltipContent>
+    </Tooltip>
+  )
+}
+
+/**
+ * One model as the narrow form shows it: the name on top and larger, then the
+ * status and what the test produced down the left with the failure's own
+ * actions beside them, and the test button in the bottom-right corner. The
+ * selection checkbox and the "select all" row belong to the shared card list,
+ * so this only lays out the inside of a row.
+ */
+function ModelTestCard({
+  model,
+  isDefault,
+  result,
+  isTesting,
+  testDisabled,
+  onTest,
+  onOpenDetails,
+}: {
+  model: string
+  isDefault: boolean
+  result?: TestResult
+  isTesting: boolean
+  testDisabled: boolean
+  onTest: (model: string) => void
+  onOpenDetails: (details: FailureDetailsState) => void
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <div className='flex min-w-0 flex-col gap-2'>
+      <div className='flex min-w-0 items-center gap-2'>
+        <span className='min-w-0 truncate text-base font-medium'>{model}</span>
+        {isDefault && (
+          <StatusBadge
+            label={t('Default')}
+            variant='info'
+            size='sm'
+            copyable={false}
+          />
+        )}
+      </div>
+
+      <div className='flex min-w-0 items-start gap-3'>
+        <div className='flex min-w-0 flex-1 flex-col gap-1'>
+          <div className='flex min-w-0 items-start'>
+            <TestStatusCell result={result} />
+          </div>
+          <div className='flex min-w-0 items-start'>
+            <TestResultSummary result={result} />
+          </div>
+        </div>
+        <div className='flex shrink-0 flex-col items-end gap-1'>
+          <TestResultActions
+            result={result}
+            model={model}
+            onOpenDetails={onOpenDetails}
+          />
+        </div>
+      </div>
+
+      <div className='flex justify-end'>
+        <ModelTestAction
+          isTesting={isTesting}
+          disabled={testDisabled}
+          onTest={() => onTest(model)}
+        />
+      </div>
+    </div>
+  )
+}
+
 function TestStatusCell({ result }: { result?: TestResult }) {
   const { t } = useTranslation()
 
@@ -1193,6 +1304,27 @@ function TestResultCell({
   model: string
   onOpenDetails: (details: FailureDetailsState) => void
 }) {
+  return (
+    <div className='flex min-w-0 items-center gap-2 text-xs whitespace-normal'>
+      <TestResultSummary result={result} />
+      <div className='flex shrink-0 flex-wrap items-center justify-end gap-1.5'>
+        <TestResultActions
+          result={result}
+          model={model}
+          onOpenDetails={onOpenDetails}
+        />
+      </div>
+    </div>
+  )
+}
+
+/**
+ * What the test produced, as one line of text: a dash, the response time, or
+ * the summary of a failure. The failure's buttons are {@link
+ * TestResultActions}, because the card form puts them in their own column while
+ * the table keeps them beside this text.
+ */
+function TestResultSummary({ result }: { result?: TestResult }) {
   const { t } = useTranslation()
 
   if (!result || result.status === 'idle') {
@@ -1219,70 +1351,85 @@ function TestResultCell({
   }
 
   return (
-    <FailureResultContent
-      result={result}
-      model={model}
-      onOpenDetails={onOpenDetails}
-    />
+    <p className='text-muted-foreground line-clamp-2 min-w-0 flex-1 leading-snug wrap-break-word'>
+      {getFailureDisplay(result, t)?.summary}
+    </p>
   )
 }
 
-function FailureResultContent({
+/** The actions a failed test carries: the pricing settings and the details. */
+function TestResultActions({
   result,
   model,
   onOpenDetails,
 }: {
-  result: TestResult
+  result?: TestResult
   model: string
   onOpenDetails: (details: FailureDetailsState) => void
 }) {
   const { t } = useTranslation()
-  const errorText = result.error?.trim()
-  const isModelPriceError = result.errorCode === MODEL_PRICE_ERROR_CODE
-  const modelPriceSummary = t(
-    'Model price is not configured. Please complete model pricing in settings.'
-  )
-  const { summary, details } = getFailureStatusDisplay({
-    errorText,
-    fallbackSummary: t('Test failed'),
-    isModelPriceError,
-    modelPriceSummary,
-  })
+  const display = result ? getFailureDisplay(result, t) : null
+  const details = display?.details
+
+  if (!display) return null
 
   return (
-    <div className='flex min-w-0 items-center gap-2 text-xs whitespace-normal'>
-      <p className='text-muted-foreground line-clamp-2 min-w-0 flex-1 leading-snug wrap-break-word'>
-        {summary}
-      </p>
-      <div className='flex shrink-0 flex-wrap items-center justify-end gap-1.5'>
-        {isModelPriceError && (
-          <Button
-            variant='outline'
-            size='sm'
-            className='h-7 w-fit px-2 text-xs'
-            onClick={() =>
-              window.open('/system-settings/billing/model-pricing', '_blank')
-            }
-          >
-            <Settings className='mr-1 h-3 w-3 shrink-0' />
-            {t('Go to Settings')}
-          </Button>
-        )}
-        {details && (
-          <Button
-            variant='ghost'
-            size='sm'
-            className='h-7 w-fit px-2 text-xs'
-            aria-haspopup='dialog'
-            onClick={() => onOpenDetails({ model, summary, details })}
-          >
-            <Info className='mr-1 h-3 w-3 shrink-0' />
-            {t('Details')}
-          </Button>
-        )}
-      </div>
-    </div>
+    <>
+      {display.isModelPriceError && (
+        <Button
+          variant='outline'
+          size='sm'
+          className='h-7 w-fit px-2 text-xs'
+          onClick={() =>
+            window.open('/system-settings/billing/model-pricing', '_blank')
+          }
+        >
+          <Settings className='mr-1 h-3 w-3 shrink-0' />
+          {t('Go to Settings')}
+        </Button>
+      )}
+      {details && (
+        <Button
+          variant='ghost'
+          size='sm'
+          className='h-7 w-fit px-2 text-xs'
+          aria-haspopup='dialog'
+          onClick={() =>
+            onOpenDetails({ model, summary: display.summary, details })
+          }
+        >
+          <Info className='mr-1 h-3 w-3 shrink-0' />
+          {t('Details')}
+        </Button>
+      )}
+    </>
   )
+}
+
+type FailureDisplay = {
+  summary: string
+  details?: string
+  isModelPriceError: boolean
+}
+
+/** The failure of a test as the dialog words it, or null when it passed. */
+function getFailureDisplay(
+  result: TestResult,
+  t: TFunction
+): FailureDisplay | null {
+  if (result.status !== 'error') return null
+
+  const isModelPriceError = result.errorCode === MODEL_PRICE_ERROR_CODE
+  const { summary, details } = getFailureStatusDisplay({
+    errorText: result.error?.trim(),
+    fallbackSummary: t('Test failed'),
+    isModelPriceError,
+    modelPriceSummary: t(
+      'Model price is not configured. Please complete model pricing in settings.'
+    ),
+  })
+
+  return { summary, details, isModelPriceError }
 }
 
 function FailureDetailsSheet({

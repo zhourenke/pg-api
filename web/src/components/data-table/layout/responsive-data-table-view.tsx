@@ -16,10 +16,21 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import type { Row } from '@tanstack/react-table'
+
 import { useMediaQuery } from '@/hooks'
 
 import { DataTableView, type DataTableViewProps } from '../core/data-table-view'
 import { MobileCardList } from './mobile-card-list'
+
+export type ResponsiveDataTableViewProps<TData> = DataTableViewProps<TData> & {
+  /**
+   * Custom card renderer for the narrow form, mirroring the desktop card grid's
+   * `renderCard`. The list keeps its own row wrapper, selection checkbox and
+   * "select all" row, so the renderer only lays out the content of one row.
+   */
+  renderCard?: (row: Row<TData>) => React.ReactNode
+}
 
 /**
  * `DataTableView` with the shared narrow-screen fallback.
@@ -39,7 +50,7 @@ import { MobileCardList } from './mobile-card-list'
  * itself) the wrapper stays inert.
  */
 export function ResponsiveDataTableView<TData>(
-  props: DataTableViewProps<TData>
+  props: ResponsiveDataTableViewProps<TData>
 ) {
   const isNarrowViewport = useMediaQuery('(max-width: 640px)')
 
@@ -55,6 +66,7 @@ export function ResponsiveDataTableView<TData>(
         isLoading={props.isLoading}
         emptyTitle={props.emptyTitle}
         emptyDescription={props.emptyDescription}
+        renderCard={props.renderCard}
       />
     </div>
   )

@@ -61,6 +61,13 @@ interface MobileCardListProps<TData> {
   emptyDescription?: string
   getRowKey?: (row: Row<TData>) => string | number
   getRowClassName?: (row: Row<TData>) => string | undefined
+  /**
+   * Custom per-row content, replacing the column-meta-driven
+   * {@link CardRowContent}. The list keeps its own row wrapper, its selection
+   * checkbox and its "select all" row, so a custom renderer only has to lay out
+   * what is inside one row. Mirrors the desktop card grid's `renderCard`.
+   */
+  renderCard?: (row: Row<TData>) => React.ReactNode
 }
 
 function ListSkeleton() {
@@ -130,6 +137,7 @@ export function MobileCardList<TData>(props: MobileCardListProps<TData>) {
     emptyDescription,
     getRowKey,
     getRowClassName,
+    renderCard,
   } = props
   const { t } = useTranslation()
 
@@ -205,7 +213,11 @@ export function MobileCardList<TData>(props: MobileCardListProps<TData>) {
                 />
               )}
               <div className='min-w-0 flex-1'>
-                <CardRowContent row={row} compact={hasCompactMeta} />
+                {renderCard ? (
+                  renderCard(row)
+                ) : (
+                  <CardRowContent row={row} compact={hasCompactMeta} />
+                )}
               </div>
             </div>
           </div>

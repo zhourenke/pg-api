@@ -24,8 +24,11 @@ import {
   waitFor,
   within,
 } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { useEffect } from 'react'
 import { afterEach, expect, it, vi } from 'vitest'
+
+import { api } from '@/lib/api'
 
 import { channelSchema } from '../../types'
 import { ChannelsProvider, useChannels } from '../channels-provider'
@@ -137,5 +140,73 @@ it('lets the measured content widen the model column but never the result window
   // The result cell is a wrapping window, so its length must not reach the
   // column: the declared maximum keeps it at the width it was designed with.
   expect(widthsByColumn.result).toBe('320px')
+  client.clear()
+})
+
+function mockNarrowViewport() {
+  const original = window.matchMedia
+  return vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({
+    ...original(query),
+    matches: true,
+    onchange: null,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    dispatchEvent: () => false,
+  }))
+}
+
+it('lays the narrow form out as a card with the model name on top', async () => {
+  mockNarrowViewport()
+  const client = renderDialog()
+
+  const name = await screen.findByText('gpt-4o-mini')
+  expect(screen.queryByRole('table')).toBeNull()
+  // The name is the card's title: larger than the rows beneath it.
+  expect(name.className).toContain('text-base')
+  expect(screen.getAllByText('Not tested')).toHaveLength(2)
+  expect(screen.getAllByText('-')).toHaveLength(2)
+  // One test button per card, and the shared list keeps the selection UI.
+  expect(
+    screen.getAllByRole('button', { name: 'Test Connection' })
+  ).toHaveLength(2)
+  expect(screen.getByText('Select all')).toBeVisible()
+  expect(screen.getByRole('checkbox', { name: 'Select row 1' })).toBeVisible()
+  expect(screen.getByRole('checkbox', { name: 'Select row 2' })).toBeVisible()
+  client.clear()
+})
+
+it('puts a failure summary and its own actions side by side in the narrow card', async () => {
+  // A model with no price fails before the request reaches the upstream, so the
+  // dialog can be driven into its failure state with a mocked response.
+  vi.spyOn(api, 'get').mockResolvedValue({
+    data: {
+      success: false,
+      message: '模型 gpt-4o-mini 的价格未配置。请在「系统设置」中配置。',
+      error_code: 'model_price_error',
+    },
+  })
+  mockNarrowViewport()
+  const client = renderDialog()
+
+  const buttons = await screen.findAllByRole('button', {
+    name: 'Test Connection',
+  })
+  await userEvent.click(buttons[0])
+
+  const summary = await screen.findByText(
+    'Model price is not configured. Please complete model pricing in settings.'
+  )
+  const settingsButton = screen.getByRole('button', { name: 'Go to Settings' })
+  expect(screen.getByRole('button', { name: 'Details' })).toBeVisible()
+  expect(screen.getByText('Failed')).toBeVisible()
+
+  // The summary and the actions are two columns of one row: the actions are
+  // beside the result, not inside the column that holds it.
+  const resultColumn = summary.closest('div.flex-col')
+  expect(resultColumn).not.toBeNull()
+  expect(resultColumn?.contains(settingsButton)).toBe(false)
+  expect(resultColumn?.parentElement?.contains(settingsButton)).toBe(true)
   client.clear()
 })
