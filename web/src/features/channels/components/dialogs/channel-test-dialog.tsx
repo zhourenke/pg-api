@@ -273,23 +273,6 @@ function getFailureStatusDisplay({
   }
 }
 
-function getTestTableColumnClass(columnId: string) {
-  switch (columnId) {
-    case 'select':
-      return 'w-10 min-w-10'
-    case 'model':
-      return 'w-auto min-w-48 whitespace-nowrap'
-    case 'status':
-      return 'w-28 min-w-28 whitespace-nowrap'
-    case 'result':
-      return 'w-80 min-w-80 max-w-80 whitespace-normal'
-    case 'actions':
-      return 'bg-popover w-px whitespace-nowrap'
-    default:
-      return undefined
-  }
-}
-
 export function ChannelTestDialog({
   open,
   onOpenChange,
@@ -848,6 +831,7 @@ function ChannelTestDialogContent({
         enableSorting: false,
         enableHiding: false,
         size: 40,
+        minSize: 40,
       },
       {
         accessorKey: 'model',
@@ -872,6 +856,9 @@ function ChannelTestDialogContent({
             </div>
           )
         },
+        enableSorting: false,
+        size: 192,
+        minSize: 192,
       },
       {
         id: 'status',
@@ -883,6 +870,7 @@ function ChannelTestDialogContent({
         },
         enableSorting: false,
         size: 112,
+        minSize: 112,
       },
       {
         id: 'result',
@@ -891,15 +879,28 @@ function ChannelTestDialogContent({
           const model = row.original.model
           const result = testResults[model]
           return (
-            <TestResultCell
-              result={result}
-              model={model}
-              onOpenDetails={setFailureDetails}
-            />
+            // The summary window. The shared measurement fits a column to the
+            // content it holds at that moment, and this cell holds a dash until
+            // a test has run, so the floor is what keeps the designed width in
+            // every state. It is scoped to the table because the narrow card
+            // lays the result out in its own rows.
+            <div className='min-[641px]:min-w-72'>
+              <TestResultCell
+                result={result}
+                model={model}
+                onOpenDetails={setFailureDetails}
+              />
+            </div>
           )
         },
         enableSorting: false,
+        // The result is a wrapping window on purpose: an upstream error can be
+        // arbitrarily long, and the dialog shows it clamped to two lines with
+        // its Details button beside it. The cap is what keeps the column from
+        // being measured to the full length of that error.
         size: 320,
+        minSize: 320,
+        maxSize: 320,
       },
       {
         id: 'actions',
@@ -1103,7 +1104,6 @@ function ChannelTestDialogContent({
                     'aria-label': t('Channel models'),
                   }}
                   tableContainerClassName='max-h-90 overflow-auto **:data-[slot=table-container]:overflow-visible'
-                  tableClassName='w-max min-w-full table-auto'
                   pinnedColumns={[
                     {
                       columnId: 'actions',
@@ -1111,17 +1111,8 @@ function ChannelTestDialogContent({
                       cellClassName: 'bg-popover',
                     },
                   ]}
-                  colgroup={
-                    <colgroup>
-                      <col className='w-10 min-w-10' />
-                      <col className='w-auto' />
-                      <col className='w-28' />
-                      <col className='w-80' />
-                      <col className='w-px' />
-                    </colgroup>
-                  }
                   getColumnClassName={(columnId) =>
-                    getTestTableColumnClass(columnId)
+                    columnId === 'result' ? 'whitespace-normal' : undefined
                   }
                   emptyContent={
                     models.length
