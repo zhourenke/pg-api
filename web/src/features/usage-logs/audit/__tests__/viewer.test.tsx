@@ -277,10 +277,11 @@ it('uses the shared log toolbar and opens details in a keyboard-accessible dialo
   ).toBeDisabled()
   const trigger = await screen.findByRole('button', { name: 'Details' })
   const row = screen.getByRole('row', { name: /127.0.0.1/ })
-  const clientCell = within(row).getByRole('cell', {
-    name: 'Browser client with a long version description',
-  })
-  expect(clientCell.querySelector('.truncate')).toBeInTheDocument()
+  // The client string is no longer a list column: it stays available in the
+  // detail dialog so the row keeps the width it needs for method and route.
+  expect(
+    within(row).queryByText('Browser client with a long version description')
+  ).not.toBeInTheDocument()
   expect(row.querySelector('details')).not.toBeInTheDocument()
   trigger.focus()
   await userEvent.keyboard('{Enter}')

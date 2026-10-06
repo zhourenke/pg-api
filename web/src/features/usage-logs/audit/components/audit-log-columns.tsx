@@ -113,15 +113,6 @@ export function useAuditLogColumns(
         meta: { label: 'IP' },
       },
       {
-        accessorKey: 'user_agent',
-        header: t('Client'),
-        size: 180,
-        cell: ({ row }) => (
-          <TruncatedCell>{row.original.user_agent || '—'}</TruncatedCell>
-        ),
-        meta: { label: t('Client'), mobileHidden: true },
-      },
-      {
         accessorKey: 'method',
         header: t('Method'),
         // Wide enough for the "请求方法" header plus its sort control; 76px
