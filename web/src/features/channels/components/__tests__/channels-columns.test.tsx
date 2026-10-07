@@ -18,8 +18,11 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { CellContext, Row } from '@tanstack/react-table'
-import { render, renderHook, screen } from '@testing-library/react'
+import { act, render, renderHook, screen } from '@testing-library/react'
+import i18n from 'i18next'
 import { describe, expect, it, vi } from 'vitest'
+
+import zhCN from '@/i18n/locales/zh.json'
 
 import type { Channel } from '../../types'
 import { ChannelRowActionsLayoutContext } from '../channel-row-actions-context'
@@ -109,6 +112,38 @@ function renderAggregatePriorityCell(
   )
 }
 
+function renderAggregateStatusCell(status: number) {
+  const tagRow = {
+    id: 'tag:Command',
+    name: 'Command',
+    tag: 'Command',
+    status,
+    used_quota: 12.3456,
+    children: [
+      { id: 1, status: 1 },
+      { id: 2, status },
+    ],
+  } as unknown as Channel
+  const row = {
+    original: tagRow,
+    getValue: (key: string) => (key === 'status' ? status : undefined),
+  } as unknown as Row<Channel>
+
+  const { result } = renderHook(() => useChannelsColumns())
+  const statusColumn = result.current.find(
+    (column) => 'accessorKey' in column && column.accessorKey === 'status'
+  )
+  if (!statusColumn?.cell) {
+    throw new Error('the status column has no cell renderer')
+  }
+  const renderCell = statusColumn.cell as (
+    context: CellContext<Channel, unknown>
+  ) => React.ReactNode
+
+  const context = { row } as unknown as CellContext<Channel, unknown>
+  return render(<>{renderCell(context)}</>)
+}
+
 /**
  * The balance cell serves two layouts from the same computation: the table shows
  * both figures in one cell, and the card gives each figure a cell of its own with
@@ -151,11 +186,42 @@ describe('channel aggregate row', () => {
   it('lets the tag name row wrap so the channel count is not truncated', () => {
     renderAggregateNameCell()
 
-    const label = screen.getByText((content) => content.startsWith('Tag：'))
+    const label = screen.getByText((content) => content.startsWith('Tag:'))
     const row = label.parentElement as HTMLElement
 
-    expect(row.textContent).toContain('channels')
+    // The count badge interpolates `{{count}}`, so the identity bundle still
+    // renders a real number here.
+    expect(row.textContent).toContain('2 channels')
     expect(row.className.split(/\s+/)).toContain('flex-wrap')
+  })
+
+  it('renders the aggregate row in the interface language, not raw English', async () => {
+    // 这一行过去有三个写死的英文串（状态、计数、标签前缀），在只有中文的界面里
+    // 读起来是「标签聚合 / Active (1) / Tag：Command / 1 channels」混着。三个都
+    // 改走 `t()`：前缀复用已有词条，两条计数文案各自带 `{{count}}` 占位符。
+    // 空词条会让 `t('Active ({{count}})')` 插值成 "Active (2)"，与写死的样子无法
+    // 区分，所以这一条加载真实的中文词条来钉住文案。
+    await act(async () => {
+      i18n.addResourceBundle(
+        'zhCN',
+        'translation',
+        zhCN.translation,
+        true,
+        true
+      )
+      await i18n.changeLanguage('zhCN')
+    })
+
+    const name = renderAggregateNameCell()
+    expect(name.container).toHaveTextContent('标签：Command')
+    expect(name.container).toHaveTextContent('2 个渠道')
+    expect(name.container.textContent).not.toContain('channels')
+
+    const active = renderAggregateStatusCell(1)
+    expect(active.container).toHaveTextContent('生效（2）')
+
+    const inactive = renderAggregateStatusCell(0)
+    expect(inactive.container).toHaveTextContent('未生效（2）')
   })
 
   it('shows a dash instead of a zero when the tag channels disagree on priority', () => {
