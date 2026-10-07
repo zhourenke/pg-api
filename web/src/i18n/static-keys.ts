@@ -101,8 +101,6 @@ export const STATIC_I18N_KEYS = [
   // Image cache billing and legacy price conversion.
   'Image cache input price',
   'Image Cache',
-  'Per-token (deprecated)',
-  'Per-request (deprecated)',
   'This model already uses an expression.',
   'Task pricing must be converted manually using the task usage schema.',
   'This model has provider-specific billing and must be converted manually.',
