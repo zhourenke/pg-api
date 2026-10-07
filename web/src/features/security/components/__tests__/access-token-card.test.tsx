@@ -26,9 +26,11 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import i18n from 'i18next'
 import { Toaster, toast } from 'sonner'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import zhCN from '@/i18n/locales/zh.json'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -397,5 +399,30 @@ describe('system access token management', () => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     )
     expect(trigger).toHaveFocus()
+  })
+
+  it('points earlier audit records at 使用日志, the page’s current name', async () => {
+    useAuthStore
+      .getState()
+      .auth.setUser({ id: 1, username: 'admin', role: 100 })
+    await act(async () => {
+      i18n.addResourceBundle(
+        'zhCN',
+        'translation',
+        zhCN.translation,
+        true,
+        true
+      )
+      await i18n.changeLanguage('zhCN')
+    })
+    renderCard()
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: '访问记录' }))
+    const sheet = await screen.findByRole('dialog', { name: '访问记录' })
+
+    // 这句话里的页名读的是它自己的词条，页面标题改名后要一起改，否则它会指向
+    // 一个界面上已经不存在的名字。
+    expect(within(sheet).getByText(/历史记录仍在使用日志中/)).toBeVisible()
+    expect(within(sheet).queryByText(/通用日志/)).not.toBeInTheDocument()
   })
 })
