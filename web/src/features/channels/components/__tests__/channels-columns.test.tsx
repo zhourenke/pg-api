@@ -284,4 +284,28 @@ describe('channel balance cell', () => {
     expect(card.container.textContent).not.toContain('Used:')
     expect((card.container.textContent ?? '').trim().length).toBeGreaterThan(0)
   })
+
+  it('pushes the two figures to the two ends of the cell in the table', () => {
+    // jsdom lays nothing out, so what can be pinned here is the contract that
+    // makes the browser do it: a row that spreads its two figures apart and hangs
+    // each one out by its own badge padding, so the *text* — not the badge box —
+    // meets the cell edge and the decimals line up down the column.
+    const row = (container: HTMLElement) =>
+      container.querySelector('div[class*="flex"]') as HTMLElement
+
+    const table = row(renderBalanceCell(plainChannel).container)
+    expect(table.className.split(/\s+/)).toContain('justify-between')
+    expect(table.className).toContain('[&>*:first-child]:-ml-1.5')
+    expect(table.className).toContain('[&>*:last-child]:-mr-1.5')
+
+    // The card consumes the same cell one half at a time under a label of its
+    // own, where spreading the pair apart would break the centring; if a card
+    // ever renders both halves in one row, they must keep sitting next to the
+    // left edge instead.
+    const card = row(
+      renderBalanceCell(plainChannel, { layout: 'card' }).container
+    )
+    expect(card.className.split(/\s+/)).not.toContain('justify-between')
+    expect(card.className.split(/\s+/)).toContain('-ml-1.5')
+  })
 })

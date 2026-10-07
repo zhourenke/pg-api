@@ -639,7 +639,23 @@ export function BalanceCell({ channel, part }: BalanceCellProps) {
     <>
       <TooltipProvider>
         {part === undefined && (
-          <div className='-ml-1.5 flex max-w-full min-w-0 items-center gap-1'>
+          <div
+            className={
+              // The table prints both figures in one cell. Owner wants them at the
+              // two ends of it — used against the left edge, remaining against the
+              // right, with the slack between them — so the figure with decimals
+              // lines up down the column. Each badge hangs out by its own 6px of
+              // horizontal padding (`-ml-1.5` / `-mr-1.5`, the same offset the
+              // single-figure rows already use), which puts the *text* on the cell's
+              // content edge while the badge box stays inside the cell's padding.
+              // The card never takes this branch: it asks for one half at a time
+              // (`part` below) under its own label, where hanging both ends out
+              // would break the centring, so the branch keeps the plain row there.
+              layout === 'card'
+                ? '-ml-1.5 flex max-w-full min-w-0 items-center gap-1'
+                : 'flex max-w-full min-w-0 items-center justify-between gap-1 [&>*:first-child]:-ml-1.5 [&>*:last-child]:-mr-1.5'
+            }
+          >
             {usedBadgeNode}
             {remainingBadgeNode}
           </div>
