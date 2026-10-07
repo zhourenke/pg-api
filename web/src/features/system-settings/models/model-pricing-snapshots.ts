@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { splitBillingExprAndRequestRules } from '@/features/pricing/lib/billing-expr'
+import type { PricingModel } from '@/features/pricing/types'
 
 import { safeJsonParse } from '../utils/json-parser'
 
@@ -59,6 +60,33 @@ export type ModelRow = ModelPricingSnapshot & {
 
 export const hasPricingValue = (value?: string) =>
   value !== undefined && value !== ''
+
+const asNumber = (value?: string) => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+/**
+ * 一个价格行在价格单元格里的形状。表格的价格摘要列与窄屏卡片共用，两处的报价
+ * 必须一致。
+ */
+export function toPriceCellModel(model: ModelRow): PricingModel {
+  return {
+    id: 0,
+    model_name: model.name,
+    quota_type: model.billingMode === 'per-request' ? 1 : 0,
+    model_ratio: asNumber(model.ratio),
+    completion_ratio: asNumber(model.completionRatio),
+    cache_ratio: model.cacheRatio ? asNumber(model.cacheRatio) : null,
+    create_cache_ratio: model.createCacheRatio
+      ? asNumber(model.createCacheRatio)
+      : null,
+    model_price: model.price ? asNumber(model.price) : undefined,
+    billing_mode: model.billingMode,
+    billing_expr: model.billingExpr,
+    enable_groups: [],
+  }
+}
 
 export const isBasePricingUnset = (snapshot?: ModelPricingSnapshot) =>
   !snapshot ||

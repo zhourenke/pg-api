@@ -16,9 +16,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import type { ColumnDef } from '@tanstack/react-table'
+import type { ColumnDef, Row as TableRow } from '@tanstack/react-table'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ResponsiveDataTableView, useDataTable } from '@/components/data-table'
@@ -30,14 +31,19 @@ const columns: ColumnDef<Row>[] = [
   { accessorKey: 'status', header: 'Status', meta: { mobileBadge: true } },
 ]
 
-function Harness(props: { enableRowSelection?: boolean } = {}) {
+function Harness(
+  props: {
+    enableRowSelection?: boolean
+    renderCard?: (row: TableRow<Row>) => ReactNode
+  } = {}
+) {
   const { table } = useDataTable({
     data: [{ id: 1, name: 'alpha', status: 'ready' }],
     columns,
     enableRowSelection: props.enableRowSelection,
   })
 
-  return <ResponsiveDataTableView table={table} />
+  return <ResponsiveDataTableView table={table} renderCard={props.renderCard} />
 }
 
 function mockViewport(isNarrow: boolean) {
@@ -89,6 +95,18 @@ describe('responsive data table view', () => {
     expect(scroller.className).toContain('overflow-y-auto')
     expect(scroller.className).toContain('min-h-0')
     expect(scroller.className).toContain('flex-1')
+  })
+
+  it('lets a custom card renderer own the narrow row content', () => {
+    mockViewport(true)
+    render(
+      <Harness renderCard={(row) => <div>custom {row.original.name}</div>} />
+    )
+
+    // 自定义卡片必须真的替换掉按列 meta 生成的通用内容，否则页面以为改了版式、
+    // 窄屏上看到的还是通用卡片。
+    expect(screen.getByText('custom alpha')).toBeTruthy()
+    expect(screen.queryByText('ready')).toBeNull()
   })
 
   it('marks a selected narrow card so the selection is visible', async () => {

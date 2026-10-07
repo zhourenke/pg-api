@@ -20,16 +20,11 @@ import type { ColumnDef } from '@tanstack/react-table'
 
 import { DataTableColumnHeader } from '@/components/data-table/core/column-header'
 import { StaticRowActions } from '@/components/data-table/static/static-row-actions'
-import { StatusBadge } from '@/components/status-badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ModelPriceCell } from '@/features/pricing/components/model-price-cell'
 
-import type { ModelRow } from './model-pricing-snapshots'
-
-const asNumber = (value?: string) => {
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : 0
-}
+import { toPriceCellModel, type ModelRow } from './model-pricing-snapshots'
+import { ModelIdentity } from './model-ratio-card'
 
 type BuildModelRatioColumnsOptions = {
   onDelete: (name: string) => void
@@ -74,19 +69,7 @@ export function buildModelRatioColumns({
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('Model name')} />
       ),
-      cell: ({ row }) => (
-        <div className='flex min-w-0 items-center gap-2 font-medium'>
-          <span className='min-w-0 truncate'>{row.getValue('name')}</span>
-          {row.original.hasConflict && (
-            <StatusBadge
-              label={t('Conflict')}
-              variant='danger'
-              copyable={false}
-              className='shrink-0'
-            />
-          )}
-        </div>
-      ),
+      cell: ({ row }) => <ModelIdentity model={row.original} />,
       enableHiding: false,
       meta: { label: t('Model name') },
     },
@@ -97,29 +80,9 @@ export function buildModelRatioColumns({
       ),
       // The same cell the model list uses, so both pages quote the base tier's
       // input, output and cache read price in the site currency per 1M tokens.
-      cell: ({ row }) => {
-        const model = row.original
-
-        return (
-          <ModelPriceCell
-            model={{
-              id: 0,
-              model_name: model.name,
-              quota_type: model.billingMode === 'per-request' ? 1 : 0,
-              model_ratio: asNumber(model.ratio),
-              completion_ratio: asNumber(model.completionRatio),
-              cache_ratio: model.cacheRatio ? asNumber(model.cacheRatio) : null,
-              create_cache_ratio: model.createCacheRatio
-                ? asNumber(model.createCacheRatio)
-                : null,
-              model_price: model.price ? asNumber(model.price) : undefined,
-              billing_mode: model.billingMode,
-              billing_expr: model.billingExpr,
-              enable_groups: [],
-            }}
-          />
-        )
-      },
+      cell: ({ row }) => (
+        <ModelPriceCell model={toPriceCellModel(row.original)} />
+      ),
       enableSorting: false,
       meta: { label: t('Price summary') },
     },

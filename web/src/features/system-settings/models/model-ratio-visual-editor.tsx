@@ -68,6 +68,7 @@ import {
   isBasePricingUnset,
   type ModelRow,
 } from './model-pricing-snapshots'
+import { ModelRatioCard } from './model-ratio-card'
 import { buildModelRatioColumns } from './model-ratio-table-columns'
 
 type ModelRatioVisualEditorProps = {
@@ -613,6 +614,13 @@ const ModelRatioVisualEditorComponent = forwardRef<
           ) : (
             <ResponsiveDataTableView
               table={table}
+              renderCard={(row) => (
+                <ModelRatioCard
+                  model={row.original}
+                  onDelete={requestDelete}
+                  identityOnly={filterMode === 'unset'}
+                />
+              )}
               containerClassName='min-h-0 flex-1 rounded-md'
               tableContainerClassName='h-full'
               tableHeaderClassName='[&_tr]:border-b-0'
