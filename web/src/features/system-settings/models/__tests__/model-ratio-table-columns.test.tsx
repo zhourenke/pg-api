@@ -21,6 +21,8 @@ import { render, screen, within } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { expect, it, vi } from 'vitest'
 
+import zh from '@/i18n/locales/zh.json'
+
 import type { ModelRow } from '../model-pricing-snapshots'
 import { buildModelRatioColumns } from '../model-ratio-table-columns'
 
@@ -108,4 +110,18 @@ it('keeps only the model identity columns for the unset price page', () => {
   })
 
   expect(columns.map((column) => column.id)).toEqual(['select', 'name'])
+})
+
+it('names the price column 价格 in the header and in the column menu', () => {
+  // 列头与列菜单（`meta.label`）读同一个键，所以两者是同一份文案；owner 定的
+  // 最终文案是「价格」，这里用真实词条把两个落点一起钉住。
+  const zhT = (key: string) =>
+    (zh.translation as Record<string, string>)[key] ?? key
+  const column = buildModelRatioColumns({
+    onDelete: vi.fn(),
+    t: zhT,
+  }).find((candidate) => candidate.id === 'priceSummary')
+
+  expect(zhT('Price summary')).toBe('价格')
+  expect(column?.meta?.label).toBe('价格')
 })
