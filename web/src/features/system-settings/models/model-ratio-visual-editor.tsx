@@ -618,6 +618,7 @@ const ModelRatioVisualEditorComponent = forwardRef<
                 <ModelRatioCard
                   model={row.original}
                   onDelete={requestDelete}
+                  onOpen={() => handleEdit(row.original)}
                   identityOnly={filterMode === 'unset'}
                 />
               )}

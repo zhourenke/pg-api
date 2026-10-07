@@ -54,10 +54,16 @@ export function ModelIdentity(props: { model: ModelRow }) {
  * 同一行，窄屏下先被省略号截断。表格自己提供 `renderCard` 就是给这种版式的
  * 口子（渠道卡片同样在用），所以这里自己排：标题行留给身份与操作，价格独占
  * 下一行的整卡宽度。列本身不动，所以宽屏表格与这版式无关。
+ *
+ * 宽屏那行还可以直接点开定价面板（`renderRow` 的 `onClick`），窄屏换掉整行之后
+ * 这句话没有对应物——卡片里只剩删除按钮——所以由整卡自己接住：给了 `onOpen`
+ * 就点得动，判断沿用宽屏那一句，落在按钮上只做按钮的事。
  */
 export function ModelRatioCard(props: {
   model: ModelRow
   onDelete: (name: string) => void
+  /** 整卡可点打开的定价面板；省略时卡片不可点。 */
+  onOpen?: () => void
   /** 未设置价格模型页：只认出模型，没有价格也没有删除。 */
   identityOnly?: boolean
 }) {
@@ -67,6 +73,12 @@ export function ModelRatioCard(props: {
     <div
       data-slot='model-ratio-card'
       className='flex min-w-0 items-start justify-between gap-2'
+      onClick={(event) => {
+        if (!props.onOpen) return
+        const target = event.target as HTMLElement
+        if (target.closest('button, [role="checkbox"]')) return
+        props.onOpen()
+      }}
     >
       <div className='min-w-0 flex-1 text-sm'>
         <ModelIdentity model={props.model} />

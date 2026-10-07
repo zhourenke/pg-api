@@ -38,10 +38,12 @@ function modelRow(): ModelRow {
 
 function renderCard(options?: { identityOnly?: boolean }) {
   const onDelete = vi.fn()
+  const onOpen = vi.fn()
   const view = render(
     <ModelRatioCard
       model={modelRow()}
       onDelete={onDelete}
+      onOpen={onOpen}
       identityOnly={options?.identityOnly}
     />
   )
@@ -50,7 +52,7 @@ function renderCard(options?: { identityOnly?: boolean }) {
   )
   if (!card) throw new Error('card root is missing')
 
-  return { card, onDelete }
+  return { card, onDelete, onOpen }
 }
 
 it('shares the title row between the model name and the delete action, and puts the price on the next row', () => {
@@ -86,4 +88,30 @@ it('asks for the deleted model by name', () => {
   fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
 
   expect(onDelete).toHaveBeenCalledWith('claude-sonnet')
+})
+
+it('opens the editor when the card body is tapped', () => {
+  const { onOpen } = renderCard()
+
+  fireEvent.click(screen.getByText('claude-sonnet'))
+
+  expect(onOpen).toHaveBeenCalledTimes(1)
+})
+
+it('leaves a tap on the delete action to that action alone', () => {
+  const { onDelete, onOpen } = renderCard()
+
+  // 整卡可点之后，删除按钮的点击会冒泡到卡片：不挡住它就会连带打开定价面板。
+  fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+
+  expect(onDelete).toHaveBeenCalledWith('claude-sonnet')
+  expect(onOpen).not.toHaveBeenCalled()
+})
+
+it('keeps the card tappable on the page that only lists unset prices', () => {
+  const { onOpen } = renderCard({ identityOnly: true })
+
+  fireEvent.click(screen.getByText('claude-sonnet'))
+
+  expect(onOpen).toHaveBeenCalledTimes(1)
 })
