@@ -98,7 +98,14 @@ export function SectionPageLayout(props: SectionPageLayoutProps) {
               </h2>
             </div>
             {actions != null && (
-              <div className='flex shrink-0 flex-wrap items-center justify-end gap-2 sm:gap-x-4'>
+              /* `max-w-full min-w-0` matters on narrow viewports: without them
+                 this box is as wide as its widest row of controls, so a row that
+                 does not fit is clipped by the viewport instead of wrapping. The
+                 page titles that pass `stackActionsOnMobile` already move the
+                 whole actions box onto its own line; this lets the box itself
+                 give way too, so a page with three or four controls keeps them
+                 all reachable rather than cutting the last one off. */
+              <div className='flex max-w-full min-w-0 shrink-0 flex-wrap items-center justify-end gap-2 sm:gap-x-4'>
                 {actions}
               </div>
             )}

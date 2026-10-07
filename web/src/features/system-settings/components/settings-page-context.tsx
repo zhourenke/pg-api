@@ -98,7 +98,13 @@ export function SettingsPageActionsPortal(
   if (!actionsContainer && !props.fallbackInline) return null
 
   const content = (
-    <div className='flex flex-wrap items-center justify-end gap-2'>
+    /* One line, never a wrap. The row this portals into already wraps as a whole
+       when it has to (the page header's own `flex-wrap`); wrapping again inside
+       it would break the row into a stack of one control each instead of letting
+       the controls give way. `min-w-0` lets this box follow the header's width —
+       without it the box stays as wide as its contents and the row overflows the
+       viewport, cutting the last control off. */
+    <div className='flex min-w-0 flex-nowrap items-center justify-end gap-2'>
       {props.children}
     </div>
   )

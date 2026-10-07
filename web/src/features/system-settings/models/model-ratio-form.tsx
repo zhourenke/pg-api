@@ -252,49 +252,15 @@ export const ModelRatioForm = memo(function ModelRatioForm({
     <Form {...form}>
       <div className='flex min-h-0 flex-1 flex-col gap-6'>
         {!isUnsetVariant && (
-          <div className='flex shrink-0 flex-wrap items-center justify-end gap-2'>
-            <SettingsPageActionsPortal fallbackInline>
-              <FormField
-                control={form.control}
-                name='ExposeRatioEnabled'
-                render={({ field }) => (
-                  <SettingsSwitchItem className='gap-2 py-0'>
-                    <SettingsSwitchContent>
-                      <FormLabel>{t('Expose ratio API')}</FormLabel>
-                      <FormDescription className='sr-only'>
-                        {t(
-                          'Allow clients to query configured prices via `/api/ratio`.'
-                        )}
-                      </FormDescription>
-                    </SettingsSwitchContent>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <LearnMore contentProps={{ side: 'bottom', align: 'end' }}>
-                      {t(
-                        'Allow clients to query configured prices via `/api/ratio`.'
-                      )}
-                    </LearnMore>
-                  </SettingsSwitchItem>
-                )}
-              />
-              <Button variant='outline' size='sm' onClick={toggleEditMode}>
-                {editMode === 'visual' ? (
-                  <>
-                    <Code2 className='mr-2 h-4 w-4' />
-                    {t('Switch to JSON')}
-                  </>
-                ) : (
-                  <>
-                    <Eye className='mr-2 h-4 w-4' />
-                    {t('Switch to Visual')}
-                  </>
-                )}
-              </Button>
-            </SettingsPageActionsPortal>
+          /* No wrapper element around the portal on purpose. Its children render
+             into the page header's actions area, and a wrapper div would still
+             be a child of this column — the column's own `gap-6` counts every
+             child, so an empty one shows up as a 24px blank line between the
+             header row and the search row. The unset-price tab renders no
+             toolbar at all and keeps the search row 24px higher, which is how
+             the gap was found. `fallbackInline` still gives the embedded editor
+             — one with no page header around it — the portal's own flex row. */
+          <SettingsPageActionsPortal fallbackInline>
             {editMode === 'json' && (
               <Button
                 type='button'
@@ -306,7 +272,59 @@ export const ModelRatioForm = memo(function ModelRatioForm({
                 {isSaving ? t('Saving...') : t('Save model prices')}
               </Button>
             )}
-          </div>
+            <FormField
+              control={form.control}
+              name='ExposeRatioEnabled'
+              render={({ field }) => (
+                <SettingsSwitchItem className='min-w-0 gap-2 py-0'>
+                  <SettingsSwitchContent className='min-w-0'>
+                    {/* The header row also carries the save and mode buttons, so
+                        as the viewport narrows these three compete for one line.
+                        The label is the one that gives way — the same treatment
+                        the page title on this very row gets — which is why the
+                        whole chain below the row item is `min-w-0`: a flex item's
+                        automatic minimum size is its content, so without it the
+                        label refuses to shrink and the row instead overflows the
+                        viewport (and the mode button gets cut off). The text needs
+                        a block of its own to ellipsise, because a flex container
+                        ellipsises a box and not a bare text node. */}
+                    <FormLabel className='min-w-0'>
+                      <span className='truncate'>{t('Expose ratio API')}</span>
+                    </FormLabel>
+                    <FormDescription className='sr-only'>
+                      {t(
+                        'Allow clients to query configured prices via `/api/ratio`.'
+                      )}
+                    </FormDescription>
+                  </SettingsSwitchContent>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <LearnMore contentProps={{ side: 'bottom', align: 'end' }}>
+                    {t(
+                      'Allow clients to query configured prices via `/api/ratio`.'
+                    )}
+                  </LearnMore>
+                </SettingsSwitchItem>
+              )}
+            />
+            <Button variant='outline' size='sm' onClick={toggleEditMode}>
+              {editMode === 'visual' ? (
+                <>
+                  <Code2 className='mr-2 h-4 w-4' />
+                  {t('Switch to JSON')}
+                </>
+              ) : (
+                <>
+                  <Eye className='mr-2 h-4 w-4' />
+                  {t('Switch to Visual')}
+                </>
+              )}
+            </Button>
+          </SettingsPageActionsPortal>
         )}
 
         {editMode === 'visual' ? (

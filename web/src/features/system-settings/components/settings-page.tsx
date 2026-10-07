@@ -70,7 +70,7 @@ function SettingsPageFrame(props: SettingsPageFrameProps) {
       <SectionPageLayout stackActionsOnMobile>
         <SectionPageLayout.Title>
           <span className='inline-flex max-w-full min-w-0 items-center gap-2 align-middle'>
-            <span className='truncate'>{props.title}</span>
+            <span className='min-w-0 truncate'>{props.title}</span>
             <span
               ref={setTitleStatusContainer}
               className='inline-flex min-w-0 shrink-0 items-center'
@@ -80,7 +80,7 @@ function SettingsPageFrame(props: SettingsPageFrameProps) {
         <SectionPageLayout.Actions>
           <div
             ref={setActionsContainer}
-            className='flex flex-wrap items-center justify-end gap-2'
+            className='flex min-w-0 flex-wrap items-center justify-end gap-2'
           />
         </SectionPageLayout.Actions>
         <SectionPageLayout.Content>
