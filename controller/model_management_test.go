@@ -27,7 +27,7 @@ import (
 
 func modelManagementDB(t *testing.T, kind, dsn string) *gorm.DB {
 	t.Helper()
-	database, isolatedDSN := newAuditTestDatabase(t, kind, dsn)
+	database, isolatedDSN := newAuditTestDatabase(t, kind, dsn, "")
 	previousDB, previousLogDB := model.DB, model.LOG_DB
 	previousMain, previousLog := common.MainDatabaseType(), common.LogDatabaseType()
 	previousMaster, previousSQLite := common.IsMasterNode, common.SQLitePath

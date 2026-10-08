@@ -447,7 +447,12 @@ func closeAuditTestDatabase(t *testing.T, db *gorm.DB) {
 
 // External tests create a new database per case on a loopback-only disposable
 // instance. They never drop databases or tables supplied through an environment variable.
-func newAuditTestDatabase(t *testing.T, kind, dsn string) (*gorm.DB, string) {
+//
+// suffix keeps the databases of one test apart. The name below is derived from
+// t.Name() alone, so a test that also needs a log database has to pass a
+// distinct suffix (for example "_log"); otherwise its second CREATE DATABASE
+// collides with the database it just created. Pass "" for the primary database.
+func newAuditTestDatabase(t *testing.T, kind, dsn, suffix string) (*gorm.DB, string) {
 	t.Helper()
 	if kind == "sqlite" {
 		path := t.TempDir() + "/audit.db"
@@ -464,7 +469,7 @@ func newAuditTestDatabase(t *testing.T, kind, dsn string) (*gorm.DB, string) {
 	// collision guard below turns such a repeat into a hard failure.
 	sum := fnv.New32a()
 	_, _ = sum.Write([]byte(t.Name()))
-	name := fmt.Sprintf("newapi_audit_%08x", sum.Sum32())
+	name := fmt.Sprintf("newapi_audit_%08x%s", sum.Sum32(), suffix)
 	var original, isolated gorm.Dialector
 	var newDSN string
 	if kind == "mysql" {
@@ -673,7 +678,7 @@ func TestAuditDatabaseMatrix(t *testing.T) {
 			}
 			for _, upgrade := range []bool{false, true} {
 				t.Run(fmt.Sprintf("upgrade=%v", upgrade), func(t *testing.T) {
-					db, isolatedDSN := newAuditTestDatabase(t, tc.name, dsn)
+					db, isolatedDSN := newAuditTestDatabase(t, tc.name, dsn, "")
 					t.Setenv("LOG_SQL_DSN", "")
 					if tc.name == "sqlite" {
 						common.SQLitePath = isolatedDSN
@@ -804,7 +809,7 @@ func TestIndependentAuditLogStores(t *testing.T) {
 				if dsn == "" {
 					t.Skip(tc.env + " is not configured")
 				}
-				logDB, isolatedDSN := newAuditTestDatabase(t, tc.kind, dsn)
+				logDB, isolatedDSN := newAuditTestDatabase(t, tc.kind, dsn, "")
 				if upgrade {
 					if tc.kind == "clickhouse" {
 						require.NoError(t, logDB.Exec(releasedClickHouseLogSchema).Error)

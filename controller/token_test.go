@@ -611,14 +611,14 @@ func TestAPITokenAuditDatabaseMatrix(t *testing.T) {
 				common.RedisEnabled, common.IsMasterNode = false, true
 				common.SessionSecret = "api-token-audit-test-secret"
 				t.Setenv("LOG_SQL_DSN", "")
-				db, _ := newAuditTestDatabase(t, database.name, dsn)
+				db, _ := newAuditTestDatabase(t, database.name, dsn, "")
 				model.DB = db
 				common.SetDatabaseTypes(database.typ, database.typ)
 				require.NoError(t, db.AutoMigrate(&model.User{}, &model.UserSession{}, &model.Token{}))
 				// Initialize production column quoting as well as the existing audit table.
 				require.NoError(t, model.InitLogDB())
 				if separateLog {
-					logDB, _ := newAuditTestDatabase(t, database.name, dsn)
+					logDB, _ := newAuditTestDatabase(t, database.name, dsn, "_log")
 					model.LOG_DB = logDB
 					require.NoError(t, model.MigrateAuditLogs())
 				}

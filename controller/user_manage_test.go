@@ -42,10 +42,10 @@ func setupManageUserTestDB(t *testing.T) *gorm.DB {
 	}
 	require.Contains(t, databaseTypes, dialect)
 	dsn := os.Getenv("TEST_" + strings.ToUpper(dialect) + "_DSN")
-	db, _ := newAuditTestDatabase(t, dialect, dsn)
+	db, _ := newAuditTestDatabase(t, dialect, dsn, "")
 	logDB := db
 	if os.Getenv("TEST_MANAGE_USER_SEPARATE_LOG_DB") == "1" {
-		logDB, _ = newAuditTestDatabase(t, dialect, dsn)
+		logDB, _ = newAuditTestDatabase(t, dialect, dsn, "_log")
 	}
 	model.DB, model.LOG_DB = db, logDB
 	common.RedisEnabled = false
