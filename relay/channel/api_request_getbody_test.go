@@ -208,6 +208,19 @@ func acceptH2TestConnection(ln net.Listener) (net.Conn, *http2.Framer, error) {
 	return conn, framer, nil
 }
 
+// drainH2TestConnection keeps the connection open until the client closes it and
+// only then closes the socket. Closing it while unread bytes are still queued
+// makes Windows send RST instead of FIN, and that reset can reach the client
+// before the frame written just before it did, which turns a graceful GOAWAY or
+// a RST_STREAM into an ECONNRESET that the client cannot act on. Draining first
+// is what makes the connection end the way a well-behaved HTTP/2 peer ends it.
+func drainH2TestConnection(conn net.Conn) {
+	go func() {
+		_, _ = io.Copy(io.Discard, conn)
+		_ = conn.Close()
+	}()
+}
+
 func readH2TestRequest(framer *http2.Framer) (uint32, []byte, error) {
 	var streamID uint32
 	var body []byte
@@ -287,12 +300,11 @@ func runResetOnFirstStreamServer(ln net.Listener, expectRetry bool) <-chan h2Ser
 			res.err = err
 			return
 		}
-		defer conn.Close()
 
-	attempts:
 		for attempt := 0; ; attempt++ {
 			streamID, body, err := readH2TestRequest(framer)
 			if err != nil {
+				conn.Close()
 				res.err = err
 				return
 			}
@@ -301,18 +313,25 @@ func runResetOnFirstStreamServer(ln net.Listener, expectRetry bool) <-chan h2Ser
 
 			if attempt == 0 {
 				if err := framer.WriteRSTStream(streamID, http2.ErrCodeRefusedStream); err != nil {
+					conn.Close()
 					res.err = err
 					return
 				}
 				if !expectRetry {
-					break attempts
+					// Stop serving, but let the client read the reset before the
+					// socket is torn down.
+					drainH2TestConnection(conn)
+					return
 				}
 				continue
 			}
 
 			if err := writeH2TestResponse(framer, streamID); err != nil {
+				conn.Close()
 				res.err = err
+				return
 			}
+			drainH2TestConnection(conn)
 			return
 		}
 	}()
@@ -341,20 +360,25 @@ func runGoAwayAfterFirstRequestServer(ln net.Listener) <-chan h2ServerResult {
 			res.attemptBodies = append(res.attemptBodies, body)
 
 			if attempt == 0 {
+				// The client has to read the GOAWAY before the socket goes away,
+				// so the connection is drained instead of closed here.
 				err = framer.WriteGoAway(0, http2.ErrCodeNo, nil)
-				conn.Close()
 				if err != nil {
+					conn.Close()
 					res.err = err
 					return
 				}
+				drainH2TestConnection(conn)
 				continue
 			}
 
 			err = writeH2TestResponse(framer, streamID)
-			conn.Close()
 			if err != nil {
+				conn.Close()
 				res.err = err
+				return
 			}
+			drainH2TestConnection(conn)
 			return
 		}
 	}()
