@@ -143,6 +143,63 @@ func TestRelayRouterServesNativeResponsesEndpoint(t *testing.T) {
 	})
 }
 
+// The native image endpoints must stay reachable for the same reason as
+// /v1/responses: upstream mounts POST /v1/images/generations and
+// POST /v1/images/edits from the task plugin protocol registry, which this
+// fork removed. Both were missed when /v1/responses was restored, so every
+// native image request returned the router's 404 "Invalid URL".
+func TestRelayRouterServesNativeImageEndpoints(t *testing.T) {
+	setupRelayRouterTestDB(t)
+
+	user := model.User{
+		Username: "images-user",
+		Status:   common.UserStatusEnabled,
+		Group:    "default",
+		Quota:    100,
+	}
+	require.NoError(t, model.DB.Create(&user).Error)
+	require.NoError(t, model.DB.Create(&model.Token{
+		UserId:         user.Id,
+		Key:            "imagestestkey",
+		Status:         common.TokenStatusEnabled,
+		ExpiredTime:    -1,
+		UnlimitedQuota: true,
+	}).Error)
+
+	engine := gin.New()
+	SetRelayRouter(engine)
+
+	for _, path := range []string{"/v1/images/generations", "/v1/images/edits"} {
+		postImage := func(token string) *httptest.ResponseRecorder {
+			request := httptest.NewRequest(http.MethodPost, path, strings.NewReader(`{"model":"gpt-image-1","prompt":"a cat"}`))
+			request.Header.Set("Content-Type", "application/json")
+			if token != "" {
+				request.Header.Set("Authorization", "Bearer "+token)
+			}
+			recorder := httptest.NewRecorder()
+			engine.ServeHTTP(recorder, request)
+			return recorder
+		}
+
+		t.Run(path+" without a token is rejected by auth rather than treated as a missing route", func(t *testing.T) {
+			recorder := postImage("")
+
+			require.Equal(t, http.StatusUnauthorized, recorder.Code)
+			assert.NotContains(t, recorder.Body.String(), "Invalid URL")
+		})
+
+		t.Run(path+" with a valid token reaches channel selection", func(t *testing.T) {
+			recorder := postImage("imagestestkey")
+
+			assert.NotContains(t, recorder.Body.String(), "Invalid URL")
+			require.NotEqual(t, http.StatusNotFound, recorder.Code)
+			// No channel is configured for the model, so the request stops at
+			// distribution; reaching it is what proves the route exists.
+			require.Equal(t, http.StatusServiceUnavailable, recorder.Code)
+		})
+	}
+}
+
 func setupRelayRouterTestDB(t *testing.T) {
 	t.Helper()
 

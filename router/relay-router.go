@@ -124,8 +124,20 @@ func SetRelayRouter(router *gin.Engine) {
 			controller.Relay(c, types.RelayFormatOpenAIAlphaSearch)
 		})
 
-		// image related routes. /images/generations and /images/edits are
-		// openai_image protocol endpoints served by Relay.
+		// image related routes. Upstream serves /v1/images/generations and
+		// /v1/images/edits from the task plugin protocol registry
+		// (pkg/jsplugin routing table), which this fork removed together with
+		// the task plugin system. The relay still supports the format, so
+		// register both front doors here instead of losing the endpoints:
+		// without them every native image request falls through to
+		// RelayNotFound (#404). /edits is unrelated to these two and is the
+		// path the console and channel testing use.
+		httpRouter.POST("/images/generations", func(c *gin.Context) {
+			controller.Relay(c, types.RelayFormatOpenAIImage)
+		})
+		httpRouter.POST("/images/edits", func(c *gin.Context) {
+			controller.Relay(c, types.RelayFormatOpenAIImage)
+		})
 		httpRouter.POST("/edits", func(c *gin.Context) {
 			controller.Relay(c, types.RelayFormatOpenAIImage)
 		})
