@@ -9,7 +9,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -489,44 +488,37 @@ func TestManageUserQuotaConcurrentSnapshots(t *testing.T) {
 	db := setupManageUserTestDB(t)
 	user := model.User{Username: "concurrent-quota", Quota: 1000}
 	require.NoError(t, db.Create(&user).Error)
-	var ready sync.WaitGroup
-	ready.Add(2)
-	release := make(chan struct{})
-	require.NoError(t, db.Callback().Query().Before("gorm:query").Register("test:concurrent_quota_start", func(tx *gorm.DB) {
-		if tx.Statement.Table == "users" {
-			ready.Done()
-			<-release
-		}
-	}))
+	// Both adjustments are released together instead of being held at a barrier
+	// inside the read. The interleaving such a barrier used to force — both
+	// transactions reading the row before either writes — no longer exists in any
+	// supported configuration: SQLite starts a transaction with BEGIN IMMEDIATE
+	// (common.SQLitePath) and MySQL/PostgreSQL lock the row with FOR UPDATE, so
+	// the second read cannot happen before the first commit. Waiting for both
+	// reads first deadlocks on SQLite, because the second transaction cannot even
+	// begin while the first holds the write lock.
 	type result struct {
 		adjustment *model.UserQuotaAdjustment
 		err        error
 		value      int
 	}
+	start := make(chan struct{})
 	results := make(chan result, 2)
 	for _, value := range []int{10, 20} {
 		go func(value int) {
+			<-start
 			adjustment, err := model.AdjustUserQuota(user.Id, common.RoleRootUser, "add", value)
 			results <- result{adjustment, err, value}
 		}(value)
 	}
-	ready.Wait()
-	close(release)
+	close(start)
 	var committed []model.UserQuotaAdjustment
 	for range 2 {
 		result := <-results
-		if result.err != nil {
-			require.True(t, common.UsingMainDatabase(common.DatabaseTypeSQLite), "row-locking databases must serialize both adjustments: %v", result.err)
-			assert.Contains(t, strings.ToLower(result.err.Error()), "locked")
-			assert.Nil(t, result.adjustment)
-			continue
-		}
+		require.NoError(t, result.err)
 		require.NotNil(t, result.adjustment)
 		assert.Equal(t, result.value, result.adjustment.After-result.adjustment.Before)
 		committed = append(committed, *result.adjustment)
 	}
-	require.NoError(t, db.Callback().Query().Remove("test:concurrent_quota_start"))
-	require.NotEmpty(t, committed)
 	sort.Slice(committed, func(i, j int) bool { return committed[i].Before < committed[j].Before })
 	balance := 1000
 	for _, adjustment := range committed {

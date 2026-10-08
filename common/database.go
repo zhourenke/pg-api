@@ -79,11 +79,18 @@ var sqliteConnectionParams = []struct {
 	{marker: "_txlock=", param: "_txlock=immediate"},
 }
 
-// withSQLitePragmas appends the required connection parameters to an
-// operator-supplied SQLite DSN, skipping the ones it already sets. Entries the
-// operator wrote are kept as they are; the legacy `_busy_timeout=` form does not
+// WithSQLitePragmas appends the required connection parameters to a
+// caller-supplied SQLite DSN, skipping the ones it already sets. Entries the
+// caller wrote are kept as they are; the legacy `_busy_timeout=` form does not
 // count as setting the busy timeout because the pure-Go driver ignores it.
-func withSQLitePragmas(dsn string) string {
+//
+// A SQLite database opened without these parameters does not behave like the
+// application: the driver's own defaults use the rollback journal and deferred
+// transactions, so a transaction that reads before it writes collides with a
+// concurrent writer as an immediate SQLITE_BUSY instead of waiting on the busy
+// timeout. Test fixtures that need real concurrent access must go through this
+// function rather than sqlite.Open(path) on a bare path.
+func WithSQLitePragmas(dsn string) string {
 	dsn = strings.TrimSpace(dsn)
 	if dsn == "" {
 		return ""

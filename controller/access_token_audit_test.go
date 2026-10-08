@@ -456,7 +456,11 @@ func newAuditTestDatabase(t *testing.T, kind, dsn, suffix string) (*gorm.DB, str
 	t.Helper()
 	if kind == "sqlite" {
 		path := t.TempDir() + "/audit.db"
-		db, err := gorm.Open(sqlite.Open(path), &gorm.Config{})
+		// Open the file with the connection parameters the application itself
+		// uses. The driver defaults are a deferred transaction over the rollback
+		// journal, under which a transaction that selects before it writes dies
+		// instantly with SQLITE_BUSY instead of queueing on the busy timeout.
+		db, err := gorm.Open(sqlite.Open(common.WithSQLitePragmas(path)), &gorm.Config{})
 		require.NoError(t, err)
 		closeAuditTestDatabase(t, db)
 		return db, path

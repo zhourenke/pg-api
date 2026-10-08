@@ -56,13 +56,13 @@ func TestWithSQLitePragmas(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, withSQLitePragmas(tt.dsn))
+			assert.Equal(t, tt.want, WithSQLitePragmas(tt.dsn))
 		})
 	}
 }
 
 func TestWithSQLitePragmasConfiguresConnection(t *testing.T) {
-	db, err := sql.Open("sqlite", withSQLitePragmas(filepath.Join(t.TempDir(), "pragma.db")))
+	db, err := sql.Open("sqlite", WithSQLitePragmas(filepath.Join(t.TempDir(), "pragma.db")))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = db.Close() })
 
