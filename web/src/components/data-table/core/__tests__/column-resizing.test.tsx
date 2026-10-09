@@ -91,21 +91,56 @@ const contentOnlyColumns: ColumnDef<Row>[] = [
   },
 ]
 
+/**
+ * Mirrors a table that opens with part of its columns hidden and a width
+ * declared on one of them — the vendor list starts with its ID column turned
+ * off, where the declared 80px was all that column ever got, because the first
+ * measurement did not see it.
+ */
+const hiddenColumnColumns: ColumnDef<Row>[] = [
+  { accessorKey: 'name', header: 'Name', size: 220 },
+  { accessorKey: 'id', header: 'ID', size: 80 },
+  {
+    id: 'actions',
+    header: 'Actions',
+    size: 120,
+    cell: () => <button type='button'>Edit</button>,
+  },
+]
+
 function Harness({
   names = ['alpha'],
   tableColumns = columns,
   isLoading,
+  hiddenColumnIds = [],
 }: {
   names?: string[]
   tableColumns?: ColumnDef<Row>[]
   isLoading?: boolean
+  hiddenColumnIds?: string[]
 }) {
   const { table } = useDataTable({
     data: names.map((name, index) => ({ id: index + 1, name })),
     columns: tableColumns,
+    initialColumnVisibility: Object.fromEntries(
+      hiddenColumnIds.map((columnId) => [columnId, false])
+    ),
   })
 
-  return <DataTableView table={table} isLoading={isLoading} />
+  return (
+    <>
+      {hiddenColumnIds.map((columnId) => (
+        <button
+          key={columnId}
+          type='button'
+          onClick={() => table.getColumn(columnId)?.toggleVisibility()}
+        >
+          {`Show ${columnId}`}
+        </button>
+      ))}
+      <DataTableView table={table} isLoading={isLoading} />
+    </>
+  )
 }
 
 function getColumnWidths() {
@@ -259,6 +294,73 @@ describe('column resizing', () => {
     // The declaration was never what sized a column that has rows: the
     // measurement is, and it does not need one.
     expect(getColumnWidths()).toEqual(['56px', '', '72px'])
+  })
+
+  it('fits a column the user opens after the first measurement to its own content', async () => {
+    stubScrollingWidth()
+    render(
+      <Harness
+        names={['alpha']}
+        tableColumns={hiddenColumnColumns}
+        hiddenColumnIds={['id']}
+      />
+    )
+
+    // While the column is hidden it holds no width at all.
+    expect(getColumnWidths()).toEqual(['56px', '', '72px'])
+
+    await userEvent.click(screen.getByRole('button', { name: 'Show id' }))
+
+    // Opening it fits it to its own content — the header `ID` is two
+    // characters, the cell holds `1` — so the declared 80px never reaches the
+    // screen, exactly as for a column that was visible from the start.
+    expect(getColumnWidths()).toEqual(['56px', '32px', '', '72px'])
+  })
+
+  it('still fits a column the user opens after the widths have been frozen', async () => {
+    vi.useFakeTimers()
+    stubScrollingWidth()
+    render(
+      <Harness
+        names={['alpha']}
+        tableColumns={hiddenColumnColumns}
+        hiddenColumnIds={['id']}
+      />
+    )
+
+    await dragSeparator(screen.getByRole('separator'), 200, 260)
+    expect(getColumnWidths()[0]).toBe('116px')
+
+    // The follow-up pass is what notices the drag and freezes the widths, so
+    // the column is opened into an already frozen table.
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show id' }))
+
+    // The width the user dragged stays theirs and the column that was never on
+    // screen is fitted instead of falling back to its declared width.
+    expect(getColumnWidths()).toEqual(['116px', '32px', '', '72px'])
+  })
+
+  it('opens a window column at the width it declares, even when the user opens it late', () => {
+    stubScrollingWidth()
+    render(
+      <Harness
+        names={['alpha']}
+        tableColumns={windowColumns}
+        hiddenColumnIds={['name']}
+      />
+    )
+
+    expect(getColumnWidths()).toEqual(['', '72px'])
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show name' }))
+
+    // A window column is never measured, whenever it is opened: it shows a
+    // window onto content of its own length, so it keeps the declared width.
+    expect(getColumnWidths()).toEqual(['320px', '', '72px'])
   })
 
   it('keeps every other column width when a single column is dragged', async () => {

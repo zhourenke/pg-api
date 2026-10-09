@@ -63,6 +63,12 @@ function getMeasuredColumns<TData>(table: TanstackTable<TData>) {
  * window running out, freezes the widths, so the follow-up never fights the
  * user.
  *
+ * A column a table starts out hiding is not on screen for that first
+ * measurement, so the same effect runs again whenever the set of visible columns
+ * changes: the first time the user opens such a column it is fitted to its own
+ * content, whenever that happens and even after a drag has frozen the widths of
+ * the other columns.
+ *
  * Three states, one rule each. The first render that has rows is measured before
  * it is painted, so a declared width never reaches the screen on a table with
  * data. A table with no rows — loading, or empty — is not measured at all and is
@@ -77,72 +83,105 @@ export function useMeasuredColumnWidths<TData>(
 ) {
   const startedRef = React.useRef(false)
   const appliedRef = React.useRef<ColumnSizingState | null>(null)
+  const measuredIdsRef = React.useRef(new Set<string>())
   const frozenRef = React.useRef(false)
 
   /**
-   * Measures every column and applies the widths. Returns true once the widths
-   * must stop following the content, because the user has taken over.
+   * Measures columns and applies the widths. Returns true once the widths must
+   * stop following the content, because the user has taken over.
+   *
+   * `unmeasuredOnly` narrows the pass to the columns that have never been given
+   * a content width — the ones the user opened after the first measurement. Such
+   * a column is fitted even while the other widths are frozen: a width that was
+   * never on screen cannot be a width the user has set, so fitting it moves
+   * nothing they chose.
    */
-  const measureColumns = React.useCallback(() => {
-    const tableElement = tableElementRef.current
-    if (frozenRef.current || !tableElement) {
+  const measureColumns = React.useCallback(
+    ({ unmeasuredOnly = false }: { unmeasuredOnly?: boolean } = {}) => {
+      const tableElement = tableElementRef.current
+      if (!tableElement) {
+        return frozenRef.current
+      }
+
+      if (frozenRef.current && !unmeasuredOnly) {
+        return true
+      }
+
+      const sizing = table.getState().columnSizing
+      const applied = appliedRef.current
+
+      if (
+        applied &&
+        Object.keys(applied).some((id) => sizing[id] !== applied[id])
+      ) {
+        frozenRef.current = true
+
+        if (!unmeasuredOnly) {
+          return true
+        }
+      }
+
+      const measured: ColumnSizingState = {}
+      let hasMeasurement = false
+
+      for (const column of getMeasuredColumns(table)) {
+        if (unmeasuredOnly && measuredIdsRef.current.has(column.id)) {
+          continue
+        }
+
+        const contentWidth = measureColumnContentWidth(tableElement, column.id)
+        if (contentWidth === undefined) {
+          continue
+        }
+
+        const headerWidth = measureColumnHeaderWidth(tableElement, column.id)
+        const fitWidth = Math.max(
+          getContentFitWidth(column, contentWidth),
+          headerWidth ?? 0
+        )
+
+        measuredIdsRef.current.add(column.id)
+        measured[column.id] = fitWidth
+        if (fitWidth !== column.getSize()) {
+          hasMeasurement = true
+        }
+      }
+
+      appliedRef.current = { ...applied, ...measured }
+
+      if (hasMeasurement) {
+        table.setColumnSizing((previous) => ({ ...previous, ...measured }))
+      }
+
       return frozenRef.current
-    }
+    },
+    [table, tableElementRef]
+  )
 
-    const sizing = table.getState().columnSizing
-    const applied = appliedRef.current
-
-    if (
-      applied &&
-      Object.keys(applied).some((id) => sizing[id] !== applied[id])
-    ) {
-      frozenRef.current = true
-      return true
-    }
-
-    const measured: ColumnSizingState = {}
-    let hasMeasurement = false
-
-    for (const column of getMeasuredColumns(table)) {
-      const contentWidth = measureColumnContentWidth(tableElement, column.id)
-      if (contentWidth === undefined) {
-        continue
-      }
-
-      const headerWidth = measureColumnHeaderWidth(tableElement, column.id)
-      const fitWidth = Math.max(
-        getContentFitWidth(column, contentWidth),
-        headerWidth ?? 0
-      )
-
-      measured[column.id] = fitWidth
-      if (fitWidth !== column.getSize()) {
-        hasMeasurement = true
-      }
-    }
-
-    appliedRef.current = measured
-
-    if (hasMeasurement) {
-      table.setColumnSizing((previous) => ({ ...previous, ...measured }))
-    }
-
-    return false
-  }, [table, tableElementRef])
+  // The columns the measurement is responsible for right now, and a key that
+  // changes when they do. A column this table started out hiding shows up here
+  // for the first time when the user opens it, and that is what asks for a
+  // measurement the settle window would never make: it is how such a column gets
+  // the width its own content needs instead of the one it declares.
+  const measuredColumnIds = getMeasuredColumns(table).map((column) => column.id)
+  const measuredColumnKey = measuredColumnIds.join(',')
+  const hasMeasuredColumns = measuredColumnIds.length > 0
 
   React.useLayoutEffect(() => {
-    if (startedRef.current || !enabled || !tableElementRef.current) {
-      return
-    }
-
-    const columns = getMeasuredColumns(table)
-    if (columns.length === 0) {
+    if (!enabled || !hasMeasuredColumns || !tableElementRef.current) {
       return
     }
 
     startedRef.current = true
-    measureColumns()
-  }, [enabled, measureColumns, table, tableElementRef])
+    measureColumns({ unmeasuredOnly: true })
+  }, [
+    enabled,
+    hasMeasuredColumns,
+    measureColumns,
+    measuredColumnKey,
+    table,
+    tableElementRef,
+  ])
 
   React.useEffect(() => {
     if (!enabled || !startedRef.current || frozenRef.current) {

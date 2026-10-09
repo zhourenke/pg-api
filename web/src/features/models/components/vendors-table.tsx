@@ -168,7 +168,7 @@ export function VendorsTable() {
         </Button>
       ),
     },
-    { accessorKey: 'id', header: t('ID'), size: 80 },
+    { accessorKey: 'id', header: t('ID') },
     {
       accessorKey: 'created_time',
       header: t('Created At'),
