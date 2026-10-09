@@ -35,6 +35,20 @@ func filterPricingByUsableGroups(pricing []model.Pricing, usableGroup map[string
 	return filtered
 }
 
+// 未配置计费的模型不能转发，所以公开目录不能把它当成可用模型展示（否则广场
+// 会出现 price 为 0 的行，而转发时被拒）。自用模式是唯一例外，判据与模型清单
+// 共用 ratio_setting.IsModelPricingUnset。
+func filterPricingWithoutBillingConfig(pricing []model.Pricing) []model.Pricing {
+	filtered := make([]model.Pricing, 0, len(pricing))
+	for _, item := range pricing {
+		if ratio_setting.IsModelPricingUnset(item.ModelName) {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+	return filtered
+}
+
 func GetPricing(c *gin.Context) {
 	pricing := model.GetPricing()
 	userId, exists := c.Get("id")
@@ -57,6 +71,7 @@ func GetPricing(c *gin.Context) {
 
 	usableGroup = service.GetUserUsableGroups(group)
 	pricing = filterPricingByUsableGroups(pricing, usableGroup)
+	pricing = filterPricingWithoutBillingConfig(pricing)
 	// check groupRatio contains usableGroup
 	for group := range ratio_setting.GetGroupRatioCopy() {
 		if _, ok := usableGroup[group]; !ok {

@@ -359,7 +359,7 @@ export const STATIC_I18N_KEYS = [
   'External operations',
   'Serve multiple users or teams with billing and quota control.',
   'Personal use',
-  'Best for single-tenant deployments. Pricing and billing options stay hidden.',
+  'Best for single-tenant deployments. Unpriced models stay usable and the sign-up entry is hidden.',
   'Demo site',
   'Showcase core capabilities with demo credentials and limited access.',
 

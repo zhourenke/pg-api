@@ -5,6 +5,7 @@ import (
 
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/setting/billing_setting"
+	"github.com/zhourenke/pg-api/setting/operation_setting"
 	hostreasoning "github.com/zhourenke/pg-api/setting/reasoning"
 	"github.com/zhourenke/pg-api/types"
 )
@@ -217,6 +218,14 @@ func HasModelBillingConfig(name string) bool {
 	}
 	expr, ok := billing_setting.GetBillingExpr(name)
 	return ok && strings.TrimSpace(expr) != ""
+}
+
+// IsModelPricingUnset reports whether this instance requires billing
+// configuration for name but has none. Outside self-use mode an unpriced model
+// cannot be relayed, so every user-facing model list and the public catalog MUST
+// exclude it; self-use mode bills nothing and keeps publishing such models.
+func IsModelPricingUnset(name string) bool {
+	return !operation_setting.SelfUseModeEnabled && !HasModelBillingConfig(name)
 }
 
 // 转换模型名，减少渠道必须配置各种带参数模型

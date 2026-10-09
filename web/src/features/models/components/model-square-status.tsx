@@ -54,23 +54,38 @@ export function ModelSquareStatus(props: { model: Model; detail?: boolean }) {
       )
       variant = 'warning'
       break
-    case 'unavailable':
+    case 'unavailable': {
       label = t('Unavailable')
       variant = 'warning'
-      description = t(
-        'No channel is currently available. This model will not appear in the model square.'
-      )
-      if (props.model.configured_channel_count === 0) {
-        description = t(
-          'No channel is configured. This model will not appear in the model square.'
-        )
-        if (props.model.name_rule !== 0) {
-          description = t(
-            'No configured channel models match this metadata rule.'
+      const causes: string[] = []
+      // 未配置价格的模型无法转发，模型广场也不会列出它；这是与「没有可用渠道」
+      // 不同的原因，管理员要配的是价格而不是渠道，所以单独说一句。
+      if (props.model.has_billing_config === false) {
+        causes.push(
+          t(
+            'No price is configured. This model will not appear in the model square.'
           )
-        }
+        )
       }
+      if (props.model.configured_channel_count === 0) {
+        causes.push(
+          props.model.name_rule !== 0
+            ? t('No configured channel models match this metadata rule.')
+            : t(
+                'No channel is configured. This model will not appear in the model square.'
+              )
+        )
+      }
+      if (!causes.length) {
+        causes.push(
+          t(
+            'No channel is currently available. This model will not appear in the model square.'
+          )
+        )
+      }
+      description = causes.join(' ')
       break
+    }
     default:
       return <span className='text-muted-foreground'>—</span>
   }

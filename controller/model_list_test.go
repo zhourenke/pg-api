@@ -181,6 +181,23 @@ func decodeUserModelsResponse(t *testing.T, recorder *httptest.ResponseRecorder)
 	return payload.Data
 }
 
+func decodePricingModelNames(t *testing.T, recorder *httptest.ResponseRecorder) []string {
+	t.Helper()
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var payload struct {
+		Success bool            `json:"success"`
+		Data    []model.Pricing `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &payload))
+	require.True(t, payload.Success)
+	names := make([]string, 0, len(payload.Data))
+	for _, item := range payload.Data {
+		names = append(names, item.ModelName)
+	}
+	return names
+}
+
 func TestGetUserModelsFiltersByRequestedGroup(t *testing.T) {
 	withSelfUseModeEnabled(t)
 	db := setupModelListControllerTestDB(t)
@@ -310,6 +327,58 @@ func TestGetUserModelsExcludesUnpricedModelsOutsideSelfUseMode(t *testing.T) {
 
 	GetUserModels(selfUseContext)
 	assert.ElementsMatch(t, []string{"zz-user-priced-model", "zz-user-unpriced-model"}, decodeUserModelsResponse(t, selfUseRecorder))
+}
+
+// 模型广场与 /pricing 详情页共用 /api/pricing：未配置计费的模型不能出现在里面，
+// 否则广场会展示一个 $0 的价格，而转发时被拒。自用模式仍然照旧列出。
+func TestGetPricingExcludesUnpricedModelsOutsideSelfUseMode(t *testing.T) {
+	withSelfUseModeDisabled(t)
+	savedRatios := ratio_setting.ModelRatio2JSONString()
+	t.Cleanup(func() {
+		require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(savedRatios))
+		model.InvalidatePricingCache()
+	})
+	ratios := ratio_setting.GetModelRatioCopy()
+	delete(ratios, "zz-square-unpriced-model")
+	ratios["zz-square-priced-model"] = 2
+	ratioJSON, err := common.Marshal(ratios)
+	require.NoError(t, err)
+	require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(string(ratioJSON)))
+
+	db := setupModelListControllerTestDB(t)
+	require.NoError(t, db.Create(&model.User{
+		Id:       1005,
+		Username: "square-pricing-user",
+		Password: "password",
+		Group:    "default",
+		Status:   common.UserStatusEnabled,
+	}).Error)
+	require.NoError(t, db.Create(&[]model.Ability{
+		{Group: "default", Model: "zz-square-priced-model", ChannelId: 1, Enabled: true},
+		{Group: "default", Model: "zz-square-unpriced-model", ChannelId: 1, Enabled: true},
+	}).Error)
+
+	model.InvalidatePricingCache()
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/api/pricing", nil)
+	context.Set("id", 1005)
+
+	GetPricing(context)
+
+	require.Equal(t, []string{"zz-square-priced-model"}, decodePricingModelNames(t, recorder))
+	// 剔除发生在接口层：未定价模型仍然在定价缓存里可路由，只是不该被公开。
+	require.Contains(t, pricingByModelName(model.GetPricing()), "zz-square-unpriced-model")
+
+	operation_setting.SelfUseModeEnabled = true
+	selfUseRecorder := httptest.NewRecorder()
+	selfUseContext, _ := gin.CreateTestContext(selfUseRecorder)
+	selfUseContext.Request = httptest.NewRequest(http.MethodGet, "/api/pricing", nil)
+	selfUseContext.Set("id", 1005)
+
+	GetPricing(selfUseContext)
+
+	assert.ElementsMatch(t, []string{"zz-square-priced-model", "zz-square-unpriced-model"}, decodePricingModelNames(t, selfUseRecorder))
 }
 
 func TestListModelsIncludesTieredBillingModel(t *testing.T) {

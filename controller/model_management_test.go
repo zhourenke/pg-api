@@ -175,6 +175,19 @@ func TestModelManagementDatabaseMatrix(t *testing.T) {
 			db := modelManagementDB(t, dialect.kind, os.Getenv(dialect.env))
 
 			t.Run("square_states_follow_catalog_policy", func(t *testing.T) {
+				// 未配置计费的模型不会出现在模型广场，所以期望「正常展示」或部分
+				// 展示的名字必须先配价；square-unpriced-visible 与
+				// square-partial-unpriced 故意不配价，用来钉住「路由存在但未定价
+				// → 无法展示」这一条。
+				pricedRatios, err := common.Marshal(map[string]float64{
+					"square-visible":         1,
+					"square-bare":            1,
+					"square-partial-on":      1,
+					"square-hidden-override": 1,
+					"square-contains-ending": 1,
+				})
+				require.NoError(t, err)
+				require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(string(pricedRatios)))
 				records := []model.Model{
 					{ModelName: "square-visible", Status: 1},
 					{ModelName: "square-hidden", Status: 0},
@@ -197,7 +210,7 @@ func TestModelManagementDatabaseMatrix(t *testing.T) {
 					ids = append(ids, records[i].Id)
 				}
 				active := model.Channel{Name: "Square active", Type: 1, Key: "fixture", Group: "default", Status: common.ChannelStatusEnabled,
-					Models: "square-visible,square-hidden,square-bare,square-partial-on,square-partial-hidden,square-hidden-child,square-hidden-override,square-prefix-ending,square-contains-ending"}
+					Models: "square-visible,square-hidden,square-bare,square-partial-on,square-partial-hidden,square-hidden-child,square-hidden-override,square-prefix-ending,square-contains-ending,square-unpriced-visible,square-partial-unpriced"}
 				inactive := model.Channel{Name: "Square inactive", Type: 1, Key: "fixture", Group: "default", Status: common.ChannelStatusManuallyDisabled,
 					Models: "square-disabled,square-partial-off,square-off-child"}
 				for _, channel := range []*model.Channel{&active, &inactive} {
@@ -225,35 +238,50 @@ func TestModelManagementDatabaseMatrix(t *testing.T) {
 					catalog[row.ModelName] = true
 				}
 				expected := map[string]model.ModelSquareState{
-					"square-visible":         model.ModelSquareVisible,
-					"square-hidden":          model.ModelSquareHidden,
-					"square-catalog":         model.ModelSquareUnavailable,
-					"square-hidden-catalog":  model.ModelSquareHidden,
-					"square-bare":            model.ModelSquareVisible,
-					"square-disabled":        model.ModelSquareUnavailable,
-					"square-partial-":        model.ModelSquarePartial,
-					"square-partial-hidden":  model.ModelSquareHidden,
-					"square-partial-on":      model.ModelSquareVisible,
-					"square-partial-off":     model.ModelSquareUnavailable,
-					"square-hidden-":         model.ModelSquarePartial,
-					"square-hidden-child":    model.ModelSquareHidden,
-					"square-hidden-override": model.ModelSquareVisible,
-					"square-off-":            model.ModelSquareHidden,
-					"square-off-child":       model.ModelSquareHidden,
-					"square-empty":           model.ModelSquareUnavailable,
-					"square-empty-hidden":    model.ModelSquareHidden,
-					"square-prefix-ending":   model.ModelSquareHidden,
-					"square-contains-ending": model.ModelSquareVisible,
-					"square-contains":        model.ModelSquareVisible,
-					"square-prefix-":         model.ModelSquareHidden,
+					"square-visible":          model.ModelSquareVisible,
+					"square-hidden":           model.ModelSquareHidden,
+					"square-catalog":          model.ModelSquareUnavailable,
+					"square-hidden-catalog":   model.ModelSquareHidden,
+					"square-bare":             model.ModelSquareVisible,
+					"square-disabled":         model.ModelSquareUnavailable,
+					"square-partial-":         model.ModelSquarePartial,
+					"square-partial-hidden":   model.ModelSquareHidden,
+					"square-partial-on":       model.ModelSquareVisible,
+					"square-partial-off":      model.ModelSquareUnavailable,
+					"square-hidden-":          model.ModelSquarePartial,
+					"square-hidden-child":     model.ModelSquareHidden,
+					"square-hidden-override":  model.ModelSquareVisible,
+					"square-off-":             model.ModelSquareHidden,
+					"square-off-child":        model.ModelSquareHidden,
+					"square-empty":            model.ModelSquareUnavailable,
+					"square-empty-hidden":     model.ModelSquareHidden,
+					"square-prefix-ending":    model.ModelSquareHidden,
+					"square-contains-ending":  model.ModelSquareVisible,
+					"square-contains":         model.ModelSquareVisible,
+					"square-prefix-":          model.ModelSquareHidden,
+					"square-unpriced-visible": model.ModelSquareUnavailable,
+					"square-partial-unpriced": model.ModelSquareUnavailable,
 				}
 				for name, state := range expected {
 					row, exists := byName[name]
 					require.True(t, exists, name)
 					assert.Equal(t, state, row.SquareState, name)
 					if row.NameRule == model.NameRuleExact {
-						assert.Equal(t, state == model.ModelSquareVisible, catalog[name], name)
+						// 「正常展示」必须同时意味着该模型在公开目录里、且有计费配置：
+						// 只满足一个就会出现「广场有行但转发被拒」的自相矛盾。
+						assert.Equal(t, state == model.ModelSquareVisible, catalog[name] && row.HasBillingConfig, name)
 					}
+				}
+				for name, expect := range map[string]bool{
+					"square-visible":          true,
+					"square-bare":             true,
+					"square-unpriced-visible": false,
+					// 规则行只要有任何一个匹配模型没配价就不能说它「已配价」。
+					"square-partial-": false,
+					// 没有任何匹配模型的规则行与价格无关。
+					"square-empty": true,
+				} {
+					assert.Equal(t, expect, byName[name].HasBillingConfig, name)
 				}
 				assert.Zero(t, byName["square-bare"].Id)
 				assert.Zero(t, byName["square-hidden-child"].Id)

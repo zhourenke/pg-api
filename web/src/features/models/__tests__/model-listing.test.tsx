@@ -407,6 +407,43 @@ it('keeps prices and channel explanations readable in the mobile card and detail
   ).toBeVisible()
 })
 
+it('names a missing price as the reason an unavailable model is not shown', async () => {
+  await renderList([
+    {
+      ...metadata,
+      model_name: 'unpriced-route',
+      configured_channel_count: 1,
+      has_billing_config: false,
+    },
+  ])
+  // 精确相等同时钉住两件事：说清了未配置价格，也没有把原因错报成没有渠道。
+  expect(
+    screen
+      .getByRole('button', { name: 'Unavailable' })
+      .getAttribute('aria-description')
+  ).toBe(
+    'No price is configured. This model will not appear in the model square.'
+  )
+})
+
+it('lists the missing price and the missing channel together', async () => {
+  await renderList([
+    {
+      ...metadata,
+      model_name: 'unpriced-without-channel',
+      configured_channel_count: 0,
+      has_billing_config: false,
+    },
+  ])
+  expect(
+    screen
+      .getByRole('button', { name: 'Unavailable' })
+      .getAttribute('aria-description')
+  ).toBe(
+    'No price is configured. This model will not appear in the model square. No channel is configured. This model will not appear in the model square.'
+  )
+})
+
 it('uses backend square states for success, warning, hidden, and partial rows including models without metadata', async () => {
   const activeChannels = [{ name: 'Active', type: 1 }]
   await renderList([

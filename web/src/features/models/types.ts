@@ -39,6 +39,7 @@ export interface Model {
   square_state?: ModelSquareState
   has_metadata?: boolean
   configured_channel_count?: number
+  has_billing_config?: boolean
   id: number
   model_name: string
   description?: string

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/setting/ratio_setting"
 
 	"gorm.io/gorm"
 )
@@ -58,6 +59,10 @@ type Model struct {
 	HasMetadata            bool             `json:"has_metadata" gorm:"-"`
 	ConfiguredChannelCount int              `json:"configured_channel_count" gorm:"-"`
 	SquareState            ModelSquareState `json:"square_state" gorm:"-"`
+	// HasBillingConfig reports whether every model this row stands for has a
+	// billable price configured. Rows without one cannot be relayed, so they are
+	// never shown in the model square; the model page uses this to explain why.
+	HasBillingConfig bool `json:"has_billing_config" gorm:"-"`
 }
 
 // MatchesName applies a metadata rule to a concrete channel model name.
@@ -100,7 +105,9 @@ func resolveModelMetadata(records []Model, names []string) map[string]*Model {
 }
 
 // FillModelSquareStates applies the same metadata policy as the public catalog
-// to live routes, then aggregates concrete models for metadata rule rows.
+// to live routes, then aggregates concrete models for metadata rule rows. A
+// route without billing configuration is not in the catalog either, so it counts
+// as unavailable rather than visible.
 func FillModelSquareStates(rows []*Model, configured map[string][]int, connections []ModelConnection) error {
 	var metadata []Model
 	if err := DB.Find(&metadata).Error; err != nil {
@@ -125,11 +132,13 @@ func FillModelSquareStates(rows []*Model, configured map[string][]int, connectio
 		available[connection.Model] = true
 	}
 	states := make(map[string]ModelSquareState, len(names))
+	hasBillingConfig := make(map[string]bool, len(names))
 	for _, name := range names {
+		hasBillingConfig[name] = !ratio_setting.IsModelPricingUnset(name)
 		state := ModelSquareUnavailable
 		if policy := resolved[name]; policy != nil && policy.Status != 1 {
 			state = ModelSquareHidden
-		} else if available[name] {
+		} else if available[name] && hasBillingConfig[name] {
 			state = ModelSquareVisible
 		}
 		states[name] = state
@@ -140,14 +149,19 @@ func FillModelSquareStates(rows []*Model, configured map[string][]int, connectio
 		}
 		if row.NameRule == NameRuleExact {
 			row.SquareState = states[row.ModelName]
+			row.HasBillingConfig = hasBillingConfig[row.ModelName]
 			continue
 		}
 		total, visible, hidden := 0, 0, 0
+		row.HasBillingConfig = true
 		for name := range configured {
 			if !row.MatchesName(name) {
 				continue
 			}
 			total++
+			if !hasBillingConfig[name] {
+				row.HasBillingConfig = false
+			}
 			switch states[name] {
 			case ModelSquareVisible:
 				visible++
