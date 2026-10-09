@@ -39,16 +39,16 @@ vi.mock('../channels-provider', () => ({
  * out, so the contract that keeps the channel count readable is pinned as the
  * class token that lets the row wrap.
  */
-function renderAggregateNameCell() {
+function renderAggregateNameCell(tag = 'Command') {
   const tagRow = {
-    id: 'tag:Command',
-    name: 'Command',
-    tag: 'Command',
+    id: `tag:${tag}`,
+    name: tag,
+    tag,
     children: [{ id: 1 }, { id: 2 }],
   } as unknown as Channel
   const row = {
     original: tagRow,
-    getValue: (key: string) => (key === 'name' ? 'Command' : undefined),
+    getValue: (key: string) => (key === 'name' ? tag : undefined),
     getToggleExpandedHandler: () => () => {},
     getIsExpanded: () => false,
   } as unknown as Row<Channel>
@@ -222,6 +222,25 @@ describe('channel aggregate row', () => {
 
     const inactive = renderAggregateStatusCell(0)
     expect(inactive.container).toHaveTextContent('未生效（2）')
+  })
+
+  it('names the group of channels that carry no tag', async () => {
+    // 没有标签的渠道过去在标签模式里整条不出现；现在后端把这一组排在最后一组，
+    // 它没有标签名可用，界面得自己给个说法，否则这一行只剩「标签：」。
+    await act(async () => {
+      i18n.addResourceBundle(
+        'zhCN',
+        'translation',
+        zhCN.translation,
+        true,
+        true
+      )
+      await i18n.changeLanguage('zhCN')
+    })
+
+    const untagged = renderAggregateNameCell('')
+    expect(untagged.container).toHaveTextContent('未打标签')
+    expect(untagged.container).not.toHaveTextContent('标签：')
   })
 
   it('shows a dash instead of a zero when the tag channels disagree on priority', () => {

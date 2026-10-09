@@ -1181,6 +1181,14 @@ func CountChannelTags(query *gorm.DB) (int64, error) {
 	return total, err
 }
 
+// CountUntaggedChannels returns how many channels matched by the query carry no
+// tag at all, whether the column holds an empty string or NULL.
+func CountUntaggedChannels(query *gorm.DB) (int64, error) {
+	var total int64
+	err := query.Where("tag is null OR tag = ''").Count(&total).Error
+	return total, err
+}
+
 // Get channels of specified type with pagination
 func GetChannelsByType(startIdx int, num int, idSort bool, channelType int) ([]*Channel, error) {
 	var channels []*Channel

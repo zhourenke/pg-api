@@ -209,32 +209,66 @@ func GetAllChannels(c *gin.Context) {
 	var total int64
 
 	if enableTagMode {
-		tags, err := model.GetPaginatedChannelTags(buildChannelListQuery(groupFilter, statusFilter, typeFilter), pageInfo.GetStartIdx(), pageInfo.GetPageSize())
-		if err != nil {
-			common.SysError("failed to get paginated tags: " + err.Error())
-			c.JSON(http.StatusOK, gin.H{"success": false, "message": "获取标签失败，请稍后重试"})
-			return
-		}
-		total, err = model.CountChannelTags(buildChannelListQuery(groupFilter, statusFilter, typeFilter))
+		taggedGroups, err := model.CountChannelTags(buildChannelListQuery(groupFilter, statusFilter, typeFilter))
 		if err != nil {
 			common.SysError("failed to count tags: " + err.Error())
 			c.JSON(http.StatusOK, gin.H{"success": false, "message": "获取标签数量失败，请稍后重试"})
 			return
 		}
-		for _, tag := range tags {
-			if tag == nil || *tag == "" {
-				continue
-			}
-			var tagChannels []*model.Channel
-			err := sortOptions.Apply(buildChannelListQuery(groupFilter, statusFilter, typeFilter).Where("tag = ?", *tag)).
-				Omit("key").
-				Find(&tagChannels).Error
+		untaggedCount, err := model.CountUntaggedChannels(buildChannelListQuery(groupFilter, statusFilter, typeFilter))
+		if err != nil {
+			common.SysError("failed to count untagged channels: " + err.Error())
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "获取渠道数量失败，请稍后重试"})
+			return
+		}
+		// Channels without a tag form a group of their own, listed after every
+		// named tag. Leaving them out of the tag queries used to drop them from
+		// tag mode altogether, so a library whose channels carry no tag showed an
+		// empty table.
+		hasUntaggedGroup := untaggedCount > 0
+		total = taggedGroups
+		if hasUntaggedGroup {
+			total++
+		}
+
+		startIdx, pageSize := pageInfo.GetStartIdx(), pageInfo.GetPageSize()
+		// A page holds tag groups, so the untagged group takes a slot in the
+		// window like any other and only the named tags that still fit are read.
+		taggedLimit := min(pageSize, int(taggedGroups)-startIdx)
+		if taggedLimit > 0 {
+			tags, err := model.GetPaginatedChannelTags(buildChannelListQuery(groupFilter, statusFilter, typeFilter), startIdx, taggedLimit)
 			if err != nil {
-				common.SysError("failed to get channels by tag: " + err.Error())
-				c.JSON(http.StatusOK, gin.H{"success": false, "message": "获取标签渠道失败，请稍后重试"})
+				common.SysError("failed to get paginated tags: " + err.Error())
+				c.JSON(http.StatusOK, gin.H{"success": false, "message": "获取标签失败，请稍后重试"})
 				return
 			}
-			channelData = append(channelData, tagChannels...)
+			for _, tag := range tags {
+				if tag == nil || *tag == "" {
+					continue
+				}
+				var tagChannels []*model.Channel
+				err := sortOptions.Apply(buildChannelListQuery(groupFilter, statusFilter, typeFilter).Where("tag = ?", *tag)).
+					Omit("key").
+					Find(&tagChannels).Error
+				if err != nil {
+					common.SysError("failed to get channels by tag: " + err.Error())
+					c.JSON(http.StatusOK, gin.H{"success": false, "message": "获取标签渠道失败，请稍后重试"})
+					return
+				}
+				channelData = append(channelData, tagChannels...)
+			}
+		}
+		if hasUntaggedGroup && startIdx <= int(taggedGroups) && int(taggedGroups) < startIdx+pageSize {
+			var untaggedChannels []*model.Channel
+			err := sortOptions.Apply(buildChannelListQuery(groupFilter, statusFilter, typeFilter).Where("tag is null or tag = ''")).
+				Omit("key").
+				Find(&untaggedChannels).Error
+			if err != nil {
+				common.SysError("failed to get untagged channels: " + err.Error())
+				c.JSON(http.StatusOK, gin.H{"success": false, "message": "获取渠道列表失败，请稍后重试"})
+				return
+			}
+			channelData = append(channelData, untaggedChannels...)
 		}
 	} else {
 		if err := buildChannelListQuery(groupFilter, statusFilter, typeFilter).Count(&total).Error; err != nil {

@@ -786,6 +786,8 @@ export function useChannelsColumns(
           if (isTagRow) {
             const tag = (row.original as TagRow).tag || name
             const childrenCount = (row.original as TagRow).children?.length || 0
+            // The group of channels that carry no tag has no tag name to show.
+            const tagLabel = tag ? `${t('Tag:')}${tag}` : t('Untagged')
 
             return (
               <div className='flex items-center gap-2'>
@@ -809,10 +811,7 @@ export function useChannelsColumns(
                   "1 cha…") and the row overflows the cell. The table's name
                   column is wide enough that nothing wraps there. */}
                 <div className='flex flex-wrap items-center gap-1.5'>
-                  <span className='font-semibold'>
-                    {t('Tag:')}
-                    {tag}
-                  </span>
+                  <span className='font-semibold'>{tagLabel}</span>
                   <StatusBadge
                     label={t('{{count}} channels', { count: childrenCount })}
                     variant='blue'
