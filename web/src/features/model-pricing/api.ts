@@ -90,7 +90,6 @@ export function useModelPricing(names: string[] = [], enabled = true) {
 export async function invalidateModelPricing(client: QueryClient) {
   await Promise.all([
     client.invalidateQueries({ queryKey: ['model-pricing-config'] }),
-    client.invalidateQueries({ queryKey: ['model-pricing-preview'] }),
     client.invalidateQueries({ queryKey: ['system-options'] }),
     client.invalidateQueries({ queryKey: ['pricing'] }),
     client.invalidateQueries({ queryKey: ['models'] }),

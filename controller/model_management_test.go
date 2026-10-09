@@ -104,7 +104,7 @@ func modelManagementRequest(t *testing.T, handler gin.HandlerFunc, method, path 
 	return recorder
 }
 
-func TestModelPricingPreviewMatchesStoredPricing(t *testing.T) {
+func TestModelPricingDraftMatchesReadPath(t *testing.T) {
 	for _, dialect := range []struct{ kind, env string }{{"sqlite", ""}, {"mysql", "TEST_MYSQL_DSN"}, {"postgres", "TEST_POSTGRES_DSN"}} {
 		t.Run(dialect.kind, func(t *testing.T) {
 			if dialect.env != "" && os.Getenv(dialect.env) == "" {
@@ -112,18 +112,18 @@ func TestModelPricingPreviewMatchesStoredPricing(t *testing.T) {
 			}
 			modelManagementDB(t, dialect.kind, os.Getenv(dialect.env))
 
-			// The admin editor previews an unsaved draft, so the preview must resolve
-			// the same prices, cache-write mode and billing details the saved entry
-			// reports; otherwise what the operator sees before saving is not what is
-			// stored.
+			// A saved draft must come back out of the read path unchanged, including
+			// the cache-write mode the editor derives from it; otherwise the editor
+			// shows something other than what is stored.
 			for _, tc := range []struct {
-				name    string
-				pricing model.PricingValues
+				name           string
+				pricing        model.PricingValues
+				wantCacheWrite model.CacheWriteMode
 			}{
-				{"preview-ratio", model.PricingValues{"ModelRatio": 2.0, "CompletionRatio": 2.0, "CacheRatio": 0.25}},
-				{"preview-cache-write", model.PricingValues{"ModelRatio": 2.0, "CreateCacheRatio": 1.25}},
-				{"claude-3-7-sonnet-20250219", model.PricingValues{"ModelRatio": 1.5, "CreateCacheRatio": 0.0}},
-				{"preview-expression", model.PricingValues{"billing_setting.billing_mode": "tiered_expr", "billing_setting.billing_expr": `tier("base", p * 2 + c * 4)`}},
+				{"draft-ratio", model.PricingValues{"ModelRatio": 2.0, "CompletionRatio": 2.0, "CacheRatio": 0.25}, model.CacheWriteNone},
+				{"draft-cache-write", model.PricingValues{"ModelRatio": 2.0, "CreateCacheRatio": 1.25}, model.CacheWriteStandard},
+				{"claude-3-7-sonnet-20250219", model.PricingValues{"ModelRatio": 1.5, "CreateCacheRatio": 0.0}, model.CacheWriteClaudeTTL},
+				{"draft-expression", model.PricingValues{"billing_setting.billing_mode": "tiered_expr", "billing_setting.billing_expr": `tier("base", p * 2 + c * 4)`}, model.CacheWriteNone},
 			} {
 				t.Run(tc.name, func(t *testing.T) {
 					before, err := model.GetModelPricingSnapshot([]string{tc.name})
@@ -133,38 +133,21 @@ func TestModelPricingPreviewMatchesStoredPricing(t *testing.T) {
 					stored, err := model.GetModelPricingSnapshot([]string{tc.name})
 					require.NoError(t, err)
 					require.Equal(t, tc.pricing, stored.Entries[0].Configured)
-
-					var preview struct {
-						Success bool
-						Data    model.ModelPricingDescription
-					}
-					modelManagementRequest(t, PreviewModelPricing, http.MethodPost, "/api/option/model_pricing/preview", map[string]any{"model_name": tc.name, "pricing": tc.pricing}, &preview)
-					require.True(t, preview.Success)
-					assert.Equal(t, stored.Entries[0].Effective, preview.Data.Effective)
-					assert.Equal(t, stored.Entries[0].CacheWriteMode, preview.Data.CacheWriteMode)
-					assert.Equal(t, stored.Entries[0].BillingDetails, preview.Data.BillingDetails)
+					assert.Equal(t, tc.wantCacheWrite, stored.Entries[0].CacheWriteMode)
 				})
 			}
 
 			// A per-call price has no ratio draft behind it, so it is checked on the
 			// fixed price alone.
-			t.Run("fixed_price_preview", func(t *testing.T) {
-				const name = "preview-fixed"
+			t.Run("fixed_price_draft", func(t *testing.T) {
+				const name = "draft-fixed"
 				draft := model.PricingValues{"ModelPrice": 0.25}
 				before, err := model.GetModelPricingSnapshot([]string{name})
 				require.NoError(t, err)
 				require.NoError(t, model.UpdateModelPricing([]model.ModelPricingChange{{ModelName: name, ExpectedVersion: before.Entries[0].Version, Pricing: draft}}))
 				stored, err := model.GetModelPricingSnapshot([]string{name})
 				require.NoError(t, err)
-
-				var preview struct {
-					Success bool
-					Data    model.ModelPricingDescription
-				}
-				modelManagementRequest(t, PreviewModelPricing, http.MethodPost, "/api/option/model_pricing/preview", map[string]any{"model_name": name, "pricing": draft}, &preview)
-				require.True(t, preview.Success)
 				assert.Equal(t, 0.25, stored.Entries[0].Effective["ModelPrice"])
-				assert.Equal(t, 0.25, preview.Data.Effective["ModelPrice"])
 			})
 
 			// Request quantities that become billing multipliers are bounded before

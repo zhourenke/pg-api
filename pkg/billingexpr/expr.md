@@ -94,7 +94,7 @@ Anthropic 的独立缓存计数语义不采用这一 OpenAI 图片拆分。
 文本/图片日志的 `cache_tokens` 继续保留上游缓存总量。Images 的 `output_tokens` 是图片输出，
 内置图片价格使用 `c`，无需上游额外报告 `output_tokens_details.image_tokens`。
 
-### 旧定价（倍率 / 按次）的读取与预览
+### 旧定价（倍率 / 按次）的读取
 
 旧倍率与旧按次价格仍可运行，管理界面把它们标记为弃用，新建定价默认使用表达式。
 本 fork **不发布内置价格**（`.agents/rules/billing.md` 第 7 条），所以未配置价格的模型没有任何价格可用：
@@ -104,10 +104,11 @@ Anthropic 的独立缓存计数语义不采用这一 OpenAI 图片拆分。
 也没有草稿转换、转换前的冲突诊断与左右对照预览。被删掉的转换规则（旧倍率与按次、音频分支、
 图片与 DALL·E 尺寸质量的具体生成方式）可在 `git show f963bd8f8^:pkg/billingexpr/expr.md` 查到。
 
-仍在用的是**只读的生效定价解析与预览**：`POST /api/option/model_pricing/preview` 接收
-`{model_name, pricing}`（`pricing` 是完整草稿，缺键按运行时默认值解析），返回生效定价、只读
-`billing_details` 与 `cache_write_mode`（`none` / `standard` / `claude_ttl`），不写数据库；
-保存仍使用 `PATCH /api/option/model_pricing` 及 `expected_version` 冲突检查。未设置与显式 0 必须区分。
+仍在用的是**只读的生效定价解析**：`GET /api/option/model_pricing` 返回的每个条目都带生效定价、
+只读 `billing_details` 与 `cache_write_mode`（`none` / `standard` / `claude_ttl`）；写入使用
+`PATCH /api/option/model_pricing` 及 `expected_version` 冲突检查。草稿预览端点
+（`POST /api/option/model_pricing/preview`）已删除：本 fork 的定价界面重写之后它没有调用方，
+而它做的 overlay 与读路径重复，断言由读路径本身承担。未设置与显式 0 必须区分。
 
 `billing_details` 只用于展示：它给出实际音频单价（Gemini 原生输入音频价与兼容 chat 的
 AudioRatio/AudioCompletionRatio 路径冲突时只标记冲突，不静默改写其中一条）、图片按次计数的标记、
