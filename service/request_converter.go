@@ -23,10 +23,15 @@ func init() {
 	})
 }
 
+// ConvertRequest converts one request for the selected channel and records the
+// hosted tool types the conversion wrote upstream, so the request-time tool
+// price gate judges the upstream namespace rather than the client's. Every
+// production conversion goes through here; see the relay handlers for the gate.
 func ConvertRequest(c *gin.Context, info *relaycommon.RelayInfo, target types.RelayFormat, request any) (*relayconvert.RequestResult, error) {
 	result, err := relayconvert.ConvertRequest(c, info, target, request)
 	if result != nil {
 		info.RecordConversionDiagnostics(c, result.Diagnostics)
+		recordUpstreamHostedToolTypes(info, result)
 	}
 	return result, err
 }
@@ -35,6 +40,7 @@ func ConvertRequestByID(c *gin.Context, info *relaycommon.RelayInfo, converter s
 	result, err := relayconvert.ConvertRequestByID(c, info, converter, request)
 	if result != nil {
 		info.RecordConversionDiagnostics(c, result.Diagnostics)
+		recordUpstreamHostedToolTypes(info, result)
 	}
 	return result, err
 }
@@ -43,8 +49,20 @@ func ConvertRequestVia(c *gin.Context, info *relaycommon.RelayInfo, request any,
 	result, err := relayconvert.ConvertRequestVia(c, info, request, path...)
 	if result != nil {
 		info.RecordConversionDiagnostics(c, result.Diagnostics)
+		recordUpstreamHostedToolTypes(info, result)
 	}
 	return result, err
+}
+
+// recordUpstreamHostedToolTypes keeps the last conversion's report: an adaptor
+// may convert more than once (a chat request bridged to Responses and then to
+// the channel's own format), and only the body finally sent upstream decides
+// which tool the upstream can charge.
+func recordUpstreamHostedToolTypes(info *relaycommon.RelayInfo, result *relayconvert.RequestResult) {
+	if info == nil || result == nil || result.HostedToolTypes == nil {
+		return
+	}
+	info.SetUpstreamHostedToolTypes(result.HostedToolTypes)
 }
 
 func ClaudeToOpenAIRequest(claudeRequest dto.ClaudeRequest, info *relaycommon.RelayInfo) (*dto.GeneralOpenAIRequest, error) {

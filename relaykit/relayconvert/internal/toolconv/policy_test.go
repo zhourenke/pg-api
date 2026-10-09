@@ -42,10 +42,13 @@ func TestDefaultPolicyAllowsGeminiCodeExecutionToOpenAI(t *testing.T) {
 		Messages: []dto.Message{{Role: "user", Content: "run this"}},
 	}
 
-	out, diagnostics, err := AttachRequest(types.RelayFormatOpenAI, target, set, &convmeta.Options{})
+	out, diagnostics, hostedToolTypes, err := AttachRequest(types.RelayFormatOpenAI, target, set, &convmeta.Options{})
 	require.NoError(t, err)
 	require.NotNil(t, out)
 	assert.True(t, hasDiagnosticCode(diagnostics, "unsupported_hosted_tool"))
+	// Chat Completions cannot carry a hosted code-execution tool, and this
+	// dialect has no per-call counter either, so nothing was written upstream.
+	assert.Empty(t, hostedToolTypes)
 	assert.Equal(t, types.ConversionLossPolicyAllow, (&convmeta.Options{}).EffectiveToolLossPolicy())
 }
 
@@ -88,7 +91,7 @@ func TestSafePolicyRejectsRequestPhaseHostedToolLoss(t *testing.T) {
 		Messages: []dto.Message{{Role: "user", Content: "run this"}},
 	}
 
-	_, diagnostics, err := AttachRequest(
+	_, diagnostics, _, err := AttachRequest(
 		types.RelayFormatOpenAI,
 		target,
 		set,

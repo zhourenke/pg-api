@@ -43,6 +43,17 @@ type RequestResult struct {
 	Quality     RequestConverterQuality
 	Steps       []RequestStep
 	Diagnostics []types.ConversionDiagnostic
+	// HostedToolTypes lists the server-executed hosted tool types this
+	// conversion actually wrote into the upstream request, in the upstream's own
+	// spelling. A converter dropped every hosted tool it could not represent, so
+	// this list — not the source request's declarations — is what the upstream
+	// received.
+	//
+	// nil means no converter rewrote the body (the value is the caller's own
+	// request, unchanged); a non-nil empty list means a converter ran and wrote
+	// no hosted tool at all. Callers distinguish those two cases, so a converter
+	// must never return a nil list.
+	HostedToolTypes []string
 }
 
 type RequestConverterSpec struct {
@@ -260,8 +271,11 @@ func executeRequestSteps(c context.Context, info convmeta.Meta, from types.Relay
 		steps = append(steps, step)
 	}
 
-	current, toolDiagnostics, err := toolconv.AttachRequest(target, current, tools, convmeta.OptionsOf(info))
+	current, toolDiagnostics, hostedToolTypes, err := toolconv.AttachRequest(target, current, tools, convmeta.OptionsOf(info))
 	diagnostics := append(diagnosticCollector.Diagnostics(), toolDiagnostics...)
+	if hostedToolTypes == nil {
+		hostedToolTypes = []string{}
+	}
 	for i := range diagnostics {
 		if diagnostics[i].From == "" {
 			diagnostics[i].From = from
@@ -272,12 +286,13 @@ func executeRequestSteps(c context.Context, info convmeta.Meta, from types.Relay
 	}
 	if err != nil {
 		return &RequestResult{
-			Value:       current,
-			From:        from,
-			To:          target,
-			Quality:     quality,
-			Steps:       steps,
-			Diagnostics: diagnostics,
+			Value:           current,
+			From:            from,
+			To:              target,
+			Quality:         quality,
+			Steps:           steps,
+			Diagnostics:     diagnostics,
+			HostedToolTypes: hostedToolTypes,
 		}, err
 	}
 	if info != nil {
@@ -294,13 +309,14 @@ func executeRequestSteps(c context.Context, info convmeta.Meta, from types.Relay
 		converter = strings.Join(converters, ",")
 	}
 	return &RequestResult{
-		Value:       current,
-		From:        from,
-		To:          target,
-		Converter:   converter,
-		Quality:     quality,
-		Steps:       steps,
-		Diagnostics: diagnostics,
+		Value:           current,
+		From:            from,
+		To:              target,
+		Converter:       converter,
+		Quality:         quality,
+		Steps:           steps,
+		Diagnostics:     diagnostics,
+		HostedToolTypes: hostedToolTypes,
 	}, nil
 }
 

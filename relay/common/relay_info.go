@@ -174,6 +174,12 @@ type RelayInfo struct {
 	// 最终请求到上游的格式。可由 adaptor 显式设置；
 	// 若为空，调用 GetFinalRequestRelayFormat 会回退到 RequestConversionChain 的最后一项或 RelayFormat。
 	FinalRequestRelayFormat types.RelayFormat
+	// upstreamHostedToolTypes records the hosted tool types the request converter
+	// wrote into the upstream request for this attempt. nil means no converter
+	// rewrote the body, so the client's own format is also the upstream
+	// namespace; see UpstreamBillableToolNames. Per-attempt: InitChannelMeta
+	// clears it and a conversion records it again.
+	upstreamHostedToolTypes []string
 
 	StreamStatus *StreamStatus
 	// PerformanceOutputTokens is captured by settlement and sampled once at
@@ -228,6 +234,7 @@ func (info *RelayInfo) InitChannelMeta(c *gin.Context) {
 	info.ResponseModel = nil
 	info.FinalRequestRelayFormat = ""
 	info.RequestConversionChain = nil
+	info.upstreamHostedToolTypes = nil
 	info.InitRequestConversionChain()
 	// Per-attempt only. Do not clear StreamStatus, conversion diagnostics,
 	// LastError, or billing accumulators — those are request-scoped.

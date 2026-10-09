@@ -66,13 +66,19 @@ func toolPriceError(c *gin.Context, toolName string) *types.NewAPIError {
 	)
 }
 
-// CheckBillableToolPrices refuses a request that declares a built-in billable
-// tool with no administrator price, so a tool nobody priced can never run for
-// free. Names come from RelayInfo.DeclaredBillableToolNames, and self-use mode
-// keeps unpriced tools usable the same way it keeps unpriced models usable.
+// CheckBillableToolPrices refuses a request whose upstream request carries a
+// built-in billable tool with no administrator price, so a tool nobody priced
+// can never run for free. Names come from
+// RelayInfo.UpstreamBillableToolNames, which answers from the converted request
+// once a channel's format forced a conversion, and self-use mode keeps unpriced
+// tools usable the same way it keeps unpriced models usable.
+//
+// Call it per attempt, after the request has been converted for the selected
+// channel and before the upstream call: the target format decides which tool the
+// upstream can charge, and only a channel retry decides the target format.
 func CheckBillableToolPrices(c *gin.Context, info *relaycommon.RelayInfo) *types.NewAPIError {
 	modelName := info.GetBillingModelName()
-	for _, toolName := range info.DeclaredBillableToolNames() {
+	for _, toolName := range info.UpstreamBillableToolNames() {
 		if operation_setting.IsToolPricingUnset(toolName, modelName) {
 			return toolPriceError(c, toolName)
 		}

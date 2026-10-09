@@ -49,7 +49,12 @@ func PrepareResponsesRequest(c *gin.Context, info *relaycommon.RelayInfo, req *d
 		return nil, nil, nil, types.NewError(fmt.Errorf("invalid api type: %d", info.ApiType), types.ErrorCodeInvalidApiType, types.ErrOptionWithSkipRetry())
 	}
 	adaptor.Init(info)
+	// Judge the tool prices of the body that is about to be sent, not of the
+	// client's declarations: a conversion may have renamed or dropped them.
 	if model_setting.GetGlobalSettings().PassThroughRequestEnabled || info.ChannelSetting.PassThroughBodyEnabled {
+		if apiErr := helper.CheckBillableToolPrices(c, info); apiErr != nil {
+			return nil, nil, nil, apiErr
+		}
 		storage, err := common.GetBodyStorage(c)
 		if err != nil {
 			return nil, nil, nil, types.NewError(err, types.ErrorCodeReadRequestBodyFailed, types.ErrOptionWithSkipRetry())
@@ -63,6 +68,9 @@ func PrepareResponsesRequest(c *gin.Context, info *relaycommon.RelayInfo, req *d
 		return nil, nil, nil, newConvertRequestFailedError(c, info, err)
 	}
 	relaycommon.AppendRequestConversionFromRequest(info, convertedRequest)
+	if apiErr := helper.CheckBillableToolPrices(c, info); apiErr != nil {
+		return nil, nil, nil, apiErr
+	}
 	jsonData, err := common.Marshal(convertedRequest)
 	if err != nil {
 		return nil, nil, nil, types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())

@@ -149,6 +149,12 @@ func TextHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *types
 		requestBody = body
 	}
 
+	// Judge the tool prices of the body that is about to be sent, not of the
+	// client's declarations: a conversion may have renamed or dropped them.
+	if apiErr := helper.CheckBillableToolPrices(c, info); apiErr != nil {
+		return apiErr
+	}
+
 	var httpResp *http.Response
 	resp, err := adaptor.DoRequest(c, info, requestBody)
 	if err != nil {

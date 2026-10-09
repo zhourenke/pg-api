@@ -13,44 +13,54 @@ import (
 	"github.com/zhourenke/pg-api/relaykit/types"
 )
 
-func AttachRequest(format types.RelayFormat, request any, set Set, options *convmeta.Options) (any, []types.ConversionDiagnostic, error) {
+// AttachRequest writes the extracted tool definitions into a request for the
+// target format. Besides the converted request it returns the hosted tool types
+// it actually wrote — the upstream's own spelling, after every drop decision —
+// so callers can see what the upstream received instead of what the client
+// declared. The list is never nil.
+func AttachRequest(format types.RelayFormat, request any, set Set, options *convmeta.Options) (any, []types.ConversionDiagnostic, []string, error) {
 	if set.Empty() {
-		return request, nil, nil
+		return request, nil, []string{}, nil
 	}
 	var (
-		value       any
-		diagnostics []types.ConversionDiagnostic
-		err         error
+		value           any
+		diagnostics     []types.ConversionDiagnostic
+		hostedToolTypes []string
+		err             error
 	)
 	switch format {
 	case types.RelayFormatOpenAI:
-		value, diagnostics, err = attachOpenAIChatRequest(request, set)
+		value, diagnostics, hostedToolTypes, err = attachOpenAIChatRequest(request, set)
 	case types.RelayFormatOpenAIResponses:
-		value, diagnostics, err = attachOpenAIResponsesRequest(request, set)
+		value, diagnostics, hostedToolTypes, err = attachOpenAIResponsesRequest(request, set)
 	case types.RelayFormatClaude:
-		value, diagnostics, err = attachClaudeRequest(request, set, options)
+		value, diagnostics, hostedToolTypes, err = attachClaudeRequest(request, set, options)
 	case types.RelayFormatGemini:
-		value, diagnostics, err = attachGeminiRequest(request, set)
+		value, diagnostics, hostedToolTypes, err = attachGeminiRequest(request, set)
 	default:
 		value = request
 	}
 	if err != nil {
-		return nil, diagnostics, err
+		return nil, diagnostics, hostedToolTypes, err
 	}
 	for index := range diagnostics {
 		diagnostics[index].From = set.Source
 		diagnostics[index].To = format
 	}
 	if err := types.RejectConversionLoss(options.EffectiveToolLossPolicy(), diagnostics); err != nil {
-		return nil, diagnostics, err
+		return nil, diagnostics, hostedToolTypes, err
 	}
-	return value, diagnostics, nil
+	return value, diagnostics, hostedToolTypes, nil
 }
 
-func attachOpenAIChatRequest(request any, set Set) (any, []types.ConversionDiagnostic, error) {
+// attachOpenAIChatRequest writes a Chat Completions request. Chat Completions
+// carries a hosted web search in the request-level web_search_options field
+// rather than a tool entry, and this gateway has no per-call counter for that
+// dialect, so no hosted tool type is reported: nothing here can be charged.
+func attachOpenAIChatRequest(request any, set Set) (any, []types.ConversionDiagnostic, []string, error) {
 	target, ok := request.(*dto.GeneralOpenAIRequest)
 	if !ok || target == nil {
-		return nil, nil, fmt.Errorf("expected OpenAI chat completions request, got %T", request)
+		return nil, nil, nil, fmt.Errorf("expected OpenAI chat completions request, got %T", request)
 	}
 	var diagnostics []types.ConversionDiagnostic
 	for index, definition := range set.Definitions {
@@ -73,7 +83,7 @@ func attachOpenAIChatRequest(request any, set Set) (any, []types.ConversionDiagn
 				diagnostics = append(diagnostics, geminiNativeWebSearchDiagnostics(index, definition, types.RelayFormatOpenAI)...)
 			}
 			if target.WebSearchOptions != nil {
-				return nil, diagnostics, fmt.Errorf("tools[%d]: multiple hosted web-search definitions cannot be represented by Chat Completions", index)
+				return nil, diagnostics, nil, fmt.Errorf("tools[%d]: multiple hosted web-search definitions cannot be represented by Chat Completions", index)
 			}
 			options := &dto.WebSearchOptions{}
 			if definition.WebSearch != nil {
@@ -104,16 +114,17 @@ func attachOpenAIChatRequest(request any, set Set) (any, []types.ConversionDiagn
 	diagnostics = append(diagnostics, allowedChoiceDiagnostics...)
 	diagnostics = append(diagnostics, choiceDiagnostics...)
 	diagnostics = append(diagnostics, unsupportedHostedHistoryDiagnostics(types.RelayFormatOpenAI, set.History)...)
-	return target, diagnostics, nil
+	return target, diagnostics, nil, nil
 }
 
-func attachOpenAIResponsesRequest(request any, set Set) (any, []types.ConversionDiagnostic, error) {
+func attachOpenAIResponsesRequest(request any, set Set) (any, []types.ConversionDiagnostic, []string, error) {
 	target, ok := request.(*dto.OpenAIResponsesRequest)
 	if !ok || target == nil {
-		return nil, nil, fmt.Errorf("expected OpenAI Responses request, got %T", request)
+		return nil, nil, nil, fmt.Errorf("expected OpenAI Responses request, got %T", request)
 	}
 	tools := make([]any, 0, len(set.Definitions))
 	var diagnostics []types.ConversionDiagnostic
+	var hostedToolTypes []string
 	for index, definition := range set.Definitions {
 		switch definition.Kind {
 		case KindFunction:
@@ -159,20 +170,22 @@ func attachOpenAIResponsesRequest(request any, set Set) (any, []types.Conversion
 				if len(webSearch.ReturnTokenBudget) > 0 {
 					var budget any
 					if err := kitutil.Unmarshal(webSearch.ReturnTokenBudget, &budget); err != nil {
-						return nil, diagnostics, fmt.Errorf("tools[%d].return_token_budget: %w", index, err)
+						return nil, diagnostics, nil, fmt.Errorf("tools[%d].return_token_budget: %w", index, err)
 					}
 					tool["return_token_budget"] = budget
 				}
 				diagnostics = append(diagnostics, openAIResponsesWebSearchDiagnostics(index, webSearch)...)
 			}
 			tools = append(tools, tool)
+			hostedToolTypes = append(hostedToolTypes, toolType)
 		default:
 			if set.Source == types.RelayFormatOpenAIResponses && len(definition.Raw) > 0 {
 				var tool any
 				if err := kitutil.Unmarshal(definition.Raw, &tool); err != nil {
-					return nil, diagnostics, err
+					return nil, diagnostics, nil, err
 				}
 				tools = append(tools, tool)
+				hostedToolTypes = append(hostedToolTypes, definition.NativeType)
 				continue
 			}
 			diagnostics = append(diagnostics, semanticLoss(
@@ -185,14 +198,14 @@ func attachOpenAIResponsesRequest(request any, set Set) (any, []types.Conversion
 	if len(tools) > 0 {
 		encoded, err := kitutil.Marshal(tools)
 		if err != nil {
-			return nil, diagnostics, err
+			return nil, diagnostics, hostedToolTypes, err
 		}
 		target.Tools = encoded
 	}
 	normalizedChoice, allowedChoiceDiagnostics := narrowAllowedFunctionChoice(set.Choice, types.RelayFormatOpenAIResponses)
 	choice, choiceDiagnostics, err := encodeOpenAIResponsesChoice(normalizedChoice, set.Source)
 	if err != nil {
-		return nil, diagnostics, err
+		return nil, diagnostics, hostedToolTypes, err
 	}
 	target.ToolChoice = choice
 	if set.ParallelAllowed != nil {
@@ -202,19 +215,20 @@ func attachOpenAIResponsesRequest(request any, set Set) (any, []types.Conversion
 	diagnostics = append(diagnostics, choiceDiagnostics...)
 	historyDiagnostics, err := appendHostedHistoryToOpenAIResponses(target, set)
 	if err != nil {
-		return nil, diagnostics, err
+		return nil, diagnostics, hostedToolTypes, err
 	}
 	diagnostics = append(diagnostics, historyDiagnostics...)
-	return target, diagnostics, nil
+	return target, diagnostics, hostedToolTypes, nil
 }
 
-func attachClaudeRequest(request any, set Set, options *convmeta.Options) (any, []types.ConversionDiagnostic, error) {
+func attachClaudeRequest(request any, set Set, options *convmeta.Options) (any, []types.ConversionDiagnostic, []string, error) {
 	target, ok := request.(*dto.ClaudeRequest)
 	if !ok || target == nil {
-		return nil, nil, fmt.Errorf("expected Claude Messages request, got %T", request)
+		return nil, nil, nil, fmt.Errorf("expected Claude Messages request, got %T", request)
 	}
 	tools := make([]any, 0, len(set.Definitions))
 	var diagnostics []types.ConversionDiagnostic
+	var hostedToolTypes []string
 	for index, definition := range set.Definitions {
 		switch definition.Kind {
 		case KindFunction:
@@ -223,7 +237,7 @@ func attachClaudeRequest(request any, set Set, options *convmeta.Options) (any, 
 			}
 			inputSchema, err := functionParametersMap(definition.Function.Parameters)
 			if err != nil {
-				return nil, diagnostics, fmt.Errorf("tools[%d].input_schema: %w", index, err)
+				return nil, diagnostics, nil, fmt.Errorf("tools[%d].input_schema: %w", index, err)
 			}
 			tools = append(tools, &dto.Tool{
 				Name:        definition.Function.Name,
@@ -240,18 +254,18 @@ func attachClaudeRequest(request any, set Set, options *convmeta.Options) (any, 
 				toolType = definition.NativeType
 			} else if options != nil && options.Claude.WebSearchToolVersion != "" {
 				if !isKnownClaudeWebSearchType(options.Claude.WebSearchToolVersion) {
-					return nil, diagnostics, fmt.Errorf("unsupported Claude web-search tool version %q", options.Claude.WebSearchToolVersion)
+					return nil, diagnostics, nil, fmt.Errorf("unsupported Claude web-search tool version %q", options.Claude.WebSearchToolVersion)
 				}
 				toolType = options.Claude.WebSearchToolVersion
 			}
 			webSearch := definition.WebSearch
 			if webSearch != nil && len(webSearch.AllowedDomains) > 0 && len(webSearch.BlockedDomains) > 0 {
-				return nil, diagnostics, fmt.Errorf("tools[%d]: allowed_domains and blocked_domains are mutually exclusive", index)
+				return nil, diagnostics, nil, fmt.Errorf("tools[%d]: allowed_domains and blocked_domains are mutually exclusive", index)
 			}
 			if webSearch != nil && webSearch.ResponseInclusion != "" && !claudeWebSearchSupportsResponseInclusion(toolType) {
-				return nil, diagnostics, fmt.Errorf("tools[%d].response_inclusion requires Claude web_search_20260318", index)
+				return nil, diagnostics, nil, fmt.Errorf("tools[%d].response_inclusion requires Claude web_search_20260318", index)
 			}
-			tool := map[string]any{"type": toolType, "name": "web_search"}
+			tool := map[string]any{"type": toolType, "name": dto.BuildInToolWebSearch}
 			if webSearch != nil {
 				if webSearch.Location != nil {
 					location := locationMap(webSearch.Location)
@@ -276,13 +290,24 @@ func attachClaudeRequest(request any, set Set, options *convmeta.Options) (any, 
 				diagnostics = append(diagnostics, claudeWebSearchDiagnostics(index, webSearch)...)
 			}
 			tools = append(tools, tool)
+			// Claude charges provider-side web searches through the tool name,
+			// which is always web_search regardless of the versioned type.
+			hostedToolTypes = append(hostedToolTypes, dto.BuildInToolWebSearch)
 		default:
 			if set.Source == types.RelayFormatClaude && len(definition.Raw) > 0 {
 				var tool any
 				if err := kitutil.Unmarshal(definition.Raw, &tool); err != nil {
-					return nil, diagnostics, err
+					return nil, diagnostics, nil, err
 				}
 				tools = append(tools, tool)
+				// A Claude web-search spelling this build does not recognize is
+				// forwarded unchanged and is still served as Claude web search,
+				// which the provider reports and settles under the tool name.
+				if strings.HasPrefix(definition.NativeType, dto.BuildInToolWebSearch) {
+					hostedToolTypes = append(hostedToolTypes, dto.BuildInToolWebSearch)
+				} else {
+					hostedToolTypes = append(hostedToolTypes, definition.NativeType)
+				}
 				continue
 			}
 			diagnostics = append(diagnostics, semanticLoss(
@@ -302,41 +327,49 @@ func attachClaudeRequest(request any, set Set, options *convmeta.Options) (any, 
 	diagnostics = append(diagnostics, choiceDiagnostics...)
 	historyDiagnostics, err := appendHostedHistoryToClaude(target, set)
 	if err != nil {
-		return nil, diagnostics, err
+		return nil, diagnostics, hostedToolTypes, err
 	}
 	diagnostics = append(diagnostics, historyDiagnostics...)
-	return target, diagnostics, nil
+	return target, diagnostics, hostedToolTypes, nil
 }
 
-func attachGeminiRequest(request any, set Set) (any, []types.ConversionDiagnostic, error) {
+func attachGeminiRequest(request any, set Set) (any, []types.ConversionDiagnostic, []string, error) {
 	target, ok := request.(*dto.GeminiChatRequest)
 	if !ok || target == nil {
-		return nil, nil, fmt.Errorf("expected Gemini generateContent request, got %T", request)
+		return nil, nil, nil, fmt.Errorf("expected Gemini generateContent request, got %T", request)
 	}
 	if set.Source == types.RelayFormatGemini {
 		tools, err := rebuildGeminiToolGroups(set.Definitions)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		if len(tools) > 0 {
 			target.Tools, err = kitutil.Marshal(tools)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
 		}
 		if len(set.NativeToolConfig) > 0 {
 			var config dto.ToolConfig
 			if err := kitutil.Unmarshal(set.NativeToolConfig, &config); err != nil {
-				return nil, nil, fmt.Errorf("toolConfig: %w", err)
+				return nil, nil, nil, fmt.Errorf("toolConfig: %w", err)
 			}
 			target.ToolConfig = &config
 		}
-		return target, unsupportedHostedHistoryDiagnostics(types.RelayFormatGemini, set.History), nil
+		var hostedToolTypes []string
+		for _, definition := range set.Definitions {
+			if definition.Kind == KindFunction {
+				continue
+			}
+			hostedToolTypes = append(hostedToolTypes, definition.NativeType)
+		}
+		return target, unsupportedHostedHistoryDiagnostics(types.RelayFormatGemini, set.History), hostedToolTypes, nil
 	}
 	var (
-		functions   []map[string]any
-		tools       []map[string]any
-		diagnostics []types.ConversionDiagnostic
+		functions       []map[string]any
+		tools           []map[string]any
+		diagnostics     []types.ConversionDiagnostic
+		hostedToolTypes []string
 	)
 	for index, definition := range set.Definitions {
 		switch definition.Kind {
@@ -348,7 +381,7 @@ func attachGeminiRequest(request any, set Set) (any, []types.ConversionDiagnosti
 			if parameters != nil {
 				cloned, err := kitutil.Any2Type[any](parameters)
 				if err != nil {
-					return nil, diagnostics, fmt.Errorf("tools[%d].parameters: %w", index, err)
+					return nil, diagnostics, nil, fmt.Errorf("tools[%d].parameters: %w", index, err)
 				}
 				if params, ok := cloned.(map[string]any); ok {
 					if properties, exists := params["properties"].(map[string]any); exists && len(properties) == 0 {
@@ -371,24 +404,27 @@ func attachGeminiRequest(request any, set Set) (any, []types.ConversionDiagnosti
 			if set.Source == types.RelayFormatGemini && len(definition.Raw) > 0 {
 				var tool map[string]any
 				if err := kitutil.Unmarshal(definition.Raw, &tool); err != nil {
-					return nil, diagnostics, err
+					return nil, diagnostics, nil, err
 				}
 				tools = append(tools, tool)
 			} else {
 				tools = append(tools, map[string]any{"googleSearch": map[string]any{}})
 			}
+			hostedToolTypes = append(hostedToolTypes, "googleSearch")
 			if definition.WebSearch != nil {
 				diagnostics = append(diagnostics, geminiWebSearchDiagnostics(index, definition.WebSearch)...)
 			}
 		case KindCodeExecution:
 			if set.Source == types.RelayFormatGemini || definition.NativeType == "codeExecution" {
 				tools = append(tools, map[string]any{"codeExecution": map[string]any{}})
+				hostedToolTypes = append(hostedToolTypes, "codeExecution")
 				continue
 			}
 			diagnostics = append(diagnostics, semanticLoss(fmt.Sprintf("tools[%d]", index), "unverified_tool_mapping", "code execution semantics differ across providers"))
 		case KindURLContext:
 			if set.Source == types.RelayFormatGemini || definition.NativeType == "urlContext" {
 				tools = append(tools, map[string]any{"urlContext": map[string]any{}})
+				hostedToolTypes = append(hostedToolTypes, "urlContext")
 				continue
 			}
 			diagnostics = append(diagnostics, semanticLoss(fmt.Sprintf("tools[%d]", index), "unverified_tool_mapping", "URL context has no verified mapping from the source protocol"))
@@ -396,9 +432,10 @@ func attachGeminiRequest(request any, set Set) (any, []types.ConversionDiagnosti
 			if set.Source == types.RelayFormatGemini && len(definition.Raw) > 0 {
 				var tool map[string]any
 				if err := kitutil.Unmarshal(definition.Raw, &tool); err != nil {
-					return nil, diagnostics, err
+					return nil, diagnostics, nil, err
 				}
 				tools = append(tools, tool)
+				hostedToolTypes = append(hostedToolTypes, definition.NativeType)
 				continue
 			}
 			// The established Responses-to-Gemini compatibility path removes
@@ -435,7 +472,7 @@ func attachGeminiRequest(request any, set Set) (any, []types.ConversionDiagnosti
 	if len(tools) > 0 {
 		encoded, err := kitutil.Marshal(tools)
 		if err != nil {
-			return nil, diagnostics, err
+			return nil, diagnostics, hostedToolTypes, err
 		}
 		target.Tools = encoded
 	}
@@ -450,7 +487,7 @@ func attachGeminiRequest(request any, set Set) (any, []types.ConversionDiagnosti
 		))
 	}
 	diagnostics = append(diagnostics, unsupportedHostedHistoryDiagnostics(types.RelayFormatGemini, set.History)...)
-	return target, diagnostics, nil
+	return target, diagnostics, hostedToolTypes, nil
 }
 
 func rebuildGeminiToolGroups(definitions []Definition) ([]map[string]any, error) {

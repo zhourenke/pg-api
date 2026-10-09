@@ -74,6 +74,12 @@ func AlphaSearchHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError
 	}
 	adaptor.Init(info)
 
+	// This endpoint always bills one web_search_preview call, so it needs that
+	// price before it may run.
+	if apiErr := helper.CheckBillableToolPrices(c, info); apiErr != nil {
+		return apiErr
+	}
+
 	resp, err := adaptor.DoRequest(c, info, body)
 	if err != nil {
 		return types.NewOpenAIError(err, types.ErrorCodeDoRequestFailed, http.StatusInternalServerError)

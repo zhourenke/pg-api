@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -67,15 +68,82 @@ func (info *RelayInfo) IsSearchPreviewModel() bool {
 	return strings.HasSuffix(info.GetBillingModelName(), "search-preview")
 }
 
-// DeclaredBillableToolNames lists the built-in billable tool names this request
-// can be charged for, resolving them exactly as settlement does for the
-// request's own relay path, so a request-time price gate and settlement agree on
-// which operator price applies. Custom function declarations are excluded: they
-// are billed only when priced and only when actually called. A cross-format
-// retarget can settle a declaration under another name (a Responses web-search
-// tool served by a Gemini channel settles as google_search); the channel is not
-// chosen yet when this gate runs, so that case is out of its reach.
-func (info *RelayInfo) DeclaredBillableToolNames() []string {
+// SetUpstreamHostedToolTypes records the hosted tool types the request converter
+// wrote into the upstream request for this attempt. Converters report every
+// hosted tool they wrote, including tools this gateway cannot charge, so the
+// billing side decides which of them carry a price.
+func (info *RelayInfo) SetUpstreamHostedToolTypes(hostedToolTypes []string) {
+	if info == nil {
+		return
+	}
+	info.upstreamHostedToolTypes = slices.Clone(hostedToolTypes)
+}
+
+// UpstreamBillableToolNames lists the built-in billable tool price identities
+// this attempt can actually be charged for. When a converter rewrote the request
+// body for the selected channel, the identities come from the hosted tool types
+// that converter wrote upstream: a tool the target format cannot represent is
+// dropped before the upstream ever sees it and therefore cannot be charged, so
+// demanding a price for it would refuse a request that was never billable.
+// Without a conversion the client's own format is the upstream namespace, and
+// the client's declarations are the answer.
+//
+// Callers run this after the request has been converted, because the upstream
+// format is decided per attempt by the selected channel.
+func (info *RelayInfo) UpstreamBillableToolNames() []string {
+	if info == nil {
+		return nil
+	}
+	if info.upstreamHostedToolTypes == nil {
+		return info.declaredBillableToolNames()
+	}
+	return billableToolNamesForUpstreamToolTypes(info.upstreamHostedToolTypes)
+}
+
+// billableToolNamesForUpstreamToolTypes maps the hosted tool spellings written
+// into the upstream request to the price identities settlement charges for them.
+// Only tools this gateway counts can be charged: web search (Claude's
+// web_search, Gemini's googleSearch family, or a Responses web_search*
+// spelling), file_search and image_generation. Everything else a converter may
+// write (MCP, code execution, URL context, opaque native tools) is deliberately
+// not listed, because settlement has no counter that could ever charge it.
+func billableToolNamesForUpstreamToolTypes(hostedToolTypes []string) []string {
+	names := make(map[string]struct{}, len(hostedToolTypes))
+	var webSearchSpellings []string
+	for _, hostedType := range hostedToolTypes {
+		switch {
+		case hostedType == dto.BuildInToolGoogleSearch, slices.Contains(geminiHostedWebSearchKeys[:], hostedType):
+			names[dto.BuildInToolGoogleSearch] = struct{}{}
+		case hostedType == dto.BuildInToolFileSearch, hostedType == dto.BuildInToolImageGeneration:
+			names[hostedType] = struct{}{}
+		case strings.HasPrefix(hostedType, dto.BuildInToolWebSearch):
+			webSearchSpellings = append(webSearchSpellings, hostedType)
+		}
+	}
+	if len(webSearchSpellings) > 0 {
+		// Reuse settlement's own resolution rather than restating it: it prefers
+		// web_search_preview when the declared spellings offer one, falls back to
+		// web_search, and treats a versioned spelling as web_search_preview. A
+		// declared spelling and an observed one must not resolve to two prices.
+		// Only key presence matters here, so nil entries are fine.
+		declared := make(map[string]*BuildInToolInfo, len(webSearchSpellings))
+		for _, spelling := range webSearchSpellings {
+			declared[spelling] = nil
+		}
+		names[resolveWebSearchToolName(declared)] = struct{}{}
+	}
+	return sortedToolNames(names)
+}
+
+// declaredBillableToolNames lists the built-in billable tool names the client's
+// own request format charges under, resolving them exactly as settlement does
+// for that format. This is the answer only while no converter rewrote the body:
+// a cross-format retarget can settle a declaration under a different name (a
+// Responses web-search tool served by a Gemini channel settles as google_search),
+// and then UpstreamBillableToolNames uses the converted request instead.
+// Custom function declarations are excluded: they are billed only when priced
+// and only when actually called.
+func (info *RelayInfo) declaredBillableToolNames() []string {
 	if info == nil {
 		return nil
 	}
@@ -102,16 +170,19 @@ func (info *RelayInfo) DeclaredBillableToolNames() []string {
 	if request, ok := info.Request.(*dto.GeminiChatRequest); ok && request != nil && geminiRequestDeclaresWebSearch(request.Tools) {
 		names[dto.BuildInToolGoogleSearch] = struct{}{}
 	}
+	return sortedToolNames(names)
+}
 
+func sortedToolNames(names map[string]struct{}) []string {
 	if len(names) == 0 {
 		return nil
 	}
-	declared := make([]string, 0, len(names))
+	sorted := make([]string, 0, len(names))
 	for name := range names {
-		declared = append(declared, name)
+		sorted = append(sorted, name)
 	}
-	sort.Strings(declared)
-	return declared
+	sort.Strings(sorted)
+	return sorted
 }
 
 // geminiHostedWebSearchKeys are the Gemini tool keys the conversion layer
@@ -154,6 +225,10 @@ func geminiRequestDeclaresWebSearch(tools json.RawMessage) bool {
 	return false
 }
 
+// resolveWebSearchToolName resolves one price identity for a set of web-search
+// tool spellings. Only key presence matters, so nil values are fine. A versioned
+// spelling such as web_search_2025_08_26 has no price of its own and resolves to
+// web_search_preview, the name the operator UI documents.
 func resolveWebSearchToolName(tools map[string]*BuildInToolInfo) string {
 	if _, ok := tools[dto.BuildInToolWebSearchPreview]; ok {
 		return dto.BuildInToolWebSearchPreview

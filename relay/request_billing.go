@@ -58,12 +58,10 @@ func PrepareRequestBilling(c *gin.Context, info *relaycommon.RelayInfo) *types.N
 	if err != nil {
 		return helper.PriceError(err)
 	}
-	// After the model price so an unpriced model keeps reporting the same
-	// failure as an unavailable one, and before the free-model shortcut so a
-	// free model cannot smuggle in an unpriced tool.
-	if apiErr := helper.CheckBillableToolPrices(c, info); apiErr != nil {
-		return apiErr
-	}
+	// The built-in tool price gate deliberately does not run here: it has to
+	// judge the request the upstream will actually receive, which this pre-consume
+	// step cannot know because channel selection and request conversion happen
+	// per attempt afterwards. Each relay handler runs it once the body is ready.
 	if priceData.FreeModel {
 		logger.LogInfo(c, fmt.Sprintf("模型 %s 免费，跳过预扣费", info.OriginModelName))
 		return nil

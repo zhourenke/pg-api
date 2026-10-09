@@ -127,6 +127,12 @@ func ClaudeHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *typ
 		requestBody = body
 	}
 
+	// Judge the tool prices of the body that is about to be sent, not of the
+	// client's declarations: a conversion may have renamed or dropped them.
+	if apiErr := helper.CheckBillableToolPrices(c, info); apiErr != nil {
+		return apiErr
+	}
+
 	statusCodeMappingStr := c.GetString("status_code_mapping")
 	var httpResp *http.Response
 	resp, err := adaptor.DoRequest(c, info, requestBody)
