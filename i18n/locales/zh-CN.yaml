@@ -158,6 +158,9 @@ model.get_list_failed: "获取模型列表失败，请稍后重试"
 model.get_failed: "获取上游模型失败"
 model.reset_success: "重置模型倍率成功"
 
+# Tool messages
+tool.price_not_configured: "工具 {{.Tool}} 未配置价格，请联系管理员在工具价格中配置后再试"
+
 # Vendor messages
 vendor.name_empty: "供应商名称不能为空"
 vendor.name_exists: "供应商名称已存在"

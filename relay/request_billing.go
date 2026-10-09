@@ -58,6 +58,12 @@ func PrepareRequestBilling(c *gin.Context, info *relaycommon.RelayInfo) *types.N
 	if err != nil {
 		return helper.PriceError(err)
 	}
+	// After the model price so an unpriced model keeps reporting the same
+	// failure as an unavailable one, and before the free-model shortcut so a
+	// free model cannot smuggle in an unpriced tool.
+	if apiErr := helper.CheckBillableToolPrices(c, info); apiErr != nil {
+		return apiErr
+	}
 	if priceData.FreeModel {
 		logger.LogInfo(c, fmt.Sprintf("模型 %s 免费，跳过预扣费", info.OriginModelName))
 		return nil

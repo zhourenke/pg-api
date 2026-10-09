@@ -1,6 +1,7 @@
 package helper
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,7 @@ import (
 	"github.com/zhourenke/pg-api/i18n"
 	"github.com/zhourenke/pg-api/pkg/billingexpr"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
+	relayconstant "github.com/zhourenke/pg-api/relay/constant"
 	"github.com/zhourenke/pg-api/relaykit/dto"
 	"github.com/zhourenke/pg-api/relaykit/types"
 	"github.com/zhourenke/pg-api/service"
@@ -22,6 +24,19 @@ import (
 	"github.com/zhourenke/pg-api/setting/operation_setting"
 	"github.com/zhourenke/pg-api/setting/ratio_setting"
 )
+
+// useToolPricesJSON pins the tool prices a case relies on. Tool prices are
+// operator configuration only, so every case must state its own map.
+func useToolPricesJSON(t *testing.T, prices string) {
+	t.Helper()
+	previous := config.GlobalConfig.ExportAllConfigs()["tool_price_setting.prices"]
+	operation_setting.LoadToolPricesFromJSONString(prices)
+	t.Cleanup(func() {
+		require.NoError(t, config.GlobalConfig.LoadFromDB(map[string]string{
+			"tool_price_setting.prices": previous,
+		}))
+	})
+}
 
 func TestModelPriceHelperTieredUsesPreloadedRequestInput(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -796,3 +811,188 @@ func (s *priceTestReservation) Refund(*gin.Context)      {}
 func (s *priceTestReservation) NeedsRefund() bool        { return false }
 func (s *priceTestReservation) GetPreConsumedQuota() int { return s.held }
 func (s *priceTestReservation) Reserve(quota int) error  { s.held = max(s.held, quota); return nil }
+
+// A built-in billable tool with no operator price must be refused before the
+// request is relayed, and the message must name the tool so the operator knows
+// what to configure. The demanded name is the name settlement would charge.
+func TestCheckBillableToolPricesRejectsUnpricedBuiltInTools(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	require.NoError(t, i18n.Init())
+	useToolPricesJSON(t, `{}`)
+
+	oldSelfUse := operation_setting.SelfUseModeEnabled
+	operation_setting.SelfUseModeEnabled = false
+	t.Cleanup(func() { operation_setting.SelfUseModeEnabled = oldSelfUse })
+
+	responsesInfo := func(model string, toolTypes ...string) *relaycommon.RelayInfo {
+		tools := make(map[string]*relaycommon.BuildInToolInfo, len(toolTypes))
+		for _, toolType := range toolTypes {
+			tools[toolType] = &relaycommon.BuildInToolInfo{ToolName: toolType}
+		}
+		return &relaycommon.RelayInfo{
+			RelayMode:          relayconstant.RelayModeResponses,
+			OriginModelName:    model,
+			ResponsesUsageInfo: &relaycommon.ResponsesUsageInfo{BuiltInTools: tools},
+		}
+	}
+
+	tests := []struct {
+		name     string
+		info     *relaycommon.RelayInfo
+		wantTool string
+	}{
+		{
+			"responses web_search_preview declaration",
+			responsesInfo("gpt-5", dto.BuildInToolWebSearchPreview),
+			dto.BuildInToolWebSearchPreview,
+		},
+		{
+			"responses versioned preview declaration resolves to preview",
+			responsesInfo("gpt-5", "web_search_preview_2025_03_11"),
+			dto.BuildInToolWebSearchPreview,
+		},
+		{
+			"responses web_search declaration keeps its own name",
+			responsesInfo("gpt-5", dto.BuildInToolWebSearch),
+			dto.BuildInToolWebSearch,
+		},
+		{
+			"responses file_search declaration",
+			responsesInfo("gpt-5", dto.BuildInToolFileSearch),
+			dto.BuildInToolFileSearch,
+		},
+		{
+			"responses image_generation declaration",
+			responsesInfo("gpt-5", dto.BuildInToolImageGeneration),
+			dto.BuildInToolImageGeneration,
+		},
+		{
+			"alpha search seeds an uncalled web_search_preview",
+			&relaycommon.RelayInfo{
+				RelayMode:       relayconstant.RelayModeAlphaSearch,
+				OriginModelName: "gpt-5.1-codex",
+				ResponsesUsageInfo: &relaycommon.ResponsesUsageInfo{BuiltInTools: map[string]*relaycommon.BuildInToolInfo{
+					dto.BuildInToolWebSearchPreview: {ToolName: dto.BuildInToolWebSearchPreview},
+				}},
+			},
+			dto.BuildInToolWebSearchPreview,
+		},
+		{
+			"search-preview model name alone",
+			&relaycommon.RelayInfo{
+				RelayMode:       relayconstant.RelayModeChatCompletions,
+				OriginModelName: "gpt-4o-search-preview",
+			},
+			dto.BuildInToolWebSearchPreview,
+		},
+		{
+			"claude hosted web search declaration",
+			&relaycommon.RelayInfo{
+				OriginModelName: "claude-sonnet-4-5",
+				Request: &dto.ClaudeRequest{Tools: []any{
+					map[string]any{"type": "web_search_20250305", "name": "web_search"},
+				}},
+			},
+			dto.BuildInToolWebSearch,
+		},
+		{
+			"gemini google search declaration",
+			&relaycommon.RelayInfo{
+				OriginModelName: "gemini-2.5-flash",
+				Request:         &dto.GeminiChatRequest{Tools: json.RawMessage(`[{"googleSearch":{}}]`)},
+			},
+			dto.BuildInToolGoogleSearch,
+		},
+		{
+			"gemini legacy retrieval declaration",
+			&relaycommon.RelayInfo{
+				OriginModelName: "gemini-2.5-flash",
+				Request:         &dto.GeminiChatRequest{Tools: json.RawMessage(`[{"googleSearchRetrieval":{"dynamicRetrievalConfig":{}}}]`)},
+			},
+			dto.BuildInToolGoogleSearch,
+		},
+		{
+			"chat model without hosted search",
+			&relaycommon.RelayInfo{
+				RelayMode:       relayconstant.RelayModeChatCompletions,
+				OriginModelName: "gpt-4o",
+			},
+			"",
+		},
+		{
+			"responses function, mcp and code interpreter tools are out of scope",
+			responsesInfo("gpt-5", "function", "mcp", "code_interpreter"),
+			"",
+		},
+		{
+			"responses google_search is never charged so it is not gated",
+			responsesInfo("gpt-5", dto.BuildInToolGoogleSearch),
+			"",
+		},
+		{
+			"gemini function declarations are out of scope",
+			&relaycommon.RelayInfo{
+				OriginModelName: "gemini-2.5-flash",
+				Request:         &dto.GeminiChatRequest{Tools: json.RawMessage(`[{"functionDeclarations":[{"name":"lookup"}]}]`)},
+			},
+			"",
+		},
+		{
+			"claude function tools are out of scope",
+			&relaycommon.RelayInfo{
+				OriginModelName: "claude-sonnet-4-5",
+				Request: &dto.ClaudeRequest{Tools: []any{
+					map[string]any{"name": "lookup", "input_schema": map[string]any{"type": "object"}},
+				}},
+			},
+			"",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+
+			apiErr := CheckBillableToolPrices(ctx, tt.info)
+
+			if tt.wantTool == "" {
+				require.Nil(t, apiErr)
+				return
+			}
+			require.NotNil(t, apiErr, "an unpriced %s must be refused", tt.wantTool)
+			assert.Equal(t, types.ErrorCodeToolPriceNotConfigured, apiErr.GetErrorCode())
+			assert.Equal(t, http.StatusServiceUnavailable, apiErr.StatusCode)
+			assert.Contains(t, apiErr.Error(), tt.wantTool)
+		})
+	}
+}
+
+// Only a missing rule is rejected: a configured zero is a deliberate free rule,
+// and self-use mode keeps unpriced tools usable just like unpriced models.
+func TestCheckBillableToolPricesAcceptsConfiguredZeroAndSelfUseMode(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	require.NoError(t, i18n.Init())
+	useToolPricesJSON(t, `{}`)
+
+	oldSelfUse := operation_setting.SelfUseModeEnabled
+	operation_setting.SelfUseModeEnabled = false
+	t.Cleanup(func() { operation_setting.SelfUseModeEnabled = oldSelfUse })
+
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	info := &relaycommon.RelayInfo{
+		RelayMode:       relayconstant.RelayModeResponses,
+		OriginModelName: "gpt-5",
+		ResponsesUsageInfo: &relaycommon.ResponsesUsageInfo{BuiltInTools: map[string]*relaycommon.BuildInToolInfo{
+			dto.BuildInToolWebSearchPreview: {ToolName: dto.BuildInToolWebSearchPreview},
+		}},
+	}
+
+	require.NotNil(t, CheckBillableToolPrices(ctx, info))
+
+	useToolPricesJSON(t, `{"web_search_preview":0}`)
+	require.Nil(t, CheckBillableToolPrices(ctx, info), "an explicit zero price is a configured rule")
+
+	useToolPricesJSON(t, `{}`)
+	operation_setting.SelfUseModeEnabled = true
+	require.Nil(t, CheckBillableToolPrices(ctx, info), "self-use mode keeps unpriced tools usable")
+}

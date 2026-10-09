@@ -12,7 +12,6 @@ import (
 	"github.com/zhourenke/pg-api/model"
 	"github.com/zhourenke/pg-api/pkg/billingexpr"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
-	relayconstant "github.com/zhourenke/pg-api/relay/constant"
 	"github.com/zhourenke/pg-api/relaykit/dto"
 	"github.com/zhourenke/pg-api/relaykit/types"
 	"github.com/zhourenke/pg-api/setting/operation_setting"
@@ -159,8 +158,7 @@ func calculateTextToolCallSurcharge(ctx *gin.Context, relayInfo *relaycommon.Rel
 			items = collectToolSurchargeItem(items, name, tool.CallCount, summary.ModelName)
 		}
 	}
-	if relayInfo.RelayMode != relayconstant.RelayModeResponses &&
-		strings.HasSuffix(summary.ModelName, "search-preview") {
+	if relayInfo.IsSearchPreviewModel() {
 		items = collectToolSurchargeItem(items, dto.BuildInToolWebSearchPreview, 1, summary.ModelName)
 	}
 

@@ -165,27 +165,54 @@ func RebuildToolPriceIndex() {
 // GetToolPriceForModel returns the price ($/1K calls) for a tool given a model name.
 // Lookup: longest prefix match → tool default → 0.
 func GetToolPriceForModel(toolName, modelName string) float64 {
+	price, _ := lookupToolPrice(toolName, modelName)
+	return price
+}
+
+// HasToolPriceForModel reports whether the operator configured a price for the
+// tool at this model. A configured numeric zero counts as configured: it is an
+// intentional free rule, not a missing one.
+func HasToolPriceForModel(toolName, modelName string) bool {
+	_, ok := lookupToolPrice(toolName, modelName)
+	return ok
+}
+
+// IsToolPricingUnset reports whether a built-in tool would run without any
+// charge because the operator never priced it. Tools follow the same policy as
+// models: outside self-use mode an unpriced billable feature is refused instead
+// of silently running for free, and self-use mode keeps it usable.
+func IsToolPricingUnset(toolName, modelName string) bool {
+	if SelfUseModeEnabled {
+		return false
+	}
+	return !HasToolPriceForModel(toolName, modelName)
+}
+
+// lookupToolPrice resolves the effective configured price. The second result
+// reports whether any rule matched at all, which separates "configured zero"
+// from "never configured".
+func lookupToolPrice(toolName, modelName string) (float64, bool) {
 	idx := currentIndex.Load()
 	if idx == nil {
 		RebuildToolPriceIndex()
 		idx = currentIndex.Load()
 		if idx == nil {
-			return 0
+			return 0, false
 		}
 	}
 
 	if entries, ok := idx.prefixes[toolName]; ok && modelName != "" {
 		for _, e := range entries {
 			if strings.HasPrefix(modelName, e.prefix) {
-				return e.price
+				return e.price, true
 			}
 		}
 	}
 
 	if p, ok := idx.defaults[toolName]; ok {
-		return p
+		return p, true
 	}
-	return 0
+	return 0, false
 }
 
 // GetToolPrice is a convenience wrapper when no model name is needed.

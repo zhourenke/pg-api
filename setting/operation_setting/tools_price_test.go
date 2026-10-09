@@ -150,3 +150,34 @@ func TestRebuildToolPriceIndexIgnoresInvalidDirectValues(t *testing.T) {
 		assert.Equal(t, 0.0, GetToolPrice(name), name)
 	}
 }
+
+// Tools follow the same policy as models: "unset" means no operator rule
+// matched, so a configured numeric zero is a deliberate free rule rather than a
+// missing one, and self-use mode keeps an unpriced tool usable.
+func TestToolPricingUnsetRequiresAMatchingRule(t *testing.T) {
+	preserveToolPrices(t)
+	oldSelfUse := SelfUseModeEnabled
+	t.Cleanup(func() { SelfUseModeEnabled = oldSelfUse })
+
+	toolPriceSetting.Prices = map[string]float64{
+		"web_search_preview":         0,
+		"web_search_preview:gpt-4o*": 30,
+		"image_generation":           5,
+	}
+	RebuildToolPriceIndex()
+
+	assert.True(t, HasToolPriceForModel("web_search_preview", "o1"))
+	assert.True(t, HasToolPriceForModel("web_search_preview", "gpt-4o-mini"))
+	assert.True(t, HasToolPriceForModel("image_generation", "any-model"))
+	assert.False(t, HasToolPriceForModel("web_search", "any-model"))
+	assert.False(t, HasToolPriceForModel("google_search", "gemini-2.5-flash"))
+
+	SelfUseModeEnabled = false
+	assert.True(t, IsToolPricingUnset("web_search", "any-model"))
+	assert.True(t, IsToolPricingUnset("google_search", "gemini-2.5-flash"))
+	assert.False(t, IsToolPricingUnset("web_search_preview", "gpt-4o"), "a configured zero must not read as missing")
+	assert.False(t, IsToolPricingUnset("image_generation", "any-model"))
+
+	SelfUseModeEnabled = true
+	assert.False(t, IsToolPricingUnset("web_search", "any-model"), "self-use mode keeps unpriced tools usable")
+}

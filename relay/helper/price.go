@@ -53,6 +53,33 @@ func modelUnavailableError(c *gin.Context, info *relaycommon.RelayInfo) *types.N
 	)
 }
 
+// toolPriceError reports a built-in billable tool that has no administrator
+// price. Unlike an unpriced model, the cause is specific and naming it is the
+// point: the operator has to add the tool price before the feature is usable.
+func toolPriceError(c *gin.Context, toolName string) *types.NewAPIError {
+	message := i18n.T(c, i18n.MsgToolPriceNotConfigured, map[string]any{"Tool": toolName})
+	return types.NewError(
+		errors.New(message),
+		types.ErrorCodeToolPriceNotConfigured,
+		types.ErrOptionWithStatusCode(http.StatusServiceUnavailable),
+		types.ErrOptionWithSkipRetry(),
+	)
+}
+
+// CheckBillableToolPrices refuses a request that declares a built-in billable
+// tool with no administrator price, so a tool nobody priced can never run for
+// free. Names come from RelayInfo.DeclaredBillableToolNames, and self-use mode
+// keeps unpriced tools usable the same way it keeps unpriced models usable.
+func CheckBillableToolPrices(c *gin.Context, info *relaycommon.RelayInfo) *types.NewAPIError {
+	modelName := info.GetBillingModelName()
+	for _, toolName := range info.DeclaredBillableToolNames() {
+		if operation_setting.IsToolPricingUnset(toolName, modelName) {
+			return toolPriceError(c, toolName)
+		}
+	}
+	return nil
+}
+
 // https://docs.claude.com/en/docs/build-with-claude/prompt-caching#1-hour-cache-duration
 const claudeCacheCreation1hMultiplier = 6 / 3.75
 

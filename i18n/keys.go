@@ -180,6 +180,11 @@ const (
 	MsgModelResetSuccess  = "model.reset_success"
 )
 
+// Tool related messages
+const (
+	MsgToolPriceNotConfigured = "tool.price_not_configured"
+)
+
 // Vendor related messages
 const (
 	MsgVendorNameEmpty  = "vendor.name_empty"
