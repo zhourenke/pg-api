@@ -31,7 +31,6 @@ interface NumericSpinnerInputProps {
   min?: number
   max?: number
   step?: number
-  disabled?: boolean
   /**
    * What to show in the value position when the control has no single value.
    * Callers that aggregate several rows set this (a tag row whose channels
@@ -57,7 +56,6 @@ export function NumericSpinnerInput({
   min = 0,
   max,
   step = 1,
-  disabled = false,
   placeholder,
   placeholderDescription,
   className,
@@ -86,7 +84,7 @@ export function NumericSpinnerInput({
 
   const handleIncrement = (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (disabled || hasNoValue) return
+    if (hasNoValue) return
     const next = clamp((Number(localValue) || 0) + step)
     setLocalValue(String(next))
     onChange(next)
@@ -94,14 +92,13 @@ export function NumericSpinnerInput({
 
   const handleDecrement = (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (disabled || hasNoValue) return
+    if (hasNoValue) return
     const next = clamp((Number(localValue) || 0) - step)
     setLocalValue(String(next))
     onChange(next)
   }
 
   const handleStartEdit = () => {
-    if (disabled) return
     setEditing(true)
     // A control without a value opens empty: the dash is not text to edit, and
     // the first keystroke should be the whole value.
@@ -197,7 +194,7 @@ export function NumericSpinnerInput({
         className={cn(
           'group/spinner border-input inline-flex h-7 max-w-full min-w-0 items-center gap-0 rounded-md border transition-colors',
           fillsColumn && 'min-w-fit max-w-[5.5rem]',
-          !disabled && 'hover:bg-muted/60',
+          'hover:bg-muted/60',
           editing && 'bg-muted/60 ring-primary/30 ring-1'
         )}
       >
@@ -206,19 +203,17 @@ export function NumericSpinnerInput({
           tabIndex={-1}
           aria-label='Decrement'
           onClick={handleDecrement}
-          disabled={disabled || hasNoValue || atMin}
+          disabled={hasNoValue || atMin}
           className={cn(
             'text-muted-foreground/0 group-hover/spinner:text-muted-foreground hidden h-7 w-6 shrink-0 items-center justify-center rounded-l-md transition-colors',
             // A control with no single value has no baseline to step from, so
             // the buttons stay out of the layout instead of offering a guess.
             // Dropping the query class here is what keeps `hidden` in effect.
             !hasNoValue && '@[5rem]/spinner:flex',
-            !disabled &&
-              !hasNoValue &&
+            !hasNoValue &&
               !atMin &&
               'group-hover/spinner:hover:text-foreground group-hover/spinner:hover:bg-muted',
-            (disabled || hasNoValue || atMin) &&
-              'group-hover/spinner:opacity-30'
+            (hasNoValue || atMin) && 'group-hover/spinner:opacity-30'
           )}
         >
           <Minus className='size-3' />
@@ -239,7 +234,6 @@ export function NumericSpinnerInput({
           <button
             type='button'
             onClick={handleStartEdit}
-            disabled={disabled}
             title={
               hasNoValue ? (placeholderDescription ?? placeholder) : localValue
             }
@@ -248,8 +242,7 @@ export function NumericSpinnerInput({
             }
             className={cn(
               'h-7 min-w-0 max-w-16 flex-1 cursor-text truncate px-1 text-center font-mono text-sm tabular-nums',
-              hasNoValue && 'text-muted-foreground',
-              disabled && 'cursor-default opacity-50'
+              hasNoValue && 'text-muted-foreground'
             )}
           >
             {displayText}
@@ -261,16 +254,14 @@ export function NumericSpinnerInput({
           tabIndex={-1}
           aria-label='Increment'
           onClick={handleIncrement}
-          disabled={disabled || hasNoValue || atMax}
+          disabled={hasNoValue || atMax}
           className={cn(
             'text-muted-foreground/0 group-hover/spinner:text-muted-foreground hidden h-7 w-6 shrink-0 items-center justify-center rounded-r-md transition-colors',
             !hasNoValue && '@[5rem]/spinner:flex',
-            !disabled &&
-              !hasNoValue &&
+            !hasNoValue &&
               !atMax &&
               'group-hover/spinner:hover:text-foreground group-hover/spinner:hover:bg-muted',
-            (disabled || hasNoValue || atMax) &&
-              'group-hover/spinner:opacity-30'
+            (hasNoValue || atMax) && 'group-hover/spinner:opacity-30'
           )}
         >
           <Plus className='size-3' />
