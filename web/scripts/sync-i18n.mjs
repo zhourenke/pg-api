@@ -108,7 +108,6 @@ const BRAND_AND_LITERAL_KEYS = new Set([
   'Zhipu V4',
   '"default": "us-central1", "claude-3-5-sonnet-20240620": "europe-west1"',
   'edit_this',
-  'footer.columns.related.links.midjourney',
   'footer.columns.related.links.newApiKeyTool',
   'my-status',
   'new-api-key-tool',
