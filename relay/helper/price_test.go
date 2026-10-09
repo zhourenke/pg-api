@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/i18n"
 	"github.com/zhourenke/pg-api/pkg/billingexpr"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	"github.com/zhourenke/pg-api/relaykit/dto"
@@ -690,10 +691,12 @@ func TestModelPriceHelperNativeGeminiNoThinkingDoesNotAliasBillingModel(t *testi
 	assert.Equal(t, 1.25, priceData.ModelRatio)
 }
 
-// A model the administrator never priced must not be charged an invented ratio,
-// and self-use mode must not resurrect one.
+// A model the administrator never priced must not be charged an invented ratio.
+// Outside self-use mode it fails exactly like a model with no available channel;
+// self-use mode still relays it at ratio zero.
 func TestModelPriceHelperRejectsModelWithoutConfiguredPrice(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	require.NoError(t, i18n.Init())
 
 	savedRatios, savedPrices := ratio_setting.ModelRatio2JSONString(), ratio_setting.ModelPrice2JSONString()
 	t.Cleanup(func() {
@@ -711,7 +714,6 @@ func TestModelPriceHelperRejectsModelWithoutConfiguredPrice(t *testing.T) {
 	require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(string(priceJSON)))
 
 	oldSelfUse := operation_setting.SelfUseModeEnabled
-	operation_setting.SelfUseModeEnabled = true
 	t.Cleanup(func() { operation_setting.SelfUseModeEnabled = oldSelfUse })
 
 	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
@@ -722,13 +724,20 @@ func TestModelPriceHelperRejectsModelWithoutConfiguredPrice(t *testing.T) {
 		UsingGroup:      "default",
 	}
 
+	operation_setting.SelfUseModeEnabled = false
 	_, err = ModelPriceHelper(ctx, info, 1000, &types.TokenCountMeta{})
 	require.Error(t, err, "an unpriced model must be rejected instead of falling back to a shipped ratio")
-	assert.Contains(t, err.Error(), "unit-unpriced-model")
+	var apiErr *types.NewAPIError
+	require.ErrorAs(t, err, &apiErr)
+	assert.Equal(t, types.ErrorCodeModelNotFound, apiErr.GetErrorCode())
+	assert.Equal(t, http.StatusServiceUnavailable, apiErr.StatusCode)
+	assert.Contains(t, apiErr.Error(), "default")
+	assert.Contains(t, apiErr.Error(), "unit-unpriced-model")
+	assert.NotContains(t, apiErr.Error(), "价格", "the failure must not disclose pricing state")
 
-	info.UserSetting.AcceptUnsetRatioModel = true
+	operation_setting.SelfUseModeEnabled = true
 	priceData, err := ModelPriceHelper(ctx, info, 1000, &types.TokenCountMeta{})
-	require.NoError(t, err, "a user who accepts unpriced models may still relay them")
+	require.NoError(t, err, "self-use mode still relays unpriced models")
 	assert.False(t, priceData.UsePrice)
 	assert.Zero(t, priceData.ModelRatio, "an unpriced model carries no ratio to charge")
 }

@@ -50,7 +50,6 @@ const settings = {
   gotify_url: '',
   gotify_token: '',
   gotify_priority: 5,
-  accept_unset_model_ratio_model: true,
   record_ip_log: true,
   upstream_model_update_notify_enabled: true,
 }
@@ -94,7 +93,6 @@ describe('user settings saves across profile and security', () => {
       gotify_url: '',
       gotify_token: '',
       gotify_priority: 5,
-      accept_unset_model_ratio_model: false,
       record_ip_log: true,
       upstream_model_update_notify_enabled: false,
     })
@@ -190,5 +188,52 @@ describe('user settings saves across profile and security', () => {
       quota_warning_threshold: 2700,
       record_ip_log: false,
     })
+  })
+})
+
+describe('preferences section is admin only', () => {
+  const upstreamSwitch = 'Receive Upstream Model Update Notifications'
+
+  it('an ordinary user gets no preferences section and no unpriced-model switch', () => {
+    render(
+      <NotificationTab
+        profile={{
+          ...profile,
+          role: 1,
+          setting: JSON.stringify(settings),
+        }}
+        onUpdate={vi.fn()}
+      />
+    )
+    expect(screen.queryByText('Preferences')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('switch', { name: upstreamSwitch })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('switch', { name: 'Accept Unpriced Models' })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Save Settings' })
+    ).toBeInTheDocument()
+  })
+
+  it('an admin keeps the upstream notification switch without the unpriced-model switch', () => {
+    render(
+      <NotificationTab
+        profile={{
+          ...profile,
+          role: 10,
+          setting: JSON.stringify(settings),
+        }}
+        onUpdate={vi.fn()}
+      />
+    )
+    expect(screen.getByText('Preferences')).toBeInTheDocument()
+    expect(
+      screen.getByRole('switch', { name: upstreamSwitch })
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('switch', { name: 'Accept Unpriced Models' })
+    ).not.toBeInTheDocument()
   })
 })

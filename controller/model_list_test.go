@@ -182,6 +182,7 @@ func decodeUserModelsResponse(t *testing.T, recorder *httptest.ResponseRecorder)
 }
 
 func TestGetUserModelsFiltersByRequestedGroup(t *testing.T) {
+	withSelfUseModeEnabled(t)
 	db := setupModelListControllerTestDB(t)
 	require.NoError(t, db.Create(&model.User{
 		Id:       1002,
@@ -216,6 +217,7 @@ func TestGetUserModelsFiltersByRequestedGroup(t *testing.T) {
 }
 
 func TestGetUserModelsExpandsAutoGroupsInConfiguredOrder(t *testing.T) {
+	withSelfUseModeEnabled(t)
 	originalAutoGroups := setting.AutoGroups2JsonString()
 	originalUsableGroups := setting.UserUsableGroups2JSONString()
 	originalSpecialGroups := ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup.ReadAll()
@@ -263,6 +265,51 @@ func TestGetUserModelsExpandsAutoGroupsInConfiguredOrder(t *testing.T) {
 	require.Len(t, models, 3)
 	assert.ElementsMatch(t, []string{"zz-vip-model", "zz-shared-model"}, models[:2])
 	assert.Equal(t, "zz-default-model", models[2])
+}
+
+// 非自用模式下未配置计费的模型不会出现在站内模型清单里，自用模式仍然列出。
+func TestGetUserModelsExcludesUnpricedModelsOutsideSelfUseMode(t *testing.T) {
+	withSelfUseModeDisabled(t)
+	savedRatios := ratio_setting.ModelRatio2JSONString()
+	t.Cleanup(func() {
+		require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(savedRatios))
+	})
+	ratios := ratio_setting.GetModelRatioCopy()
+	delete(ratios, "zz-user-unpriced-model")
+	ratios["zz-user-priced-model"] = 1
+	ratioJSON, err := common.Marshal(ratios)
+	require.NoError(t, err)
+	require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(string(ratioJSON)))
+
+	db := setupModelListControllerTestDB(t)
+	require.NoError(t, db.Create(&model.User{
+		Id:       1004,
+		Username: "playground-priced-model-user",
+		Password: "password",
+		Group:    "default",
+		Status:   common.UserStatusEnabled,
+	}).Error)
+	require.NoError(t, db.Create(&[]model.Ability{
+		{Group: "default", Model: "zz-user-priced-model", ChannelId: 1, Enabled: true},
+		{Group: "default", Model: "zz-user-unpriced-model", ChannelId: 1, Enabled: true},
+	}).Error)
+
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/api/user/models?group=default", nil)
+	context.Set("id", 1004)
+
+	GetUserModels(context)
+	require.Equal(t, []string{"zz-user-priced-model"}, decodeUserModelsResponse(t, recorder))
+
+	operation_setting.SelfUseModeEnabled = true
+	selfUseRecorder := httptest.NewRecorder()
+	selfUseContext, _ := gin.CreateTestContext(selfUseRecorder)
+	selfUseContext.Request = httptest.NewRequest(http.MethodGet, "/api/user/models?group=default", nil)
+	selfUseContext.Set("id", 1004)
+
+	GetUserModels(selfUseContext)
+	assert.ElementsMatch(t, []string{"zz-user-priced-model", "zz-user-unpriced-model"}, decodeUserModelsResponse(t, selfUseRecorder))
 }
 
 func TestListModelsIncludesTieredBillingModel(t *testing.T) {

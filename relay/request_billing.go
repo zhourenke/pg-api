@@ -3,7 +3,6 @@ package relay
 import (
 	"errors"
 	"fmt"
-	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -57,7 +56,7 @@ func PrepareRequestBilling(c *gin.Context, info *relaycommon.RelayInfo) *types.N
 
 	priceData, err := helper.ModelPriceHelper(c, info, tokens, meta)
 	if err != nil {
-		return types.NewError(err, types.ErrorCodeModelPriceError, types.ErrOptionWithStatusCode(http.StatusBadRequest))
+		return helper.PriceError(err)
 	}
 	if priceData.FreeModel {
 		logger.LogInfo(c, fmt.Sprintf("模型 %s 免费，跳过预扣费", info.OriginModelName))

@@ -1,12 +1,14 @@
 package helper
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/i18n"
 	"github.com/zhourenke/pg-api/logger"
-	"github.com/zhourenke/pg-api/model"
 	"github.com/zhourenke/pg-api/pkg/billingexpr"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	"github.com/zhourenke/pg-api/relaykit/dto"
@@ -21,18 +23,33 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func modelPriceNotConfiguredError(modelName string, userId int) error {
-	if model.IsAdmin(userId) {
-		return fmt.Errorf(
-			"模型 %s 的价格未配置。请在「系统设置 → 分组与模型定价设置」中为该模型配置价格；"+
-				"Model %s price not configured. Configure the model price in System Settings → Group & Model Pricing.",
-			modelName, modelName,
-		)
+// PriceError converts a price-resolution failure into a relay error. An error
+// that already carries its own relay status code and error code is returned
+// unchanged, so callers cannot turn a shaped failure such as model_not_found
+// into a generic bad request.
+func PriceError(err error) *types.NewAPIError {
+	var apiErr *types.NewAPIError
+	if errors.As(err, &apiErr) {
+		return apiErr
 	}
-	return fmt.Errorf(
-		"模型 %s 的价格尚未由管理员配置，暂时无法使用，请联系站点管理员开启该模型；"+
-			"Model %s has not been priced by the administrator yet. Please contact the site administrator to enable this model.",
-		modelName, modelName,
+	return types.NewError(err, types.ErrorCodeModelPriceError, types.ErrOptionWithStatusCode(http.StatusBadRequest))
+}
+
+// modelUnavailableError reports a model that has no administrator billing
+// configuration exactly like a model with no available channel: same status
+// code, same error code, same message. A caller must not be able to tell an
+// unpriced model from an unavailable one, and the failure must not disclose
+// pricing state. Models stay usable without a price only in self-use mode.
+func modelUnavailableError(c *gin.Context, info *relaycommon.RelayInfo) *types.NewAPIError {
+	message := i18n.T(c, i18n.MsgDistributorNoAvailableChannel, map[string]any{
+		"Group": info.UsingGroup,
+		"Model": info.OriginModelName,
+	})
+	return types.NewError(
+		errors.New(message),
+		types.ErrorCodeModelNotFound,
+		types.ErrOptionWithStatusCode(http.StatusServiceUnavailable),
+		types.ErrOptionWithSkipRetry(),
 	)
 }
 
@@ -102,16 +119,9 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 		}
 		preConsumedTokens := float64(promptTokens) * preConsumeMultiplier
 		var success bool
-		var matchName string
-		modelRatio, success, matchName = ratio_setting.GetModelRatio(billingModelName)
-		if !success {
-			acceptUnsetRatio := false
-			if info.UserSetting.AcceptUnsetRatioModel {
-				acceptUnsetRatio = true
-			}
-			if !acceptUnsetRatio {
-				return hosttypes.PriceData{}, modelPriceNotConfiguredError(matchName, info.UserId)
-			}
+		modelRatio, success, _ = ratio_setting.GetModelRatio(billingModelName)
+		if !success && !operation_setting.SelfUseModeEnabled {
+			return hosttypes.PriceData{}, modelUnavailableError(c, info)
 		}
 		completionRatio = ratio_setting.GetCompletionRatio(billingModelName)
 		cacheRatio, _ = ratio_setting.GetCacheRatio(billingModelName)
@@ -222,14 +232,9 @@ func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (hostt
 
 	if !success {
 		var ratioSuccess bool
-		var matchName string
-		modelRatio, ratioSuccess, matchName = ratio_setting.GetModelRatio(info.OriginModelName)
-		acceptUnsetRatio := false
-		if info.UserSetting.AcceptUnsetRatioModel {
-			acceptUnsetRatio = true
-		}
-		if !ratioSuccess && !acceptUnsetRatio {
-			return hosttypes.PriceData{}, modelPriceNotConfiguredError(matchName, info.UserId)
+		modelRatio, ratioSuccess, _ = ratio_setting.GetModelRatio(info.OriginModelName)
+		if !ratioSuccess && !operation_setting.SelfUseModeEnabled {
+			return hosttypes.PriceData{}, modelUnavailableError(c, info)
 		}
 	}
 
@@ -273,20 +278,6 @@ func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (hostt
 		GroupRatioInfo: groupRatioInfo,
 	}
 	return priceData, nil
-}
-
-func HasModelBillingConfig(modelName string) bool {
-	if _, ok := ratio_setting.GetModelPrice(modelName, false); ok {
-		return true
-	}
-	if _, ok, _ := ratio_setting.GetModelRatio(modelName); ok {
-		return true
-	}
-	if billing_setting.GetBillingMode(modelName) != billing_setting.BillingModeTieredExpr {
-		return false
-	}
-	expr, ok := billing_setting.GetBillingExpr(modelName)
-	return ok && strings.TrimSpace(expr) != ""
 }
 
 // HasPriceOrRatioEntry reports whether name has a configured price, ratio, or
@@ -335,7 +326,14 @@ func resolveBillingModelName(origin string) string {
 
 func modelPriceHelperTiered(c *gin.Context, info *relaycommon.RelayInfo, billingModelName string, promptTokens int, groupRatioInfo hosttypes.GroupRatioInfo) (hosttypes.PriceData, error) {
 	exprStr, ok := billing_setting.GetBillingExpr(billingModelName)
-	if !ok {
+	if !ok || strings.TrimSpace(exprStr) == "" {
+		// A tiered_expr model without an expression has no billing configuration
+		// and cannot be charged. Outside self-use mode it is reported as
+		// unavailable; self-use mode has no zero to fall back on here, so the
+		// configuration error stays visible.
+		if !operation_setting.SelfUseModeEnabled {
+			return hosttypes.PriceData{}, modelUnavailableError(c, info)
+		}
 		return hosttypes.PriceData{}, fmt.Errorf("model %s is configured as tiered_expr but has no billing expression", billingModelName)
 	}
 	exprHash := billingexpr.ExprHashString(exprStr)

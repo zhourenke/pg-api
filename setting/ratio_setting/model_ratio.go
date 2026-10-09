@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/setting/billing_setting"
 	hostreasoning "github.com/zhourenke/pg-api/setting/reasoning"
 	"github.com/zhourenke/pg-api/types"
 )
@@ -196,6 +197,26 @@ func HasConfiguredModelRatio(name string) bool {
 	name = FormatMatchingModelName(name)
 	_, ok := modelRatioMap.Get(name)
 	return ok
+}
+
+// HasModelBillingConfig reports whether name can be billed at all: it has a
+// configured model price, a configured model ratio, or a tiered-expression
+// billing mode with a non-blank expression. This fork ships no built-in prices,
+// so a model without any of these is unusable until an administrator prices it;
+// every surface that publishes or accepts a model MUST use this one predicate so
+// the model list, the public catalog, and the relay agree on what is usable.
+func HasModelBillingConfig(name string) bool {
+	if _, ok := GetModelPrice(name, false); ok {
+		return true
+	}
+	if _, ok, _ := GetModelRatio(name); ok {
+		return true
+	}
+	if billing_setting.GetBillingMode(name) != billing_setting.BillingModeTieredExpr {
+		return false
+	}
+	expr, ok := billing_setting.GetBillingExpr(name)
+	return ok && strings.TrimSpace(expr) != ""
 }
 
 // 转换模型名，减少渠道必须配置各种带参数模型

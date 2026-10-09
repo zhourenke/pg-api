@@ -8,6 +8,7 @@ import (
 	"github.com/zhourenke/pg-api/constant"
 	"github.com/zhourenke/pg-api/model"
 	"github.com/zhourenke/pg-api/setting"
+	"github.com/zhourenke/pg-api/setting/operation_setting"
 	"github.com/zhourenke/pg-api/setting/ratio_setting"
 )
 
@@ -106,16 +107,23 @@ func GetRequestAutoGroups(c *gin.Context, userGroup string) []string {
 	return FilterUserTokenAutoGroups(userGroup, groups)
 }
 
-// GetGroupsEnabledModels 按 groups 顺序获取各分组启用的模型并去重
+// GetGroupsEnabledModels 按 groups 顺序获取各分组启用的模型并去重。
+// 非自用模式下会剔除未配置计费的模型：它们虽然可以路由，但转发时会被拒绝，
+// 因此不应出现在任何面向用户的模型清单里（站内清单与 /v1/models 共用本函数）。
 func GetGroupsEnabledModels(groups []string) []string {
+	acceptUnpricedModels := operation_setting.SelfUseModeEnabled
 	seen := make(map[string]struct{})
 	models := make([]string, 0)
 	for _, group := range groups {
 		for _, modelName := range model.GetGroupEnabledModels(group) {
-			if _, ok := seen[modelName]; !ok {
-				seen[modelName] = struct{}{}
-				models = append(models, modelName)
+			if _, ok := seen[modelName]; ok {
+				continue
 			}
+			if !acceptUnpricedModels && !ratio_setting.HasModelBillingConfig(modelName) {
+				continue
+			}
+			seen[modelName] = struct{}{}
+			models = append(models, modelName)
 		}
 	}
 	return models

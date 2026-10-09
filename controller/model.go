@@ -17,11 +17,9 @@ import (
 	"github.com/zhourenke/pg-api/relay/channel/minimax"
 	"github.com/zhourenke/pg-api/relay/channel/moonshot"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
-	"github.com/zhourenke/pg-api/relay/helper"
 	"github.com/zhourenke/pg-api/relaykit/dto"
 	"github.com/zhourenke/pg-api/relaykit/types"
 	"github.com/zhourenke/pg-api/service"
-	"github.com/zhourenke/pg-api/setting/operation_setting"
 	"github.com/zhourenke/pg-api/setting/ratio_setting"
 )
 
@@ -199,17 +197,6 @@ func getModelListGroups(c *gin.Context) (modelListGroups, error) {
 }
 
 func ListModels(c *gin.Context, modelType int) {
-	acceptUnsetRatioModel := operation_setting.SelfUseModeEnabled
-	if !acceptUnsetRatioModel {
-		userId := c.GetInt("id")
-		if userId > 0 {
-			userSettings, _ := model.GetUserSetting(userId, false)
-			if userSettings.AcceptUnsetRatioModel {
-				acceptUnsetRatioModel = true
-			}
-		}
-	}
-
 	userModelNames := make([]string, 0)
 	groups, err := getModelListGroups(c)
 	if err != nil {
@@ -238,9 +225,6 @@ func ListModels(c *gin.Context, modelType int) {
 			if !tokenModelLimit[modelName] && !tokenModelLimit[matchingName] {
 				continue
 			}
-		}
-		if !acceptUnsetRatioModel && !helper.HasModelBillingConfig(modelName) {
-			continue
 		}
 		userModelNames = append(userModelNames, modelName)
 	}

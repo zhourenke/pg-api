@@ -87,7 +87,7 @@ func ResponsesHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *
 		if err != nil {
 			info.OriginModelName = originModelName
 			info.PriceData = originPriceData
-			return types.NewError(err, types.ErrorCodeModelPriceError, types.ErrOptionWithSkipRetry(), types.ErrOptionWithStatusCode(http.StatusBadRequest))
+			return helper.PriceError(err)
 		}
 		service.PostTextConsumeQuota(c, info, usageDto, nil)
 
