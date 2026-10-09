@@ -92,7 +92,6 @@ export function SystemTaskHistory(props: { activeRefreshAt: number }) {
     pagination,
     onPaginationChange: setPagination,
     columnVisibilityStorageKey: false,
-    columnSizingStorageKey: false,
     ensurePageInRange: (pageCount) => {
       if (
         historyQuery.isSuccess &&
