@@ -3,8 +3,8 @@ package ratio_setting
 import (
 	"testing"
 
-	"github.com/zhourenke/pg-api/setting/model_setting"
 	"github.com/stretchr/testify/assert"
+	"github.com/zhourenke/pg-api/setting/model_setting"
 )
 
 func TestFormatMatchingModelNameDoesNotStripBase(t *testing.T) {

@@ -3,9 +3,9 @@ package dto
 import (
 	"testing"
 
-	kitutil "github.com/zhourenke/pg-api/relaykit/relayconvert/kitutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	kitutil "github.com/zhourenke/pg-api/relaykit/relayconvert/kitutil"
 )
 
 func TestNewGeminiChatBillingUsageRequiresTokenContent(t *testing.T) {

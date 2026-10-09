@@ -8,14 +8,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zhourenke/pg-api/common"
-	"github.com/zhourenke/pg-api/model"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/model"
 	"gorm.io/gorm"
 )
 

@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/gin-gonic/gin"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/logger"
-	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 

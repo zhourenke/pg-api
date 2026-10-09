@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/gin-gonic/gin"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/constant"
 	"github.com/zhourenke/pg-api/dto"
@@ -12,7 +13,6 @@ import (
 	"github.com/zhourenke/pg-api/logger"
 	"github.com/zhourenke/pg-api/model"
 	"github.com/zhourenke/pg-api/relaykit/types"
-	"github.com/gin-gonic/gin"
 )
 
 func GetChannelConstraints(c *gin.Context) *dto.ChannelConstraints {

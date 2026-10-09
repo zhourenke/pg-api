@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/zhourenke/pg-api/common"
 	"github.com/gin-gonic/gin"
+	"github.com/zhourenke/pg-api/common"
 )
 
 type headerNavAccess struct {

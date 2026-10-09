@@ -3,10 +3,10 @@ package authz
 import (
 	"fmt"
 
-	"github.com/zhourenke/pg-api/common"
-	"github.com/zhourenke/pg-api/model"
 	casbinmodel "github.com/casbin/casbin/v2/model"
 	"github.com/casbin/casbin/v2/persist"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/model"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )

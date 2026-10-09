@@ -3,8 +3,8 @@ package service
 import (
 	"testing"
 
-	"github.com/zhourenke/pg-api/setting/system_setting"
 	"github.com/stretchr/testify/assert"
+	"github.com/zhourenke/pg-api/setting/system_setting"
 )
 
 func TestPaymentReturnURLUsesSuppliedDefaultDashboardPath(t *testing.T) {

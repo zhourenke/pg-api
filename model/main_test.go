@@ -4,8 +4,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/zhourenke/pg-api/common"
 	"github.com/glebarez/sqlite"
+	"github.com/zhourenke/pg-api/common"
 	"gorm.io/gorm"
 )
 

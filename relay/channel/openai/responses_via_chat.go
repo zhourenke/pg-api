@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/gin-gonic/gin"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/logger"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
@@ -13,7 +14,6 @@ import (
 	"github.com/zhourenke/pg-api/relaykit/relayconvert"
 	"github.com/zhourenke/pg-api/relaykit/types"
 	"github.com/zhourenke/pg-api/service"
-	"github.com/gin-gonic/gin"
 )
 
 func OaiChatToResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {

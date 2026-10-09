@@ -3,9 +3,9 @@ package controller
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"github.com/zhourenke/pg-api/setting"
 	"github.com/zhourenke/pg-api/setting/operation_setting"
-	"github.com/stretchr/testify/require"
 )
 
 func confirmPaymentComplianceForTest(t *testing.T) {

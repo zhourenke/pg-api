@@ -5,8 +5,8 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/zhourenke/pg-api/common"
 	"github.com/gin-gonic/gin"
+	"github.com/zhourenke/pg-api/common"
 )
 
 func AnonymousRequestBodyLimit() gin.HandlerFunc {

@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/zhourenke/pg-api/common"
 	"github.com/gin-gonic/gin"
+	"github.com/zhourenke/pg-api/common"
 )
 
 type turnstileCheckResponse struct {

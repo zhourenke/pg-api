@@ -3,8 +3,8 @@ package oauth
 import (
 	"context"
 
-	"github.com/zhourenke/pg-api/model"
 	"github.com/gin-gonic/gin"
+	"github.com/zhourenke/pg-api/model"
 )
 
 // Provider defines the interface for OAuth providers

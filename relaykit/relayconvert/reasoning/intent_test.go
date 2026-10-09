@@ -3,10 +3,10 @@ package reasoning
 import (
 	"testing"
 
-	"github.com/zhourenke/pg-api/relaykit/dto"
-	"github.com/zhourenke/pg-api/relaykit/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zhourenke/pg-api/relaykit/dto"
+	"github.com/zhourenke/pg-api/relaykit/types"
 )
 
 func TestMergeExplicitAndSuffix(t *testing.T) {

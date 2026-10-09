@@ -23,6 +23,7 @@ import (
 	"github.com/zhourenke/pg-api/relaykit/dto"
 
 	//"github.com/zhourenke/pg-api/relay/channel/minimax"
+	"github.com/samber/lo"
 	"github.com/zhourenke/pg-api/relay/channel/xinference"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	"github.com/zhourenke/pg-api/relay/common_handler"
@@ -32,7 +33,6 @@ import (
 	"github.com/zhourenke/pg-api/service"
 	"github.com/zhourenke/pg-api/setting/model_setting"
 	"github.com/zhourenke/pg-api/setting/reasoning"
-	"github.com/samber/lo"
 
 	"github.com/gin-gonic/gin"
 )

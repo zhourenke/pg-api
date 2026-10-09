@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
+	pancake "github.com/waffo-com/waffo-pancake-sdk-go"
 	"github.com/zhourenke/pg-api/model"
 	"github.com/zhourenke/pg-api/setting"
-	pancake "github.com/waffo-com/waffo-pancake-sdk-go"
 )
 
 // WaffoPancakePriceSnapshot is the per-session price override sent with checkout.

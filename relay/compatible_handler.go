@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/samber/lo"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/constant"
 	"github.com/zhourenke/pg-api/logger"
@@ -17,7 +18,6 @@ import (
 	"github.com/zhourenke/pg-api/service"
 	"github.com/zhourenke/pg-api/setting/model_setting"
 	"github.com/zhourenke/pg-api/setting/ratio_setting"
-	"github.com/samber/lo"
 
 	"github.com/gin-gonic/gin"
 )

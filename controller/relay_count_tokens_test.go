@@ -6,11 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zhourenke/pg-api/common"
-	"github.com/zhourenke/pg-api/constant"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/constant"
 )
 
 func TestCountClaudeTokensReturnsInputTokensWhenRelayCountingDisabled(t *testing.T) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/gin-gonic/gin"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	"github.com/zhourenke/pg-api/relaykit/dto"
 	"github.com/zhourenke/pg-api/relaykit/relayconvert/convmeta"
@@ -11,7 +12,6 @@ import (
 	"github.com/zhourenke/pg-api/relaykit/types"
 	"github.com/zhourenke/pg-api/setting/model_setting"
 	hostreasoning "github.com/zhourenke/pg-api/setting/reasoning"
-	"github.com/gin-gonic/gin"
 )
 
 // ApplyReasoningModelSuffix parses host-private reasoning suffixes from the

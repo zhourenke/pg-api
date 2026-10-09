@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/gin-gonic/gin"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/logger"
 	relaychannel "github.com/zhourenke/pg-api/relay/channel"
@@ -14,7 +15,6 @@ import (
 	"github.com/zhourenke/pg-api/relaykit/dto"
 	"github.com/zhourenke/pg-api/relaykit/types"
 	"github.com/zhourenke/pg-api/setting/model_setting"
-	"github.com/gin-gonic/gin"
 )
 
 // PrepareResponsesRequest applies the same model, conversion and channel rules

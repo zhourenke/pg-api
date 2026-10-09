@@ -5,10 +5,10 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/zhourenke/pg-api/constant"
 	"github.com/andybalholm/brotli"
 	"github.com/gin-gonic/gin"
 	"github.com/klauspost/compress/zstd"
+	"github.com/zhourenke/pg-api/constant"
 )
 
 type readCloser struct {

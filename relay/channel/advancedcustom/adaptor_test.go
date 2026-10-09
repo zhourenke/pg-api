@@ -8,6 +8,9 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/constant"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
@@ -16,9 +19,6 @@ import (
 	"github.com/zhourenke/pg-api/relaykit/relayconvert"
 	"github.com/zhourenke/pg-api/relaykit/types"
 	"github.com/zhourenke/pg-api/setting/model_setting"
-	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestAdaptorUsesExactRouteAndQueryAuth(t *testing.T) {

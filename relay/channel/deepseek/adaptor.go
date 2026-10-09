@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/gin-gonic/gin"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/relay/channel"
 	"github.com/zhourenke/pg-api/relay/channel/claude"
@@ -17,7 +18,6 @@ import (
 	"github.com/zhourenke/pg-api/relaykit/types"
 	"github.com/zhourenke/pg-api/setting/model_setting"
 	"github.com/zhourenke/pg-api/setting/reasoning"
-	"github.com/gin-gonic/gin"
 )
 
 type Adaptor struct {

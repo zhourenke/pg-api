@@ -4,9 +4,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/zhourenke/pg-api/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zhourenke/pg-api/common"
 	"gorm.io/gorm"
 )
 

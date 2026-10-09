@@ -3,8 +3,8 @@ package model
 import (
 	"testing"
 
-	"github.com/zhourenke/pg-api/common"
 	"github.com/stretchr/testify/require"
+	"github.com/zhourenke/pg-api/common"
 )
 
 func seedFlowQuotaData(t *testing.T, quotaData QuotaData) {

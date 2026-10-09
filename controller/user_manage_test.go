@@ -12,13 +12,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alicebob/miniredis/v2"
+	"github.com/go-redis/redis/v8"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/i18n"
 	"github.com/zhourenke/pg-api/middleware"
 	"github.com/zhourenke/pg-api/model"
 	"github.com/zhourenke/pg-api/service/authz"
-	"github.com/alicebob/miniredis/v2"
-	"github.com/go-redis/redis/v8"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"

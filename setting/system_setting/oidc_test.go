@@ -3,9 +3,9 @@ package system_setting
 import (
 	"testing"
 
-	"github.com/zhourenke/pg-api/setting/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zhourenke/pg-api/setting/config"
 )
 
 func TestOIDCSettings_GetEffectiveDisplayName(t *testing.T) {

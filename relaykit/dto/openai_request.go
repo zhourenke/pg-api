@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/samber/lo"
 	kitutil "github.com/zhourenke/pg-api/relaykit/relayconvert/kitutil"
 	"github.com/zhourenke/pg-api/relaykit/types"
-	"github.com/samber/lo"
 )
 
 type ResponseFormat struct {

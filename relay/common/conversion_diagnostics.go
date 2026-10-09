@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/gin-gonic/gin"
 	"github.com/zhourenke/pg-api/logger"
 	"github.com/zhourenke/pg-api/relaykit/types"
-	"github.com/gin-gonic/gin"
 )
 
 const maxConversionDiagnostics = 32

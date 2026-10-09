@@ -3,9 +3,9 @@ package relayconvert
 import (
 	"testing"
 
-	"github.com/zhourenke/pg-api/relaykit/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zhourenke/pg-api/relaykit/types"
 )
 
 func TestLookupBuiltinTextConverters(t *testing.T) {

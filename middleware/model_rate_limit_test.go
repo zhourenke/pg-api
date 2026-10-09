@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zhourenke/pg-api/common"
-	"github.com/zhourenke/pg-api/constant"
-	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/constant"
+	relaycommon "github.com/zhourenke/pg-api/relay/common"
 )
 
 func TestModelRedisRateLimitUsesUTCRegardlessOfLocalTimezone(t *testing.T) {

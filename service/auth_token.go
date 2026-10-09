@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zhourenke/pg-api/common"
-	"github.com/zhourenke/pg-api/model"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/model"
 )
 
 const (

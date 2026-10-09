@@ -6,13 +6,13 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/samber/lo"
 	"github.com/zhourenke/pg-api/relay/channel"
 	"github.com/zhourenke/pg-api/relay/channel/openai"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	relayconstant "github.com/zhourenke/pg-api/relay/constant"
 	"github.com/zhourenke/pg-api/relaykit/dto"
 	"github.com/zhourenke/pg-api/relaykit/types"
-	"github.com/samber/lo"
 
 	"github.com/gin-gonic/gin"
 )

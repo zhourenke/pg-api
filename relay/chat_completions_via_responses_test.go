@@ -7,6 +7,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/constant"
 	openaichannel "github.com/zhourenke/pg-api/relay/channel/openai"
@@ -15,9 +18,6 @@ import (
 	"github.com/zhourenke/pg-api/relaykit/dto"
 	"github.com/zhourenke/pg-api/relaykit/relayconvert"
 	relaytypes "github.com/zhourenke/pg-api/relaykit/types"
-	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestPrepareResponsesRequestRetainsConvertedAdaptor(t *testing.T) {

@@ -14,14 +14,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
+	"github.com/samber/lo"
+	"github.com/tidwall/gjson"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/i18n"
 	"github.com/zhourenke/pg-api/logger"
 	"github.com/zhourenke/pg-api/model"
 	"github.com/zhourenke/pg-api/setting/system_setting"
-	"github.com/gin-gonic/gin"
-	"github.com/samber/lo"
-	"github.com/tidwall/gjson"
 )
 
 // AuthStyle defines how to send client credentials

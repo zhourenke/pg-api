@@ -3,8 +3,8 @@ package controller
 import (
 	"net/http"
 
-	"github.com/zhourenke/pg-api/common"
 	"github.com/gin-gonic/gin"
+	"github.com/zhourenke/pg-api/common"
 )
 
 // etagVersionPublicContent namespaces the public-content ETag; bump it when

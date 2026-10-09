@@ -8,6 +8,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/constant"
 	"github.com/zhourenke/pg-api/pkg/billingexpr"
@@ -20,10 +24,6 @@ import (
 	"github.com/zhourenke/pg-api/service"
 	"github.com/zhourenke/pg-api/setting/model_setting"
 	hosttypes "github.com/zhourenke/pg-api/types"
-	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"github.com/tidwall/gjson"
 )
 
 type imageReservation struct {

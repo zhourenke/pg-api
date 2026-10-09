@@ -3,11 +3,11 @@ package controller
 import (
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/constant"
 	"github.com/zhourenke/pg-api/model"
 	"github.com/zhourenke/pg-api/setting/operation_setting"
-	"github.com/gin-gonic/gin"
 )
 
 type Setup struct {

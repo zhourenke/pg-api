@@ -1,10 +1,10 @@
 package service
 
 import (
+	"github.com/gin-gonic/gin"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	"github.com/zhourenke/pg-api/relaykit/relayconvert"
 	"github.com/zhourenke/pg-api/relaykit/types"
-	"github.com/gin-gonic/gin"
 )
 
 func ConvertResponse(c *gin.Context, info *relaycommon.RelayInfo, target types.RelayFormat, response any) (*relayconvert.ResponseResult, error) {

@@ -6,11 +6,11 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/gin-gonic/gin"
 	"github.com/zhourenke/pg-api/logger"
 	"github.com/zhourenke/pg-api/middleware"
 	"github.com/zhourenke/pg-api/model"
 	"github.com/zhourenke/pg-api/service"
-	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 

@@ -119,5 +119,3 @@ func GetAdaptor(apiType int) channel.Adaptor {
 	}
 	return nil
 }
-
-

@@ -9,6 +9,9 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/model"
 	"github.com/zhourenke/pg-api/pkg/billingexpr"
@@ -18,13 +21,7 @@ import (
 	"github.com/zhourenke/pg-api/service"
 	"github.com/zhourenke/pg-api/setting/config"
 	"github.com/zhourenke/pg-api/setting/operation_setting"
-	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
-
-
-
 
 func TestPreConsumePolicyDatabaseMatrix(t *testing.T) {
 	previousConfig := config.GlobalConfig.ExportAllConfigs()

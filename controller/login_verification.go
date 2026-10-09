@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/gin-gonic/gin"
+	"github.com/go-webauthn/webauthn/protocol"
+	webauthnlib "github.com/go-webauthn/webauthn/webauthn"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/model"
 	"github.com/zhourenke/pg-api/service"
 	passkeysvc "github.com/zhourenke/pg-api/service/passkey"
-	"github.com/gin-gonic/gin"
-	"github.com/go-webauthn/webauthn/protocol"
-	webauthnlib "github.com/go-webauthn/webauthn/webauthn"
 )
 
 func VerifyLogin(c *gin.Context) {

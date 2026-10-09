@@ -18,12 +18,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zhourenke/pg-api/dto"
-	"github.com/zhourenke/pg-api/relaykit/types"
-	"github.com/zhourenke/pg-api/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zhourenke/pg-api/dto"
+	"github.com/zhourenke/pg-api/relaykit/types"
+	"github.com/zhourenke/pg-api/service"
 )
 
 func TestShouldRetryHonorsPinRetryMode(t *testing.T) {

@@ -6,11 +6,11 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/zhourenke/pg-api/controller"
-	"github.com/zhourenke/pg-api/service/authz"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zhourenke/pg-api/controller"
+	"github.com/zhourenke/pg-api/service/authz"
 )
 
 func TestChannelDefaultBaseURLsRequireReadPermission(t *testing.T) {

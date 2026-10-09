@@ -6,11 +6,11 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/samber/lo"
 	"github.com/zhourenke/pg-api/relay/channel"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	"github.com/zhourenke/pg-api/relaykit/dto"
 	"github.com/zhourenke/pg-api/relaykit/types"
-	"github.com/samber/lo"
 
 	"github.com/gin-gonic/gin"
 )

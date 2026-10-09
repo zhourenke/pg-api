@@ -11,10 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zhourenke/pg-api/common"
-	relaycommon "github.com/zhourenke/pg-api/relay/common"
-	"github.com/zhourenke/pg-api/relaykit/dto"
-	relaytypes "github.com/zhourenke/pg-api/relaykit/types"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream"
 	"github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream/eventstreamapi"
@@ -23,6 +19,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zhourenke/pg-api/common"
+	relaycommon "github.com/zhourenke/pg-api/relay/common"
+	"github.com/zhourenke/pg-api/relaykit/dto"
+	relaytypes "github.com/zhourenke/pg-api/relaykit/types"
 )
 
 const awsTestModel = "anthropic.claude-3-5-sonnet-20240620-v1:0"

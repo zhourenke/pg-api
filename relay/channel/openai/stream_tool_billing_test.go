@@ -3,9 +3,9 @@ package openai
 import (
 	"testing"
 
-	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	relaycommon "github.com/zhourenke/pg-api/relay/common"
 )
 
 func TestObserveStreamChoicesDedupesFunctionCallNames(t *testing.T) {

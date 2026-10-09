@@ -3,8 +3,8 @@ package billingexpr_test
 import (
 	"testing"
 
-	"github.com/zhourenke/pg-api/pkg/billingexpr"
 	"github.com/stretchr/testify/assert"
+	"github.com/zhourenke/pg-api/pkg/billingexpr"
 )
 
 func TestUsedUsageKeysExtractsLiteralCallsAndSkipsDynamicArguments(t *testing.T) {

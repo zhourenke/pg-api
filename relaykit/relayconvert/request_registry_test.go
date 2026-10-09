@@ -3,13 +3,13 @@ package relayconvert
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/zhourenke/pg-api/relaykit/dto"
 	"github.com/zhourenke/pg-api/relaykit/relayconvert/convmeta"
 	sharedgemini "github.com/zhourenke/pg-api/relaykit/relayconvert/internal/shared/gemini"
 	kitutil "github.com/zhourenke/pg-api/relaykit/relayconvert/kitutil"
 	"github.com/zhourenke/pg-api/relaykit/types"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestRequestConverterRegistryListsSupportedTextConverters(t *testing.T) {

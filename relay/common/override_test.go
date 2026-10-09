@@ -9,11 +9,11 @@ import (
 	common2 "github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/relaykit/types"
 
-	"github.com/zhourenke/pg-api/relaykit/dto"
-	"github.com/zhourenke/pg-api/setting/model_setting"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zhourenke/pg-api/relaykit/dto"
+	"github.com/zhourenke/pg-api/setting/model_setting"
 )
 
 func TestApplyParamOverrideTrimPrefix(t *testing.T) {

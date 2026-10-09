@@ -6,8 +6,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/zhourenke/pg-api/common"
 	"github.com/gin-gonic/gin"
+	"github.com/zhourenke/pg-api/common"
 )
 
 // SessionCookieOriginGuard protects cookie-authenticated refresh/logout

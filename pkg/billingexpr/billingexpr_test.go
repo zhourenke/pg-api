@@ -5,10 +5,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/zhourenke/pg-api/common"
-	"github.com/zhourenke/pg-api/pkg/billingexpr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/pkg/billingexpr"
 )
 
 func TestFixedPriceBranches(t *testing.T) {

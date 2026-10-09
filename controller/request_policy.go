@@ -3,8 +3,8 @@ package controller
 import (
 	"net/http"
 
-	"github.com/zhourenke/pg-api/model"
 	"github.com/gin-gonic/gin"
+	"github.com/zhourenke/pg-api/model"
 )
 
 func GetRequestPolicy(c *gin.Context) {

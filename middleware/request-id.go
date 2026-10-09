@@ -3,8 +3,8 @@ package middleware
 import (
 	"context"
 
-	"github.com/zhourenke/pg-api/common"
 	"github.com/gin-gonic/gin"
+	"github.com/zhourenke/pg-api/common"
 )
 
 func RequestId() func(c *gin.Context) {

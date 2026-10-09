@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/zhourenke/pg-api/common"
 	"github.com/casbin/casbin/v2"
 	casbinmodel "github.com/casbin/casbin/v2/model"
+	"github.com/zhourenke/pg-api/common"
 	"gorm.io/gorm"
 )
 

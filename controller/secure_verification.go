@@ -6,6 +6,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/gin-gonic/gin"
+	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/i18n"
 	"github.com/zhourenke/pg-api/logger"
@@ -15,8 +17,6 @@ import (
 	"github.com/zhourenke/pg-api/service"
 	passkeysvc "github.com/zhourenke/pg-api/service/passkey"
 	"github.com/zhourenke/pg-api/setting/system_setting"
-	"github.com/gin-gonic/gin"
-	"github.com/go-webauthn/webauthn/protocol"
 )
 
 func GetVerificationMethods(c *gin.Context) {

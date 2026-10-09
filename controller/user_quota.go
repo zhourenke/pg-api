@@ -4,10 +4,10 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/gin-gonic/gin"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/i18n"
 	"github.com/zhourenke/pg-api/model"
-	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 

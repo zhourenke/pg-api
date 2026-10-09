@@ -4,9 +4,9 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/gin-gonic/gin"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/model"
-	"github.com/gin-gonic/gin"
 )
 
 func GetModelPricingConfig(c *gin.Context) {

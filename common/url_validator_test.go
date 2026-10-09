@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zhourenke/pg-api/constant"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zhourenke/pg-api/constant"
 )
 
 func TestValidateRedirectURL(t *testing.T) {

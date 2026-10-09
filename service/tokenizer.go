@@ -3,9 +3,9 @@ package service
 import (
 	"sync"
 
-	"github.com/zhourenke/pg-api/common"
 	"github.com/tiktoken-go/tokenizer"
 	"github.com/tiktoken-go/tokenizer/codec"
+	"github.com/zhourenke/pg-api/common"
 )
 
 // tokenEncoderMap won't grow after initialization

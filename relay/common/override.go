@@ -11,12 +11,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/zhourenke/pg-api/common"
-	kitreasoning "github.com/zhourenke/pg-api/relaykit/relayconvert/reasoning"
-	"github.com/zhourenke/pg-api/relaykit/types"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
+	"github.com/zhourenke/pg-api/common"
+	kitreasoning "github.com/zhourenke/pg-api/relaykit/relayconvert/reasoning"
+	"github.com/zhourenke/pg-api/relaykit/types"
 )
 
 var negativeIndexRegexp = regexp.MustCompile(`\.(-\d+)`)

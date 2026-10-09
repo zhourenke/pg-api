@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/samber/lo"
 	channelconstant "github.com/zhourenke/pg-api/constant"
 	"github.com/zhourenke/pg-api/relay/channel"
 	"github.com/zhourenke/pg-api/relay/channel/claude"
@@ -14,7 +15,6 @@ import (
 	relayconstant "github.com/zhourenke/pg-api/relay/constant"
 	"github.com/zhourenke/pg-api/relaykit/dto"
 	"github.com/zhourenke/pg-api/relaykit/types"
-	"github.com/samber/lo"
 
 	"github.com/gin-gonic/gin"
 )

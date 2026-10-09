@@ -6,12 +6,12 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 	"github.com/zhourenke/pg-api/relaykit/dto"
 	"github.com/zhourenke/pg-api/relaykit/reasonmap"
 	sharedclaude "github.com/zhourenke/pg-api/relaykit/relayconvert/internal/shared/claude"
 	kitutil "github.com/zhourenke/pg-api/relaykit/relayconvert/kitutil"
-	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
 )
 
 type ClaudeResponseInfo struct {

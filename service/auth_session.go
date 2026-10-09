@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zhourenke/pg-api/common"
-	"github.com/zhourenke/pg-api/model"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/model"
 )
 
 const RefreshCookieName = "new_api_refresh"

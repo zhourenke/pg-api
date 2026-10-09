@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"io"
 
-	kitutil "github.com/zhourenke/pg-api/relaykit/relayconvert/kitutil"
 	"github.com/gin-gonic/gin/binding"
+	kitutil "github.com/zhourenke/pg-api/relaykit/relayconvert/kitutil"
 )
 
 type RawMessage = json.RawMessage

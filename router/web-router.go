@@ -5,12 +5,12 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/zhourenke/pg-api/common"
-	"github.com/zhourenke/pg-api/controller"
-	"github.com/zhourenke/pg-api/middleware"
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
+	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/controller"
+	"github.com/zhourenke/pg-api/middleware"
 )
 
 // WebAssets holds the embedded dashboard frontend assets.

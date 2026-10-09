@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/gin-gonic/gin"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/logger"
-	"github.com/gin-gonic/gin"
 )
 
 const redisRateLimitNamespace = "rateLimit:v2"

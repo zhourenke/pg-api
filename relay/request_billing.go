@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/gin-gonic/gin"
+	"github.com/samber/lo"
 	"github.com/zhourenke/pg-api/constant"
 	"github.com/zhourenke/pg-api/logger"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
@@ -14,8 +16,6 @@ import (
 	"github.com/zhourenke/pg-api/relaykit/types"
 	"github.com/zhourenke/pg-api/service"
 	"github.com/zhourenke/pg-api/setting"
-	"github.com/gin-gonic/gin"
-	"github.com/samber/lo"
 )
 
 // PrepareRequestBilling estimates and reserves one request's charge. Transports

@@ -3,9 +3,9 @@ package reasoning
 import (
 	"testing"
 
-	"github.com/zhourenke/pg-api/relaykit/dto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zhourenke/pg-api/relaykit/dto"
 )
 
 func TestRenderGeminiMapsAndClampsInsteadOfRejecting(t *testing.T) {

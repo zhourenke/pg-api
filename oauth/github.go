@@ -10,11 +10,11 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/i18n"
 	"github.com/zhourenke/pg-api/logger"
 	"github.com/zhourenke/pg-api/model"
-	"github.com/gin-gonic/gin"
 )
 
 func init() {

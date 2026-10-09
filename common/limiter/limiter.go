@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/zhourenke/pg-api/common"
 	"github.com/go-redis/redis/v8"
+	"github.com/zhourenke/pg-api/common"
 )
 
 //go:embed lua/rate_limit.lua

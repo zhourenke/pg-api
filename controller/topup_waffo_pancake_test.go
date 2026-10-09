@@ -4,10 +4,10 @@ import (
 	"maps"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/setting"
 	"github.com/zhourenke/pg-api/setting/operation_setting"
-	"github.com/stretchr/testify/require"
 )
 
 func TestFormatWaffoPancakeAmount_UsesDisplayPriceString(t *testing.T) {

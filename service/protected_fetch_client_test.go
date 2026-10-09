@@ -9,9 +9,9 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/setting/system_setting"
-	"github.com/stretchr/testify/require"
 )
 
 type staticSSRFResolver map[string][]net.IPAddr

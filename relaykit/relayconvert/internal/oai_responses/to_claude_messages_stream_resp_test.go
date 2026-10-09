@@ -4,10 +4,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zhourenke/pg-api/relaykit/dto"
-	kitutil "github.com/zhourenke/pg-api/relaykit/relayconvert/kitutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zhourenke/pg-api/relaykit/dto"
+	kitutil "github.com/zhourenke/pg-api/relaykit/relayconvert/kitutil"
 )
 
 func TestResponsesToClaudeStreamDoesNotRepeatBlocksFromDoneAndCompletedEvents(t *testing.T) {

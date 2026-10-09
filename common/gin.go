@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zhourenke/pg-api/constant"
 	"github.com/pkg/errors"
+	"github.com/zhourenke/pg-api/constant"
 
 	"github.com/gin-gonic/gin"
 )

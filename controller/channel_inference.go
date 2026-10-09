@@ -12,12 +12,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gin-gonic/gin"
+	"github.com/prometheus/common/expfmt"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/constant"
 	"github.com/zhourenke/pg-api/model"
 	"github.com/zhourenke/pg-api/service"
-	"github.com/gin-gonic/gin"
-	"github.com/prometheus/common/expfmt"
 )
 
 type inferenceEndpointStatus struct {

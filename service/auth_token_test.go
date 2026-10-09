@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zhourenke/pg-api/common"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zhourenke/pg-api/common"
 )
 
 func useTestSessionSecret(t *testing.T) {

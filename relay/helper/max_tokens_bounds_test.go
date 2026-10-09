@@ -6,9 +6,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	relayconstant "github.com/zhourenke/pg-api/relay/constant"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
+	relayconstant "github.com/zhourenke/pg-api/relay/constant"
 )
 
 // TestMaxTokensBounds guards the billing invariant that user-supplied max

@@ -8,7 +8,7 @@ DEV_POSTGRES_DB = new-api
 DEV_POSTGRES_USER = root
 DEV_SQLITE_PATH ?= one-api.db
 
-.PHONY: all build-web build-all-web start-api dev dev-api dev-api-rebuild dev-web reset-setup test
+.PHONY: all build-web build-all-web start-api dev dev-api dev-api-rebuild dev-web reset-setup test fmt-check
 
 all: build-all-web start-api
 
@@ -38,6 +38,16 @@ dev-web:
 	@cd $(WEB_DIR) && bun run dev -- --host 0.0.0.0 --port $(DEV_WEB_PORT)
 
 dev: dev-api dev-web
+
+# The tree is gofmt-canonical and stays that way: the fork's own module path sits in the
+# same import group as third-party ones, so unrelated edits used to leave files unformatted.
+fmt-check:
+	@echo "Checking gofmt..."
+	@unformatted=$$(gofmt -l .); \
+		if [ -n "$$unformatted" ]; then \
+			echo "These files are not gofmt-clean:"; echo "$$unformatted"; exit 1; \
+		fi
+	@echo "gofmt clean."
 
 # The main package embeds the ignored web/dist output and is covered after build-web.
 test:

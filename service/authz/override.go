@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/casbin/casbin/v2"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/model"
-	"github.com/casbin/casbin/v2"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )

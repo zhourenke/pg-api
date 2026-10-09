@@ -3,11 +3,11 @@ package controller
 import (
 	"net/http"
 
+	"github.com/gin-gonic/gin"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/middleware"
 	"github.com/zhourenke/pg-api/model"
 	"github.com/zhourenke/pg-api/service"
-	"github.com/gin-gonic/gin"
 )
 
 type emailBindRequest struct {

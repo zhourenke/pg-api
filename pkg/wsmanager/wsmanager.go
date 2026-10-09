@@ -8,8 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/zhourenke/pg-api/common"
 	"github.com/go-redis/redis/v8"
+	"github.com/zhourenke/pg-api/common"
 )
 
 const (

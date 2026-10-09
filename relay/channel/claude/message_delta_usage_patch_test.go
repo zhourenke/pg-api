@@ -3,12 +3,12 @@ package claude
 import (
 	"testing"
 
-	relaycommon "github.com/zhourenke/pg-api/relay/common"
-	"github.com/zhourenke/pg-api/relaykit/dto"
-	"github.com/zhourenke/pg-api/setting/model_setting"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
+	relaycommon "github.com/zhourenke/pg-api/relay/common"
+	"github.com/zhourenke/pg-api/relaykit/dto"
+	"github.com/zhourenke/pg-api/setting/model_setting"
 )
 
 func TestPatchClaudeMessageDeltaUsageDataPreserveUnknownFields(t *testing.T) {

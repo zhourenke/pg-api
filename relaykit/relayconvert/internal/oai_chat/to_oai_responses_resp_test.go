@@ -3,10 +3,10 @@ package oaichat
 import (
 	"testing"
 
-	"github.com/zhourenke/pg-api/relaykit/dto"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zhourenke/pg-api/relaykit/dto"
 )
 
 func TestChatCompletionsResponseToResponsesPreservesTextToolCallsAndUsage(t *testing.T) {

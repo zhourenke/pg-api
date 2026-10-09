@@ -5,10 +5,10 @@ import (
 	"math"
 	"strings"
 
+	"github.com/shopspring/decimal"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/setting/billing_setting"
 	"github.com/zhourenke/pg-api/setting/operation_setting"
-	"github.com/shopspring/decimal"
 )
 
 // ModelPricingDescription is shared by previews, conversions and snapshot
