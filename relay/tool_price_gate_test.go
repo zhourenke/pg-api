@@ -54,6 +54,11 @@ func TestToolPriceGateFollowsTheConvertedRequest(t *testing.T) {
 		Contents: []dto.GeminiChatContent{{Role: "user", Parts: []dto.GeminiPart{{Text: "search"}}}},
 		Tools:    json.RawMessage(`[{"googleSearch":{}}]`),
 	}
+	chatWebSearch := &dto.GeneralOpenAIRequest{
+		Model:            "tool-gate-model",
+		Messages:         []dto.Message{{Role: "user", Content: "search"}},
+		WebSearchOptions: &dto.WebSearchOptions{},
+	}
 
 	tests := []struct {
 		name string
@@ -142,6 +147,30 @@ func TestToolPriceGateFollowsTheConvertedRequest(t *testing.T) {
 			prices:          `{}`,
 			wantNames:       []string{"web_search"},
 			wantRefusedTool: "web_search",
+		},
+		{
+			// Chat Completions reports no per-call detail, so the declaration is
+			// charged as one fixed call under the name the operator UI documents.
+			name: "a chat web search served by chat completions is priced as web_search_preview",
+			newInfo: func(c *gin.Context) *relaycommon.RelayInfo {
+				return relaycommon.GenRelayInfoOpenAI(c, chatWebSearch)
+			},
+			request:         chatWebSearch,
+			target:          types.RelayFormatOpenAI,
+			prices:          `{}`,
+			wantNames:       []string{"web_search_preview"},
+			wantRefusedTool: "web_search_preview",
+		},
+		{
+			name: "a claude web search converted to chat completions is priced as web_search_preview",
+			newInfo: func(c *gin.Context) *relaycommon.RelayInfo {
+				return relaycommon.GenRelayInfoClaude(c, claudeWebSearch)
+			},
+			request:         claudeWebSearch,
+			target:          types.RelayFormatOpenAI,
+			prices:          `{}`,
+			wantNames:       []string{"web_search_preview"},
+			wantRefusedTool: "web_search_preview",
 		},
 	}
 

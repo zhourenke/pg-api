@@ -52,6 +52,16 @@ type BuildInToolInfo struct {
 
 type ResponsesUsageInfo struct {
 	BuiltInTools map[string]*BuildInToolInfo
+	// DeclaredTools is the request's own tool declarations, snapshotted when the
+	// relay info is built. BuiltInTools starts as a copy of them but is written
+	// to while the response is counted (a counted call item adds or increments an
+	// entry), so reading declarations back out of it after the response would
+	// also read whatever the upstream reported. The tool price gate and the
+	// settlement tripwire compare against this snapshot so their identity set is
+	// the same before and after the response. nil means the relay info was not
+	// built from a Responses-shaped request, and callers fall back to the
+	// BuiltInTools keys; a non-nil empty slice means the request declared no tool.
+	DeclaredTools []string
 }
 
 type ChannelMeta struct {
@@ -469,7 +479,8 @@ func GenRelayInfoResponses(c *gin.Context, request *dto.OpenAIResponsesRequest) 
 	info.RelayFormat = types.RelayFormatOpenAIResponses
 
 	info.ResponsesUsageInfo = &ResponsesUsageInfo{
-		BuiltInTools: make(map[string]*BuildInToolInfo),
+		BuiltInTools:  make(map[string]*BuildInToolInfo),
+		DeclaredTools: []string{},
 	}
 	if len(request.Tools) > 0 {
 		for _, tool := range request.GetToolsMap() {
@@ -478,6 +489,7 @@ func GenRelayInfoResponses(c *gin.Context, request *dto.OpenAIResponsesRequest) 
 				ToolName:  toolType,
 				CallCount: 0,
 			}
+			info.ResponsesUsageInfo.DeclaredTools = append(info.ResponsesUsageInfo.DeclaredTools, toolType)
 			switch toolType {
 			case dto.BuildInToolWebSearchPreview:
 				searchContextSize := common.Interface2String(tool["search_context_size"])
@@ -776,6 +788,9 @@ func GenRelayInfoAlphaSearch(c *gin.Context, request *dto.AlphaSearchRequest) *R
 				CallCount: 0,
 			},
 		},
+		// This endpoint is a web search by definition, and it bills one
+		// web_search_preview call from AlphaSearchHelper.
+		DeclaredTools: []string{dto.BuildInToolWebSearchPreview},
 	}
 	return info
 }

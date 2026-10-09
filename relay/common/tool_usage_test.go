@@ -1,12 +1,17 @@
 package common
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zhourenke/pg-api/relaykit/dto"
+	"github.com/zhourenke/pg-api/relaykit/types"
 	"github.com/zhourenke/pg-api/setting/operation_setting"
 )
 
@@ -345,4 +350,106 @@ func TestIsNonBillableResponsesStatus(t *testing.T) {
 	assert.True(t, IsNonBillableResponsesStatus([]byte(`"canceled"`)))
 	assert.False(t, IsNonBillableResponsesStatus([]byte(`"completed"`)))
 	assert.False(t, IsNonBillableResponsesStatus(nil))
+}
+
+// The identity set a request is gated and settled with must not move when the
+// response is counted. Counting writes counted call items into BuiltInTools, so
+// reading declarations back out of that map would adopt whatever the upstream
+// reported - including a search the client never asked for.
+func TestUpstreamBillableToolNamesIgnoresCountedCalls(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	declaredSearch := &dto.OpenAIResponsesRequest{
+		Model: "gpt-5.1",
+		Input: json.RawMessage(`"search"`),
+		Tools: json.RawMessage(`[{"type":"web_search_preview"}]`),
+	}
+	noTools := &dto.OpenAIResponsesRequest{
+		Model: "gpt-5.1",
+		Input: json.RawMessage(`"search"`),
+	}
+
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+
+	declared, err := GenRelayInfo(ctx, types.RelayFormatOpenAIResponses, declaredSearch, nil)
+	require.NoError(t, err)
+	assert.Equal(t, []string{dto.BuildInToolWebSearchPreview}, declared.UpstreamBillableToolNames())
+	declared.CountBillableToolCall(dto.BuildInCallWebSearchCall, "")
+	assert.Equal(t, []string{dto.BuildInToolWebSearchPreview}, declared.UpstreamBillableToolNames(),
+		"counting a declared call must not change the identity set")
+	assert.Empty(t, declared.UndeclaredBillableToolCalls([]string{dto.BuildInToolWebSearchPreview}))
+
+	undeclared, err := GenRelayInfo(ctx, types.RelayFormatOpenAIResponses, noTools, nil)
+	require.NoError(t, err)
+	assert.Empty(t, undeclared.UpstreamBillableToolNames())
+	// The upstream reported a search call the client never declared; without the
+	// declaration snapshot the counted entry would have declared itself.
+	undeclared.CountBillableToolCall(dto.BuildInCallWebSearchCall, "")
+	assert.Empty(t, undeclared.UpstreamBillableToolNames(),
+		"an observed call must not declare itself")
+	assert.Equal(t, []string{dto.BuildInToolWebSearchPreview},
+		undeclared.UndeclaredBillableToolCalls([]string{dto.BuildInToolWebSearchPreview}))
+}
+
+// A Chat Completions web search reports no call detail, so it is charged as one
+// fixed call per request: from the client's own declaration, or from the dialect
+// field a conversion wrote for a chat upstream. A request whose upstream is not
+// chat completions is settled from counted items instead.
+func TestChatWebSearchWithoutCallCount(t *testing.T) {
+	t.Parallel()
+
+	converted := &RelayInfo{RelayFormat: types.RelayFormatClaude}
+	converted.SetUpstreamHostedToolTypes([]string{dto.BuildInToolWebSearchOptions})
+	converted.AppendRequestConversion(types.RelayFormatOpenAI)
+
+	tests := []struct {
+		name      string
+		info      *RelayInfo
+		want      bool
+		wantNames []string
+	}{
+		{
+			name: "declared by the client",
+			info: &RelayInfo{
+				RelayFormat: types.RelayFormatOpenAI,
+				Request:     &dto.GeneralOpenAIRequest{Model: "gpt-4o", WebSearchOptions: &dto.WebSearchOptions{}},
+			},
+			want:      true,
+			wantNames: []string{dto.BuildInToolWebSearchPreview},
+		},
+		{
+			name:      "written by a conversion for a chat upstream",
+			info:      converted,
+			want:      true,
+			wantNames: []string{dto.BuildInToolWebSearchPreview},
+		},
+		{
+			name: "a chat declaration bridged to a responses upstream",
+			info: &RelayInfo{
+				RelayFormat:             types.RelayFormatOpenAI,
+				FinalRequestRelayFormat: types.RelayFormatOpenAIResponses,
+				Request:                 &dto.GeneralOpenAIRequest{Model: "gpt-4o", WebSearchOptions: &dto.WebSearchOptions{}},
+			},
+			want:      false,
+			wantNames: nil,
+		},
+		{
+			name: "no web search at all",
+			info: &RelayInfo{
+				RelayFormat: types.RelayFormatOpenAI,
+				Request:     &dto.GeneralOpenAIRequest{Model: "gpt-4o"},
+			},
+			want:      false,
+			wantNames: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.want, tt.info.ChatWebSearchWithoutCallCount())
+			assert.Equal(t, tt.wantNames, tt.info.UpstreamBillableToolNames())
+		})
+	}
 }

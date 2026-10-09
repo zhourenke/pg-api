@@ -532,6 +532,10 @@ const (
 	BuildInToolFileSearch       = "file_search"
 	BuildInToolGoogleSearch     = "google_search"
 	BuildInToolImageGeneration  = "image_generation"
+	// BuildInToolWebSearchOptions is how the Chat Completions dialect declares a
+	// hosted web search: a request-level field rather than a tool entry, so the
+	// dialect carries no per-call item and no countable call detail.
+	BuildInToolWebSearchOptions = "web_search_options"
 )
 
 const (

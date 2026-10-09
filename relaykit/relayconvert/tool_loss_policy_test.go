@@ -150,6 +150,17 @@ func TestConvertRequestReportsHostedToolsWrittenUpstream(t *testing.T) {
 			want:   []string{},
 		},
 		{
+			name:   "responses web search served by chat completions",
+			source: types.RelayFormatOpenAIResponses,
+			request: &dto.OpenAIResponsesRequest{
+				Model: "gpt-4o",
+				Input: json.RawMessage(`"search"`),
+				Tools: json.RawMessage(`[{"type":"web_search_preview"}]`),
+			},
+			target: types.RelayFormatOpenAI,
+			want:   []string{dto.BuildInToolWebSearchOptions},
+		},
+		{
 			name:   "claude web search served by gemini",
 			source: types.RelayFormatClaude,
 			request: &dto.ClaudeRequest{

@@ -1395,7 +1395,12 @@ func TestCalculateTextToolCallSurchargeGeminiGoogleSearch(t *testing.T) {
 	useToolPrices(t, map[string]float64{dto.BuildInToolGoogleSearch: 14})
 	ctx.Set("gemini_google_search_call", true)
 
-	relayInfo := &relaycommon.RelayInfo{OriginModelName: "gemini-2.5-flash"}
+	tools, err := common.Marshal([]map[string]any{{"googleSearch": map[string]any{}}})
+	require.NoError(t, err)
+	relayInfo := &relaycommon.RelayInfo{
+		OriginModelName: "gemini-2.5-flash",
+		Request:         &dto.GeminiChatRequest{Tools: tools},
+	}
 	summary := &textQuotaSummary{ModelName: "gemini-2.5-flash", GroupRatio: 1}
 
 	surcharge := calculateTextToolCallSurcharge(ctx, relayInfo, summary)
@@ -1405,6 +1410,7 @@ func TestCalculateTextToolCallSurchargeGeminiGoogleSearch(t *testing.T) {
 	assert.Equal(t, dto.BuildInToolGoogleSearch, summary.ToolSurchargeItems[0].Name)
 	assert.Equal(t, 1, summary.ToolSurchargeItems[0].Count)
 	assert.Equal(t, 14.0, summary.ToolSurchargeItems[0].Price)
+	assert.Empty(t, summary.ToolPriceDivergences, "a declared google search is not a divergence")
 }
 
 func TestCalculateTextToolCallSurchargeGeminiFunctionCall(t *testing.T) {
@@ -1544,4 +1550,93 @@ func TestAppendToolSurchargeLogInfoWritesOnlyStructuredFields(t *testing.T) {
 	assert.NotContains(t, fields, "file_search")
 	assert.NotContains(t, fields, "image_generation_call")
 	assert.NotContains(t, fields, "image_generation_call_price")
+}
+
+// A Chat Completions upstream reports no per-call detail, so a declared
+// web_search_options is charged as one fixed call. A request that is also a
+// search-preview model stays one call: the two rules describe one uncounted
+// search, not two.
+func TestCalculateTextToolCallSurchargeChatWebSearchFixedPrice(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	useToolPrices(t, map[string]float64{dto.BuildInToolWebSearchPreview: 10})
+	expected := decimal.NewFromFloat(10.0 / 1000).Mul(decimal.NewFromFloat(common.QuotaPerUnit))
+
+	converted := &relaycommon.RelayInfo{RelayFormat: types.RelayFormatClaude, OriginModelName: "gpt-4o"}
+	converted.SetUpstreamHostedToolTypes([]string{dto.BuildInToolWebSearchOptions})
+	converted.AppendRequestConversion(types.RelayFormatOpenAI)
+
+	tests := []struct {
+		name string
+		info *relaycommon.RelayInfo
+	}{
+		{
+			name: "declared by the client",
+			info: &relaycommon.RelayInfo{
+				RelayFormat:     types.RelayFormatOpenAI,
+				OriginModelName: "gpt-4o",
+				Request:         &dto.GeneralOpenAIRequest{Model: "gpt-4o", WebSearchOptions: &dto.WebSearchOptions{}},
+			},
+		},
+		{
+			name: "written by a conversion for a chat upstream",
+			info: converted,
+		},
+		{
+			name: "a search-preview model with a declared web search charges once",
+			info: &relaycommon.RelayInfo{
+				RelayMode:       relayconstant.RelayModeChatCompletions,
+				RelayFormat:     types.RelayFormatOpenAI,
+				OriginModelName: "gpt-4o-search-preview",
+				Request:         &dto.GeneralOpenAIRequest{Model: "gpt-4o-search-preview", WebSearchOptions: &dto.WebSearchOptions{}},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+			summary := &textQuotaSummary{ModelName: tt.info.OriginModelName, GroupRatio: 1}
+
+			surcharge := calculateTextToolCallSurcharge(ctx, tt.info, summary)
+
+			assert.True(t, expected.Equal(surcharge), "got %s want %s", surcharge, expected)
+			require.Len(t, summary.ToolSurchargeItems, 1)
+			assert.Equal(t, dto.BuildInToolWebSearchPreview, summary.ToolSurchargeItems[0].Name)
+			assert.Equal(t, 1, summary.ToolSurchargeItems[0].Count)
+			assert.Empty(t, summary.ToolPriceDivergences)
+		})
+	}
+}
+
+// The request-time price gate and settlement are supposed to read one identity
+// set, so settlement charging a built-in tool the upstream was never asked for
+// means the two halves drifted apart. The charge still happens - the operator's
+// cost is real - but it is recorded instead of staying invisible.
+func TestCalculateTextToolCallSurchargeReportsUndeclaredBuiltInTool(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	useToolPrices(t, map[string]float64{dto.BuildInToolWebSearch: 10})
+	// The Claude response handler reported web searches for a request that
+	// declared no web-search tool at all.
+	ctx.Set("claude_web_search_requests", 2)
+
+	relayInfo := &relaycommon.RelayInfo{
+		OriginModelName: "claude-3-7-sonnet",
+		Request:         &dto.ClaudeRequest{Model: "claude-3-7-sonnet"},
+	}
+	summary := &textQuotaSummary{ModelName: relayInfo.OriginModelName, GroupRatio: 1}
+
+	surcharge := calculateTextToolCallSurcharge(ctx, relayInfo, summary)
+
+	require.Len(t, summary.ToolSurchargeItems, 1)
+	assert.Equal(t, 2, summary.ToolSurchargeItems[0].Count)
+	assert.Equal(t, []string{dto.BuildInToolWebSearch}, summary.ToolPriceDivergences)
+	assert.False(t, surcharge.IsZero(), "the charge still happens; the divergence is what is new")
+
+	other := model.NewLogOther()
+	appendToolSurchargeLogInfo(other, summary.ToolSurchargeItems)
+	attachToolPriceDivergenceToOther(other, summary.ToolPriceDivergences)
+	adminInfo, ok := other.Snapshot()["admin_info"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, []string{dto.BuildInToolWebSearch}, adminInfo["tool_price_divergence"])
 }

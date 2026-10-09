@@ -93,7 +93,7 @@ func extractOpenAIChatRequest(request any) (any, Set, error) {
 		set.Definitions = append(set.Definitions, Definition{
 			Kind:       KindWebSearch,
 			Execution:  ExecutionServer,
-			NativeType: "web_search_options",
+			NativeType: dto.BuildInToolWebSearchOptions,
 			WebSearch:  webSearch,
 		})
 	}

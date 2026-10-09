@@ -36,33 +36,37 @@ func appendToolSurchargeLogInfo(other *model.LogOther, items []ToolSurchargeItem
 }
 
 type textQuotaSummary struct {
-	PromptTokens           int
-	CompletionTokens       int
-	TotalTokens            int
-	CacheTokens            int
-	CacheCreationTokens    int
-	CacheCreationTokens5m  int
-	CacheCreationTokens1h  int
-	ImageTokens            int
-	AudioTokens            int
-	ModelName              string
-	TokenName              string
-	UseTimeSeconds         int64
-	UseTimeMs              int64
-	CompletionRatio        float64
-	CacheRatio             float64
-	ImageRatio             float64
-	ModelRatio             float64
-	GroupRatio             float64
-	ModelPrice             float64
-	CacheCreationRatio     float64
-	CacheCreationRatio5m   float64
-	CacheCreationRatio1h   float64
-	Quota                  int
-	IsClaudeUsageSemantic  bool
-	UsageSemantic          string
-	AudioInputPrice        float64
-	ToolSurchargeItems     []ToolSurchargeItem
+	PromptTokens          int
+	CompletionTokens      int
+	TotalTokens           int
+	CacheTokens           int
+	CacheCreationTokens   int
+	CacheCreationTokens5m int
+	CacheCreationTokens1h int
+	ImageTokens           int
+	AudioTokens           int
+	ModelName             string
+	TokenName             string
+	UseTimeSeconds        int64
+	UseTimeMs             int64
+	CompletionRatio       float64
+	CacheRatio            float64
+	ImageRatio            float64
+	ModelRatio            float64
+	GroupRatio            float64
+	ModelPrice            float64
+	CacheCreationRatio    float64
+	CacheCreationRatio5m  float64
+	CacheCreationRatio1h  float64
+	Quota                 int
+	IsClaudeUsageSemantic bool
+	UsageSemantic         string
+	AudioInputPrice       float64
+	ToolSurchargeItems    []ToolSurchargeItem
+	// ToolPriceDivergences lists built-in tool identities settlement charged that
+	// the request never declared to the upstream; it is surfaced on the consume
+	// log's admin_info for auditing.
+	ToolPriceDivergences   []string
 	ToolCallSurchargeQuota decimal.Decimal
 	FixedPriceBilling      bool
 }
@@ -149,6 +153,10 @@ func calculateTextToolCallSurcharge(ctx *gin.Context, relayInfo *relaycommon.Rel
 	dQuotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
 
 	var items []ToolSurchargeItem
+	// observed collects the built-in identities this settlement is about to
+	// charge, so the identities the request declared to the upstream can be
+	// checked against what the upstream actually reported.
+	var observed []string
 
 	if relayInfo.ResponsesUsageInfo != nil {
 		for name, tool := range relayInfo.ResponsesUsageInfo.BuiltInTools {
@@ -156,21 +164,27 @@ func calculateTextToolCallSurcharge(ctx *gin.Context, relayInfo *relaycommon.Rel
 				continue
 			}
 			items = collectToolSurchargeItem(items, name, tool.CallCount, summary.ModelName)
+			if tool.CallCount > 0 {
+				observed = append(observed, name)
+			}
 		}
 	}
-	if relayInfo.IsSearchPreviewModel() {
+	// A search-preview model name and a Chat Completions web_search_options both
+	// mean one search this gateway cannot count, so either charges one fixed
+	// call; a request that is both must not be charged twice for the same thing.
+	if relayInfo.IsSearchPreviewModel() || relayInfo.ChatWebSearchWithoutCallCount() {
 		items = collectToolSurchargeItem(items, dto.BuildInToolWebSearchPreview, 1, summary.ModelName)
+		observed = append(observed, dto.BuildInToolWebSearchPreview)
 	}
 
-	items = collectToolSurchargeItem(
-		items,
-		dto.BuildInToolWebSearch,
-		ctx.GetInt("claude_web_search_requests"),
-		summary.ModelName,
-	)
+	if count := ctx.GetInt("claude_web_search_requests"); count > 0 {
+		items = collectToolSurchargeItem(items, dto.BuildInToolWebSearch, count, summary.ModelName)
+		observed = append(observed, dto.BuildInToolWebSearch)
+	}
 
 	if ctx.GetBool("gemini_google_search_call") {
 		items = collectToolSurchargeItem(items, dto.BuildInToolGoogleSearch, 1, summary.ModelName)
+		observed = append(observed, dto.BuildInToolGoogleSearch)
 	}
 
 	summary.ToolSurchargeItems = mergeToolSurchargeItems(items)
@@ -181,6 +195,18 @@ func calculateTextToolCallSurcharge(ctx *gin.Context, relayInfo *relaycommon.Rel
 			Div(decimal.NewFromInt(1000)).
 			Mul(dGroupRatio).
 			Mul(dQuotaPerUnit))
+	}
+
+	// The request-time gate and this settlement read one identity set, so charging
+	// a built-in tool the upstream was never asked for means they have drifted
+	// apart. The charge still happens - the operator's cost is real - but it must
+	// not happen silently.
+	if divergences := relayInfo.UndeclaredBillableToolCalls(observed); len(divergences) > 0 {
+		summary.ToolPriceDivergences = divergences
+		common.SysError(fmt.Sprintf(
+			"tool price divergence: model %s settled undeclared built-in tools %s",
+			summary.ModelName, strings.Join(divergences, ", "),
+		))
 	}
 
 	return surcharge
@@ -532,6 +558,7 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 
 	}
 
+	attachToolPriceDivergenceToOther(other, summary.ToolPriceDivergences)
 	attachQuotaSaturation(ctx, relayInfo, other)
 
 	model.RecordConsumeLog(ctx, relayInfo.UserId, model.RecordConsumeLogParams{

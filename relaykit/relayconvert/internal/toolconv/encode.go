@@ -53,16 +53,17 @@ func AttachRequest(format types.RelayFormat, request any, set Set, options *conv
 	return value, diagnostics, hostedToolTypes, nil
 }
 
-// attachOpenAIChatRequest writes a Chat Completions request. Chat Completions
+// attachOpenAIChatRequest writes a Chat Completions request. This dialect
 // carries a hosted web search in the request-level web_search_options field
-// rather than a tool entry, and this gateway has no per-call counter for that
-// dialect, so no hosted tool type is reported: nothing here can be charged.
+// rather than as a tool entry, and the dialect reports no per-call call detail,
+// so the field is reported as one declared web search and nothing more.
 func attachOpenAIChatRequest(request any, set Set) (any, []types.ConversionDiagnostic, []string, error) {
 	target, ok := request.(*dto.GeneralOpenAIRequest)
 	if !ok || target == nil {
 		return nil, nil, nil, fmt.Errorf("expected OpenAI chat completions request, got %T", request)
 	}
 	var diagnostics []types.ConversionDiagnostic
+	var hostedToolTypes []string
 	for index, definition := range set.Definitions {
 		switch definition.Kind {
 		case KindFunction:
@@ -98,6 +99,7 @@ func attachOpenAIChatRequest(request any, set Set) (any, []types.ConversionDiagn
 				diagnostics = append(diagnostics, openAIChatWebSearchDiagnostics(index, definition.WebSearch)...)
 			}
 			target.WebSearchOptions = options
+			hostedToolTypes = append(hostedToolTypes, dto.BuildInToolWebSearchOptions)
 		default:
 			diagnostics = append(diagnostics, semanticLoss(
 				fmt.Sprintf("tools[%d]", index),
@@ -114,7 +116,7 @@ func attachOpenAIChatRequest(request any, set Set) (any, []types.ConversionDiagn
 	diagnostics = append(diagnostics, allowedChoiceDiagnostics...)
 	diagnostics = append(diagnostics, choiceDiagnostics...)
 	diagnostics = append(diagnostics, unsupportedHostedHistoryDiagnostics(types.RelayFormatOpenAI, set.History)...)
-	return target, diagnostics, nil, nil
+	return target, diagnostics, hostedToolTypes, nil
 }
 
 func attachOpenAIResponsesRequest(request any, set Set) (any, []types.ConversionDiagnostic, []string, error) {

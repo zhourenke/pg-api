@@ -47,6 +47,18 @@ func attachQuotaSaturation(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, o
 		clamp.Op, clamp.Kind, clamp.Original, clamp.Clamped, relayInfo.UserId, relayInfo.GetBillingModelName()))
 }
 
+// attachToolPriceDivergenceToOther nests the built-in tool identities settlement
+// charged without a declaration under other.admin_info.tool_price_divergence, so
+// an operator can find the request that proved the request-time price gate and
+// settlement disagree. Nesting under admin_info keeps it admin-only, the same way
+// the quota-saturation marker is kept admin-only.
+func attachToolPriceDivergenceToOther(other *model.LogOther, divergences []string) {
+	if len(divergences) == 0 || other == nil {
+		return
+	}
+	other.SetAdmin("tool_price_divergence", divergences)
+}
+
 // measuredUseTime reports a request's elapsed time in both units the consume log
 // needs, from a single reading: whole seconds for the stored use_time column and
 // milliseconds for the use_time_ms metadata the usage log derives generation
