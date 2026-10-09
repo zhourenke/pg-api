@@ -81,12 +81,7 @@ export function useUsersColumns(): ColumnDef<User>[] {
         accessorKey: 'id',
         header: t('ID'),
         cell: ({ row }) => {
-          return (
-            <TableId
-              value={row.getValue('id') as number}
-              className='w-[60px] [font-family:inherit] text-sm'
-            />
-          )
+          return <TableId value={row.getValue('id') as number} />
         },
         meta: { mobileOrder: 10 },
       },

@@ -66,9 +66,7 @@ export function useRedemptionsColumns(): ColumnDef<Redemption>[] {
       header: t('ID'),
       meta: { mobileHidden: true },
       cell: ({ row }) => {
-        return (
-          <TableId value={row.getValue('id') as number} className='w-[60px]' />
-        )
+        return <TableId value={row.getValue('id') as number} />
       },
     },
     {
