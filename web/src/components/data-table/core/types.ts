@@ -55,7 +55,6 @@ export type DataTableViewProps<TData> = {
   getRowClassName?: (row: Row<TData>) => string | undefined
   getColumnClassName?: DataTableColumnClassName
   pinnedColumns?: DataTablePinnedColumn[]
-  applyHeaderSize?: boolean
   tableClassName?: string
   tableHeaderClassName?: string
   tableHeaderRowClassName?: string
@@ -67,5 +66,4 @@ export type DataTableViewProps<TData> = {
   containerClassName?: string
   containerProps?: Omit<React.ComponentProps<'div'>, 'className' | 'children'>
   tableContainerClassName?: string
-  colgroup?: React.ReactNode
 }

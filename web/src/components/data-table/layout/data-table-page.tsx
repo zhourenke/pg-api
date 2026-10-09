@@ -189,16 +189,6 @@ export type DataTablePageProps<TData> = {
   pinnedColumns?: DataTablePinnedColumn[]
 
   /**
-   * Apply explicit column widths from `header.getSize()` to `<TableHead>`.
-   * Enable this when your column definitions include `size` and you want it honored.
-   * Off by default (TanStack Table assigns a default size of 150 to all columns
-   * which would unintentionally constrain layouts that don't define sizes).
-   * It applies once the table has rows: a loading or empty table has no width to
-   * honor yet and shares its columns evenly.
-   */
-  applyHeaderSize?: boolean
-
-  /**
    * Optional skeleton key prefix for stable React keys across re-renders.
    */
   skeletonKeyPrefix?: string
@@ -514,7 +504,6 @@ function renderDesktop<TData>(
       emptyAction={props.emptyAction}
       skeletonKeyPrefix={props.skeletonKeyPrefix}
       renderRow={props.renderRow}
-      applyHeaderSize={props.applyHeaderSize}
       splitHeader={fixedHeight}
       tableContainerClassName={fixedHeight ? 'h-full min-h-0' : undefined}
       tableHeaderClassName={cn(

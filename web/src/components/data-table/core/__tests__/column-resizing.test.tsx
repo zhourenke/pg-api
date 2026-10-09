@@ -105,19 +105,13 @@ function Harness({
     columns: tableColumns,
   })
 
-  return <DataTableView table={table} applyHeaderSize isLoading={isLoading} />
+  return <DataTableView table={table} isLoading={isLoading} />
 }
 
 function getColumnWidths() {
   return [...screen.getByRole('table').querySelectorAll('col')].map(
     (col) => (col as HTMLElement).style.width
   )
-}
-
-function getHeaderWidths() {
-  return screen
-    .getAllByRole('columnheader')
-    .map((header) => (header as HTMLElement).style.width)
 }
 
 /**
@@ -223,10 +217,6 @@ describe('column resizing', () => {
     expect(table.style.tableLayout).toBe('fixed')
     expect(table.style.width).toBe('100%')
     expect(table.style.minWidth).toBe('')
-
-    // The declared widths are not on the header cells either, where a fixed
-    // layout would read them as the widths of the columns.
-    expect(getHeaderWidths()).toEqual(['', '', ''])
   })
 
   it('keeps the even frame when a filter leaves the table without rows', () => {
@@ -314,16 +304,6 @@ describe('column resizing', () => {
     expect(
       screen.queryByRole('columnheader', { name: /Resize column/ })
     ).not.toBeInTheDocument()
-  })
-
-  it('leaves the spacer column out of the header sizes', () => {
-    render(<Harness />)
-
-    const headers = screen.getAllByRole('columnheader')
-    expect(headers).toHaveLength(3)
-    // A zero width here would beat the empty colgroup entry and collapse the
-    // spacer, which is what keeps the table flush with its container.
-    expect(headers[1].style.width).toBe('')
   })
 
   it('does not offer resizing on narrow viewports', () => {

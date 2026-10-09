@@ -36,12 +36,11 @@ import {
   measureColumnContentWidth,
   measureColumnHeaderWidth,
 } from './column-measurement'
-import { isContentSizedColumn, isFillerColumn } from './content-sized-columns'
+import { isContentSizedColumn } from './content-sized-columns'
 import type { DataTableColumnClassName } from './types'
 
 type DataTableHeaderProps<TData> = {
   table: TanstackTable<TData>
-  applyHeaderSize?: boolean
   className?: string
   rowClassName?: string
   getColumnClassName?: DataTableColumnClassName
@@ -49,7 +48,6 @@ type DataTableHeaderProps<TData> = {
 
 export function DataTableHeader<TData>({
   table,
-  applyHeaderSize,
   className,
   rowClassName,
   getColumnClassName,
@@ -77,7 +75,6 @@ export function DataTableHeader<TData>({
                 'relative',
                 getColumnClassName?.(header.column.id, 'header')
               )}
-              style={getHeaderSizeStyle(header, applyHeaderSize)}
             >
               {renderHeaderContent(header)}
               {shouldRenderColumnResizer(table, header) && (
@@ -273,23 +270,6 @@ function shouldRenderColumnResizer<TData>(
     header.column.getCanResize() &&
     !isContentSizedColumn(header.column.id)
   )
-}
-
-function getHeaderSizeStyle<TData>(
-  header: Header<TData, unknown>,
-  applyHeaderSize: boolean | undefined
-) {
-  // The spacer column must stay unsized, otherwise a `width: 0` header cell
-  // would take precedence over its empty colgroup entry and collapse it.
-  if (
-    !applyHeaderSize ||
-    isContentSizedColumn(header.column.id) ||
-    isFillerColumn(header.column.id)
-  ) {
-    return undefined
-  }
-
-  return { width: header.getSize() }
 }
 
 function renderHeaderContent<TData>(header: Header<TData, unknown>) {

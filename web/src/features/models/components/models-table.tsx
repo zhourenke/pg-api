@@ -245,7 +245,6 @@ export function ModelsTable() {
           : t('No models available. Create your first model to get started.')
       }
       skeletonKeyPrefix='model-skeleton'
-      applyHeaderSize
       pinnedColumns={[
         { columnId: 'model_name', side: 'left' },
         { columnId: 'actions', side: 'right' },

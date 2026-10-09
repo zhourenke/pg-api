@@ -233,7 +233,6 @@ export function DeploymentsTable() {
           'No deployments available. Create one to get started.'
         )}
         skeletonKeyPrefix='deployment-skeleton'
-        applyHeaderSize
         toolbarProps={{
           searchPlaceholder: t('Search deployments...'),
           searchDebounceMs: 500,

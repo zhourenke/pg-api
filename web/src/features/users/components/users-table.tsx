@@ -213,7 +213,6 @@ export function UsersTable() {
         'No users available. Try adjusting your search or filters.'
       )}
       skeletonKeyPrefix='users-skeleton'
-      applyHeaderSize
       toolbarProps={{
         searchPlaceholder: t('Filter by username, name or email...'),
         searchDebounceMs: 500,

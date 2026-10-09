@@ -125,7 +125,6 @@ function UnifiedTableView<TData>({
         {tableSizing.colgroup}
         <DataTableHeader
           table={props.table}
-          applyHeaderSize={props.applyHeaderSize && !equalColumns}
           className={props.tableHeaderClassName}
           rowClassName={props.tableHeaderRowClassName}
           getColumnClassName={getColumnClassName}
@@ -184,7 +183,6 @@ function SplitHeaderTableView<TData>({
           {tableSizing.colgroup}
           <DataTableHeader
             table={props.table}
-            applyHeaderSize={props.applyHeaderSize && !equalColumns}
             className={cn('sticky top-0 z-10', props.tableHeaderClassName)}
             rowClassName={props.tableHeaderRowClassName}
             getColumnClassName={getColumnClassName}
@@ -259,13 +257,9 @@ function getTableSizing<TData>(
   props: DataTableViewProps<TData>,
   equalColumns: boolean
 ): {
-  colgroup?: React.ReactNode
-  style?: React.CSSProperties
+  colgroup: React.ReactNode
+  style: React.CSSProperties
 } {
-  if (props.colgroup) {
-    return { colgroup: props.colgroup }
-  }
-
   // Every table renders a colgroup from the column sizes: the widths are the
   // designed starting point, and column resizing only has an effect when the
   // table actually applies them. An even frame is the exception — it is the one

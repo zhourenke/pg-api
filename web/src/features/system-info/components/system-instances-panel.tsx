@@ -72,7 +72,6 @@ function SystemInstancesList(props: SystemInstancesTableProps) {
   return (
     <ResponsiveDataTableView
       table={table}
-      applyHeaderSize
       // Same dense typography as the task table below, and the same one the log
       // tables use. It has to reach the table from the outside: the width
       // measurement reads the typography of the rendered cell, so a size that

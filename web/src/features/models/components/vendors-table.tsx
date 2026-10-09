@@ -254,7 +254,6 @@ export function VendorsTable() {
         isFetching={query.isFetching}
         emptyTitle={t('No vendors found')}
         emptyDescription={t('Add a vendor or adjust your search.')}
-        applyHeaderSize
         toolbarProps={{
           searchPlaceholder: t('Search vendor names or descriptions'),
           searchDebounceMs: 300,

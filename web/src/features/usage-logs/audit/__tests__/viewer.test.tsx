@@ -728,3 +728,46 @@ it('mobile access history keeps pagination visible and puts result filters in a 
     }
   }
 })
+
+it('keeps the access-record table on a narrow viewport and sizes its columns by percentage', async () => {
+  const matchMedia = window.matchMedia.bind(window)
+  vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({
+    ...matchMedia(query),
+    matches: query === '(max-width: 640px)',
+  }))
+  vi.spyOn(api, 'get').mockResolvedValue({
+    data: {
+      success: true,
+      data: {
+        total: 1,
+        items: [
+          {
+            event_id: 'narrow-access',
+            created_at: 1788600600,
+            username: 'root',
+            actor_role: 100,
+            category: 'access_token',
+            success: true,
+            status: 200,
+          },
+        ],
+      },
+    },
+  })
+
+  renderViewer()
+
+  // 访问记录（只读自己的 token 审计）是窄屏唯一还保留表格形态的列表：它由
+  // hideMobile 保住表格，而窄视口没有拖拽能力，于是列宽按声明值分百分比、
+  // 排版交回浏览器（tableLayout: auto）。这条分支有真实消费者，不要当死代码删。
+  await waitFor(() =>
+    expect(screen.getByRole('table').style.tableLayout).toBe('auto')
+  )
+
+  const widths = [
+    ...screen.getByRole('table').querySelectorAll('colgroup col'),
+  ].map((col) => (col as HTMLElement).style.width)
+  expect(widths.length).toBeGreaterThan(1)
+  expect(widths.every((width) => width.endsWith('%'))).toBe(true)
+  expect(screen.queryByRole('separator')).not.toBeInTheDocument()
+})

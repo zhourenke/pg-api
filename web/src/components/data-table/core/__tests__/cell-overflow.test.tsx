@@ -54,7 +54,7 @@ function Harness() {
     columns,
   })
 
-  return <DataTableView table={table} applyHeaderSize />
+  return <DataTableView table={table} />
 }
 
 function bodyCells() {
