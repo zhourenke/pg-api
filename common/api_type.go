@@ -88,6 +88,19 @@ func ChannelType2APIType(channelType int) (int, bool) {
 	return apiType, true
 }
 
+// ChannelCapabilitiesFor returns the request formats the adaptor of this channel
+// type really converts, resolved through its api type, and whether the
+// declaration covers it. A false second result means "no claim made" rather than
+// "converts nothing": advanced custom channels declare their routes per channel,
+// and Tencent picks its adaptor from the key format at request time. A channel
+// type that maps to no api type still relays through the OpenAI adaptor, so it
+// inherits that adaptor's capabilities rather than making no claim.
+func ChannelCapabilitiesFor(channelType int) (constant.Capabilities, bool) {
+	apiType, _ := ChannelType2APIType(channelType)
+	caps, declared := constant.ChannelCapabilitiesByAPIType[apiType]
+	return caps, declared
+}
+
 func SupportsResponsesCompact(channelType, apiType int) bool {
 	switch apiType {
 	case constant.APITypeOpenAI,

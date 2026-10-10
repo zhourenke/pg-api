@@ -110,6 +110,7 @@ Inside `relaykit/`, use `kitutil.*` from `relaykit/relayconvert/kitutil/json.go`
 
 **Relay and provider behavior:**
 
+- A channel adaptor implements the request conversions its provider really serves; every other conversion comes from the embedded `channel.Unsupported`, which answers 400 with error code `channel:format_unsupported` and skips channel retries. Never answer an unimplemented conversion with `panic`, with a bare `errors.New` (wrapped into a 500 further up), or with `nil, nil` (forwarded upstream as a `null` body). The adaptor's api type must appear in `constant.ChannelCapabilitiesByAPIType`; `relay/capabilities_test.go` fails whenever that table and the adaptors disagree, so update them in the same change. Channel types whose capability is per channel or per key (the advanced custom family, Tencent) stay out of that table on purpose. Details in `DEVELOPMENT.md` §6.9.
 - When implementing a new channel, confirm whether the provider supports `StreamOptions`; if supported, add the channel to `streamSupportedChannels`.
 - For request structs parsed from client JSON and re-marshaled to upstream providers, optional scalar fields MUST use pointer types with `omitempty` (for example, `*int`, `*uint`, `*float64`, `*bool`).
 - Preserve explicit zero values in upstream relay request DTOs: absent client JSON fields must become `nil` and be omitted, while explicit `0`, `0.0`, or `false` values must remain non-`nil` and be sent upstream.
