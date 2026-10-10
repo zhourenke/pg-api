@@ -22,11 +22,11 @@ import {
   type SortPriceType,
   FILTER_ALL,
   QUOTA_TYPES,
-  QUOTA_TYPE_VALUES,
   ENDPOINT_TYPES,
 } from '../constants'
 import type { PricingModel, TokenUnit } from '../types'
 import {
+  classifyQuotaType,
   getDynamicDisplayGroupRatio,
   getDynamicPricingSummary,
 } from './dynamic-price'
@@ -79,17 +79,17 @@ export function filterByGroup(
 
 /**
  * Filter models by quota type
+ *
+ * The three buckets are mutually exclusive and follow `classifyQuotaType`, so a
+ * model priced per call by an expression is 按次 here even though its
+ * `quota_type` field says otherwise.
  */
 export function filterByQuotaType(
   models: PricingModel[],
   quotaType: string
 ): PricingModel[] {
   if (quotaType === QUOTA_TYPES.ALL) return models
-  const targetType =
-    quotaType === QUOTA_TYPES.TOKEN
-      ? QUOTA_TYPE_VALUES.TOKEN
-      : QUOTA_TYPE_VALUES.REQUEST
-  return models.filter((m) => m.quota_type === targetType)
+  return models.filter((model) => classifyQuotaType(model) === quotaType)
 }
 
 /**

@@ -121,6 +121,9 @@ describe('pricing controls', () => {
     expect(
       screen.getByRole('button', { name: /^Per Request\s*2$/ })
     ).toBeVisible()
+    expect(
+      screen.getByRole('button', { name: /^Token or per-call pricing\s*0$/ })
+    ).toBeVisible()
 
     rerender(<PricingSidebar {...sidebarProps} models={[models[1]]} />)
     expect(
@@ -135,6 +138,56 @@ describe('pricing controls', () => {
     ).toBeVisible()
     expect(
       screen.getByRole('button', { name: /^Per Request\s*1$/ })
+    ).toBeVisible()
+    expect(
+      screen.getByRole('button', { name: /^Token or per-call pricing\s*0$/ })
+    ).toBeVisible()
+  })
+
+  it('counts expression prices in the bucket their own leaves belong to', () => {
+    const props = toolbarProps()
+    const base: PricingModel = {
+      id: 1,
+      model_name: 'ratio-only',
+      quota_type: 0,
+      model_ratio: 1,
+      completion_ratio: 1,
+      enable_groups: ['default'],
+    }
+    const models: PricingModel[] = [
+      base,
+      { ...base, id: 2, model_name: 'legacy-per-call', quota_type: 1 },
+      {
+        ...base,
+        id: 3,
+        model_name: 'expression-per-call',
+        billing_mode: 'tiered_expr',
+        billing_expr: 'tier("按次", fixed(0.02))',
+      },
+      {
+        ...base,
+        id: 4,
+        model_name: 'expression-mixed',
+        billing_mode: 'tiered_expr',
+        billing_expr:
+          'len < 1000 ? tier("request", fixed(0.01)) : tier("tokens", p * 2 + c * 8)',
+      },
+    ]
+    render(<PricingSidebar {...props} models={models} />)
+
+    // 本 fork 的按次计价走表达式，`quota_type` 那一栏对它永远是 0；三档互斥，
+    // 角标相加等于目录总数。
+    expect(
+      screen.getByRole('button', { name: /^All Models\s*4$/ })
+    ).toBeVisible()
+    expect(
+      screen.getByRole('button', { name: /^Token-based\s*1$/ })
+    ).toBeVisible()
+    expect(
+      screen.getByRole('button', { name: /^Per Request\s*2$/ })
+    ).toBeVisible()
+    expect(
+      screen.getByRole('button', { name: /^Token or per-call pricing\s*1$/ })
     ).toBeVisible()
   })
 

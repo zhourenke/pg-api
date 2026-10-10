@@ -36,7 +36,9 @@ import {
   QUOTA_TYPES,
   getEndpointTypeLabels,
   getQuotaTypeLabels,
+  type QuotaTypeOption,
 } from '../constants'
+import { classifyQuotaType } from '../lib/dynamic-price'
 import { parseTags } from '../lib/filters'
 import type { PricingModel, PricingVendor } from '../types'
 
@@ -155,7 +157,11 @@ export const PricingSidebar = memo(function PricingSidebar(
     const vendors = new Map<string, number>()
     const tags = new Map<string, number>()
     const endpoints = new Map<string, number>()
-    const quotas = { token: 0, request: 0 }
+    const quotas: Record<Exclude<QuotaTypeOption, 'all'>, number> = {
+      [QUOTA_TYPES.TOKEN]: 0,
+      [QUOTA_TYPES.REQUEST]: 0,
+      [QUOTA_TYPES.MIXED]: 0,
+    }
     for (const model of props.models) {
       if (model.vendor_name) {
         vendors.set(
@@ -171,11 +177,7 @@ export const PricingSidebar = memo(function PricingSidebar(
       for (const endpoint of new Set(model.supported_endpoint_types ?? [])) {
         endpoints.set(endpoint, (endpoints.get(endpoint) ?? 0) + 1)
       }
-      if (model.quota_type === 0) {
-        quotas.token++
-      } else if (model.quota_type === 1) {
-        quotas.request++
-      }
+      quotas[classifyQuotaType(model)]++
     }
     return { vendors, tags, endpoints, quotas }
   }, [props.models])
@@ -219,12 +221,17 @@ export const PricingSidebar = memo(function PricingSidebar(
     {
       value: QUOTA_TYPES.TOKEN,
       label: quotaTypeLabels[QUOTA_TYPES.TOKEN],
-      count: counts.quotas.token,
+      count: counts.quotas[QUOTA_TYPES.TOKEN],
     },
     {
       value: QUOTA_TYPES.REQUEST,
       label: quotaTypeLabels[QUOTA_TYPES.REQUEST],
-      count: counts.quotas.request,
+      count: counts.quotas[QUOTA_TYPES.REQUEST],
+    },
+    {
+      value: QUOTA_TYPES.MIXED,
+      label: quotaTypeLabels[QUOTA_TYPES.MIXED],
+      count: counts.quotas[QUOTA_TYPES.MIXED],
     },
   ]
 

@@ -18,7 +18,12 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { formatBillingCurrencyFromUSD } from '@/lib/currency'
 
-import { TOKEN_UNIT_DIVISORS } from '../constants'
+import {
+  QUOTA_TYPES,
+  QUOTA_TYPE_VALUES,
+  TOKEN_UNIT_DIVISORS,
+  type QuotaTypeOption,
+} from '../constants'
 import type { PricingModel, TokenUnit } from '../types'
 import {
   BILLING_PRICING_VARS,
@@ -164,6 +169,32 @@ export function getDynamicPricingTiers(
     model.billing_expr || ''
   )
   return parseTiersFromExpr(billingExpr)
+}
+
+/**
+ * What a model charges per call, for the catalog's 计费类型 filter.
+ *
+ * `quota_type` only knows the legacy per-call price map, so a model priced by an
+ * expression with a `fixed()` leaf reports 0 there and would be filed under
+ * 按量计费. The expression's own tiers are the truth: any per-call leaf makes the
+ * model 按次, token leaves alone make it 按量, and one expression holding both
+ * makes it 混合. An expression whose tiers cannot be parsed has no price leaf to
+ * classify, so it falls back to the legacy field — which also keeps a plain
+ * ratio model (no expression at all) at 按量.
+ */
+export function classifyQuotaType(
+  model: PricingModel
+): Exclude<QuotaTypeOption, 'all'> {
+  const tiers = getDynamicPricingTiers(model)
+  // `billingUnit` is optional and defaults to a token price.
+  const hasRequestPrice = tiers.some((tier) => tier.billingUnit === 'request')
+  const hasTokenPrice = tiers.some((tier) => tier.billingUnit !== 'request')
+  if (hasRequestPrice && hasTokenPrice) return QUOTA_TYPES.MIXED
+  if (hasRequestPrice) return QUOTA_TYPES.REQUEST
+  if (hasTokenPrice) return QUOTA_TYPES.TOKEN
+  return model.quota_type === QUOTA_TYPE_VALUES.REQUEST
+    ? QUOTA_TYPES.REQUEST
+    : QUOTA_TYPES.TOKEN
 }
 
 export function hasDynamicRequestRules(model: PricingModel): boolean {
