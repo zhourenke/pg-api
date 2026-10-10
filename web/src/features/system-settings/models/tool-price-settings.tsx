@@ -17,7 +17,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { Code2, Copy, Eye, Plus, Trash2 } from 'lucide-react'
-import { memo, useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -31,6 +38,27 @@ import { Input } from '@/components/ui/input'
 import { useUpdateOption } from '../hooks/use-update-option'
 
 const OPTION_KEY = 'tool_price_setting.prices'
+
+// The billable built-in tool identities the request-time gate and settlement
+// look prices up under, in the order of `ReservedBillableToolNames` in
+// relay/common/tool_usage.go. That set, not this list, is the source of truth:
+// adding an identity there must add it here too, or the operator cannot see
+// which names are demanded.
+const BILLABLE_TOOL_IDENTIFIERS = [
+  'web_search_preview',
+  'web_search',
+  'file_search',
+  'google_search',
+  'image_generation',
+]
+
+function ToolIdentifier(props: { children: ReactNode }) {
+  return (
+    <code className='bg-muted rounded px-1 py-0.5 text-xs'>
+      {props.children}
+    </code>
+  )
+}
 
 type ToolPriceRow = {
   id: number
@@ -225,14 +253,40 @@ export const ToolPriceSettings = memo(function ToolPriceSettings({
           </div>
           <div>
             <span className='font-medium'>{t('Format')}:</span>{' '}
-            <code className='bg-muted rounded px-1 py-0.5 text-xs'>
-              web_search_preview
-            </code>{' '}
+            <ToolIdentifier>web_search_preview</ToolIdentifier>{' '}
             {t('is the default price; ')}
-            <code className='bg-muted rounded px-1 py-0.5 text-xs'>
-              web_search_preview:gpt-4o*
-            </code>{' '}
+            <ToolIdentifier>web_search_preview:gpt-4o*</ToolIdentifier>{' '}
             {t('overrides for matching model prefix.')}
+          </div>
+          <div>
+            {t(
+              'The request gate checks exactly these built-in tool identifiers:'
+            )}{' '}
+            <ul className='inline-flex flex-wrap items-center gap-1 align-middle'>
+              {BILLABLE_TOOL_IDENTIFIERS.map((identifier) => (
+                <li key={identifier}>
+                  <ToolIdentifier>{identifier}</ToolIdentifier>
+                </li>
+              ))}
+            </ul>{' '}
+            {t(
+              'Any other identifier prices a custom function call, which is charged only when the upstream reports it and is never gated.'
+            )}
+          </div>
+          <div>
+            {t(
+              'A versioned spelling such as web_search_20250305 resolves to one of these names before the price lookup, so pricing the versioned spelling has no effect.'
+            )}
+          </div>
+          <div>
+            {t(
+              'A built-in tool with no price is refused with HTTP 503 instead of running for free; enter 0 to keep a tool free.'
+            )}
+          </div>
+          <div>
+            {t(
+              'Chat Completions requests carrying web_search_options count as one web_search_preview call each, so they need that price too.'
+            )}
           </div>
         </AlertDescription>
       </Alert>

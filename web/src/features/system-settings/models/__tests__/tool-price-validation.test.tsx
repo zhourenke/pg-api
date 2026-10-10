@@ -17,11 +17,33 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import i18next from 'i18next'
 import { beforeAll, describe, expect, test } from 'vitest'
 
 import { ToolPriceSettings } from '../tool-price-settings'
+
+const BILLABLE_TOOL_IDENTIFIERS = [
+  'web_search_preview',
+  'web_search',
+  'file_search',
+  'google_search',
+  'image_generation',
+]
+
+function renderToolPriceSettings(defaultValue: string) {
+  const queryClient = new QueryClient({
+    defaultOptions: { mutations: { retry: false } },
+  })
+
+  render(
+    <QueryClientProvider client={queryClient}>
+      <ToolPriceSettings defaultValue={defaultValue} />
+    </QueryClientProvider>
+  )
+
+  return queryClient
+}
 
 describe('tool price validation', () => {
   beforeAll(() => {
@@ -33,15 +55,7 @@ describe('tool price validation', () => {
   })
 
   test('blocks an empty price without converting it to an explicit zero', () => {
-    const queryClient = new QueryClient({
-      defaultOptions: { mutations: { retry: false } },
-    })
-
-    render(
-      <QueryClientProvider client={queryClient}>
-        <ToolPriceSettings defaultValue='{"web_search":10}' />
-      </QueryClientProvider>
-    )
+    const queryClient = renderToolPriceSettings('{"web_search":10}')
 
     const priceInput = screen.getByRole('spinbutton', {
       name: 'Price ($/1K calls): web_search',
@@ -80,15 +94,7 @@ describe('tool price validation', () => {
   })
 
   test('does not dress the empty tool identifier up as a default value', () => {
-    const queryClient = new QueryClient({
-      defaultOptions: { mutations: { retry: false } },
-    })
-
-    render(
-      <QueryClientProvider client={queryClient}>
-        <ToolPriceSettings defaultValue='{"web_search":10}' />
-      </QueryClientProvider>
-    )
+    const queryClient = renderToolPriceSettings('{"web_search":10}')
 
     const toolInput = screen.getByRole('textbox', {
       name: 'Tool identifier',
@@ -96,6 +102,32 @@ describe('tool price validation', () => {
 
     expect(toolInput).toHaveValue('web_search')
     expect(toolInput).not.toHaveAttribute('placeholder')
+
+    queryClient.clear()
+  })
+
+  test('names every built-in tool identifier the request gate can demand', () => {
+    const queryClient = renderToolPriceSettings('{}')
+
+    const hint = screen.getByRole('alert')
+
+    expect(
+      within(hint)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent)
+    ).toEqual(BILLABLE_TOOL_IDENTIFIERS)
+
+    queryClient.clear()
+  })
+
+  test('warns that an unpriced built-in tool is refused and that chat web search needs the web_search_preview price', () => {
+    const queryClient = renderToolPriceSettings('{}')
+
+    const hint = screen.getByRole('alert')
+
+    expect(hint).toHaveTextContent('503')
+    expect(hint).toHaveTextContent('web_search_options')
+    expect(hint).toHaveTextContent('web_search_preview')
 
     queryClient.clear()
   })
