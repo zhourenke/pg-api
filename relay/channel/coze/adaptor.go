@@ -17,11 +17,7 @@ import (
 )
 
 type Adaptor struct {
-}
-
-func (a *Adaptor) ConvertGeminiRequest(*gin.Context, *common.RelayInfo, *dto.GeminiChatRequest) (any, error) {
-	//TODO implement me
-	return nil, errors.New("not implemented")
+	channel.Unsupported
 }
 
 // ConvertAudioRequest implements channel.Adaptor.
