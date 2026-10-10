@@ -189,7 +189,7 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
       },
       {
         accessorKey: 'expired_time',
-        header: t('Expires'),
+        header: t('Expiration Time'),
         cell: ({ row }) => {
           const expiredTime = row.getValue('expired_time') as number
           if (expiredTime === -1) {

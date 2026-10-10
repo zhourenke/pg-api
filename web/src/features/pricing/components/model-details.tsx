@@ -640,9 +640,7 @@ function PriceSection(props: {
       <section>
         <SectionTitle>{t('Base Price')}</SectionTitle>
         <div className='flex items-baseline justify-between'>
-          <span className='text-muted-foreground text-sm'>
-            {t('Per request')}
-          </span>
+          <span className='text-muted-foreground text-sm'>{t('Per-call')}</span>
           <span className='text-foreground font-mono text-sm font-semibold tabular-nums'>
             {formatFixedPrice(
               props.model,

@@ -200,7 +200,9 @@ function ApiKeysMobileList({
                 />
               </div>
               <div className='min-w-0 space-y-1 [&_[data-slot=status-badge]]:text-xs [&_[data-slot=status-badge]]:font-normal'>
-                <div className='text-muted-foreground'>{t('Expires')}</div>
+                <div className='text-muted-foreground'>
+                  {t('Expiration Time')}
+                </div>
                 {expiryCell &&
                   flexRender(
                     expiryCell.column.columnDef.cell,

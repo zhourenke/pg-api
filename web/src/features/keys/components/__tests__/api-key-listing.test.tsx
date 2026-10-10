@@ -356,7 +356,7 @@ it('combines creation and last use while keeping expiry, models and IP restricti
   }
   expect(screen.getByRole('columnheader', { name: 'Time' })).toBeInTheDocument()
   expect(
-    screen.getByRole('columnheader', { name: 'Expires' })
+    screen.getByRole('columnheader', { name: 'Expiration Time' })
   ).toBeInTheDocument()
   const timeCell = screen.getByRole('cell', { name: /Created.*Last Used/ })
   expect(within(timeCell).getByText('Last Used')).toBeInTheDocument()
@@ -381,7 +381,7 @@ it('restores dates hidden by the old default and preserves unrelated column pref
   await renderKeysPage()
   expect(screen.getByRole('columnheader', { name: 'Time' })).toBeInTheDocument()
   expect(
-    screen.getByRole('columnheader', { name: 'Expires' })
+    screen.getByRole('columnheader', { name: 'Expiration Time' })
   ).toBeInTheDocument()
   expect(
     screen.queryByRole('columnheader', { name: 'Models' })
@@ -464,7 +464,9 @@ it('keeps full mobile information without group or quota section headings', asyn
     expect(screen.getByText('120')).toBeInTheDocument()
     expect(screen.getByText(zh.translation['Created'])).toBeInTheDocument()
     expect(screen.getByText(zh.translation['Last Used'])).toBeInTheDocument()
-    expect(screen.getByText(zh.translation['Expires'])).toBeInTheDocument()
+    expect(
+      screen.getByText(zh.translation['Expiration Time'])
+    ).toBeInTheDocument()
     expect(
       screen.queryByText(zh.translation['Group'], { exact: true })
     ).not.toBeInTheDocument()

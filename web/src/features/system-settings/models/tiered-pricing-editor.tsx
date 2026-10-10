@@ -117,7 +117,7 @@ function RawExprEditor({ exprString, onChange }: RawExprEditorProps) {
           </div>
           <div>
             {t(
-              'Use tier(name, fixed(amount)) for a USD price per request. Group and request multipliers still apply.'
+              'Use tier(name, fixed(amount)) for a USD price per call. Group and request multipliers still apply.'
             )}
           </div>
         </AlertDescription>

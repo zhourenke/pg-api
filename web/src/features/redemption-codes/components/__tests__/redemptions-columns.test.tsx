@@ -24,7 +24,7 @@ import zhCN from '@/i18n/locales/zh.json'
 
 import { useRedemptionsColumns } from '../redemptions-columns'
 
-it('names the expiry column 过期日期 without renaming the API key page copy', async () => {
+it('names the expiry column from the shared 过期时间 copy', async () => {
   await act(async () => {
     i18n.addResourceBundle('zhCN', 'translation', zhCN.translation, true, true)
     await i18n.changeLanguage('zhCN')
@@ -36,8 +36,12 @@ it('names the expiry column 过期日期 without renaming the API key page copy'
       'accessorKey' in candidate && candidate.accessorKey === 'expired_time'
   )
 
-  // 【密钥】页的同一个日期列读的是 `Expires`（「过期」），兑换码要的是「过期
-  // 日期」，所以这一列改读自己的键；两个页面因此可以各说各的。
-  expect(column?.header).toBe('过期日期')
-  expect(zhCN.translation['Expires']).toBe('过期')
+  // 兑换码与【密钥】两个页面共用 `Expiration Time`（两个页面的表单字段与审计日志
+  // 字段名也用它），与「创建时间」成对；为只改兑换码而分出去的 `Expires on`
+  // 与旧列头 `Expires` 都已删除，避免同一列在两页出现两个名字。
+  expect(column?.header).toBe(zhCN.translation['Expiration Time'])
+  expect(zhCN.translation['Expiration Time']).toBe('过期时间')
+  const keys = Object.keys(zhCN.translation)
+  expect(keys).not.toContain('Expires')
+  expect(keys).not.toContain('Expires on')
 })

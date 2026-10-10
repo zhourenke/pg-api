@@ -179,7 +179,7 @@ export function useRedemptionsColumns(): ColumnDef<Redemption>[] {
     },
     {
       accessorKey: 'expired_time',
-      header: t('Expires on'),
+      header: t('Expiration Time'),
       meta: { mobileHidden: true },
       cell: ({ row }) => {
         const expiredTime = row.getValue('expired_time') as number
