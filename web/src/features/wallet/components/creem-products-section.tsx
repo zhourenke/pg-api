@@ -31,6 +31,13 @@ interface CreemProductsSectionProps {
   loading?: boolean
 }
 
+/** Stable identities for the loading placeholders, so they never key off an index. */
+const SKELETON_PLACEHOLDER_KEYS = [
+  'creem-product-1',
+  'creem-product-2',
+  'creem-product-3',
+]
+
 export function CreemProductsSection({
   products,
   onProductSelect,
@@ -41,8 +48,8 @@ export function CreemProductsSection({
   if (loading) {
     return (
       <div className='grid grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-3 md:grid-cols-3'>
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className='h-24 rounded-lg' />
+        {SKELETON_PLACEHOLDER_KEYS.map((key) => (
+          <Skeleton key={key} className='h-24 rounded-lg' />
         ))}
       </div>
     )

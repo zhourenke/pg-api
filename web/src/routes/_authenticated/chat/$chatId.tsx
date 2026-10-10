@@ -158,6 +158,11 @@ function ChatRouteComponent() {
       src={iframeSrc}
       key={iframeSrc}
       className='h-full w-full border-0'
+      // Presets are administrator-configured web apps. `allow-same-origin` is
+      // deliberately withheld: a preset pointed at this deployment's own origin
+      // would otherwise share the panel's storage, and together with
+      // `allow-scripts` it could remove the sandbox entirely.
+      sandbox='allow-scripts allow-forms allow-popups allow-modals allow-downloads'
       allow='camera; microphone'
       title={`Chat preset: ${preset.name}`}
     />

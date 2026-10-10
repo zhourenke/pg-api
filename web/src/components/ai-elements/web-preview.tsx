@@ -212,7 +212,10 @@ export const WebPreviewBody = ({
     <div className='flex-1'>
       <iframe
         className={cn('size-full', className)}
-        sandbox='allow-scripts allow-same-origin allow-forms allow-popups allow-presentation'
+        // `allow-same-origin` is deliberately withheld: combined with `allow-scripts`
+        // it would let the previewed document reach same-origin storage and strip
+        // its own sandbox.
+        sandbox='allow-scripts allow-forms allow-popups allow-presentation'
         src={(src ?? url) || undefined}
         title={t('Preview')}
         {...props}
@@ -280,6 +283,7 @@ export const WebPreviewConsole = ({
                   log.level === 'warn' && 'text-warning',
                   log.level === 'log' && 'text-foreground'
                 )}
+                // eslint-disable-next-line react/no-array-index-key -- Console entries are append-only; identical timestamps still need their position to stay unique.
                 key={`${log.timestamp.getTime()}-${index}`}
               >
                 <span className='text-muted-foreground'>

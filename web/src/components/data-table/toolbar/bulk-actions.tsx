@@ -35,7 +35,7 @@ type DataTableBulkActionsProps<TData> = {
   table: Table<TData>
   placement?: 'floating' | 'inline'
   entityName: string
-  children: React.ReactNode
+  children?: React.ReactNode
 }
 
 /**

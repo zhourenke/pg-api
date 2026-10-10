@@ -47,11 +47,13 @@ export function ScrollingIcons({
       <div className={cn('flex flex-col gap-5', animationClass)}>
         {/* First set */}
         {icons.map((iconName, i) => (
+          // eslint-disable-next-line react/no-array-index-key -- Decorative marquee duplicates the icon list on purpose; position is the only identity and the list never reorders.
           <IconCard key={`${direction}-1-${i}`} iconName={iconName} />
         ))}
         {/* Duplicate set for seamless loop */}
         {icons.map((iconName, i) => (
           <IconCard
+            // eslint-disable-next-line react/no-array-index-key -- Same decorative marquee, second pass; the duplicated set must stay distinguishable from the first.
             key={`${direction}-2-${i}`}
             iconName={iconName}
             className='aria-hidden'
