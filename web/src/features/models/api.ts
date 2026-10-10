@@ -184,12 +184,6 @@ export async function updateVendor(
 /**
  * Delete vendor
  */
-export async function deleteVendor(
-  id: number
-): Promise<{ success: boolean; message?: string }> {
-  const res = await api.delete(`/api/vendors/${id}`)
-  return res.data
-}
 
 // ============================================================================
 // Sync Operations
@@ -352,19 +346,6 @@ export async function listDeploymentContainers(
 /**
  * Get single container details
  */
-export async function getDeploymentContainerDetails(
-  deploymentId: string | number,
-  containerId: string
-): Promise<{
-  success: boolean
-  message?: string
-  data?: Record<string, unknown>
-}> {
-  const res = await api.get(
-    `/api/deployments/${deploymentId}/containers/${encodeURIComponent(containerId)}`
-  )
-  return res.data
-}
 
 /**
  * Delete deployment
@@ -410,14 +391,6 @@ export async function getHardwareTypes(): Promise<{
 /**
  * Get locations for deployment
  */
-export async function getDeploymentLocations(): Promise<{
-  success: boolean
-  message?: string
-  data?: { locations?: Array<Record<string, unknown>>; total?: number }
-}> {
-  const res = await api.get('/api/deployments/locations')
-  return res.data
-}
 
 /**
  * Get available replicas

@@ -421,7 +421,7 @@ function CodeMirrorCodeView({
   )
 }
 
-export const CodeBlockFrame = ({
+const CodeBlockFrame = ({
   bodyClassName,
   bodyMaxHeight,
   bodyOverlay,

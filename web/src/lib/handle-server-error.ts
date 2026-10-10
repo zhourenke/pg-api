@@ -27,7 +27,7 @@ import {
 const reportedErrors = new WeakSet<object>()
 
 /** Also used when a failure has already been presented inline. */
-export function markServerErrorHandled(error: unknown): void {
+function markServerErrorHandled(error: unknown): void {
   for (const source of getServerErrorSources(error)) reportedErrors.add(source)
 }
 

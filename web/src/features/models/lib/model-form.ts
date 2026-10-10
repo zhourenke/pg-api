@@ -52,15 +52,6 @@ export type ModelFormValues = z.infer<typeof modelFormSchema>
 /**
  * Vendor form validation schema
  */
-export const vendorFormSchema = z.object({
-  id: z.number().optional(),
-  name: z.string().min(1, 'Vendor name is required'),
-  description: z.string().default(''),
-  icon: z.string().default(''),
-  status: z.number().default(1),
-})
-
-export type VendorFormValues = z.infer<typeof vendorFormSchema>
 
 // ============================================================================
 // Form Data Transformation
@@ -115,27 +106,14 @@ export function transformFormDataToModelPayload(
 /**
  * Format tags array to string
  */
-export function formatTagsArray(tags: string[]): string {
+function formatTagsArray(tags: string[]): string {
   return tags.filter(Boolean).join(',')
 }
 
 /**
  * Validate JSON string
  */
-export function validateJSON(value: string): boolean {
-  if (!value || value.trim() === '') return true
-
-  try {
-    JSON.parse(value)
-    return true
-  } catch {
-    return false
-  }
-}
 
 /**
  * Validate endpoints JSON
  */
-export function validateEndpoints(endpoints: string): boolean {
-  return validateJSON(endpoints)
-}

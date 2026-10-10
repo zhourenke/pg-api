@@ -43,7 +43,7 @@ import {
  */
 export const STATUS_QUERY_KEY = ['status'] as const
 
-export const STATUS_STORAGE_KEY = 'status'
+const STATUS_STORAGE_KEY = 'status'
 
 /** Status payload shape — loose on purpose; the backend map is open-ended. */
 export type StatusData = Record<string, unknown>
@@ -61,7 +61,7 @@ function toNumber(value: unknown, fallback: number): number {
 /**
  * Map `/api/status` response data to our persisted system config structure
  */
-export function mapStatusDataToConfig(
+function mapStatusDataToConfig(
   data: StatusData | undefined | null
 ): Partial<SystemConfig> {
   if (!data) return {}

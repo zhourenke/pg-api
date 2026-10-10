@@ -21,7 +21,7 @@ For commercial licensing, please contact support@quantumnous.com
  * request header" (see processHeaderOverride in relay/channel/api_request.go).
  * The quick "Pass Through Request Headers" switch is a shortcut for this rule.
  */
-export const HEADER_PASSTHROUGH_ALL_KEY = '*'
+const HEADER_PASSTHROUGH_ALL_KEY = '*'
 
 export type HeaderPassthroughState = 'enabled' | 'disabled' | 'invalid'
 

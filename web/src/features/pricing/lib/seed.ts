@@ -45,19 +45,5 @@ export function seededRandom(seed: number): () => number {
 }
 
 /** Pick a number in [min, max] from a seeded PRNG. */
-export function randomInRange(
-  rand: () => number,
-  min: number,
-  max: number
-): number {
-  return min + rand() * (max - min)
-}
 
 /** Pick an integer in [min, max] (inclusive) from a seeded PRNG. */
-export function randomIntInRange(
-  rand: () => number,
-  min: number,
-  max: number
-): number {
-  return Math.floor(randomInRange(rand, min, max + 1))
-}

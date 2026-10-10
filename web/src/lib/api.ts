@@ -22,18 +22,13 @@ import { requireServerSuccess } from '@/lib/server-error-message'
 
 export {
   applyAuthBundle,
-  applyAuthRotation,
-  bootstrapAuthentication,
   clearAuthenticatedClientState,
   clearAuthentication,
-  getCommonHeaders,
   getFreshAuthHeaders,
   isAuthBundle,
   refreshAuthentication,
-  resolveAuthentication,
-  AuthRotationError,
 } from '@/lib/auth-session'
-export type { AuthTokenRotation, RefreshOutcome } from '@/lib/auth-session'
+export type { RefreshOutcome } from '@/lib/auth-session'
 export { api }
 export type { ApiRequestConfig } from '@/lib/http-client'
 

@@ -28,13 +28,7 @@ import {
 // Types
 // ============================================================================
 
-export interface DialogHandlers {
-  open: () => void
-  close: () => void
-  toggle: () => void
-}
-
-export interface DialogStateHandlers {
+interface DialogStateHandlers {
   reset: () => void
   isOpen: boolean
 }
@@ -62,22 +56,6 @@ export interface DialogsHandlers<T extends string> {
  * handlers.close()
  * handlers.toggle()
  */
-export function useDialog(
-  initialOpen = false
-): readonly [boolean, DialogHandlers] {
-  const [isOpen, setIsOpen] = useState(initialOpen)
-
-  const handlers: DialogHandlers = useMemo(
-    () => ({
-      open: () => setIsOpen(true),
-      close: () => setIsOpen(false),
-      toggle: () => setIsOpen((prev) => !prev),
-    }),
-    []
-  )
-
-  return [isOpen, handlers] as const
-}
 
 /**
  * Hook for managing dialog state with custom value types
@@ -94,7 +72,7 @@ export function useDialog(
  * const [user, setUser, handlers] = useDialogState<User>()
  * setUser({ id: 1, name: 'John' })
  */
-export function useDialogState<T = unknown>(
+function useDialogState<T = unknown>(
   initialState: T | null = null
 ): readonly [
   T | null,

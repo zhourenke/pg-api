@@ -28,13 +28,10 @@ import {
   encryptPassword,
 } from './lib/password-encryption'
 import { getAffiliateCode } from './lib/storage'
-import type { TelegramAuthorization } from './lib/telegram-login'
 import type { VerificationOperation } from './secure-verification/types'
 import type {
   LoginPayload,
   LoginResponse,
-  Login2FAResponse,
-  TwoFAPayload,
   RegisterPayload,
   ApiResponse,
 } from './types'
@@ -84,12 +81,6 @@ export async function login(payload: LoginPayload): Promise<LoginResponse> {
 }
 
 // Two-factor authentication login
-export async function login2fa(payload: TwoFAPayload) {
-  const res = await api.post<Login2FAResponse>('/api/user/login/2fa', payload, {
-    skipAuthRefresh: true,
-  })
-  return res.data
-}
 
 interface LogoutRuntime {
   getExpectedSID: () => string | undefined
@@ -161,10 +152,6 @@ export async function sendPasswordResetEmail(
 // ----------------------------------------------------------------------------
 
 // Start GitHub OAuth flow
-export async function githubOAuthStart(clientId: string, state: string) {
-  const url = `https://github.com/login/oauth/authorize?client_id=${clientId}&state=${state}&scope=user:email`
-  window.open(url)
-}
 
 // Get OAuth state for CSRF protection
 export async function createOAuthAuthorization(
@@ -226,19 +213,6 @@ export async function wechatLoginByCode(code: string): Promise<ApiResponse> {
   return res.data
 }
 
-export async function telegramLogin(
-  authorization: TelegramAuthorization
-): Promise<ApiResponse> {
-  const res = await api.get('/api/oauth/telegram/login', {
-    params: authorization,
-    disableDuplicate: true,
-    skipAuthRefresh: true,
-    skipBusinessError: true,
-    skipErrorHandler: true,
-  })
-  return res.data
-}
-
 // ----------------------------------------------------------------------------
 // Registration
 // ----------------------------------------------------------------------------
@@ -263,20 +237,3 @@ export async function sendEmailVerification(
 }
 
 // Confirm an authenticated, server-owned email binding flow.
-export async function bindEmail(
-  flowToken: string,
-  newCode: string,
-  oldCode = '',
-  signal?: AbortSignal
-): Promise<ApiResponse> {
-  const res = await api.post(
-    '/api/oauth/email/bind',
-    {
-      flow_token: flowToken,
-      new_code: newCode,
-      old_code: oldCode,
-    },
-    { singleUseAuthorization: true, signal }
-  )
-  return res.data
-}

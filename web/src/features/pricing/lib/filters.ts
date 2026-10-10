@@ -39,10 +39,7 @@ import { getRequestPriceValue, getTokenPriceValue } from './price'
 /**
  * Filter models by search query
  */
-export function filterBySearch(
-  models: PricingModel[],
-  query: string
-): PricingModel[] {
+function filterBySearch(models: PricingModel[], query: string): PricingModel[] {
   if (!query) return models
 
   const lowerQuery = query.toLowerCase()
@@ -58,7 +55,7 @@ export function filterBySearch(
 /**
  * Filter models by vendor
  */
-export function filterByVendor(
+function filterByVendor(
   models: PricingModel[],
   vendor: string
 ): PricingModel[] {
@@ -69,10 +66,7 @@ export function filterByVendor(
 /**
  * Filter models by group
  */
-export function filterByGroup(
-  models: PricingModel[],
-  group: string
-): PricingModel[] {
+function filterByGroup(models: PricingModel[], group: string): PricingModel[] {
   if (group === FILTER_ALL) return models
   return models.filter((m) => m.enable_groups?.includes(group))
 }
@@ -95,7 +89,7 @@ export function filterByQuotaType(
 /**
  * Filter models by endpoint type
  */
-export function filterByEndpointType(
+function filterByEndpointType(
   models: PricingModel[],
   endpointType: string
 ): PricingModel[] {
@@ -273,10 +267,7 @@ export function extractAllTags(models: PricingModel[]): string[] {
 /**
  * Filter models by tag
  */
-export function filterByTag(
-  models: PricingModel[],
-  tag: string
-): PricingModel[] {
+function filterByTag(models: PricingModel[], tag: string): PricingModel[] {
   if (tag === FILTER_ALL) return models
 
   const tagLower = tag.toLowerCase()

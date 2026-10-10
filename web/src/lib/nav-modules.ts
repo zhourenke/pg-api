@@ -56,10 +56,7 @@ function cloneHeaderNavDefaults(): HeaderNavModules {
   }
 }
 
-export function parseHeaderNavBoolean(
-  raw: unknown,
-  fallback: boolean
-): boolean {
+function parseHeaderNavBoolean(raw: unknown, fallback: boolean): boolean {
   if (typeof raw === 'boolean') return raw
   if (typeof raw === 'number') {
     if (raw === 1) return true
@@ -106,7 +103,7 @@ function parseHeaderNavRecord(raw: unknown): Record<string, unknown> | null {
   }
 }
 
-export function parseHeaderNavModules(raw: unknown): HeaderNavModules {
+function parseHeaderNavModules(raw: unknown): HeaderNavModules {
   const result = cloneHeaderNavDefaults()
   const parsed = parseHeaderNavRecord(raw)
   if (!parsed) return result
@@ -150,7 +147,7 @@ export function parseHeaderNavModulesFromStatus(
  * Falls back to the module's default when status is missing or does not carry
  * a `HeaderNavModules` entry for it.
  */
-export function getModuleAccessFromStatus(
+function getModuleAccessFromStatus(
   status: Record<string, unknown> | null,
   module: HeaderNavModule
 ): ModuleAccess {
@@ -164,9 +161,6 @@ export function getModuleAccessFromStatus(
  * item. Never issues a request; use {@link getModuleAccessForGuard} when the
  * caller can await.
  */
-export function getModuleAccess(module: HeaderNavModule): ModuleAccess {
-  return getModuleAccessFromStatus(readCachedStatus(), module)
-}
 
 /**
  * Resolve module access for a router `beforeLoad` guard.

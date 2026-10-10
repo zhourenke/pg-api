@@ -50,7 +50,7 @@ const POLICY_SECTIONS = [
   },
 ] as const
 
-export type PolicySectionId = (typeof POLICY_SECTIONS)[number]['id']
+type PolicySectionId = (typeof POLICY_SECTIONS)[number]['id']
 const registry = createSectionRegistry<PolicySectionId, RequestPolicySettings>({
   sections: POLICY_SECTIONS,
   defaultSection: 'routing',

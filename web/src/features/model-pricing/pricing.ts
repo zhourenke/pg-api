@@ -40,7 +40,7 @@ export const PRICING_KEYS = [
   'billing_setting.billing_mode',
   'billing_setting.billing_expr',
 ] as const
-export type PricingKey = (typeof PRICING_KEYS)[number]
+type PricingKey = (typeof PRICING_KEYS)[number]
 export type PricingValues = Partial<Record<PricingKey, number | string>>
 export type PricingOptions = Record<PricingKey, string>
 
@@ -106,7 +106,7 @@ export function modelPricingDisplay(
   }
 }
 
-export const pricingFieldMap = {
+const pricingFieldMap = {
   price: 'ModelPrice',
   ratio: 'ModelRatio',
   completionRatio: 'CompletionRatio',
@@ -130,7 +130,7 @@ export function pricingOptions(
   ) as PricingOptions
 }
 
-export function pricingRows(options: PricingOptions): ModelPricingSnapshot[] {
+function pricingRows(options: PricingOptions): ModelPricingSnapshot[] {
   return buildModelSnapshots({
     modelPrice: options.ModelPrice,
     modelRatio: options.ModelRatio,

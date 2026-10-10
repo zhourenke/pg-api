@@ -60,14 +60,6 @@ export function getSuccessRateLevel(rate: number): SuccessRateLevel {
   return 'critical'
 }
 
-const SUCCESS_RATE_TEXT_CLASS: Record<SuccessRateLevel, string> = {
-  excellent: 'text-emerald-600 dark:text-emerald-400',
-  good: 'text-emerald-500 dark:text-emerald-300',
-  warning: 'text-amber-600 dark:text-amber-400',
-  critical: 'text-red-600 dark:text-red-400',
-  unknown: 'text-muted-foreground',
-}
-
 const SUCCESS_RATE_DOT_CLASS: Record<SuccessRateLevel, string> = {
   excellent: 'bg-emerald-500',
   good: 'bg-emerald-400',
@@ -77,22 +69,7 @@ const SUCCESS_RATE_DOT_CLASS: Record<SuccessRateLevel, string> = {
 }
 
 // Hex colors for non-CSS contexts (e.g. chart libraries that need raw values).
-const SUCCESS_RATE_HEX_COLOR: Record<SuccessRateLevel, string> = {
-  excellent: '#10b981', // emerald-500 (full green)
-  good: '#34d399', // emerald-400 (slightly lighter green)
-  warning: '#f59e0b', // amber-500
-  critical: '#ef4444', // red-500
-  unknown: '#9ca3af', // gray-400
-}
-
-export function getSuccessRateTextClass(rate: number): string {
-  return SUCCESS_RATE_TEXT_CLASS[getSuccessRateLevel(rate)]
-}
 
 export function getSuccessRateDotClass(rate: number): string {
   return SUCCESS_RATE_DOT_CLASS[getSuccessRateLevel(rate)]
-}
-
-export function getSuccessRateColor(rate: number): string {
-  return SUCCESS_RATE_HEX_COLOR[getSuccessRateLevel(rate)]
 }

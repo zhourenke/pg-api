@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import type { ChannelAffinitySettings } from '../general/channel-affinity/types'
 import type { SecuritySettings } from '../types'
 
-export type RetrySettings = {
+type RetrySettings = {
   RetryTimes: number
   AutomaticRetryStatusCodes: string
 }
@@ -37,7 +37,7 @@ export type HealthSettings = {
     | 'auto_ban_only'
     | 'passive_recovery'
 }
-export type FilteringSettings = Pick<
+type FilteringSettings = Pick<
   SecuritySettings,
   'CheckSensitiveEnabled' | 'CheckSensitiveOnPromptEnabled' | 'SensitiveWords'
 >

@@ -77,7 +77,7 @@ export interface AuthBundle {
 
 export type AuthBootstrapState = 'idle' | 'checking' | 'complete'
 
-export interface PendingLoginVerification {
+interface PendingLoginVerification {
   challenge: LoginChallenge
   redirectTo?: string
 }

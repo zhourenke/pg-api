@@ -42,7 +42,7 @@ const usageLogsRegistry = createSectionRegistry<
   urlStyle: 'path',
 })
 
-export const USAGE_LOGS_SECTION_IDS = usageLogsRegistry.sectionIds
+const USAGE_LOGS_SECTION_IDS = usageLogsRegistry.sectionIds
 export const USAGE_LOGS_DEFAULT_SECTION = usageLogsRegistry.defaultSection
 
 /** Type guard for validating section IDs without casting. Use with z.string().refine() or params checks. */

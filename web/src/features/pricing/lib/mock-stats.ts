@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { PricingModel } from '../types'
-import { hashStringToSeed, randomInRange, seededRandom } from './seed'
+import { hashStringToSeed, seededRandom } from './seed'
 
 // ----------------------------------------------------------------------------
 // Mock model statistics
@@ -32,170 +32,6 @@ import { hashStringToSeed, randomInRange, seededRandom } from './seed'
 // real API and these helpers can be deleted. The shape of the returned
 // data is designed to mirror what we expect the real endpoints to return.
 
-export type AppRanking = {
-  rank: number
-  name: string
-  description: string
-  category: string
-  growth_pct: number
-  monthly_tokens: number
-  url?: string
-  initial: string
-}
-
-const APP_TEMPLATES: Array<
-  Omit<AppRanking, 'rank' | 'monthly_tokens' | 'growth_pct' | 'initial'>
-> = [
-  {
-    name: 'Cline',
-    description: 'Autonomous coding agent inside the IDE',
-    category: 'Coding',
-    url: 'https://cline.bot',
-  },
-  {
-    name: 'Roo Code',
-    description: 'AI agent for VS Code with multi-step planning',
-    category: 'Coding',
-    url: 'https://roocode.com',
-  },
-  {
-    name: 'Open WebUI',
-    description: 'Self-hosted ChatGPT-like web interface',
-    category: 'Chat',
-    url: 'https://openwebui.com',
-  },
-  {
-    name: 'LibreChat',
-    description: 'Open-source chat platform with multi-model support',
-    category: 'Chat',
-    url: 'https://librechat.ai',
-  },
-  {
-    name: 'Lobe Chat',
-    description: 'Modern open-source chat UI with plugins',
-    category: 'Chat',
-    url: 'https://lobehub.com',
-  },
-  {
-    name: 'NextChat',
-    description: 'Cross-platform private ChatGPT client',
-    category: 'Chat',
-    url: 'https://nextchat.dev',
-  },
-  {
-    name: 'Continue',
-    description: 'Open-source AI code assistant for editors',
-    category: 'Coding',
-    url: 'https://continue.dev',
-  },
-  {
-    name: 'Aider',
-    description: 'Pair-programming agent in your terminal',
-    category: 'Coding',
-    url: 'https://aider.chat',
-  },
-  {
-    name: 'Dify',
-    description: 'LLM application development platform',
-    category: 'Platform',
-    url: 'https://dify.ai',
-  },
-  {
-    name: 'FastGPT',
-    description: 'Knowledge base orchestration and chat platform',
-    category: 'Platform',
-    url: 'https://fastgpt.in',
-  },
-  {
-    name: 'Flowise',
-    description: 'Low-code LLM workflow builder',
-    category: 'Platform',
-    url: 'https://flowiseai.com',
-  },
-  {
-    name: 'OpenInterpreter',
-    description: 'Natural-language code execution agent',
-    category: 'Coding',
-    url: 'https://openinterpreter.com',
-  },
-  {
-    name: 'Devika',
-    description: 'Open-source AI software engineer',
-    category: 'Coding',
-    url: 'https://github.com/stitionai/devika',
-  },
-  {
-    name: 'Cherry Studio',
-    description: 'Multi-model desktop chat client',
-    category: 'Chat',
-    url: 'https://cherry-ai.com',
-  },
-  {
-    name: 'AnythingLLM',
-    description: 'Workspaces around your private documents',
-    category: 'Platform',
-    url: 'https://anythingllm.com',
-  },
-  {
-    name: 'OpenHands',
-    description: 'Coding agent with browser-and-code tools',
-    category: 'Coding',
-    url: 'https://docs.all-hands.dev',
-  },
-  {
-    name: 'Cursor',
-    description: 'AI-native code editor',
-    category: 'Coding',
-    url: 'https://cursor.com',
-  },
-  {
-    name: 'Zed',
-    description: 'Multiplayer code editor with AI',
-    category: 'Coding',
-    url: 'https://zed.dev',
-  },
-  {
-    name: 'Notion AI',
-    description: 'Documents and writing assistant',
-    category: 'Productivity',
-    url: 'https://notion.so',
-  },
-  {
-    name: 'Raycast AI',
-    description: 'AI on your macOS launcher',
-    category: 'Productivity',
-    url: 'https://raycast.com',
-  },
-  {
-    name: 'Obsidian Smart Connections',
-    description: 'Connect notes with semantic search',
-    category: 'Productivity',
-  },
-  {
-    name: 'Bolt.new',
-    description: 'Prompt-to-app full-stack builder',
-    category: 'Coding',
-    url: 'https://bolt.new',
-  },
-  {
-    name: 'Pieces',
-    description: 'AI workflow companion for developers',
-    category: 'Productivity',
-    url: 'https://pieces.app',
-  },
-  {
-    name: 'AmazingAI',
-    description: 'Personal AI knowledge assistant',
-    category: 'Productivity',
-  },
-  {
-    name: 'TypingMind',
-    description: 'Better UI for ChatGPT and Claude',
-    category: 'Chat',
-    url: 'https://typingmind.com',
-  },
-]
-
 const PROFILE_BY_NAME = (name: string) => {
   const n = name.toLowerCase()
   if (/embed|rerank/.test(n)) return 'embedding'
@@ -207,48 +43,7 @@ const PROFILE_BY_NAME = (name: string) => {
   return 'standard'
 }
 
-export function buildAppRankings(
-  model: PricingModel,
-  count = 12
-): AppRanking[] {
-  const baseSeed = hashStringToSeed(`${model.model_name}:apps`)
-  const rand = seededRandom(baseSeed)
-  const candidates = [...APP_TEMPLATES]
-  // Fisher–Yates shuffle.
-  for (let i = candidates.length - 1; i > 0; i--) {
-    const j = Math.floor(rand() * (i + 1))
-    ;[candidates[i], candidates[j]] = [candidates[j], candidates[i]]
-  }
-
-  const top = candidates.slice(0, count)
-  const baseTokens = randomInRange(rand, 90_000_000, 320_000_000)
-
-  return top.map((app, idx) => {
-    const decay = Math.pow(0.78, idx)
-    const monthlyTokens = Math.round(baseTokens * decay * (0.85 + rand() * 0.3))
-    const growthPctRaw = randomInRange(rand, -28, 84)
-    const growthPct = Math.round(growthPctRaw * 10) / 10
-    return {
-      rank: idx + 1,
-      name: app.name,
-      description: app.description,
-      category: app.category,
-      url: app.url,
-      growth_pct: growthPct,
-      monthly_tokens: monthlyTokens,
-      initial: app.name.charAt(0).toUpperCase(),
-    }
-  })
-}
-
 /** Aggregate uptime over the most recent 30 days. */
-export function formatTokenVolume(n: number): string {
-  if (!Number.isFinite(n) || n <= 0) return '0'
-  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
-  return n.toString()
-}
 
 // ---------------------------------------------------------------------------
 // Mock supported-parameters & rate-limits & misc API metadata

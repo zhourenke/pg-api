@@ -202,7 +202,7 @@ function getRouteConverters(
   return [...converters.values()]
 }
 
-export function RouteModeBadges(props: { routes: AdvancedCustomRoute[] }) {
+function RouteModeBadges(props: { routes: AdvancedCustomRoute[] }) {
   const { t } = useTranslation()
   const hasPassThrough = props.routes.some(
     (route) => route.pass_through_body_enabled === true

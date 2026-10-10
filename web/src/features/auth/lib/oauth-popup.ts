@@ -25,7 +25,7 @@ import {
 import { watchOAuthPopupClosed } from './oauth-bind-window'
 import { getOAuthSessionStorage, markOAuthPopup } from './oauth-callback-mode'
 
-export interface OAuthPopupCallback {
+interface OAuthPopupCallback {
   provider: string
   state: string
   code?: string

@@ -26,8 +26,6 @@ import {
 } from '../constants'
 import type { GetLogsParams } from '../types'
 
-export { buildQueryParams } from './query-params'
-
 // ============================================================================
 // Type Checkers & Utilities
 // ============================================================================

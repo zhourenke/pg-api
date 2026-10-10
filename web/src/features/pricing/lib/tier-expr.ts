@@ -22,13 +22,13 @@ export const CACHE_MODE_TIMED = 'timed'
 export const CACHE_MODE_GENERIC = 'generic'
 export type CacheMode = typeof CACHE_MODE_TIMED | typeof CACHE_MODE_GENERIC
 
-export type TierConditionInput = {
+type TierConditionInput = {
   var: 'p' | 'c' | 'len'
   op: '<' | '<=' | '>' | '>='
   value: number | string
 }
 
-export type VisualTier = {
+type VisualTier = {
   billing_unit?: 'token' | 'request'
   fixed_price?: string
   label: string

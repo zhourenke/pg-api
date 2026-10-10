@@ -77,11 +77,11 @@ function isOptionalProxyURL(value: string | undefined): boolean {
   }
 }
 
-export const HTTP_PROTOCOL_AUTO = 'auto'
-export const HTTP_PROTOCOL_HTTP1 = 'http1'
-export const MAX_HTTP2_CONNECTION_SHARDS = 8
+const HTTP_PROTOCOL_AUTO = 'auto'
+const HTTP_PROTOCOL_HTTP1 = 'http1'
+const MAX_HTTP2_CONNECTION_SHARDS = 8
 
-export function normalizeHttpProtocol(
+function normalizeHttpProtocol(
   value: string | undefined | null
 ): 'auto' | 'http1' {
   const normalized = String(value || '')
@@ -93,7 +93,7 @@ export function normalizeHttpProtocol(
   return HTTP_PROTOCOL_AUTO
 }
 
-export function normalizeHttp2ConnectionShards(
+function normalizeHttp2ConnectionShards(
   value: number | undefined | null
 ): number {
   if (value == null || Number.isNaN(value) || value === 0) {
@@ -913,39 +913,19 @@ export function transformFormDataToUpdatePayload(
 /**
  * Validate JSON string
  */
-export function validateJSON(value: string): boolean {
-  if (!value || value.trim() === '') return true
-  try {
-    JSON.parse(value)
-    return true
-  } catch {
-    return false
-  }
-}
 
 /**
  * Validate model mapping format
  */
-export function validateModelMapping(value: string): boolean {
-  if (!value || value.trim() === '') return true
-  return validateJSON(value)
-}
 
 /**
  * Parse models string to array
  */
-export function parseModels(models: string): string[] {
-  if (!models) return []
-  return models
-    .split(',')
-    .map((m) => m.trim())
-    .filter((m) => m.length > 0)
-}
 
 /**
  * Parse groups string to array
  */
-export function parseGroups(groups: string): string[] {
+function parseGroups(groups: string): string[] {
   if (!groups) return []
   return groups
     .split(',')
@@ -956,13 +936,10 @@ export function parseGroups(groups: string): string[] {
 /**
  * Format models array to string
  */
-export function formatModels(models: string[]): string {
-  return models.join(',')
-}
 
 /**
  * Format groups array to string
  */
-export function formatGroups(groups: string[]): string {
+function formatGroups(groups: string[]): string {
   return groups.join(',')
 }

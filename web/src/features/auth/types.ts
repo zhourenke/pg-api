@@ -16,8 +16,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import type { AuthBundle } from '@/stores/auth-store'
-
 import type { LoginResult } from './secure-verification/types'
 
 // ============================================================================
@@ -31,11 +29,6 @@ export interface LoginPayload {
   passwordEncryptionEnabled?: boolean
 }
 
-export interface TwoFAPayload {
-  code: string
-  flow_token: string
-}
-
 export interface RegisterPayload {
   username: string
   password: string
@@ -43,22 +36,6 @@ export interface RegisterPayload {
   verification_code?: string
   aff_code?: string
   turnstile?: string
-}
-
-export interface PasswordResetPayload {
-  email: string
-  turnstile?: string
-}
-
-export interface EmailVerificationPayload {
-  email: string
-  turnstile?: string
-}
-
-export interface BindEmailPayload {
-  flow_token: string
-  new_code: string
-  old_code?: string
 }
 
 // ============================================================================
@@ -69,12 +46,6 @@ export interface LoginResponse {
   success: boolean
   message: string
   data?: LoginResult
-}
-
-export interface Login2FAResponse {
-  success: boolean
-  message: string
-  data?: AuthBundle
 }
 
 export interface ApiResponse<T = unknown> {
@@ -188,14 +159,6 @@ export interface SystemStatus {
 // ============================================================================
 // OAuth
 // ============================================================================
-
-export interface OAuthProvider {
-  name: string
-  type: 'github' | 'discord' | 'oidc' | 'linuxdo' | 'telegram' | 'wechat'
-  enabled: boolean
-  clientId?: string
-  authEndpoint?: string
-}
 
 export interface CustomOAuthProviderInfo {
   id: number

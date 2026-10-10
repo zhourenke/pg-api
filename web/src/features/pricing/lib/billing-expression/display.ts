@@ -26,7 +26,7 @@ import {
   type TokenVariable,
 } from './types'
 
-export type TokenTierCondition = {
+type TokenTierCondition = {
   var: 'p' | 'c' | 'len'
   op: '<' | '<=' | '>' | '>='
   value: number
@@ -242,7 +242,7 @@ export function readTokenTierChain(node: ExpressionNode): TokenTier[] | null {
   return [...tiers, fallback]
 }
 
-export function isTimeCondition(node: ExpressionNode): boolean {
+function isTimeCondition(node: ExpressionNode): boolean {
   const dependencies = expressionDependencies(node)
   return (
     dependencies.variables.size === 0 &&

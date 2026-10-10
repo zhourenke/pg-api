@@ -32,7 +32,7 @@ import {
 type RuntimeValue = { value: unknown; integer?: boolean }
 
 /** The supported, deterministic subset of GJSON paths (not JavaScript property access). */
-export function readRequestPath(body: unknown, rawPath: string): unknown {
+function readRequestPath(body: unknown, rawPath: string): unknown {
   const path = rawPath.trim()
   if (!path) return null
   const parts: string[] = []

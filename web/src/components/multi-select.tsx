@@ -39,7 +39,7 @@ import {
 import { copyToClipboard } from '@/lib/copy-to-clipboard'
 import { cn } from '@/lib/utils'
 
-export type Option = {
+type Option = {
   label: string
   value: string
   /**

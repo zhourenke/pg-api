@@ -21,8 +21,6 @@ export type SystemOption = {
   value: string
 }
 
-export type SystemOptionKey = string
-
 export type SystemOptionsResponse = {
   success: boolean
   message: string
@@ -98,19 +96,19 @@ export type SystemTask<
   updated_at: number
 }
 
-export type LogCleanupTaskPayload = {
+type LogCleanupTaskPayload = {
   target_timestamp: number
   batch_size: number
 }
 
-export type LogCleanupTaskState = {
+type LogCleanupTaskState = {
   total: number
   processed: number
   progress: number
   remaining: number
 }
 
-export type LogCleanupTaskResult = {
+type LogCleanupTaskResult = {
   deleted_count: number
   deleted_quota_data_count: number
   deleted_perf_metric_count: number
