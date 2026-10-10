@@ -120,6 +120,7 @@ describe('overview setup guide', () => {
     for (const name of ['API Keys', 'Channels', 'Usage Logs', 'Pricing']) {
       expect(screen.queryByRole('button', { name })).not.toBeInTheDocument()
     }
+    // eslint-disable-next-line unicorn/prefer-query-selector -- id 取自 aria-controls，是运行时任意字符串；拼进 CSS 选择器时含 : . 或以数字开头会抛 SyntaxError，只能用 getElementById。
     const panel = document.getElementById(
       toggle.getAttribute('aria-controls') ?? ''
     )
@@ -137,6 +138,7 @@ describe('overview setup guide', () => {
     await user.keyboard('{Enter}')
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
     expect(
+      // eslint-disable-next-line unicorn/prefer-query-selector -- 同 123 行：id 来自 aria-controls，不能拼进 CSS 选择器。
       document.getElementById(toggle.getAttribute('aria-controls') ?? '')
     ).toBeVisible()
     expect(

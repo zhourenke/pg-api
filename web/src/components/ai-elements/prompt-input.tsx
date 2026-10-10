@@ -692,8 +692,8 @@ export const PromptInput = ({
     const blob = await response.blob()
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
-      reader.onloadend = () => resolve(reader.result as string)
-      reader.onerror = reject
+      reader.addEventListener('loadend', () => resolve(reader.result as string))
+      reader.addEventListener('error', reject)
       reader.readAsDataURL(blob)
     })
   }
@@ -1165,6 +1165,7 @@ export const PromptInputSpeechButton = ({
         }
       }
 
+      // eslint-disable-next-line unicorn/prefer-add-event-listener -- 本文件的 SpeechRecognition 是局部 shim，只声明了 on* 属性、没有 addEventListener 事件重载；改用监听器会让 handler 的 event 退化为 Event，丢掉 results/error，因此保留属性赋值。
       speechRecognition.onerror = (event) => {
         // eslint-disable-next-line no-console
         console.error('Speech recognition error:', event.error)
