@@ -56,6 +56,7 @@ import {
   useSystemConfigStore,
 } from '@/stores/system-config-store'
 
+import { useModelsColumns } from '../components/models-columns'
 import { ModelsDialogs } from '../components/models-dialogs'
 import { ModelsProvider } from '../components/models-provider'
 import { ModelsTable } from '../components/models-table'
@@ -106,6 +107,24 @@ function CatalogPrice(props: { model: PricingModel }) {
     .find((item) => item.column.id === 'price')
   return (
     <div role='group' aria-label='Catalog price'>
+      {cell && flexRender(cell.column.columnDef.cell, cell.getContext())}
+    </div>
+  )
+}
+
+function DisplayPolicyCell(props: { model: Model }) {
+  const columns = useModelsColumns()
+  const table = useReactTable({
+    data: [props.model],
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+  })
+  const cell = table
+    .getRowModel()
+    .rows[0].getAllCells()
+    .find((item) => item.column.id === 'status')
+  return (
+    <div role='group' aria-label='Display policy cell'>
       {cell && flexRender(cell.column.columnDef.cell, cell.getContext())}
     </div>
   )
@@ -348,6 +367,84 @@ it('keeps all four row actions visible inside the content-sized actions column',
   expect(grid).not.toHaveClass('w-full')
   expect(grid?.querySelector('.min-w-0')).toBeNull()
   expect(grid?.querySelector('.truncate')).toBeNull()
+})
+
+it('hides a channel-only model the catalog lists by creating its record with the policy off', async () => {
+  await renderList([
+    {
+      ...channel,
+      square_state: 'visible',
+      bound_channels: [{ name: 'Active', type: 1 }],
+    },
+  ])
+  const post = vi.spyOn(api, 'post').mockResolvedValue({
+    data: { success: true, data: { ...channel, id: 9, has_metadata: true } },
+  })
+  const actions = screen
+    .getByRole('button', { name: 'Model info' })
+    .closest('[data-column-id="actions"]') as HTMLElement
+  // 它确实正在广场上（有可用渠道 + 有价），所以「隐藏」要能按：这一按建立元数据记录、
+  // 并把展示策略直接写成隐藏，这是唯一能把它从广场移走的动作。
+  const hide = within(actions).getByRole('button', { name: 'Hide' })
+  expect(hide).toBeEnabled()
+  await userEvent.setup().click(hide)
+  await waitFor(() =>
+    expect(post).toHaveBeenCalledWith(
+      '/api/models/',
+      expect.objectContaining({
+        model_name: 'channel-only',
+        name_rule: 0,
+        status: 0,
+      }),
+      expect.anything()
+    )
+  )
+})
+
+it('keeps the action disabled for a channel-only model the catalog does not list', async () => {
+  await renderList([{ ...channel, square_state: 'unavailable' }])
+  const post = vi.spyOn(api, 'post')
+  const actions = screen
+    .getByRole('button', { name: 'Model info' })
+    .closest('[data-column-id="actions"]') as HTMLElement
+  // 不在广场上就没有可隐藏的东西，而元数据也改不动它的可见性（可见性由可用渠道与
+  // 计费配置决定），所以这一格保持禁用。
+  expect(within(actions).getByRole('button', { name: 'Show' })).toBeDisabled()
+  expect(within(actions).getByRole('button', { name: 'Delete' })).toBeDisabled()
+  expect(post).not.toHaveBeenCalled()
+})
+
+it('leaves the display policy blank for a row that has no policy of its own', () => {
+  // 这一列默认是收起的（`models-table.tsx` 的 `initialColumnVisibility.status`），
+  // 所以只能直接渲染该列的单元格来钉住它：只存在于渠道的行没有自己的展示策略，
+  // `status` 只是零值，据此说它「隐藏」会与同一行「正常展示」的广场状态互相矛盾。
+  const view = (model: Model) =>
+    render(
+      <ModelsProvider>
+        <DisplayPolicyCell model={model} />
+      </ModelsProvider>
+    )
+  view({ ...channel, square_state: 'visible' })
+  expect(
+    within(
+      screen.getByRole('group', { name: 'Display policy cell' })
+    ).getByText('—')
+  ).toBeVisible()
+  cleanup()
+  // 有元数据记录的行照旧显示策略，`status: 1` 是允许、`0` 是隐藏。
+  view({ ...metadata, status: 1 })
+  expect(
+    within(
+      screen.getByRole('group', { name: 'Display policy cell' })
+    ).getByText('Allowed')
+  ).toBeVisible()
+  cleanup()
+  view({ ...metadata, status: 0 })
+  expect(
+    within(
+      screen.getByRole('group', { name: 'Display policy cell' })
+    ).getByText('Not listed')
+  ).toBeVisible()
 })
 
 it('prefills and creates metadata only when the user explicitly saves it', async () => {

@@ -22,12 +22,56 @@ import { toast } from 'sonner'
 
 import { handleServerError } from '@/lib/handle-server-error'
 
-import { updateModelStatus } from '../api'
+import { createModel, updateModelStatus } from '../api'
 import { invalidateVendorData } from '../vendor-api'
 
 // ============================================================================
 // Model Status Actions
 // ============================================================================
+
+/**
+ * Hide a model that only exists on a channel.
+ *
+ * Such a row is in the model square because a channel serves it and it has a
+ * price; the catalog never asks for a metadata record (`FillModelSquareStates`
+ * decides on availability plus billing config). So there is no display policy to
+ * flip yet, and `updateModelStatus` has no row to update. Creating the record
+ * with the policy already set to hidden is what takes the model out of the
+ * square, and it leaves the row in the ordinary state where 展示/隐藏 toggles the
+ * policy from then on.
+ */
+export async function handleHideChannelOnlyModel(
+  modelName: string,
+  queryClient?: QueryClient,
+  onSuccess?: () => void
+): Promise<void> {
+  try {
+    const response = await createModel({
+      model_name: modelName,
+      name_rule: 0,
+      status: 0,
+    })
+    if (response.success) {
+      toast.success(
+        i18next.t(
+          'Hidden from the model square, and a metadata record was created for it.'
+        )
+      )
+      if (queryClient) await invalidateVendorData(queryClient)
+      onSuccess?.()
+    } else {
+      handleServerError(
+        response,
+        i18next.t('Failed to hide model from model square')
+      )
+    }
+  } catch (error: unknown) {
+    handleServerError(
+      error,
+      i18next.t('Failed to hide model from model square')
+    )
+  }
+}
 
 /**
  * Enable a model

@@ -275,8 +275,14 @@ export function useModelsColumns(
         header: t('Display policy'),
         enableHiding: false,
         enableSorting: false,
-        cell: ({ row }) =>
-          row.original.status === 1 ? t('Allowed') : t('Not listed'),
+        cell: ({ row }) => {
+          // A model that only exists on a channel has no display policy of its
+          // own: the field carries the zero value, and whether the square lists
+          // it is decided by availability plus billing config. Saying 「隐藏」
+          // there would contradict the square column next to it.
+          if (row.original.id === 0) return '—'
+          return row.original.status === 1 ? t('Allowed') : t('Not listed')
+        },
       },
       {
         accessorKey: 'id',

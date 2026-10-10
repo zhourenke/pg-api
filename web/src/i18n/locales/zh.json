@@ -2578,6 +2578,7 @@
     "Hidden from {{group}}": "对 {{group}} 屏蔽",
     "Hidden from catalog": "在目录隐藏",
     "Hidden from the model square by metadata policy.": "已通过元数据策略在模型广场隐藏。",
+    "Hidden from the model square, and a metadata record was created for it.": "已从模型广场隐藏，并为它建立了元数据记录。",
     "Hide": "隐藏",
     "Hide API key": "隐藏 API 密钥",
     "Hide from catalog": "从目录隐藏",

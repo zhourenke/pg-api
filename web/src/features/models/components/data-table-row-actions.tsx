@@ -24,7 +24,11 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { useCanEditModelPricing } from '@/features/model-pricing/api'
 
-import { handleToggleModelStatus, isModelEnabled } from '../lib'
+import {
+  handleHideChannelOnlyModel,
+  handleToggleModelStatus,
+  isModelEnabled,
+} from '../lib'
 import type { Model } from '../types'
 import { ModelDeleteDialog } from './dialogs/model-delete-dialog'
 import { useModels } from './models-provider'
@@ -43,8 +47,14 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
 
   const isEnabled = isModelEnabled(model)
   // A model that only exists on a channel has no metadata record yet, so there
-  // is nothing to hide from the model square or to delete.
+  // is nothing to delete.
   const hasMetadata = model.id > 0
+  // It can still be in the model square: the catalog lists a channel model that
+  // has an available route and a price, without asking for a metadata record.
+  // Hiding it therefore starts by creating that record with the policy already
+  // set to hidden, which is the only thing that removes it from the square.
+  const isListedWithoutMetadata =
+    !hasMetadata && model.square_state === 'visible'
 
   // The actions column is content-sized (see `isContentSizedColumn`), so this
   // grid must keep a real intrinsic width: `min-w-0`/`shrink` on the buttons
@@ -86,12 +96,16 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
       <Button
         variant='ghost'
         size='sm'
-        disabled={!hasMetadata}
+        disabled={!hasMetadata && !isListedWithoutMetadata}
         onClick={() => {
-          handleToggleModelStatus(model.id, model.status, queryClient)
+          if (hasMetadata) {
+            handleToggleModelStatus(model.id, model.status, queryClient)
+            return
+          }
+          handleHideChannelOnlyModel(model.model_name, queryClient)
         }}
       >
-        {isEnabled ? t('Hide') : t('Show')}
+        {isEnabled || isListedWithoutMetadata ? t('Hide') : t('Show')}
       </Button>
 
       <Button
