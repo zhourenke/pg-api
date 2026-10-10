@@ -69,7 +69,12 @@ var defaultVendorIcons = map[string]string{
 	"Azure":      "AzureAI",
 }
 
-// initDefaultVendorMapping 简化的默认供应商映射
+// initDefaultVendorMapping gives every catalog model a vendor derived from its
+// name when it has none of its own. A model without a metadata record gets a
+// display-only record so it can still appear in the catalog; a model whose
+// record leaves the vendor unset inherits the same name-based default for
+// display. Neither path writes to the database: the record is copied in memory
+// so one rule row shared by several model names still resolves per name.
 func initDefaultVendorMapping(metaMap map[string]*Model, vendorMap map[int]*Vendor, enableAbilities []AbilityWithChannel) {
 	patterns := make([]string, 0, len(defaultVendorRules))
 	for pattern := range defaultVendorRules {
@@ -83,29 +88,35 @@ func initDefaultVendorMapping(metaMap map[string]*Model, vendorMap map[int]*Vend
 	})
 	for _, ability := range enableAbilities {
 		modelName := ability.Model
-		if _, exists := metaMap[modelName]; exists {
-			continue
-		}
-
-		// 匹配供应商
-		vendorID := 0
-		modelLower := strings.ToLower(modelName)
-		for _, pattern := range patterns {
-			vendorName := defaultVendorRules[pattern]
-			if strings.Contains(modelLower, pattern) {
-				vendorID = getDisplayVendor(vendorName, vendorMap)
-				break
+		if meta, exists := metaMap[modelName]; exists {
+			if meta.VendorID == 0 {
+				fallback := *meta
+				fallback.VendorID = matchDefaultVendor(modelName, patterns, vendorMap)
+				metaMap[modelName] = &fallback
 			}
+			continue
 		}
 
 		// 创建模型元数据
 		metaMap[modelName] = &Model{
 			ModelName: modelName,
-			VendorID:  vendorID,
+			VendorID:  matchDefaultVendor(modelName, patterns, vendorMap),
 			Status:    1,
 			NameRule:  NameRuleExact,
 		}
 	}
+}
+
+// matchDefaultVendor resolves the display vendor for the longest default rule
+// matching the model name, or 0 when no rule matches.
+func matchDefaultVendor(modelName string, patterns []string, vendorMap map[int]*Vendor) int {
+	modelLower := strings.ToLower(modelName)
+	for _, pattern := range patterns {
+		if strings.Contains(modelLower, pattern) {
+			return getDisplayVendor(defaultVendorRules[pattern], vendorMap)
+		}
+	}
+	return 0
 }
 
 // Default vendor entries are presentation data. Reading pricing must never
