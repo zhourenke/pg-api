@@ -1,5 +1,7 @@
 package dto
 
+import "github.com/zhourenke/pg-api/constant"
+
 type ChannelPinSource string
 
 const (
@@ -38,11 +40,19 @@ type ChannelFilterKind string
 const (
 	FilterRequestPath        ChannelFilterKind = "request_path"
 	FilterResponsesWebSocket ChannelFilterKind = "responses_websocket"
+	FilterCapability         ChannelFilterKind = "capability"
 )
 
 type ChannelFilter struct {
 	Kind        ChannelFilterKind
 	RequestPath string
+	// RequiredFormat is the request format the channel must be able to convert.
+	// Only FilterCapability reads it.
+	RequiredFormat constant.RelayFormatCapability
+	// Soft marks a preference instead of a requirement: the filter narrows the
+	// candidate set while it can, and is dropped when applying it would leave no
+	// candidate at all. A soft filter never overrides a pinned channel either.
+	Soft bool
 }
 
 type ChannelConstraints struct {

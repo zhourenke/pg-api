@@ -106,6 +106,69 @@ func TestFilterCandidateIDs(t *testing.T) {
 	}
 }
 
+func TestFilterCandidateIDsPrefersCapableChannelWithoutExcludingTheRest(t *testing.T) {
+	// openai converts every format; mistral converts none of the seven.
+	capable := &Channel{Id: 900020, Type: constant.ChannelTypeOpenAI, Status: common.ChannelStatusEnabled}
+	incapable := &Channel{Id: 900021, Type: constant.ChannelTypeMistral, Status: common.ChannelStatusEnabled}
+	preference := dto.ChannelFilter{Kind: dto.FilterCapability, RequiredFormat: constant.CapabilityClaude, Soft: true}
+
+	channelSyncLock.Lock()
+	previous := channelsIDM
+	channelsIDM = map[int]*Channel{900020: capable, 900021: incapable}
+	t.Cleanup(func() {
+		channelsIDM = previous
+		channelSyncLock.Unlock()
+	})
+
+	// With a capable candidate present the preference narrows to it.
+	kept, emptiedBy := filterCandidateIDs([]int{900021, 900020}, "m", []dto.ChannelFilter{preference})
+	assert.Equal(t, []int{900020}, kept)
+	assert.Equal(t, dto.ChannelFilterKind(""), emptiedBy)
+
+	// When only the incapable channel exists the preference is dropped: the
+	// request still reaches the channel and gets the explicit refusal instead of
+	// a "no available channel" error.
+	kept, emptiedBy = filterCandidateIDs([]int{900021}, "m", []dto.ChannelFilter{preference})
+	assert.Equal(t, []int{900021}, kept)
+	assert.Equal(t, dto.ChannelFilterKind(""), emptiedBy)
+
+	// A hard filter of the same kind keeps its requirement semantics.
+	hard := preference
+	hard.Soft = false
+	kept, emptiedBy = filterCandidateIDs([]int{900021}, "m", []dto.ChannelFilter{hard})
+	assert.Empty(t, kept)
+	assert.Equal(t, dto.FilterCapability, emptiedBy)
+}
+
+func TestChannelSatisfiesFiltersIgnoresPreferences(t *testing.T) {
+	// A pinned channel must never be rejected by a format preference: pins go
+	// through this predicate, not through filterCandidateIDs.
+	incapable := &Channel{Id: 900022, Type: constant.ChannelTypeMistral}
+	ok, kind := ChannelSatisfiesFilters(incapable, "m", []dto.ChannelFilter{{
+		Kind:           dto.FilterCapability,
+		RequiredFormat: constant.CapabilityClaude,
+		Soft:           true,
+	}})
+	require.True(t, ok)
+	assert.Equal(t, dto.ChannelFilterKind(""), kind)
+
+	// The same filter as a requirement rejects it.
+	ok, kind = ChannelSatisfiesFilters(incapable, "m", []dto.ChannelFilter{{
+		Kind:           dto.FilterCapability,
+		RequiredFormat: constant.CapabilityClaude,
+	}})
+	assert.False(t, ok)
+	assert.Equal(t, dto.FilterCapability, kind)
+
+	// A channel whose capability is declared per channel makes no claim, so the
+	// preference cannot exclude it either.
+	ok, _ = ChannelSatisfiesFilters(&Channel{Id: 900023, Type: constant.ChannelTypeAdvancedCustom}, "m", []dto.ChannelFilter{{
+		Kind:           dto.FilterCapability,
+		RequiredFormat: constant.CapabilityClaude,
+	}})
+	assert.True(t, ok)
+}
+
 func TestChannelSatisfiesFilters(t *testing.T) {
 	ordinary := &Channel{Id: 2, Type: constant.ChannelTypeOpenAI}
 	custom := &Channel{Id: 3, Type: constant.ChannelTypeAdvancedCustom}

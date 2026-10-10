@@ -2,6 +2,8 @@ package constant
 
 import (
 	"strings"
+
+	rootconstant "github.com/zhourenke/pg-api/constant"
 )
 
 const (
@@ -44,6 +46,35 @@ func PublicRequestPath(path string) string {
 		return "/v1" + rest
 	}
 	return path
+}
+
+// RequiredFormatForPath reports the request format a request to this path is
+// converted in, so channel selection can prefer channels that can convert it. A
+// path that converts the universal OpenAI chat shape reports false, as does any
+// path the relay does not treat as a format.
+func RequiredFormatForPath(path string) (rootconstant.RelayFormatCapability, bool) {
+	publicPath := PublicRequestPath(path)
+	if strings.HasPrefix(publicPath, "/v1/messages") {
+		return rootconstant.CapabilityClaude, true
+	}
+	switch Path2RelayMode(publicPath) {
+	case RelayModeGemini:
+		return rootconstant.CapabilityGemini, true
+	case RelayModeResponses, RelayModeResponsesCompact:
+		return rootconstant.CapabilityOpenAIResponses, true
+	case RelayModeEmbeddings:
+		return rootconstant.CapabilityEmbedding, true
+	case RelayModeImagesGenerations, RelayModeImagesEdits:
+		return rootconstant.CapabilityImage, true
+	case RelayModeAudioSpeech, RelayModeAudioTranscription, RelayModeAudioTranslation:
+		return rootconstant.CapabilityAudio, true
+	case RelayModeRerank:
+		return rootconstant.CapabilityRerank, true
+	default:
+		// Chat, completions, moderations and realtime all convert the universal
+		// OpenAI chat shape, which every channel serves.
+		return rootconstant.CapabilityClaude, false
+	}
 }
 
 func Path2RelayMode(path string) int {

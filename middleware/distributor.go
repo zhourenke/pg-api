@@ -44,6 +44,18 @@ func Distribute() func(c *gin.Context) {
 			// channels declare their routes with /v1 paths and never /pg.
 			RequestPath: relayconstant.PublicRequestPath(c.Request.URL.Path),
 		})
+		// Prefer a channel that can convert this request format over one that
+		// would refuse it. The filter is soft: it is dropped when it would leave
+		// no candidate, so a request that has no channel for its format still
+		// reaches the channel and gets the explicit refusal from
+		// channel.Unsupported instead of a "no available channel" error.
+		if required, ok := relayconstant.RequiredFormatForPath(c.Request.URL.Path); ok {
+			constraints.AddFilter(taskdto.ChannelFilter{
+				Kind:           taskdto.FilterCapability,
+				RequiredFormat: required,
+				Soft:           true,
+			})
+		}
 		modelRequest, shouldSelectChannel, err := getModelRequest(c)
 		if err != nil {
 			abortWithOpenAiMessage(c, http.StatusBadRequest, i18n.T(c, i18n.MsgDistributorInvalidRequest, map[string]any{"Error": err.Error()}))
