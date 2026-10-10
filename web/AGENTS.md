@@ -14,7 +14,7 @@
 | 框架       | React 19、TypeScript                                              |
 | 数据与请求 | @tanstack/react-query、axios、Zustand                             |
 | 路由       | @tanstack/react-router                                            |
-| 表格与列表 | @tanstack/react-table、@tanstack/react-virtual                    |
+| 表格与列表 | @tanstack/react-table                                             |
 | 国际化     | i18next、react-i18next                                            |
 | 日期       | Day.js                                                            |
 | UI 与样式  | Base UI、Hugeicons、Tailwind CSS、clsx / class-variance-authority |
@@ -117,7 +117,7 @@
 
 - **React**：合理使用 `useMemo`、`useCallback` 减少无效重渲染；避免在渲染路径中创建新对象/数组；必要时使用 `React.memo`。
 - **代码分割**：使用 `React.lazy` 与动态 `import` 做按需加载，控制首屏与路由体积。
-- **资源**：图片选用合适格式与尺寸，大列表考虑虚拟滚动（如 @tanstack/react-virtual），大量图片考虑懒加载。
+- **资源**：图片选用合适格式与尺寸，大列表考虑虚拟滚动，大量图片考虑懒加载。
 
 ### 3.5 状态管理
 
