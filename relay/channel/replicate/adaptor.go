@@ -26,6 +26,7 @@ import (
 )
 
 type Adaptor struct {
+	channel.Unsupported
 }
 
 func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
@@ -504,10 +505,6 @@ func uploadFileFromForm(c *gin.Context, info *relaycommon.RelayInfo, fieldCandid
 
 func (a *Adaptor) ConvertOpenAIRequest(*gin.Context, *relaycommon.RelayInfo, *dto.GeneralOpenAIRequest) (any, error) {
 	return nil, errors.New("replicate adaptor: ConvertOpenAIRequest is not implemented")
-}
-
-func (a *Adaptor) ConvertRerankRequest(*gin.Context, int, dto.RerankRequest) (any, error) {
-	return nil, errors.New("replicate adaptor: ConvertRerankRequest is not implemented")
 }
 
 func (a *Adaptor) ConvertEmbeddingRequest(*gin.Context, *relaycommon.RelayInfo, dto.EmbeddingRequest) (any, error) {

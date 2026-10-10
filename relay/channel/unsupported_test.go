@@ -12,6 +12,7 @@ import (
 	"github.com/zhourenke/pg-api/relay/channel"
 	"github.com/zhourenke/pg-api/relay/channel/ali"
 	"github.com/zhourenke/pg-api/relay/channel/mistral"
+	"github.com/zhourenke/pg-api/relay/channel/openai"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	"github.com/zhourenke/pg-api/relaykit/dto"
 	"github.com/zhourenke/pg-api/relaykit/types"
@@ -59,7 +60,7 @@ func TestEmbeddedUnsupportedRefusesEveryFormatItDoesNotServe(t *testing.T) {
 
 	// Rerank carries no RelayInfo, so the default reads the channel type from the
 	// request context that channel selection filled in.
-	_, err = channel.Unsupported{}.ConvertRerankRequest(context, 0, dto.RerankRequest{})
+	_, err = adaptor.ConvertRerankRequest(context, 0, dto.RerankRequest{})
 	assertUnsupportedFormat(t, err, "Mistral", "rerank")
 }
 
@@ -87,4 +88,14 @@ func TestEmbeddedUnsupportedToleratesMissingChannelMeta(t *testing.T) {
 
 	_, err = channel.Unsupported{}.ConvertRerankRequest(nil, 0, dto.RerankRequest{})
 	assertUnsupportedFormat(t, err, "Unknown", "rerank")
+}
+
+// Channels that forward the incoming path to an OpenAI-compatible rerank
+// endpoint keep their pass-through; the shared default must not turn them into
+// a refusal.
+func TestRerankPassThroughSurvivesTheSharedDefault(t *testing.T) {
+	request := dto.RerankRequest{Model: "bge-reranker-v2-m3", Query: "question", Documents: []any{"doc"}}
+	converted, err := (&openai.Adaptor{}).ConvertRerankRequest(nil, 0, request)
+	require.NoError(t, err)
+	assert.Equal(t, request, converted)
 }

@@ -18,6 +18,7 @@ import (
 )
 
 type Adaptor struct {
+	channel.Unsupported
 	openaiAdaptor openai.Adaptor
 	claudeAdaptor claude.Adaptor
 	geminiAdaptor gemini.Adaptor
@@ -87,10 +88,6 @@ func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayIn
 
 func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
 	return a.openaiAdaptor.ConvertImageRequest(c, info, request)
-}
-
-func (a *Adaptor) ConvertRerankRequest(c *gin.Context, relayMode int, request dto.RerankRequest) (any, error) {
-	return nil, errors.New("endpoint not supported")
 }
 
 func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.AudioRequest) (io.Reader, error) {

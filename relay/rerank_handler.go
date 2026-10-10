@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/constant"
 	"github.com/zhourenke/pg-api/logger"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	"github.com/zhourenke/pg-api/relay/helper"
@@ -52,6 +53,12 @@ func RerankHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *typ
 		convertedRequest, err := adaptor.ConvertRerankRequest(c, info.RelayMode, *request)
 		if err != nil {
 			return types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
+		}
+		// An adaptor that returns nothing to send would otherwise marshal to a
+		// `null` body, spend an upstream call, and report the upstream's refusal
+		// against this channel's health. Fail closed here instead.
+		if convertedRequest == nil {
+			return types.NewError(fmt.Errorf("channel type %d (%s) returned an empty rerank request", info.ChannelType, constant.GetChannelTypeName(info.ChannelType)), types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
 		}
 		relaycommon.AppendRequestConversionFromRequest(info, convertedRequest)
 		jsonData, err := common.Marshal(convertedRequest)
@@ -100,6 +107,10 @@ func RerankHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *typ
 		service.ResetStatusCode(newAPIError, statusCodeMappingStr)
 		return newAPIError
 	}
-	service.PostTextConsumeQuota(c, info, usage.(*dto.Usage), nil)
+	typedUsage, ok := usage.(*dto.Usage)
+	if !ok {
+		return types.NewError(fmt.Errorf("channel type %d (%s) returned no rerank usage", info.ChannelType, constant.GetChannelTypeName(info.ChannelType)), types.ErrorCodeBadResponse, types.ErrOptionWithSkipRetry())
+	}
+	service.PostTextConsumeQuota(c, info, typedUsage, nil)
 	return nil
 }
