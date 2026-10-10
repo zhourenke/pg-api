@@ -166,6 +166,12 @@ func GetChannel(
 // filterAbilitiesByConstraints applies the same ChannelSatisfiesFilters
 // predicate used by the memory-cache path. A failed channel lookup fails
 // closed when a task-plugin identity is required and fails open otherwise.
+//
+// Soft filters are preferences and are applied as a second pass: they narrow the
+// survivors while they can, and are dropped when they would leave none, exactly
+// like model.filterCandidateIDs. This path serves every deployment without
+// MEMORY_CACHE_ENABLED, so a preference that only worked on the cached path
+// would depend on a performance flag.
 func filterAbilitiesByConstraints(abilities []Ability, modelName string, filters []dto.ChannelFilter) []Ability {
 	if len(abilities) == 0 {
 		return nil
@@ -198,7 +204,34 @@ func filterAbilitiesByConstraints(abilities []Ability, modelName string, filters
 			filtered = append(filtered, ability)
 		}
 	}
-	return filtered
+
+	soft := make([]dto.ChannelFilter, 0, len(filters))
+	for _, filter := range filters {
+		if filter.Soft {
+			soft = append(soft, filter)
+		}
+	}
+	if len(soft) == 0 || len(filtered) == 0 {
+		return filtered
+	}
+	preferred := make([]Ability, 0, len(filtered))
+	for _, ability := range filtered {
+		channel := channelsByID[ability.ChannelId]
+		matches := true
+		for _, filter := range soft {
+			if !channelMatchesFilter(channel, modelName, filter) {
+				matches = false
+				break
+			}
+		}
+		if matches {
+			preferred = append(preferred, ability)
+		}
+	}
+	if len(preferred) == 0 {
+		return filtered
+	}
+	return preferred
 }
 
 func (channel *Channel) AddAbilities(tx *gorm.DB) error {

@@ -19,6 +19,10 @@ import (
 // channel's conversion stub. Channel selection now prefers a channel that can
 // convert the requested format, and must never turn that preference into
 // "no available channel" when no channel can.
+//
+// This drives the whole distributor against the in-memory candidate cache. The
+// database path that every deployment without MEMORY_CACHE_ENABLED takes
+// applies the same preference; model/channel_constraint_test.go covers it.
 func TestDistributePrefersChannelThatConvertsTheRequestFormat(t *testing.T) {
 	// Mistral converts none of the seven formats; Anthropic converts Claude.
 	const unableChannelId = 1
@@ -32,20 +36,22 @@ func TestDistributePrefersChannelThatConvertsTheRequestFormat(t *testing.T) {
 			// The unable channel deliberately outranks the able one, so selection
 			// only reaches the able channel when the preference applies.
 			higherPriority := int64(10)
-			require.NoError(t, db.Create(&model.Channel{
+			unable := &model.Channel{
 				Id: unableChannelId, Type: constant.ChannelTypeMistral, Key: "sk-test",
 				Status: common.ChannelStatusEnabled, Name: "unable", Group: "default",
 				Models: "route-model", Priority: &higherPriority, BaseURL: &baseURL,
-			}).Error)
-			require.NoError(t, db.Create(&model.Ability{Group: "default", Model: "route-model", ChannelId: unableChannelId, Enabled: true}).Error)
+			}
+			require.NoError(t, db.Create(unable).Error)
+			require.NoError(t, unable.AddAbilities(db))
 		}
 		if withAble {
-			require.NoError(t, db.Create(&model.Channel{
+			able := &model.Channel{
 				Id: ableChannelId, Type: constant.ChannelTypeAnthropic, Key: "sk-test",
 				Status: common.ChannelStatusEnabled, Name: "able", Group: "default",
 				Models: "route-model", Priority: &priority, BaseURL: &baseURL,
-			}).Error)
-			require.NoError(t, db.Create(&model.Ability{Group: "default", Model: "route-model", ChannelId: ableChannelId, Enabled: true}).Error)
+			}
+			require.NoError(t, db.Create(able).Error)
+			require.NoError(t, able.AddAbilities(db))
 		}
 		require.NoError(t, model.InitChannelCache())
 	}
@@ -93,7 +99,8 @@ func TestDistributePrefersChannelThatConvertsTheRequestFormat(t *testing.T) {
 		recorder, selected := distribute(t, "/v1/chat/completions")
 
 		// Chat completions convert the universal OpenAI shape, so no format is
-		// required and the higher-priority channel stays first.
+		// required and the higher-priority channel stays first. This is also the
+		// control proving the first case is the preference at work.
 		require.NotEqual(t, http.StatusServiceUnavailable, recorder.Code, recorder.Body.String())
 		assert.Equal(t, unableChannelId, selected)
 	})

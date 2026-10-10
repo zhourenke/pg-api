@@ -169,6 +169,55 @@ func TestChannelSatisfiesFiltersIgnoresPreferences(t *testing.T) {
 	assert.True(t, ok)
 }
 
+// Deployments without MEMORY_CACHE_ENABLED select through the database, so the
+// format preference has to hold there too and must not depend on a performance
+// flag. Abilities are written the way the application writes them, because the
+// database path reads the denormalized priority from the ability row.
+func TestDatabaseSelectionPrefersCapableChannelWithoutExcludingTheRest(t *testing.T) {
+	db := newChannelCacheTestDB(t, "capability.db")
+	previousDB := DB
+	previousCache := common.MemoryCacheEnabled
+	DB = db
+	common.MemoryCacheEnabled = false
+	t.Cleanup(func() {
+		DB = previousDB
+		common.MemoryCacheEnabled = previousCache
+	})
+
+	baseURL := "http://127.0.0.1:1"
+	higherPriority := int64(10)
+	lowerPriority := int64(0)
+	unable := &Channel{
+		Id: 1, Type: constant.ChannelTypeMistral, Key: "k", Status: common.ChannelStatusEnabled,
+		Name: "unable", Group: "default", Models: "capability-model", Priority: &higherPriority, BaseURL: &baseURL,
+	}
+	able := &Channel{
+		Id: 2, Type: constant.ChannelTypeAnthropic, Key: "k", Status: common.ChannelStatusEnabled,
+		Name: "able", Group: "default", Models: "capability-model", Priority: &lowerPriority, BaseURL: &baseURL,
+	}
+	for _, channel := range []*Channel{unable, able} {
+		require.NoError(t, db.Create(channel).Error)
+		require.NoError(t, channel.AddAbilities(db))
+	}
+
+	preference := []dto.ChannelFilter{{Kind: dto.FilterCapability, RequiredFormat: constant.CapabilityClaude, Soft: true}}
+
+	selected, err := GetRandomSatisfiedChannel("default", "capability-model", 0, preference)
+	require.NoError(t, err)
+	require.NotNil(t, selected)
+	assert.Equal(t, able.Id, selected.Id, "the capable channel must win over the higher-priority channel that cannot convert Claude")
+
+	// With the capable channel gone the preference is dropped, so the request
+	// still reaches the unable one instead of failing as "no available channel".
+	require.NoError(t, db.Delete(&Ability{}, "channel_id = ?", able.Id).Error)
+	require.NoError(t, db.Delete(&Channel{}, able.Id).Error)
+
+	selected, err = GetRandomSatisfiedChannel("default", "capability-model", 0, preference)
+	require.NoError(t, err)
+	require.NotNil(t, selected)
+	assert.Equal(t, unable.Id, selected.Id)
+}
+
 func TestChannelSatisfiesFilters(t *testing.T) {
 	ordinary := &Channel{Id: 2, Type: constant.ChannelTypeOpenAI}
 	custom := &Channel{Id: 3, Type: constant.ChannelTypeAdvancedCustom}
