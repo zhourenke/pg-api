@@ -21,9 +21,11 @@ type Adaptor struct {
 	channel.Unsupported
 }
 
+// ConvertClaudeRequest serves Anthropic Messages through the same v2
+// OpenAI-compatible chat endpoint as the OpenAI format; the converted request is
+// shaped by this channel's own OpenAI rules (model suffix handling included).
 func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayInfo, req *dto.ClaudeRequest) (any, error) {
-	adaptor := openai.Adaptor{}
-	return adaptor.ConvertClaudeRequest(c, info, req)
+	return openai.ConvertToChannelOpenAIRequest(c, info, req, a.ConvertOpenAIRequest)
 }
 
 // ConvertGeminiRequest serves generateContent through the same v2
@@ -37,8 +39,15 @@ func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 }
 
 func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
+	// The two other formats are relayed over the v2 chat endpoint the conversion
+	// produces a body for. Their relay mode cannot identify them: a Claude request
+	// arrives as RelayModeUnknown because /v1/messages matches no OpenAI relay
+	// mode.
+	if info.RelayFormat == types.RelayFormatClaude || info.RelayFormat == types.RelayFormatGemini {
+		return fmt.Sprintf("%s/v2/chat/completions", info.ChannelBaseUrl), nil
+	}
 	switch info.RelayMode {
-	case constant.RelayModeChatCompletions, constant.RelayModeGemini:
+	case constant.RelayModeChatCompletions:
 		return fmt.Sprintf("%s/v2/chat/completions", info.ChannelBaseUrl), nil
 	case constant.RelayModeEmbeddings:
 		return fmt.Sprintf("%s/v2/embeddings", info.ChannelBaseUrl), nil

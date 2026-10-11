@@ -21,9 +21,11 @@ type Adaptor struct {
 	channel.Unsupported
 }
 
+// ConvertClaudeRequest serves Anthropic Messages through the OpenAI-compatible
+// chat endpoint: SiliconFlow offers no Anthropic dialect, so the request is
+// converted to the chat shape and then shaped by this channel's own OpenAI rules.
 func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayInfo, req *dto.ClaudeRequest) (any, error) {
-	adaptor := openai.Adaptor{}
-	return adaptor.ConvertClaudeRequest(c, info, req)
+	return openai.ConvertToChannelOpenAIRequest(c, info, req, a.ConvertOpenAIRequest)
 }
 
 // ConvertGeminiRequest serves generateContent through the OpenAI-compatible chat
@@ -72,9 +74,10 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 		return fmt.Sprintf("%s/v1/rerank", info.ChannelBaseUrl), nil
 	}
 	// The client's path is forwarded as-is, and for a request that already speaks
-	// OpenAI that path is the chat endpoint. A generateContent request names the
-	// Gemini protocol instead, so it has to be mapped to the chat endpoint.
-	if info.RelayFormat == types.RelayFormatGemini {
+	// OpenAI that path is the chat endpoint. The other two formats name their own
+	// protocols instead (/v1/messages, /v1beta/models/...), so they have to be
+	// mapped to the chat endpoint the conversion produces a body for.
+	if info.RelayFormat == types.RelayFormatClaude || info.RelayFormat == types.RelayFormatGemini {
 		return relaycommon.GetFullRequestURL(info.ChannelBaseUrl, "/v1/chat/completions", info.ChannelType), nil
 	}
 	return relaycommon.GetFullRequestURL(info.ChannelBaseUrl, info.RequestURLPath, info.ChannelType), nil

@@ -93,23 +93,39 @@ func TestClaudeFamilyConvertsRequestsToTheChatEndpoint(t *testing.T) {
 		channelType int
 		wantURL     string
 		model       string
+		// The top_p the client sent is 1; a channel whose own shaping clamps it
+		// into the open interval sends 0.99 instead. Either value proves the
+		// converted request went through the channel's ConvertOpenAIRequest and
+		// not through openai.Adaptor's.
+		wantTopP float64
 		// A channel-side shaping effect only that channel's own
-		// ConvertOpenAIRequest produces, so it proves the converted request went
-		// through that method and not through openai.Adaptor's.
+		// ConvertOpenAIRequest produces.
 		assertShaped func(t *testing.T, encoded []byte)
 	}{
 		{
-			name: "xai", apiType: constant.APITypeXai, channelType: constant.ChannelTypeXai,
-			wantURL: "https://upstream.example.com/v1/chat/completions", model: "grok-3-search",
+			name: "ali", apiType: constant.APITypeAli, channelType: constant.ChannelTypeAli,
+			wantURL: "https://upstream.example.com/compatible-mode/v1/chat/completions",
+			model:   "gemini-2.5-flash", wantTopP: 0.99,
+		},
+		{
+			name: "baidu_v2", apiType: constant.APITypeBaiduV2, channelType: constant.ChannelTypeBaiduV2,
+			wantURL: "https://upstream.example.com/v2/chat/completions",
+			model:   "gemini-2.5-flash-search", wantTopP: 1,
 			assertShaped: func(t *testing.T, encoded []byte) {
-				// xAI's shaping turns the -search model suffix into a request field.
-				assert.Equal(t, "grok-3", gjson.GetBytes(encoded, "model").String(), string(encoded))
-				assert.Equal(t, "on", gjson.GetBytes(encoded, "search_parameters.mode").String(), string(encoded))
+				// Baidu V2's shaping turns the -search model suffix into a request field.
+				assert.Equal(t, "gemini-2.5-flash", gjson.GetBytes(encoded, "model").String(), string(encoded))
+				assert.True(t, gjson.GetBytes(encoded, "web_search.enable").Bool(), string(encoded))
 			},
 		},
 		{
+			name: "cloudflare", apiType: constant.APITypeCloudflare, channelType: constant.ChannelCloudflare,
+			wantURL: "https://upstream.example.com/client/v4/accounts/account-1/ai/v1/chat/completions",
+			model:   "llama-3.3-70b", wantTopP: 1,
+		},
+		{
 			name: "mistral", apiType: constant.APITypeMistral, channelType: constant.ChannelTypeMistral,
-			wantURL: "https://upstream.example.com/v1/chat/completions", model: "mistral-large-latest",
+			wantURL: "https://upstream.example.com/v1/chat/completions",
+			model:   "mistral-large-latest", wantTopP: 1,
 			assertShaped: func(t *testing.T, encoded []byte) {
 				// Mistral accepts only 9 alphanumeric characters as a tool-call
 				// id, so its shaping rewrites the Anthropic one.
@@ -118,8 +134,24 @@ func TestClaudeFamilyConvertsRequestsToTheChatEndpoint(t *testing.T) {
 			},
 		},
 		{
-			name: "cloudflare", apiType: constant.APITypeCloudflare, channelType: constant.ChannelCloudflare,
-			wantURL: "https://upstream.example.com/client/v4/accounts/account-1/ai/v1/chat/completions", model: "llama-3.3-70b",
+			name: "perplexity", apiType: constant.APITypePerplexity, channelType: constant.ChannelTypePerplexity,
+			wantURL: "https://upstream.example.com/chat/completions",
+			model:   "sonar-pro", wantTopP: 0.99,
+		},
+		{
+			name: "siliconflow", apiType: constant.APITypeSiliconFlow, channelType: constant.ChannelTypeSiliconFlow,
+			wantURL: "https://upstream.example.com/v1/chat/completions",
+			model:   "Qwen/Qwen3-8B", wantTopP: 1,
+		},
+		{
+			name: "xai", apiType: constant.APITypeXai, channelType: constant.ChannelTypeXai,
+			wantURL: "https://upstream.example.com/v1/chat/completions",
+			model:   "grok-3-search", wantTopP: 1,
+			assertShaped: func(t *testing.T, encoded []byte) {
+				// xAI's shaping turns the -search model suffix into a request field.
+				assert.Equal(t, "grok-3", gjson.GetBytes(encoded, "model").String(), string(encoded))
+				assert.Equal(t, "on", gjson.GetBytes(encoded, "search_parameters.mode").String(), string(encoded))
+			},
 		},
 	}
 
@@ -147,10 +179,47 @@ func TestClaudeFamilyConvertsRequestsToTheChatEndpoint(t *testing.T) {
 			assert.Equal(t, "system", gjson.GetBytes(encoded, "messages.0.role").String(), string(encoded))
 			assert.Contains(t, gjson.GetBytes(encoded, "messages.0.content").String(), "you are brief")
 			assert.Equal(t, uint64(64), gjson.GetBytes(encoded, "max_tokens").Uint(), string(encoded))
+			assert.Equal(t, tt.wantTopP, gjson.GetBytes(encoded, "top_p").Float(), string(encoded))
 
 			if tt.assertShaped != nil {
 				tt.assertShaped(t, encoded)
 			}
+		})
+	}
+}
+
+// A streaming request through a channel that supports stream_options must ask the
+// upstream for usage: the client's protocol reports usage in its own shape and
+// never carries the field itself, and the channel's own ConvertOpenAIRequest does
+// not add it.
+func TestClaudeFamilyKeepsStreamOptionsForChannelsThatSupportThem(t *testing.T) {
+	tests := []struct {
+		name         string
+		apiType      int
+		channelType  int
+		wantIncluded bool
+	}{
+		{"ali", constant.APITypeAli, constant.ChannelTypeAli, true},
+		{"baidu_v2", constant.APITypeBaiduV2, constant.ChannelTypeBaiduV2, true},
+		{"siliconflow", constant.APITypeSiliconFlow, constant.ChannelTypeSiliconFlow, true},
+		// Not in streamSupportedChannels, so the field is not sent.
+		{"perplexity", constant.APITypePerplexity, constant.ChannelTypePerplexity, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
+			info := claudeRelayInfo(tt.channelType, "test-model")
+			info.IsStream = true
+			info.SupportStreamOptions = true
+
+			converted, err := GetAdaptor(tt.apiType).ConvertClaudeRequest(c, info, claudeRequest("test-model"))
+			require.NoError(t, err)
+			encoded, err := common.Marshal(converted)
+			require.NoError(t, err)
+
+			included := gjson.GetBytes(encoded, "stream_options.include_usage").Bool()
+			assert.Equal(t, tt.wantIncluded, included, string(encoded))
 		})
 	}
 }
@@ -285,6 +354,7 @@ func claudeRequest(model string) *dto.ClaudeRequest {
 		Model:     model,
 		MaxTokens: &maxTokens,
 		System:    "you are brief",
+		TopP:      common.GetPointer(1.0),
 		Messages: []dto.ClaudeMessage{
 			{Role: "user", Content: "weather?"},
 			{Role: "assistant", Content: []dto.ClaudeMediaMessage{

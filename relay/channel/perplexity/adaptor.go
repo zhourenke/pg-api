@@ -21,9 +21,12 @@ type Adaptor struct {
 	channel.Unsupported
 }
 
+// ConvertClaudeRequest serves Anthropic Messages through the same
+// /chat/completions endpoint as the OpenAI format: Perplexity offers no Anthropic
+// dialect, so the request is converted to the chat shape and then shaped by this
+// channel's own OpenAI rules.
 func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayInfo, req *dto.ClaudeRequest) (any, error) {
-	adaptor := openai.Adaptor{}
-	return adaptor.ConvertClaudeRequest(c, info, req)
+	return openai.ConvertToChannelOpenAIRequest(c, info, req, a.ConvertOpenAIRequest)
 }
 
 // ConvertGeminiRequest serves generateContent through the same

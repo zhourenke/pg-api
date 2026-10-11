@@ -15,7 +15,6 @@ import (
 	"github.com/zhourenke/pg-api/relay/constant"
 	"github.com/zhourenke/pg-api/relaykit/dto"
 	"github.com/zhourenke/pg-api/relaykit/types"
-	"github.com/zhourenke/pg-api/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
@@ -52,18 +51,7 @@ func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayIn
 		return req, nil
 	}
 
-	result, err := service.ConvertRequest(c, info, types.RelayFormatOpenAI, req)
-	if err != nil {
-		return nil, err
-	}
-	oaiReq, ok := result.Value.(*dto.GeneralOpenAIRequest)
-	if !ok {
-		return nil, fmt.Errorf("expected OpenAI chat completions request, got %T", result.Value)
-	}
-	if info.SupportStreamOptions && info.IsStream {
-		oaiReq.StreamOptions = &dto.StreamOptions{IncludeUsage: true}
-	}
-	return a.ConvertOpenAIRequest(c, info, oaiReq)
+	return openai.ConvertToChannelOpenAIRequest(c, info, req, a.ConvertOpenAIRequest)
 }
 
 // ConvertGeminiRequest serves generateContent through the same Bailian
