@@ -276,7 +276,6 @@ const SENSITIVE_FORM_FIELDS = [
   'advanced_custom',
   'is_enterprise_account',
   'vertex_key_type',
-  'aws_key_type',
   'azure_responses_version',
   'force_format',
   'thinking_to_content',
@@ -562,7 +561,6 @@ export function ChannelMutateDrawer({
   const currentKey = formValues.key
   const currentModels = formValues.models
   const currentModelMapping = formValues.model_mapping
-  const awsKeyType = formValues.aws_key_type
   const vertexKeyType = formValues.vertex_key_type
   const upstreamModelUpdateCheckEnabled =
     formValues.upstream_model_update_check_enabled
@@ -3334,56 +3332,6 @@ export function ChannelMutateDrawer({
               />
             )}
 
-            {/* AWS (type 33) */}
-            {currentType === 33 && (
-              <FormField
-                control={form.control}
-                name='aws_key_type'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('AWS Key Format')}</FormLabel>
-                    <Select
-                      disabled={sensitiveLocked}
-                      items={[
-                        {
-                          value: 'ak_sk',
-                          label: t('AccessKey / SecretAccessKey'),
-                        },
-                        {
-                          value: 'api_key',
-                          label: t('API Key'),
-                        },
-                      ]}
-                      onValueChange={field.onChange}
-                      value={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder={t('Select key format')} />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent alignItemWithTrigger={false}>
-                        <SelectGroup>
-                          <SelectItem value='ak_sk'>
-                            {t('AccessKey / SecretAccessKey')}
-                          </SelectItem>
-                          <SelectItem value='api_key'>
-                            {t('API Key')}
-                          </SelectItem>
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      {field.value === 'api_key'
-                        ? t('API Key mode: use APIKey|Region')
-                        : t('AK/SK mode: use AccessKey|SecretAccessKey|Region')}
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
-
             {/* AI Proxy Library (type 21) */}
             {currentType === 21 && (
               <FormField
@@ -3869,23 +3817,13 @@ export function ChannelMutateDrawer({
                   let keyPlaceholder = t(getKeyPromptForType(currentType))
                   if (isEditing) {
                     keyPlaceholder = t('Leave empty to keep existing key')
-                  } else if (
-                    currentType === 33 &&
-                    awsKeyType === 'api_key' &&
-                    isBatchMode
-                  ) {
-                    keyPlaceholder = t(
-                      'Enter API Key, one per line, format: APIKey|Region'
-                    )
-                  } else if (currentType === 33 && awsKeyType === 'api_key') {
-                    keyPlaceholder = t('Enter API Key, format: APIKey|Region')
                   } else if (currentType === 33 && isBatchMode) {
                     keyPlaceholder = t(
-                      'Enter key, one per line, format: AccessKey|SecretAccessKey|Region'
+                      'Enter key, one per line, format: AccessKey|SecretAccessKey|Region or APIKey|Region'
                     )
                   } else if (currentType === 33) {
                     keyPlaceholder = t(
-                      'Enter key, format: AccessKey|SecretAccessKey|Region'
+                      'Enter key, format: AccessKey|SecretAccessKey|Region or APIKey|Region'
                     )
                   } else if (isBatchMode) {
                     keyPlaceholder = t(

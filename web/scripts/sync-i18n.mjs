@@ -37,7 +37,6 @@ const BRAND_AND_LITERAL_KEYS = new Set([
   'Anthropic',
   'API URL',
   'API2GPT',
-  'AccessKey / SecretAccessKey',
   'Baidu V2',
   'CC Switch',
   'ChatGPT',

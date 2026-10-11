@@ -272,7 +272,6 @@ export const channelFormSchema = z
     // Type-specific settings (stored in settings JSON)
     is_enterprise_account: z.boolean().optional(), // OpenRouter specific
     vertex_key_type: z.enum(['json', 'api_key']).optional(), // Vertex AI specific
-    aws_key_type: z.enum(['ak_sk', 'api_key']).optional(), // AWS specific
     azure_responses_version: z.string().optional(), // Azure specific
     // Field passthrough controls (stored in settings JSON)
     allow_service_tier: z.boolean().optional(), // OpenAI/Anthropic
@@ -453,7 +452,6 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
   // Type-specific settings
   is_enterprise_account: false,
   vertex_key_type: 'json',
-  aws_key_type: 'ak_sk',
   azure_responses_version: '',
   // Field passthrough controls
   allow_service_tier: false,
@@ -522,7 +520,6 @@ export function transformChannelToFormDefaults(
   let vertexKeyType: 'json' | 'api_key' = 'json'
   let azureResponsesVersion = ''
   let isEnterpriseAccount = false
-  let awsKeyType: 'ak_sk' | 'api_key' = 'ak_sk'
   let allowServiceTier = false
   let disableStore = false
   let allowSafetyIdentifier = false
@@ -542,7 +539,6 @@ export function transformChannelToFormDefaults(
       vertexKeyType = parsed.vertex_key_type || 'json'
       azureResponsesVersion = parsed.azure_responses_version || ''
       isEnterpriseAccount = parsed.openrouter_enterprise === true
-      awsKeyType = parsed.aws_key_type || 'ak_sk'
       allowServiceTier = parsed.allow_service_tier === true
       disableStore = parsed.disable_store === true
       allowSafetyIdentifier = parsed.allow_safety_identifier === true
@@ -601,7 +597,6 @@ export function transformChannelToFormDefaults(
     is_enterprise_account: isEnterpriseAccount,
     vertex_key_type: vertexKeyType,
     azure_responses_version: azureResponsesVersion,
-    aws_key_type: awsKeyType,
     allow_service_tier: allowServiceTier,
     disable_store: disableStore,
     allow_include_obfuscation: allowIncludeObfuscation,
@@ -688,12 +683,8 @@ function buildSettingsJSON(formData: ChannelFormValues): string {
     delete settingsObj.openrouter_enterprise
   }
 
-  // Add aws_key_type for AWS channels (type 33)
-  if (formData.type === 33) {
-    settingsObj.aws_key_type = formData.aws_key_type || 'ak_sk'
-  } else if ('aws_key_type' in settingsObj) {
-    delete settingsObj.aws_key_type
-  }
+  // aws_key_type is retired: the AWS adaptor derives bearer auth or SigV4 from the key shape.
+  delete settingsObj.aws_key_type
 
   // Field passthrough controls:
   // - OpenAI, Anthropic, Codex, and New API: allow_service_tier

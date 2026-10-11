@@ -53,7 +53,6 @@
 | --- | --- | --- |
 | `azure_responses_version` | Azure | Azure Responses 接口使用的 API 版本 |
 | `vertex_key_type` | Vertex AI | `json`（服务账号）或 `api_key` |
-| `aws_key_type` | AWS Bedrock | `ak_sk`（默认）或 `api_key` |
 | `openrouter_enterprise` | OpenRouter | 该渠道是否为企业账号（指针类型，用来区分「未设置」与「显式为 false」） |
 | `ollama_openai_chat` | Ollama | 把聊天补全改走 OpenAI 兼容的 `/v1/chat/completions`；不设置时仍用原生 `/api/chat` |
 | `tool_loss_policy` | 全部 | 请求阶段工具转换丢失的处理策略：空串（默认 `allow`）、`allow`、`safe`、`strict` |
