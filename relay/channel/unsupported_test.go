@@ -11,8 +11,11 @@ import (
 	"github.com/zhourenke/pg-api/constant"
 	"github.com/zhourenke/pg-api/relay/channel"
 	"github.com/zhourenke/pg-api/relay/channel/ali"
+	"github.com/zhourenke/pg-api/relay/channel/codex"
 	"github.com/zhourenke/pg-api/relay/channel/dify"
+	"github.com/zhourenke/pg-api/relay/channel/ollama"
 	"github.com/zhourenke/pg-api/relay/channel/openai"
+	"github.com/zhourenke/pg-api/relay/channel/replicate"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	"github.com/zhourenke/pg-api/relaykit/dto"
 	"github.com/zhourenke/pg-api/relaykit/types"
@@ -77,6 +80,81 @@ func TestExplicitConversionWinsOverEmbeddedUnsupported(t *testing.T) {
 
 	_, err = adaptor.ConvertAudioRequest(nil, info, dto.AudioRequest{})
 	assertUnsupportedFormat(t, err, "Ali", "audio")
+}
+
+// Channels that expose only their own endpoints answer the universal OpenAI chat
+// format with the same client error, instead of a bare error the request path
+// would wrap as a 500. Unsupported has no method for that format, so the refusal
+// comes from channel.UnsupportedFormat.
+func TestUniversalChatFormatIsRefusedWithTheSharedClientError(t *testing.T) {
+	tests := []struct {
+		name        string
+		adaptor     channel.Adaptor
+		channelType int
+	}{
+		{"codex", &codex.Adaptor{}, constant.ChannelTypeCodex},
+		{"replicate", &replicate.Adaptor{}, constant.ChannelTypeReplicate},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			info := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{ChannelType: tt.channelType}}
+			_, err := tt.adaptor.ConvertOpenAIRequest(nil, info, &dto.GeneralOpenAIRequest{Model: "some-model"})
+			assertUnsupportedFormat(t, err, constant.GetChannelTypeName(tt.channelType), "OpenAI chat completions")
+		})
+	}
+}
+
+// The formats these channel types do not serve come from the embedded default:
+// the explicit stubs they replaced answered 500 without the format and channel
+// name, and the capability table counted them as served.
+func TestChannelsWithoutTheFormatAnswerTheSharedClientError(t *testing.T) {
+	tests := []struct {
+		name          string
+		channelType   int
+		convert       func(info *relaycommon.RelayInfo) error
+		wantFormatSub string
+	}{
+		{
+			name: "codex gemini", channelType: constant.ChannelTypeCodex,
+			convert: func(info *relaycommon.RelayInfo) error {
+				_, err := (&codex.Adaptor{}).ConvertGeminiRequest(nil, info, &dto.GeminiChatRequest{})
+				return err
+			},
+			wantFormatSub: "Gemini generateContent",
+		},
+		{
+			name: "codex claude", channelType: constant.ChannelTypeCodex,
+			convert: func(info *relaycommon.RelayInfo) error {
+				_, err := (&codex.Adaptor{}).ConvertClaudeRequest(nil, info, &dto.ClaudeRequest{})
+				return err
+			},
+			wantFormatSub: "Claude Messages",
+		},
+		{
+			name: "ollama gemini", channelType: constant.ChannelTypeOllama,
+			convert: func(info *relaycommon.RelayInfo) error {
+				_, err := (&ollama.Adaptor{}).ConvertGeminiRequest(nil, info, &dto.GeminiChatRequest{})
+				return err
+			},
+			wantFormatSub: "Gemini generateContent",
+		},
+		{
+			name: "replicate claude", channelType: constant.ChannelTypeReplicate,
+			convert: func(info *relaycommon.RelayInfo) error {
+				_, err := (&replicate.Adaptor{}).ConvertClaudeRequest(nil, info, &dto.ClaudeRequest{})
+				return err
+			},
+			wantFormatSub: "Claude Messages",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			info := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{ChannelType: tt.channelType}}
+			assertUnsupportedFormat(t, tt.convert(info), constant.GetChannelTypeName(tt.channelType), tt.wantFormatSub)
+		})
+	}
 }
 
 // Missing channel metadata must still produce the same client error instead of a

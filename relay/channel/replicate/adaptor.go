@@ -503,26 +503,8 @@ func uploadFileFromForm(c *gin.Context, info *relaycommon.RelayInfo, fieldCandid
 	return uploadResp.Urls.Get, nil
 }
 
-func (a *Adaptor) ConvertOpenAIRequest(*gin.Context, *relaycommon.RelayInfo, *dto.GeneralOpenAIRequest) (any, error) {
-	return nil, errors.New("replicate adaptor: ConvertOpenAIRequest is not implemented")
-}
-
-func (a *Adaptor) ConvertEmbeddingRequest(*gin.Context, *relaycommon.RelayInfo, dto.EmbeddingRequest) (any, error) {
-	return nil, errors.New("replicate adaptor: ConvertEmbeddingRequest is not implemented")
-}
-
-func (a *Adaptor) ConvertAudioRequest(*gin.Context, *relaycommon.RelayInfo, dto.AudioRequest) (io.Reader, error) {
-	return nil, errors.New("replicate adaptor: ConvertAudioRequest is not implemented")
-}
-
-func (a *Adaptor) ConvertOpenAIResponsesRequest(*gin.Context, *relaycommon.RelayInfo, dto.OpenAIResponsesRequest) (any, error) {
-	return nil, errors.New("replicate adaptor: ConvertOpenAIResponsesRequest is not implemented")
-}
-
-func (a *Adaptor) ConvertClaudeRequest(*gin.Context, *relaycommon.RelayInfo, *dto.ClaudeRequest) (any, error) {
-	return nil, errors.New("replicate adaptor: ConvertClaudeRequest is not implemented")
-}
-
-func (a *Adaptor) ConvertGeminiRequest(*gin.Context, *relaycommon.RelayInfo, *dto.GeminiChatRequest) (any, error) {
-	return nil, errors.New("replicate adaptor: ConvertGeminiRequest is not implemented")
+// ConvertOpenAIRequest refuses the universal chat format: this channel serves
+// Replicate predictions (image and video models) and has no chat endpoint.
+func (a *Adaptor) ConvertOpenAIRequest(_ *gin.Context, info *relaycommon.RelayInfo, _ *dto.GeneralOpenAIRequest) (any, error) {
+	return nil, channel.UnsupportedFormat(info, "OpenAI chat completions (/v1/chat/completions)")
 }

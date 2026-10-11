@@ -62,6 +62,15 @@ func (Unsupported) ConvertRerankRequest(c *gin.Context, _ int, _ dto.RerankReque
 	return nil, unsupportedFormatError(channelTypeFromContext(c), "rerank (/v1/rerank)")
 }
 
+// UnsupportedFormat builds the shared refusal for a format Unsupported has no
+// method for: the universal OpenAI chat format, which every adaptor is expected
+// to serve. A channel that serves only its own endpoints (Codex, Replicate,
+// MokaAI's chat route) answers that format with this client error instead of a
+// bare error that the request path would wrap as a 500.
+func UnsupportedFormat(info *relaycommon.RelayInfo, format string) *types.NewAPIError {
+	return unsupportedFormatError(channelTypeOf(info), format)
+}
+
 func unsupportedFormatError(channelType int, format string) *types.NewAPIError {
 	return types.NewErrorWithStatusCode(
 		fmt.Errorf("channel type %d (%s) does not serve %s requests; send a format this channel serves, or declare the route on an advanced custom channel", channelType, constant.GetChannelTypeName(channelType), format),

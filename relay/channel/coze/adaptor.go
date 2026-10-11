@@ -20,26 +20,6 @@ type Adaptor struct {
 	channel.Unsupported
 }
 
-// ConvertAudioRequest implements channel.Adaptor.
-func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *common.RelayInfo, request dto.AudioRequest) (io.Reader, error) {
-	return nil, errors.New("not implemented")
-}
-
-// ConvertClaudeRequest implements channel.Adaptor.
-func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *common.RelayInfo, request *dto.ClaudeRequest) (any, error) {
-	return nil, errors.New("not implemented")
-}
-
-// ConvertEmbeddingRequest implements channel.Adaptor.
-func (a *Adaptor) ConvertEmbeddingRequest(c *gin.Context, info *common.RelayInfo, request dto.EmbeddingRequest) (any, error) {
-	return nil, errors.New("not implemented")
-}
-
-// ConvertImageRequest implements channel.Adaptor.
-func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *common.RelayInfo, request dto.ImageRequest) (any, error) {
-	return nil, errors.New("not implemented")
-}
-
 // ConvertOpenAIRequest implements channel.Adaptor.
 func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *common.RelayInfo, request *dto.GeneralOpenAIRequest) (any, error) {
 	if request == nil {
@@ -47,13 +27,6 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *common.RelayInfo, r
 	}
 	return convertCozeChatRequest(c, *request), nil
 }
-
-// ConvertOpenAIResponsesRequest implements channel.Adaptor.
-func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *common.RelayInfo, request dto.OpenAIResponsesRequest) (any, error) {
-	return nil, errors.New("not implemented")
-}
-
-// ConvertRerankRequest implements channel.Adaptor.
 
 // DoRequest implements channel.Adaptor.
 func (a *Adaptor) DoRequest(c *gin.Context, info *common.RelayInfo, requestBody io.Reader) (any, error) {

@@ -55,7 +55,9 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 		baiduEmbeddingRequest := embeddingRequestOpenAI2Moka(*request)
 		return baiduEmbeddingRequest, nil
 	default:
-		return nil, errors.New("not implemented")
+		// This channel serves the OpenAI embeddings shape only; its other endpoint
+		// is the Moka console chat page, not a chat completions API.
+		return nil, channel.UnsupportedFormat(info, "OpenAI chat completions (/v1/chat/completions)")
 	}
 }
 
