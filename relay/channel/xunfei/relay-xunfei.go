@@ -13,10 +13,12 @@ import (
 	"github.com/samber/lo"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/constant"
+	"github.com/zhourenke/pg-api/relay/channel/openai"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	"github.com/zhourenke/pg-api/relay/helper"
 	"github.com/zhourenke/pg-api/relaykit/dto"
 	"github.com/zhourenke/pg-api/relaykit/types"
+	"github.com/zhourenke/pg-api/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -55,7 +57,9 @@ func requestOpenAI2Xunfei(request dto.GeneralOpenAIRequest, xunfeiAppId string, 
 	return &xunfeiRequest
 }
 
-func responseXunfei2OpenAI(response *XunfeiChatResponse) *dto.OpenAITextResponse {
+// responseXunfei2OpenAI 把讯飞的一整轮回答拼成 chat 响应。它同时是转换 Anthropic Messages
+// 和 generateContent 时的中间体，所以 id 与 model 都在这里带上。
+func responseXunfei2OpenAI(response *XunfeiChatResponse, id string, model string) *dto.OpenAITextResponse {
 	if len(response.Payload.Choices.Text) == 0 {
 		response.Payload.Choices.Text = []XunfeiChatResponseTextItem{
 			{
@@ -72,15 +76,19 @@ func responseXunfei2OpenAI(response *XunfeiChatResponse) *dto.OpenAITextResponse
 		FinishReason: constant.FinishReasonStop,
 	}
 	fullTextResponse := dto.OpenAITextResponse{
+		Id:      id,
 		Object:  "chat.completion",
 		Created: common.GetTimestamp(),
+		Model:   model,
 		Choices: []dto.OpenAITextResponseChoice{choice},
 		Usage:   response.Payload.Usage.Text,
 	}
 	return &fullTextResponse
 }
 
-func streamResponseXunfei2OpenAI(xunfeiResponse *XunfeiChatResponse) *dto.ChatCompletionsStreamResponse {
+// streamResponseXunfei2OpenAI 把讯飞的一帧拼成 chat 流式分片。讯飞自己在帧里只放状态和
+// 用量，没有结束原因，status 2 那一帧才补上。
+func streamResponseXunfei2OpenAI(xunfeiResponse *XunfeiChatResponse, id string, model string) *dto.ChatCompletionsStreamResponse {
 	if len(xunfeiResponse.Payload.Choices.Text) == 0 {
 		xunfeiResponse.Payload.Choices.Text = []XunfeiChatResponseTextItem{
 			{
@@ -94,9 +102,10 @@ func streamResponseXunfei2OpenAI(xunfeiResponse *XunfeiChatResponse) *dto.ChatCo
 		choice.FinishReason = &constant.FinishReasonStop
 	}
 	response := dto.ChatCompletionsStreamResponse{
+		Id:      id,
 		Object:  "chat.completion.chunk",
 		Created: common.GetTimestamp(),
-		Model:   "SparkDesk",
+		Model:   model,
 		Choices: []dto.ChatCompletionsStreamResponseChoice{choice},
 	}
 	return &response
@@ -128,36 +137,84 @@ func buildXunfeiAuthUrl(hostUrl string, apiKey, apiSecret string) string {
 	return callUrl
 }
 
-func xunfeiStreamHandler(c *gin.Context, conn *websocket.Conn, textRequest dto.GeneralOpenAIRequest, appId string, domain string) (*dto.Usage, *types.NewAPIError) {
+func xunfeiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, conn *websocket.Conn, textRequest dto.GeneralOpenAIRequest, appId string, domain string) (*dto.Usage, *types.NewAPIError) {
 	dataChan, stopChan, err := xunfeiMakeRequest(c, conn, textRequest, domain, appId)
 	if err != nil {
 		return nil, types.NewError(err, types.ErrorCodeDoRequestFailed)
 	}
 	helper.SetEventStreamHeaders(c)
+	id := helper.GetResponseID(c)
 	var usage dto.Usage
+	var lastStreamData string
 	c.Stream(func(w io.Writer) bool {
 		select {
 		case xunfeiResponse := <-dataChan:
 			usage.PromptTokens += xunfeiResponse.Payload.Usage.Text.PromptTokens
 			usage.CompletionTokens += xunfeiResponse.Payload.Usage.Text.CompletionTokens
 			usage.TotalTokens += xunfeiResponse.Payload.Usage.Text.TotalTokens
-			response := streamResponseXunfei2OpenAI(&xunfeiResponse)
-			jsonResponse, err := common.Marshal(response)
-			if err != nil {
-				common.SysLog("error marshalling stream response: " + err.Error())
+			response := streamResponseXunfei2OpenAI(&xunfeiResponse, id, info.UpstreamModelName)
+			if info.RelayFormat == types.RelayFormatOpenAI {
+				if err := helper.ObjectData(c, response); err != nil {
+					common.SysLog(err.Error())
+				}
 				return true
 			}
-			c.Render(-1, common.CustomEvent{Data: "data: " + string(jsonResponse)})
+			// 讯飞帧里的状态和用量不是转换后的格式能读的结束原因：正文增量照转，收尾
+			// 交给下面那一帧。
+			response.Choices[0].FinishReason = nil
+			if response.Choices[0].Delta.GetContentString() == "" {
+				return true
+			}
+			if apiErr := emitXunfeiStreamChunk(c, info, *response, &lastStreamData); apiErr != nil {
+				common.SysLog(apiErr.Error())
+				return false
+			}
 			return true
 		case <-stopChan:
-			c.Render(-1, common.CustomEvent{Data: "data: [DONE]"})
+			if info.RelayFormat != types.RelayFormatOpenAI {
+				// 转换后的协议都要一帧带结束原因和用量的收尾分片才闭合，讯飞自己不给
+				// 这样一帧，所以在这里补一帧，再交给该协议的收尾逻辑。
+				finishReason := constant.FinishReasonStop
+				terminal := dto.ChatCompletionsStreamResponse{
+					Id:      id,
+					Object:  "chat.completion.chunk",
+					Created: common.GetTimestamp(),
+					Model:   info.UpstreamModelName,
+					Choices: []dto.ChatCompletionsStreamResponseChoice{{Index: 0, FinishReason: &finishReason}},
+					Usage:   &usage,
+				}
+				if apiErr := emitXunfeiStreamChunk(c, info, terminal, &lastStreamData); apiErr != nil {
+					common.SysLog(apiErr.Error())
+					return false
+				}
+				// 转换后的格式以各自的收尾事件结束，而不是 chat 的 [DONE]；Claude 那
+				// 条路还需要属于这条流的状态。
+				info.EnsureClaudeConvertInfo()
+				openai.HandleFinalResponse(c, info, lastStreamData, id, common.GetTimestamp(), info.UpstreamModelName, "", &usage, false)
+				return false
+			}
+			helper.Done(c)
 			return false
 		}
 	})
 	return &usage, nil
 }
 
-func xunfeiHandler(c *gin.Context, conn *websocket.Conn, textRequest dto.GeneralOpenAIRequest, appId string, domain string) (*dto.Usage, *types.NewAPIError) {
+// emitXunfeiStreamChunk 把一帧 chat 分片交给用另一种协议提问的客户端，作为该协议渲染器要
+// 转换的中间体，于是一条讯飞流同时服务三种格式。
+func emitXunfeiStreamChunk(c *gin.Context, info *relaycommon.RelayInfo, chunk dto.ChatCompletionsStreamResponse, lastStreamData *string) *types.NewAPIError {
+	encoded, err := common.Marshal(chunk)
+	if err != nil {
+		return types.NewError(err, types.ErrorCodeBadResponseBody)
+	}
+	*lastStreamData = string(encoded)
+	if err := openai.HandleStreamFormat(c, info, *lastStreamData, false, false); err != nil {
+		return types.NewError(err, types.ErrorCodeBadResponseBody)
+	}
+	return nil
+}
+
+func xunfeiHandler(c *gin.Context, info *relaycommon.RelayInfo, conn *websocket.Conn, textRequest dto.GeneralOpenAIRequest, appId string, domain string) (*dto.Usage, *types.NewAPIError) {
 	dataChan, stopChan, err := xunfeiMakeRequest(c, conn, textRequest, domain, appId)
 	if err != nil {
 		return nil, types.NewError(err, types.ErrorCodeDoRequestFailed)
@@ -188,8 +245,18 @@ func xunfeiHandler(c *gin.Context, conn *websocket.Conn, textRequest dto.General
 	}
 	xunfeiResponse.Payload.Choices.Text[0].Content = content
 
-	response := responseXunfei2OpenAI(&xunfeiResponse)
-	jsonResponse, err := common.Marshal(response)
+	// 这一份 chat 响应就是转换 Anthropic Messages 和 generateContent 时的中间体：整轮
+	// 回答已经拼接完，协议自己的渲染器只负责转写。
+	response := responseXunfei2OpenAI(&xunfeiResponse, helper.GetResponseID(c), info.UpstreamModelName)
+	var body any = response
+	if info.RelayFormat != types.RelayFormatOpenAI {
+		convertResult, err := service.ConvertResponse(c, info, info.RelayFormat, response)
+		if err != nil {
+			return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
+		}
+		body = convertResult.Value
+	}
+	jsonResponse, err := common.Marshal(body)
 	if err != nil {
 		return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
 	}

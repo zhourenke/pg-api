@@ -59,11 +59,14 @@ func TestChannelCapabilitiesMatchAdaptors(t *testing.T) {
 // Resolving through the api type keeps the declaration usable from channel
 // selection, which holds a channel type, not an api type.
 func TestChannelCapabilitiesForResolvesThroughTheAdaptorApiType(t *testing.T) {
-	// Xunfei speaks a WebSocket protocol of its own and converts nothing, so its
-	// row is the empty set the resolution has to carry through.
+	// Xunfei speaks a WebSocket protocol of its own and has no vendor dialect for
+	// the other two formats: it converts them through the shared chat conversion,
+	// so its row names exactly those and nothing else.
 	caps, declared := common.ChannelCapabilitiesFor(constant.ChannelTypeXunfei)
 	require.True(t, declared)
-	assert.Equal(t, constant.Capabilities(0), caps)
+	assert.True(t, caps.Has(constant.CapabilityClaude))
+	assert.True(t, caps.Has(constant.CapabilityGemini))
+	assert.False(t, caps.Has(constant.CapabilityOpenAIResponses))
 
 	caps, declared = common.ChannelCapabilitiesFor(constant.ChannelTypeOpenAI)
 	require.True(t, declared)

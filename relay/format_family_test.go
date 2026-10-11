@@ -1,14 +1,17 @@
 package relay
 
 import (
+	"encoding/base64"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -2153,6 +2156,348 @@ func TestCozeStreamsTheConvertedFormats(t *testing.T) {
 				assert.NotContains(t, body, "[DONE]", body)
 			}
 			assert.Equal(t, tt.openingFrame, strings.Count(body, `"type":"message_start"`), body)
+		})
+	}
+}
+
+// xunfeiUpstream is the websocket endpoint 讯飞's protocol talks to: it records
+// the handshake and the first message, then replays the frames it was handed. It
+// is what lets the channel's own dialect be exercised without 讯飞 credentials.
+type xunfeiUpstream struct {
+	*httptest.Server
+	seen chan xunfeiRequest
+}
+
+type xunfeiRequest struct {
+	// Host is the Host header, which is what the signed url's host parameter has
+	// to match: a server-side request url carries no host of its own.
+	Host    string
+	URL     *url.URL
+	Headers http.Header
+	Body    []byte
+}
+
+func newXunfeiUpstream(t *testing.T, frames ...string) *xunfeiUpstream {
+	t.Helper()
+	upstream := &xunfeiUpstream{seen: make(chan xunfeiRequest, 1)}
+	upgrader := websocket.Upgrader{}
+	upstream.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		_, message, err := conn.ReadMessage()
+		if err != nil {
+			return
+		}
+		upstream.seen <- xunfeiRequest{Host: r.Host, URL: r.URL, Headers: r.Header.Clone(), Body: message}
+		for _, frame := range frames {
+			if err := conn.WriteMessage(websocket.TextMessage, []byte(frame)); err != nil {
+				return
+			}
+		}
+	}))
+	t.Cleanup(upstream.Close)
+	return upstream
+}
+
+func (u *xunfeiUpstream) request(t *testing.T) xunfeiRequest {
+	t.Helper()
+	select {
+	case seen := <-u.seen:
+		return seen
+	default:
+		t.Fatal("the channel never dialed the upstream")
+		return xunfeiRequest{}
+	}
+}
+
+// Xunfei speaks a websocket protocol of its own, so the two converted formats have
+// to reach it as 讯飞's own request: one message list, the app id and the domain
+// from the channel, and a handshake signed with the channel key. The endpoint
+// follows the version the request selects (its api-version query, then its model
+// name) and the channel's base url, which this channel used to ignore.
+func TestXunfeiConvertsBothConvertedFormatsIntoItsOwnRequest(t *testing.T) {
+	adaptor := GetAdaptor(constant.APITypeXunfei)
+	require.NotNil(t, adaptor)
+
+	tests := []struct {
+		name       string
+		info       *relaycommon.RelayInfo
+		model      string
+		requestURL string
+		convert    func(*gin.Context, *relaycommon.RelayInfo) (any, error)
+		wantPath   string
+		wantDomain string
+		// 讯飞对 system 的处理按模型版本分叉：3.5 原样透传，其它版本折成一轮问答。
+		foldsSystem bool
+		wantText    string
+	}{
+		{
+			name:       "gemini",
+			info:       geminiRelayInfo(constant.ChannelTypeXunfei),
+			model:      "SparkDesk-v3.5",
+			requestURL: "/v1beta/models/gemini-2.5-flash:generateContent",
+			convert: func(c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+				return adaptor.ConvertGeminiRequest(c, info, geminiRequest())
+			},
+			wantPath:   "/v3.5/chat",
+			wantDomain: "generalv3.5",
+			wantText:   "hello",
+		},
+		{
+			name:       "claude",
+			info:       claudeRelayInfo(constant.ChannelTypeXunfei, "SparkDesk-v3.1"),
+			model:      "SparkDesk-v3.1",
+			requestURL: "/v1/messages",
+			convert: func(c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+				return adaptor.ConvertClaudeRequest(c, info, claudeRequest("SparkDesk-v3.1"))
+			},
+			wantPath:    "/v3.1/chat",
+			wantDomain:  "generalv3",
+			foldsSystem: true,
+			wantText:    "weather?",
+		},
+		{
+			name:       "claude with the api-version query overriding the model",
+			info:       claudeRelayInfo(constant.ChannelTypeXunfei, "SparkDesk-v3.5"),
+			model:      "SparkDesk-v3.5",
+			requestURL: "/v1/messages?api-version=v3.1",
+			convert: func(c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+				return adaptor.ConvertClaudeRequest(c, info, claudeRequest("SparkDesk-v3.5"))
+			},
+			wantPath:   "/v3.1/chat",
+			wantDomain: "generalv3",
+			wantText:   "weather?",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			upstream := newXunfeiUpstream(t)
+			tt.info.UpstreamModelName = tt.model
+			tt.info.ChannelBaseUrl = upstream.URL
+			tt.info.ApiKey = "app|secret|key"
+
+			c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
+			c.Request = httptest.NewRequest(http.MethodPost, tt.requestURL, nil)
+
+			converted, err := tt.convert(c, tt.info)
+			require.NoError(t, err)
+			require.NotNil(t, converted)
+
+			usage, apiErr := adaptor.DoResponse(c, &http.Response{StatusCode: http.StatusOK}, tt.info)
+			require.Nil(t, apiErr)
+			require.NotNil(t, usage)
+
+			seen := upstream.request(t)
+			assert.Equal(t, tt.wantPath, seen.URL.Path)
+			// 密钥只出现在签名里，握手头不带它。
+			assert.Empty(t, seen.Headers.Get("Authorization"))
+			assert.Equal(t, seen.Host, seen.URL.Query().Get("host"))
+			assert.NotEmpty(t, seen.URL.Query().Get("date"))
+			// appId|apiSecret|apiKey：签名用的是后两段，user 是第三段。
+			signature, err := base64.StdEncoding.DecodeString(seen.URL.Query().Get("authorization"))
+			require.NoError(t, err)
+			assert.Contains(t, string(signature), `hmac username="key"`)
+			assert.Contains(t, string(signature), `algorithm="hmac-sha256"`)
+
+			body := string(seen.Body)
+			var parsed map[string]any
+			require.NoError(t, common.Unmarshal(seen.Body, &parsed), body)
+			assert.Equal(t, "app", gjson.Get(body, "header.app_id").String(), body)
+			assert.Equal(t, tt.wantDomain, gjson.Get(body, "parameter.chat.domain").String(), body)
+			assert.Contains(t, body, tt.wantText, body)
+			if tt.foldsSystem {
+				assert.Contains(t, body, "Okay", body)
+				assert.NotContains(t, body, `"role":"system"`, body)
+			} else {
+				assert.NotContains(t, body, "Okay", body)
+			}
+			assert.NotContains(t, body, "contents", "the client shape must not reach 讯飞: %s", body)
+		})
+	}
+}
+
+// 讯飞 answers a whole run as status-tagged frames, with the usage in a separate
+// payload: the chat response built from them is the intermediate Anthropic
+// Messages and generateContent are rendered from.
+func TestXunfeiRendersEveryFormatFromItsOwnResponse(t *testing.T) {
+	adaptor := GetAdaptor(constant.APITypeXunfei)
+	require.NotNil(t, adaptor)
+
+	frames := []string{
+		`{"payload":{"choices":{"status":1,"text":[{"content":"hi"}]},"usage":{"text":{"prompt_tokens":0,"completion_tokens":0,"total_tokens":0}}}}`,
+		// 用量只落在收尾那一帧上：讯飞的逐帧 usage 是本次会话的累计值还是增量值
+		// 未经真机确认，这样两个口径给出同一个数，这批测试就不替它下结论。
+		`{"payload":{"choices":{"status":2,"text":[{"content":"!"}]},"usage":{"text":{"prompt_tokens":3,"completion_tokens":1,"total_tokens":4}}}}`,
+	}
+
+	tests := []struct {
+		name    string
+		info    *relaycommon.RelayInfo
+		convert func(*gin.Context, *relaycommon.RelayInfo) (any, error)
+		asserts func(t *testing.T, body []byte)
+	}{
+		{
+			name: "gemini",
+			info: geminiRelayInfo(constant.ChannelTypeXunfei),
+			convert: func(c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+				return adaptor.ConvertGeminiRequest(c, info, geminiRequest())
+			},
+			asserts: func(t *testing.T, body []byte) {
+				assert.Equal(t, "hi!", gjson.GetBytes(body, "candidates.0.content.parts.0.text").String(), string(body))
+				assert.Equal(t, "STOP", gjson.GetBytes(body, "candidates.0.finishReason").String(), string(body))
+				assert.Equal(t, int64(4), gjson.GetBytes(body, "usageMetadata.totalTokenCount").Int(), string(body))
+			},
+		},
+		{
+			name: "claude",
+			info: claudeRelayInfo(constant.ChannelTypeXunfei, "SparkDesk-v3.5"),
+			convert: func(c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+				return adaptor.ConvertClaudeRequest(c, info, claudeRequest("SparkDesk-v3.5"))
+			},
+			asserts: func(t *testing.T, body []byte) {
+				assert.Equal(t, "message", gjson.GetBytes(body, "type").String(), string(body))
+				assert.Equal(t, "hi!", gjson.GetBytes(body, "content.0.text").String(), string(body))
+				assert.Equal(t, "end_turn", gjson.GetBytes(body, "stop_reason").String(), string(body))
+				assert.Equal(t, "SparkDesk-v3.5", gjson.GetBytes(body, "model").String(), string(body))
+				assert.Equal(t, int64(3), gjson.GetBytes(body, "usage.input_tokens").Int(), string(body))
+				assert.Equal(t, int64(1), gjson.GetBytes(body, "usage.output_tokens").Int(), string(body))
+			},
+		},
+		{
+			name: "openai",
+			info: openaiRelayInfo(constant.ChannelTypeXunfei, "SparkDesk-v3.5"),
+			convert: func(c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+				request := &dto.GeneralOpenAIRequest{Messages: []dto.Message{{Role: "user", Content: "hello"}}}
+				return adaptor.ConvertOpenAIRequest(c, info, request)
+			},
+			asserts: func(t *testing.T, body []byte) {
+				assert.Equal(t, "hi!", gjson.GetBytes(body, "choices.0.message.content").String(), string(body))
+				assert.Equal(t, "stop", gjson.GetBytes(body, "choices.0.finish_reason").String(), string(body))
+				assert.Equal(t, int64(4), gjson.GetBytes(body, "usage.total_tokens").Int(), string(body))
+				assert.Equal(t, "SparkDesk-v3.5", gjson.GetBytes(body, "model").String(), string(body))
+				assert.NotEmpty(t, gjson.GetBytes(body, "id").String(), string(body))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			upstream := newXunfeiUpstream(t, frames...)
+			tt.info.ChannelBaseUrl = upstream.URL
+			tt.info.ApiKey = "app|secret|key"
+
+			recorder := httptest.NewRecorder()
+			c := gin.CreateTestContextOnly(recorder, gin.New())
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+
+			_, err := tt.convert(c, tt.info)
+			require.NoError(t, err)
+
+			usage, apiErr := adaptor.DoResponse(c, &http.Response{StatusCode: http.StatusOK}, tt.info)
+			require.Nil(t, apiErr)
+			require.NotNil(t, usage)
+			returned, ok := usage.(*dto.Usage)
+			require.True(t, ok, "%T", usage)
+			assert.Equal(t, 4, returned.TotalTokens)
+
+			body := recorder.Body.Bytes()
+			if tt.info.RelayFormat != types.RelayFormatOpenAI {
+				assert.False(t, gjson.GetBytes(body, "choices").Exists(), "the chat shape must not reach the client: %s", body)
+			}
+			tt.asserts(t, body)
+		})
+	}
+}
+
+// A converted client gets its own protocol closed with the finish reason and the
+// usage, which 讯飞's own frames do not carry: the terminal chunk the handler
+// builds is what closes Gemini, and it is also what the Claude path reads.
+func TestXunfeiStreamsTheConvertedFormats(t *testing.T) {
+	adaptor := GetAdaptor(constant.APITypeXunfei)
+	require.NotNil(t, adaptor)
+
+	frames := []string{
+		`{"payload":{"choices":{"status":1,"text":[{"content":"hi"}]},"usage":{"text":{"prompt_tokens":0,"completion_tokens":0,"total_tokens":0}}}}`,
+		// 用量只落在收尾那一帧上：讯飞的逐帧 usage 是本次会话的累计值还是增量值
+		// 未经真机确认，这样两个口径给出同一个数，这批测试就不替它下结论。
+		`{"payload":{"choices":{"status":2,"text":[{"content":"!"}]},"usage":{"text":{"prompt_tokens":3,"completion_tokens":1,"total_tokens":4}}}}`,
+	}
+
+	tests := []struct {
+		name        string
+		info        *relaycommon.RelayInfo
+		convert     func(*gin.Context, *relaycommon.RelayInfo) (any, error)
+		wantContain []string
+		// The OpenAI format is the one that ends with a chat [DONE].
+		closesWithDone bool
+		openingFrame   int
+	}{
+		{
+			name: "gemini",
+			info: geminiRelayInfo(constant.ChannelTypeXunfei),
+			convert: func(c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+				return adaptor.ConvertGeminiRequest(c, info, geminiRequest())
+			},
+			wantContain: []string{"candidates", `"text":"hi"`, `"text":"!"`, "totalTokenCount"},
+		},
+		{
+			name: "claude",
+			info: claudeRelayInfo(constant.ChannelTypeXunfei, "SparkDesk-v3.5"),
+			convert: func(c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+				return adaptor.ConvertClaudeRequest(c, info, claudeRequest("SparkDesk-v3.5"))
+			},
+			wantContain:  []string{"message_start", "content_block_delta", `"text":"hi"`, "message_stop", "output_tokens"},
+			openingFrame: 1,
+		},
+		{
+			name: "openai",
+			info: openaiRelayInfo(constant.ChannelTypeXunfei, "SparkDesk-v3.5"),
+			convert: func(c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+				request := &dto.GeneralOpenAIRequest{Messages: []dto.Message{{Role: "user", Content: "hello"}}}
+				return adaptor.ConvertOpenAIRequest(c, info, request)
+			},
+			wantContain:    []string{`"content":"hi"`, `"content":"!"`, `"finish_reason":"stop"`},
+			closesWithDone: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			upstream := newXunfeiUpstream(t, frames...)
+			tt.info.ChannelBaseUrl = upstream.URL
+			tt.info.ApiKey = "app|secret|key"
+			tt.info.IsStream = true
+
+			recorder := newStreamRecorder()
+			c := gin.CreateTestContextOnly(recorder, gin.New())
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+
+			_, err := tt.convert(c, tt.info)
+			require.NoError(t, err)
+
+			usage, apiErr := adaptor.DoResponse(c, &http.Response{StatusCode: http.StatusOK}, tt.info)
+			require.Nil(t, apiErr)
+			require.NotNil(t, usage)
+
+			body := recorder.Body.String()
+			for _, want := range tt.wantContain {
+				assert.Contains(t, body, want, body)
+			}
+			if tt.closesWithDone {
+				assert.Contains(t, body, "data: [DONE]", body)
+			} else {
+				assert.NotContains(t, body, "[DONE]", body)
+			}
+			// The terminal frame is the only frame that closes the stream, so a
+			// second opening would mean it was rendered twice.
+			assert.Equal(t, tt.openingFrame, strings.Count(body, `"type":"message_start"`), body)
+			if tt.info.RelayFormat == types.RelayFormatGemini {
+				assert.Equal(t, 1, strings.Count(body, `"finishReason":"STOP"`), body)
+			}
 		})
 	}
 }

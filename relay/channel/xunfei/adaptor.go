@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/zhourenke/pg-api/relay/channel"
+	"github.com/zhourenke/pg-api/relay/channel/openai"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	"github.com/zhourenke/pg-api/relaykit/dto"
 	"github.com/zhourenke/pg-api/relaykit/types"
@@ -47,6 +48,20 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 	return request, nil
 }
 
+// ConvertClaudeRequest serves Anthropic Messages over the websocket protocol the
+// channel speaks: xunfei has no Anthropic dialect, so the request becomes a chat
+// request first and this channel's own shaping (one message list, system prompts
+// folded into it) applies to it.
+func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.ClaudeRequest) (any, error) {
+	return openai.ConvertToChannelOpenAIRequest(c, info, request, a.ConvertOpenAIRequest)
+}
+
+// ConvertGeminiRequest serves generateContent the same way: the chat request is
+// what requestOpenAI2Xunfei turns into the message list 讯飞 takes.
+func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
+	return openai.ConvertToChannelOpenAIRequest(c, info, request, a.ConvertOpenAIRequest)
+}
+
 func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, requestBody io.Reader) (any, error) {
 	// xunfei's request is not http request, so we don't need to do anything here
 	dummyResp := &http.Response{}
@@ -73,9 +88,9 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 	}
 	defer conn.Close()
 	if info.IsStream {
-		usage, err = xunfeiStreamHandler(c, conn, *a.request, splits[0], a.domain)
+		usage, err = xunfeiStreamHandler(c, info, conn, *a.request, splits[0], a.domain)
 	} else {
-		usage, err = xunfeiHandler(c, conn, *a.request, splits[0], a.domain)
+		usage, err = xunfeiHandler(c, info, conn, *a.request, splits[0], a.domain)
 	}
 	return
 }
