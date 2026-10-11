@@ -44,6 +44,7 @@ func TestGeminiFamilyConvertsRequestsToTheChatEndpoint(t *testing.T) {
 		{"cloudflare", constant.APITypeCloudflare, constant.ChannelCloudflare, "https://upstream.example.com/client/v4/accounts/account-1/ai/v1/chat/completions", false},
 		{"deepseek", constant.APITypeDeepSeek, constant.ChannelTypeDeepSeek, "https://upstream.example.com/v1/chat/completions", false},
 		{"mistral", constant.APITypeMistral, constant.ChannelTypeMistral, "https://upstream.example.com/v1/chat/completions", false},
+		{"minimax", constant.APITypeMiniMax, constant.ChannelTypeMiniMax, "https://upstream.example.com/v1/text/chatcompletion_v2", false},
 		{"moonshot", constant.APITypeMoonshot, constant.ChannelTypeMoonshot, "https://upstream.example.com/v1/chat/completions", false},
 		{"perplexity", constant.APITypePerplexity, constant.ChannelTypePerplexity, "https://upstream.example.com/chat/completions", true},
 		{"siliconflow", constant.APITypeSiliconFlow, constant.ChannelTypeSiliconFlow, "https://upstream.example.com/v1/chat/completions", false},
@@ -246,6 +247,7 @@ func TestGeminiFamilyRendersResponsesInTheGeminiShape(t *testing.T) {
 	}{
 		{"xai", constant.APITypeXai, constant.ChannelTypeXai},
 		{"cloudflare", constant.APITypeCloudflare, constant.ChannelCloudflare},
+		{"minimax", constant.APITypeMiniMax, constant.ChannelTypeMiniMax},
 		{"moonshot", constant.APITypeMoonshot, constant.ChannelTypeMoonshot},
 		{"perplexity", constant.APITypePerplexity, constant.ChannelTypePerplexity},
 		{"submodel", constant.APITypeSubmodel, constant.ChannelTypeSubmodel},

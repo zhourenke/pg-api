@@ -29,6 +29,16 @@ func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayIn
 	return adaptor.ConvertClaudeRequest(c, info, req)
 }
 
+// The Claude format has an Anthropic-compatible endpoint of its own on this
+// provider; generateContent has no dialect anywhere on it, so that request is
+// converted to the chat shape and then shaped by this channel's own OpenAI rules,
+// exactly like the OpenAI format, and it rides the chat endpoint. The provider's
+// Anthropic-compatible endpoint serves the coding models only, so it is not the
+// target here.
+func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
+	return openai.ConvertToChannelOpenAIRequest(c, info, request, a.ConvertOpenAIRequest)
+}
+
 func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.AudioRequest) (io.Reader, error) {
 	if info.RelayMode != constant.RelayModeAudioSpeech {
 		return nil, errors.New("unsupported audio relay mode")
@@ -122,6 +132,9 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 		adaptor := claude.Adaptor{}
 		return adaptor.DoResponse(c, resp, info)
 	default:
+		// The chat endpoint serves the OpenAI format and the converted Gemini
+		// one, and a chat body is what the OpenAI adaptor renders into either
+		// client's protocol.
 		adaptor := openai.Adaptor{}
 		return adaptor.DoResponse(c, resp, info)
 	}
