@@ -30,7 +30,7 @@ func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayIn
 // endpoint: SiliconFlow offers no Gemini dialect, so the request is converted to
 // the chat shape and then shaped by this channel's own OpenAI rules.
 func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
-	return openai.ConvertGeminiToChannelOpenAIRequest(c, info, request, a.ConvertOpenAIRequest)
+	return openai.ConvertToChannelOpenAIRequest(c, info, request, a.ConvertOpenAIRequest)
 }
 
 func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.AudioRequest) (io.Reader, error) {

@@ -18,11 +18,19 @@ type Adaptor struct {
 	channel.Unsupported
 }
 
+// ConvertClaudeRequest serves Anthropic Messages through the OpenAI-compatible
+// chat endpoint: Mistral offers no Anthropic dialect, so the request is converted
+// to the chat shape and then shaped by this channel's own OpenAI rules (the
+// tool-call id form Mistral accepts is rewritten there).
+func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.ClaudeRequest) (any, error) {
+	return openai.ConvertToChannelOpenAIRequest(c, info, request, a.ConvertOpenAIRequest)
+}
+
 // ConvertGeminiRequest serves generateContent through the OpenAI-compatible chat
 // endpoint: Mistral offers no Gemini dialect, so the request is converted to the
 // chat shape and then shaped by this channel's own OpenAI rules.
 func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
-	return openai.ConvertGeminiToChannelOpenAIRequest(c, info, request, a.ConvertOpenAIRequest)
+	return openai.ConvertToChannelOpenAIRequest(c, info, request, a.ConvertOpenAIRequest)
 }
 
 func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
@@ -30,9 +38,10 @@ func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 
 func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 	// The client's path is forwarded as-is, and for a request that already speaks
-	// OpenAI that path is the chat endpoint. A generateContent request names the
-	// Gemini protocol instead, so it has to be mapped to the chat endpoint.
-	if info.RelayFormat == types.RelayFormatGemini {
+	// OpenAI that path is the chat endpoint. The other two formats name their own
+	// protocols instead (/v1/messages, /v1beta/models/...), so they have to be
+	// mapped to the chat endpoint the conversion produces a body for.
+	if info.RelayFormat == types.RelayFormatClaude || info.RelayFormat == types.RelayFormatGemini {
 		return relaycommon.GetFullRequestURL(info.ChannelBaseUrl, "/v1/chat/completions", info.ChannelType), nil
 	}
 	return relaycommon.GetFullRequestURL(info.ChannelBaseUrl, info.RequestURLPath, info.ChannelType), nil

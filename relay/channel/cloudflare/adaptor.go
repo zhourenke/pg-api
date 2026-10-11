@@ -21,19 +21,32 @@ type Adaptor struct {
 	channel.Unsupported
 }
 
+// ConvertClaudeRequest serves Anthropic Messages through the Workers AI
+// OpenAI-compatible chat endpoint; the converted request is shaped by this
+// channel's own OpenAI rules.
+func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.ClaudeRequest) (any, error) {
+	return openai.ConvertToChannelOpenAIRequest(c, info, request, a.ConvertOpenAIRequest)
+}
+
 // ConvertGeminiRequest serves generateContent through the Workers AI
 // OpenAI-compatible chat endpoint; the converted request is shaped by this
 // channel's own OpenAI rules.
 func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
-	return openai.ConvertGeminiToChannelOpenAIRequest(c, info, request, a.ConvertOpenAIRequest)
+	return openai.ConvertToChannelOpenAIRequest(c, info, request, a.ConvertOpenAIRequest)
 }
 
 func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 }
 
 func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
+	// The other two formats are relayed over the chat endpoint this channel
+	// converts them into; their own paths (/v1/messages, /v1beta/models/...) do
+	// not exist on Workers AI.
+	if info.RelayFormat == types.RelayFormatClaude || info.RelayFormat == types.RelayFormatGemini {
+		return fmt.Sprintf("%s/client/v4/accounts/%s/ai/v1/chat/completions", info.ChannelBaseUrl, info.ApiVersion), nil
+	}
 	switch info.RelayMode {
-	case constant.RelayModeChatCompletions, constant.RelayModeGemini:
+	case constant.RelayModeChatCompletions:
 		return fmt.Sprintf("%s/client/v4/accounts/%s/ai/v1/chat/completions", info.ChannelBaseUrl, info.ApiVersion), nil
 	case constant.RelayModeEmbeddings:
 		return fmt.Sprintf("%s/client/v4/accounts/%s/ai/v1/embeddings", info.ChannelBaseUrl, info.ApiVersion), nil
@@ -92,10 +105,11 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 }
 
 func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (usage any, err *types.NewAPIError) {
-	// The Gemini format relays through the same OpenAI-compatible chat endpoint,
-	// but the Cloudflare chat handler writes the OpenAI shape; only the OpenAI
-	// adaptor renders a chat body as generateContent.
-	if info.RelayFormat == types.RelayFormatGemini {
+	// The other two formats relay through the same OpenAI-compatible chat
+	// endpoint, but the Cloudflare chat handler writes the OpenAI shape and its
+	// mode switch answers those modes with a nil usage; only the OpenAI adaptor
+	// renders a chat body in the client's protocol.
+	if info.RelayFormat == types.RelayFormatClaude || info.RelayFormat == types.RelayFormatGemini {
 		adaptor := openai.Adaptor{}
 		return adaptor.DoResponse(c, resp, info)
 	}

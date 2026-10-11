@@ -59,17 +59,19 @@ func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayIn
 	return a.ConvertOpenAIRequest(c, info, openaiRequest)
 }
 
-// ConvertGeminiToChannelOpenAIRequest converts a Gemini generateContent request
-// into the OpenAI chat request an OpenAI-compatible channel relays, then hands
-// it to shape so that channel applies its own OpenAI request shaping.
+// ConvertToChannelOpenAIRequest converts a request in another downstream format
+// (Anthropic Messages, Gemini generateContent) into the OpenAI chat request an
+// OpenAI-compatible channel relays, then hands it to shape so that channel
+// applies its own OpenAI request shaping.
 //
-// A channel needs three pieces for the Gemini format: this conversion, its own
+// A channel needs three pieces for such a format: this conversion, its own
 // ConvertOpenAIRequest, and a chat endpoint for the converted body. Routing the
 // result through shape keeps the channel's shaping (image and tool-call
-// handling, vendor-only fields, model-name rules) identical on the Gemini path
-// and the OpenAI path; calling ConvertGeminiRequest on a bare openai.Adaptor
-// would send the unshaped OpenAI body instead.
-func ConvertGeminiToChannelOpenAIRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest, shape func(*gin.Context, *relaycommon.RelayInfo, *dto.GeneralOpenAIRequest) (any, error)) (any, error) {
+// handling, vendor-only fields, model-name rules) identical on the converted
+// path and the OpenAI path; calling openai.Adaptor's own conversion would send
+// the unshaped OpenAI body, and the Claude one would additionally strip
+// stream_options for every channel that is not OpenAI or Azure.
+func ConvertToChannelOpenAIRequest(c *gin.Context, info *relaycommon.RelayInfo, request any, shape func(*gin.Context, *relaycommon.RelayInfo, *dto.GeneralOpenAIRequest) (any, error)) (any, error) {
 	if request == nil {
 		return nil, errors.New("request is nil")
 	}

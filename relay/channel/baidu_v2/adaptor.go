@@ -30,7 +30,7 @@ func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayIn
 // OpenAI-compatible chat endpoint as the OpenAI format; the converted request is
 // shaped by this channel's own OpenAI rules (model suffix handling included).
 func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
-	return openai.ConvertGeminiToChannelOpenAIRequest(c, info, request, a.ConvertOpenAIRequest)
+	return openai.ConvertToChannelOpenAIRequest(c, info, request, a.ConvertOpenAIRequest)
 }
 
 func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
