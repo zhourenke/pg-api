@@ -65,7 +65,7 @@ func CapabilitiesOf(formats ...RelayFormatCapability) Capabilities {
 var ChannelCapabilitiesByAPIType = map[int]Capabilities{
 	APITypeOpenAI:      CapabilitiesOf(CapabilityClaude, CapabilityGemini, CapabilityOpenAIResponses, CapabilityAudio, CapabilityImage, CapabilityEmbedding, CapabilityRerank),
 	APITypeAnthropic:   CapabilitiesOf(CapabilityClaude, CapabilityGemini, CapabilityOpenAIResponses),
-	APITypePaLM:        0,
+	APITypePaLM:        CapabilitiesOf(CapabilityClaude, CapabilityGemini),
 	APITypeBaidu:       CapabilitiesOf(CapabilityEmbedding),
 	APITypeZhipu:       0,
 	APITypeAli:         CapabilitiesOf(CapabilityClaude, CapabilityGemini, CapabilityOpenAIResponses, CapabilityImage, CapabilityEmbedding, CapabilityRerank),

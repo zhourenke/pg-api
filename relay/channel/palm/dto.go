@@ -13,6 +13,8 @@ type PaLMFilter struct {
 }
 
 type PaLMPrompt struct {
+	// Context is where PaLM keeps the system prompt, separately from the turns.
+	Context  string            `json:"context,omitempty"`
 	Messages []PaLMChatMessage `json:"messages"`
 }
 

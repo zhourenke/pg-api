@@ -802,6 +802,166 @@ func TestDifyStreamsTheConvertedFormats(t *testing.T) {
 	}
 }
 
+// PaLM takes prompt.messages with an author per turn, so the converted formats
+// are turned into a chat request and then reshaped by the channel's own
+// conversion, exactly like the OpenAI format (which this channel used to forward
+// as an unconverted chat body).
+func TestPaLMConvertsTheOtherFormatsIntoItsOwnRequest(t *testing.T) {
+	adaptor := GetAdaptor(constant.APITypePaLM)
+	require.NotNil(t, adaptor)
+
+	tests := []struct {
+		name    string
+		convert func(c *gin.Context, info *relaycommon.RelayInfo) (any, error)
+		info    *relaycommon.RelayInfo
+		asserts func(t *testing.T, encoded []byte)
+	}{
+		{
+			name: "gemini",
+			convert: func(c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+				return adaptor.ConvertGeminiRequest(c, info, geminiRequest())
+			},
+			info: geminiRelayInfo(constant.ChannelTypePaLM),
+			asserts: func(t *testing.T, encoded []byte) {
+				assert.Equal(t, "0", gjson.GetBytes(encoded, "prompt.messages.0.author").String(), string(encoded))
+				assert.Equal(t, "hello", gjson.GetBytes(encoded, "prompt.messages.0.content").String(), string(encoded))
+				assert.Equal(t, 1.5, gjson.GetBytes(encoded, "topP").Float(), string(encoded))
+			},
+		},
+		{
+			name: "claude",
+			convert: func(c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+				return adaptor.ConvertClaudeRequest(c, info, claudeRequest("palm-model"))
+			},
+			info: claudeRelayInfo(constant.ChannelTypePaLM, "palm-model"),
+			asserts: func(t *testing.T, encoded []byte) {
+				// PaLM keeps the system prompt in its own field instead of the turn
+				// list, and names the model's turns "1".
+				assert.Equal(t, "you are brief", gjson.GetBytes(encoded, "prompt.context").String(), string(encoded))
+				assert.Equal(t, "0", gjson.GetBytes(encoded, "prompt.messages.0.author").String(), string(encoded))
+				assert.Equal(t, "weather?", gjson.GetBytes(encoded, "prompt.messages.0.content").String(), string(encoded))
+				assert.Equal(t, "1", gjson.GetBytes(encoded, "prompt.messages.1.author").String(), string(encoded))
+				assert.Equal(t, "0", gjson.GetBytes(encoded, "prompt.messages.2.author").String(), string(encoded))
+				assert.Equal(t, "18C", gjson.GetBytes(encoded, "prompt.messages.2.content").String(), string(encoded))
+				// generateMessage has no max output tokens field to forward it to.
+				assert.False(t, gjson.GetBytes(encoded, "max_tokens").Exists(), string(encoded))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
+			requestURL, err := adaptor.GetRequestURL(tt.info)
+			require.NoError(t, err)
+			assert.Equal(t, "https://upstream.example.com/v1beta2/models/chat-bison-001:generateMessage", requestURL)
+
+			converted, err := tt.convert(c, tt.info)
+			require.NoError(t, err)
+			encoded, err := common.Marshal(converted)
+			require.NoError(t, err)
+
+			assert.False(t, gjson.GetBytes(encoded, "messages").Exists(), "the chat shape must not reach PaLM: %s", encoded)
+			assert.False(t, gjson.GetBytes(encoded, "contents").Exists(), "the Gemini shape must not reach PaLM: %s", encoded)
+			assert.False(t, gjson.GetBytes(encoded, "system").Exists(), "the Anthropic shape must not reach PaLM: %s", encoded)
+			tt.asserts(t, encoded)
+		})
+	}
+}
+
+func TestPaLMRendersTheOtherFormatsFromItsOwnResponse(t *testing.T) {
+	const upstreamBody = `{"candidates":[{"author":"1","content":"hi"}]}`
+
+	tests := []struct {
+		name    string
+		info    *relaycommon.RelayInfo
+		asserts func(t *testing.T, body []byte)
+	}{
+		{
+			name: "gemini",
+			info: geminiRelayInfo(constant.ChannelTypePaLM),
+			asserts: func(t *testing.T, body []byte) {
+				assert.Equal(t, "hi", gjson.GetBytes(body, "candidates.0.content.parts.0.text").String(), string(body))
+			},
+		},
+		{
+			name: "claude",
+			info: claudeRelayInfo(constant.ChannelTypePaLM, "palm-model"),
+			asserts: func(t *testing.T, body []byte) {
+				assert.Equal(t, "message", gjson.GetBytes(body, "type").String(), string(body))
+				assert.Equal(t, "hi", gjson.GetBytes(body, "content.0.text").String(), string(body))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			c := gin.CreateTestContextOnly(recorder, gin.New())
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(upstreamBody)),
+			}
+
+			usage, apiErr := GetAdaptor(constant.APITypePaLM).DoResponse(c, resp, tt.info)
+			require.Nil(t, apiErr)
+			require.NotNil(t, usage)
+
+			body := recorder.Body.Bytes()
+			assert.False(t, gjson.GetBytes(body, "choices").Exists(), "the chat shape must not reach the client: %s", body)
+			tt.asserts(t, body)
+		})
+	}
+}
+
+// generateMessage has no streaming form: the whole answer arrives as one object
+// and is emitted as the single terminal chunk, so the converted formats get one
+// chunk that already carries the finish reason and the estimated usage.
+func TestPaLMStreamsTheConvertedFormats(t *testing.T) {
+	const upstreamBody = `{"candidates":[{"author":"1","content":"hi"}]}`
+
+	tests := []struct {
+		name        string
+		info        *relaycommon.RelayInfo
+		wantContain []string
+	}{
+		{
+			name:        "gemini",
+			info:        geminiRelayInfo(constant.ChannelTypePaLM),
+			wantContain: []string{"candidates", "hi", "totalTokenCount"},
+		},
+		{
+			name:        "claude",
+			info:        claudeRelayInfo(constant.ChannelTypePaLM, "palm-model"),
+			wantContain: []string{"message_start", "content_block_delta", "hi", "message_stop"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			c := gin.CreateTestContextOnly(recorder, gin.New())
+			tt.info.IsStream = true
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(upstreamBody)),
+			}
+
+			usage, apiErr := GetAdaptor(constant.APITypePaLM).DoResponse(c, resp, tt.info)
+			require.Nil(t, apiErr)
+			require.NotNil(t, usage)
+
+			body := recorder.Body.String()
+			for _, want := range tt.wantContain {
+				assert.Contains(t, body, want, body)
+			}
+			assert.NotContains(t, body, "[DONE]", body)
+		})
+	}
+}
+
 func geminiRelayInfo(channelType int) *relaycommon.RelayInfo {
 	return &relaycommon.RelayInfo{
 		RelayFormat:     types.RelayFormatGemini,
