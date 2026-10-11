@@ -18,6 +18,13 @@ import (
 
 // DecideRelayRetry is the single retry decision for relay attempts. The reason
 // is recorded in the request policy decision events of the log details.
+//
+// SkipRetry outranks the channel: prefix: a caller that sets it declares a
+// condition every channel of the type would repeat (the client asked for a format
+// this channel type does not serve, the channel's model mapping or param override
+// does not fit), so it is not evidence about channel health and must not be
+// retried. Deciding on the prefix first used to retry those errors RetryTimes
+// times against the same channel.
 func DecideRelayRetry(c *gin.Context, err *types.NewAPIError, retryTimes int) PolicyDecision {
 	if err == nil {
 		return PolicyDecision{Action: "stop", Reason: "request_completed", Source: "system"}
@@ -32,11 +39,11 @@ func DecideRelayRetry(c *gin.Context, err *types.NewAPIError, retryTimes int) Po
 	if GetChannelConstraints(c).SuppressesRetry() {
 		return PolicyDecision{Action: "stop", Reason: "pinned_channel", Source: "channel_constraint"}
 	}
-	if types.IsChannelError(err) {
-		return PolicyDecision{Action: "retry", Reason: "channel_error", Source: "system"}
-	}
 	if types.IsSkipRetryError(err) {
 		return PolicyDecision{Action: "stop", Reason: "non_retryable_error", Source: "system"}
+	}
+	if types.IsChannelError(err) {
+		return PolicyDecision{Action: "retry", Reason: "channel_error", Source: "system"}
 	}
 	if retryTimes <= 0 {
 		return PolicyDecision{Action: "stop", Reason: "attempt_budget_exhausted", Source: "global"}

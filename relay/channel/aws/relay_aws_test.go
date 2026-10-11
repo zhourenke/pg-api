@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -180,6 +181,70 @@ func TestDoAwsClientRequest_AppliesRuntimeHeaderOverrideToAnthropicBeta(t *testi
 	values, ok := anthropicBeta.([]any)
 	require.True(t, ok)
 	require.Equal(t, []any{"computer-use-2025-01-24"}, values)
+}
+
+// An api_key channel is served by the SDK path: GetRequestURL is what assigns
+// ClientMode and nothing calls it before DoRequest, so the plain-HTTP branch is not
+// reached today. These three pieces are pinned directly all the same -- they are
+// what that branch would send if it were wired up, and they have to agree with the
+// path, the bearer token and the body the SDK path builds.
+func TestAwsApiKeyModeBuildsTheInvokeModelRequest(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "claude-3-5-sonnet-20240620",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ApiKey:            "mock-api-key|us-east-1",
+			UpstreamModelName: "claude-3-5-sonnet-20240620",
+		},
+	}
+	info.ChannelOtherSettings.AwsKeyType = dto.AwsKeyTypeApiKey
+	adaptor := &Adaptor{}
+
+	requestURL, err := adaptor.GetRequestURL(info)
+	require.NoError(t, err)
+	assert.Equal(t, ClientModeApiKey, adaptor.ClientMode)
+	assert.Equal(t,
+		"https://bedrock-runtime.us-east-1.amazonaws.com/model/us.anthropic.claude-3-5-sonnet-20240620-v1:0/invoke",
+		requestURL)
+
+	header := http.Header{}
+	require.NoError(t, adaptor.SetupRequestHeader(c, &header, info))
+	assert.Equal(t, "Bearer mock-api-key", header.Get("Authorization"), "the region half is not part of the token")
+	assert.Equal(t, "application/json", header.Get("Content-Type"))
+
+	body, err := prepareAwsInvokeBody(c, info, adaptor, strings.NewReader(
+		`{"model":"claude-3-5-sonnet-20240620","stream":true,"max_tokens":64,"messages":[{"role":"user","content":"hello"}]}`))
+	require.NoError(t, err)
+	var payload map[string]any
+	require.NoError(t, common.Unmarshal(body, &payload))
+	assert.Equal(t, "bedrock-2023-05-31", payload["anthropic_version"], string(body))
+	assert.NotContains(t, payload, "model", string(body))
+	assert.NotContains(t, payload, "stream", string(body))
+	messages, ok := payload["messages"].([]any)
+	require.True(t, ok, string(body))
+	first, ok := messages[0].(map[string]any)
+	require.True(t, ok, string(body))
+	assert.Equal(t, "user", first["role"])
+
+	// AK/SK mode keeps returning no URL of its own, because the SDK builds it.
+	aksAdaptor := &Adaptor{}
+	aksURL, err := aksAdaptor.GetRequestURL(&relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: "claude-3-5-sonnet-20240620"},
+	})
+	require.NoError(t, err)
+	assert.Empty(t, aksURL)
+	assert.Equal(t, ClientModeAKSK, aksAdaptor.ClientMode)
+
+	// A key that is not <api-key>|<region> is refused before any request is built.
+	badInfo := &relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{ApiKey: "just-a-key", UpstreamModelName: "claude-3-5-sonnet-20240620"},
+	}
+	badInfo.ChannelOtherSettings.AwsKeyType = dto.AwsKeyTypeApiKey
+	_, err = (&Adaptor{}).GetRequestURL(badInfo)
+	require.Error(t, err)
 }
 
 func TestNewAwsInvokeContextInheritsParent(t *testing.T) {

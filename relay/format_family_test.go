@@ -399,9 +399,8 @@ func TestAwsServesGeminiThroughItsBedrockBody(t *testing.T) {
 	// stands in here for the response half, since the rendering it borrows from the
 	// Claude channel is what renders a Gemini client's answer. GetRequestURL is
 	// called only because it selects the client mode DoResponse dispatches on; the
-	// URL it returns is not asserted, because that mode assembles the host from the
-	// two key halves in the other order (reported to the owner) and the AKSK mode
-	// every other assertion here exercises does not use this URL at all.
+	// request that mode would send is pinned in the aws package, next to the SDK
+	// path it has to agree with.
 	t.Run("the response keeps the Gemini shape", func(t *testing.T) {
 		recorder := httptest.NewRecorder()
 		c := gin.CreateTestContextOnly(recorder, gin.New())
@@ -496,6 +495,47 @@ func TestClaudeFamilyRendersResponsesInTheClaudeShape(t *testing.T) {
 			assert.False(t, gjson.GetBytes(body, "choices").Exists(), "a Claude client must not receive the chat shape: %s", body)
 		})
 	}
+}
+
+// A Gemini client reads the running totals from every chunk, and an Anthropic
+// upstream reports the input tokens once, in message_start, then the output tokens
+// in message_delta: a frame has to carry what has been accumulated, not the usage
+// of the single event it was converted from.
+func TestClaudeStreamsGeminiWithTheAccumulatedUsage(t *testing.T) {
+	streamBody := "data: " + `{"type":"message_start","message":{"id":"msg_1","type":"message","model":"returned","role":"assistant","content":[],"usage":{"input_tokens":11,"output_tokens":0}}}` + "\n\n" +
+		"data: " + `{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hi"}}` + "\n\n" +
+		"data: " + `{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":7}}` + "\n\n" +
+		"data: " + `{"type":"message_stop"}` + "\n\n"
+
+	previousTimeout := constant.StreamingTimeout
+	constant.StreamingTimeout = 30
+	t.Cleanup(func() { constant.StreamingTimeout = previousTimeout })
+
+	recorder := newStreamRecorder()
+	c := gin.CreateTestContextOnly(recorder, gin.New())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1beta/models/x:generateContent", nil)
+	info := geminiRelayInfo(constant.ChannelTypeAnthropic)
+	info.IsStream = true
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+		Body:       io.NopCloser(strings.NewReader(streamBody)),
+	}
+
+	usageAny, apiErr := GetAdaptor(constant.APITypeAnthropic).DoResponse(c, resp, info)
+	require.Nil(t, apiErr)
+	usage, ok := usageAny.(*dto.Usage)
+	require.True(t, ok)
+	assert.Equal(t, 11, usage.PromptTokens)
+	assert.Equal(t, 7, usage.CompletionTokens)
+
+	body := recorder.Body.String()
+	assert.Contains(t, body, `"text":"hi"`, body)
+	assert.Contains(t, body, `"promptTokenCount":11`, body)
+	assert.Contains(t, body, `"candidatesTokenCount":7`, body)
+	assert.Contains(t, body, `"totalTokenCount":18`, body)
+	assert.NotContains(t, body, `"choices"`, body)
+	assert.NotContains(t, body, "[DONE]", body)
 }
 
 // An OpenAI-compatible upstream decides how many chunks its answer arrives in and

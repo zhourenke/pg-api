@@ -164,6 +164,61 @@ func TestDecideRelayRetryReasons(t *testing.T) {
 	}
 }
 
+// A refusal that asks for SkipRetry declares a condition every channel of its type
+// would repeat -- an unsupported format, a model mapping or param override that does
+// not fit -- so it may neither be retried against the same channel nor be counted
+// against the channel's health. Errors with a channel: code but without that flag
+// keep retrying and keep being able to disable the channel.
+func TestClientSideChannelErrorsNeitherRetryNorDisableTheChannel(t *testing.T) {
+	previousAutoDisable := common.AutomaticDisableChannelEnabled
+	common.AutomaticDisableChannelEnabled = true
+	t.Cleanup(func() { common.AutomaticDisableChannelEnabled = previousAutoDisable })
+
+	for _, tc := range []struct {
+		name        string
+		err         *types.NewAPIError
+		wantRetry   bool
+		wantDisable bool
+	}{
+		{
+			name: "unsupported format",
+			err: types.NewErrorWithStatusCode(errors.New("channel type 33 (AWS) does not serve Gemini"),
+				types.ErrorCodeChannelFormatUnsupported, http.StatusBadRequest, types.ErrOptionWithSkipRetry()),
+			wantRetry: false, wantDisable: false,
+		},
+		{
+			name: "model mapping that does not fit",
+			err: types.NewErrorWithStatusCode(errors.New("mapped model is not served here"),
+				types.ErrorCodeChannelModelMappedError, http.StatusBadRequest, types.ErrOptionWithSkipRetry()),
+			wantRetry: false, wantDisable: false,
+		},
+		{
+			name: "param override the channel rejects",
+			err: types.NewErrorWithStatusCode(errors.New("param override invalid"),
+				types.ErrorCodeChannelParamOverrideInvalid, http.StatusBadRequest, types.ErrOptionWithSkipRetry()),
+			wantRetry: false, wantDisable: false,
+		},
+		{
+			name: "channel error without the flag",
+			err: types.NewErrorWithStatusCode(errors.New("no key available"),
+				types.ErrorCodeChannelNoAvailableKey, http.StatusInternalServerError),
+			wantRetry: true, wantDisable: true,
+		},
+		{
+			name: "header override error without the flag",
+			err: types.NewErrorWithStatusCode(errors.New("header override invalid"),
+				types.ErrorCodeChannelHeaderOverrideInvalid, http.StatusInternalServerError),
+			wantRetry: true, wantDisable: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			assert.Equal(t, tc.wantRetry, ShouldRetryRelayError(c, tc.err, 1), "retry decision")
+			assert.Equal(t, tc.wantDisable, ShouldDisableChannel(tc.err), "disable decision")
+		})
+	}
+}
+
 func TestRequestPolicyEventsReachLogAdminInfo(t *testing.T) {
 	previousAutoDisable := common.AutomaticDisableChannelEnabled
 	common.AutomaticDisableChannelEnabled = true

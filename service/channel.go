@@ -54,6 +54,13 @@ func EnableChannel(channelId int, usingKey string, channelName string) {
 	}
 }
 
+// ShouldDisableChannel decides whether an error is evidence against the channel
+// itself. SkipRetry is answered first: an error that declares itself terminal for
+// every channel of the type is about the request or the channel's configuration
+// (an unsupported format, a broken model mapping or param override), not about the
+// channel being down, and taking it offline for a client-side mistake costs every
+// other model on that channel. Errors that carry a channel: code without that flag
+// (a missing or invalid key, a client the SDK could not build) still disable it.
 func ShouldDisableChannel(err *types.NewAPIError) bool {
 	if !common.AutomaticDisableChannelEnabled {
 		return false
@@ -61,11 +68,11 @@ func ShouldDisableChannel(err *types.NewAPIError) bool {
 	if err == nil {
 		return false
 	}
-	if types.IsChannelError(err) {
-		return true
-	}
 	if types.IsSkipRetryError(err) {
 		return false
+	}
+	if types.IsChannelError(err) {
+		return true
 	}
 	if operation_setting.ShouldDisableByStatusCode(err.StatusCode) {
 		return true

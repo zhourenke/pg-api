@@ -1,9 +1,11 @@
 package aws
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime"
@@ -81,23 +83,41 @@ func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 
 func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 	if info.ChannelOtherSettings.AwsKeyType == dto.AwsKeyTypeApiKey {
-		awsModelId := getAwsModelID(info.UpstreamModelName)
+		// This branch is not the one a relay request takes: ClientMode is assigned
+		// here and nowhere else, and this branch is the only caller of
+		// channel.DoApiRequest, so an api_key channel reaches the SDK path in
+		// DoRequest and is served by the bearer token provider newAwsClient builds
+		// from the same two-part key. It is kept coherent with that path all the
+		// same, because wiring it up as it used to be would have sent a request
+		// Bedrock rejects.
 		a.ClientMode = ClientModeApiKey
 		awsSecret := strings.Split(info.ApiKey, "|")
 		if len(awsSecret) != 2 {
 			return "", errors.New("invalid aws api key, should be in format of <api-key>|<region>")
 		}
-		return fmt.Sprintf("https://bedrock-runtime.%s.amazonaws.com/model/%s/converse", awsModelId, awsSecret[1]), nil
-	} else {
-		a.ClientMode = ClientModeAKSK
-		return "", nil
+		region := awsSecret[1]
+		// InvokeModel's path, not Converse's: the body this channel builds is the
+		// model-native Anthropic one, while Converse takes a schema of its own and
+		// answers in a shape of its own.
+		awsModelId := getAwsModelID(info.UpstreamModelName)
+		regionPrefix := getAwsRegionPrefix(region)
+		if awsModelCanCrossRegion(awsModelId, regionPrefix) {
+			awsModelId = awsModelCrossRegion(awsModelId, regionPrefix)
+		}
+		return fmt.Sprintf("https://bedrock-runtime.%s.amazonaws.com/model/%s/invoke", region, url.PathEscape(awsModelId)), nil
 	}
+	a.ClientMode = ClientModeAKSK
+	return "", nil
 }
 
 func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *relaycommon.RelayInfo) error {
 	claude.CommonClaudeHeadersOperation(c, req, info)
 	if a.ClientMode == ClientModeApiKey {
-		req.Set("Authorization", "Bearer "+info.ApiKey)
+		// The channel key is <api-key>|<region>: the key half is the bearer token,
+		// and GetRequestURL is what puts the region into the host.
+		apiKey, _, _ := strings.Cut(info.ApiKey, "|")
+		req.Set("Authorization", "Bearer "+apiKey)
+		req.Set("Content-Type", "application/json")
 	}
 	return nil
 }
@@ -143,7 +163,15 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 
 func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, requestBody io.Reader) (any, error) {
 	if a.ClientMode == ClientModeApiKey {
-		return channel.DoApiRequest(a, c, info, requestBody)
+		// See GetRequestURL: nothing assigns ClientMode before DoRequest, so this
+		// branch is not reached today. The body preparation is the SDK path's, which
+		// is what makes the plain-HTTP request carry the anthropic_version Bedrock
+		// requires and no model/stream fields.
+		body, err := prepareAwsInvokeBody(c, info, a, requestBody)
+		if err != nil {
+			return nil, types.NewError(err, types.ErrorCodeBadRequestBody)
+		}
+		return channel.DoApiRequest(a, c, info, bytes.NewReader(body))
 	} else {
 		return doAwsClientRequest(c, info, a, requestBody)
 	}

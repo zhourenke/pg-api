@@ -160,7 +160,7 @@ func HandleStreamResponseData(c *gin.Context, info *relaycommon.RelayInfo, claud
 			return nil
 		}
 		countClaudeStreamBillableTools(c, info, &claudeResponse)
-		if sendErr := sendGeminiStreamResults(c, results); sendErr != nil {
+		if sendErr := sendGeminiStreamResults(c, results, claudeInfo.Usage); sendErr != nil {
 			return sendErr
 		}
 	}
@@ -202,7 +202,12 @@ func claudeToGeminiStreamState(info *relaycommon.RelayInfo) (*relayconvert.Respo
 	return state, nil
 }
 
-func sendGeminiStreamResults(c *gin.Context, results []relayconvert.ResponseResult) *types.NewAPIError {
+// sendGeminiStreamResults writes the converted frames, each reporting the usage
+// accumulated so far: a Gemini client reads the totals from every chunk it gets,
+// while an Anthropic upstream spreads them over two events (the input tokens in
+// message_start, the output tokens in message_delta). Reporting the usage of the
+// event a frame was converted from would therefore under-report both counts.
+func sendGeminiStreamResults(c *gin.Context, results []relayconvert.ResponseResult, accumulated *dto.Usage) *types.NewAPIError {
 	for _, result := range results {
 		geminiResponse, ok := result.Value.(*dto.GeminiChatResponse)
 		if !ok {
@@ -210,6 +215,11 @@ func sendGeminiStreamResults(c *gin.Context, results []relayconvert.ResponseResu
 		}
 		if geminiResponse == nil {
 			continue
+		}
+		if accumulated != nil {
+			geminiResponse.UsageMetadata.PromptTokenCount = accumulated.PromptTokens
+			geminiResponse.UsageMetadata.CandidatesTokenCount = accumulated.CompletionTokens
+			geminiResponse.UsageMetadata.TotalTokenCount = accumulated.PromptTokens + accumulated.CompletionTokens
 		}
 		data, err := common.Marshal(geminiResponse)
 		if err != nil {
@@ -285,7 +295,7 @@ func HandleStreamFinalResponse(c *gin.Context, info *relaycommon.RelayInfo, clau
 			common.SysLog("error finalizing Gemini stream response: " + err.Error())
 			return
 		}
-		if sendErr := sendGeminiStreamResults(c, results); sendErr != nil {
+		if sendErr := sendGeminiStreamResults(c, results, claudeInfo.Usage); sendErr != nil {
 			common.SysLog("send final Gemini stream response failed: " + sendErr.Error())
 		}
 	}

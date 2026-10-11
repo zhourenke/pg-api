@@ -109,17 +109,6 @@ func doAwsClientRequest(c *gin.Context, info *relaycommon.RelayInfo, a *Adaptor,
 		awsModelId = awsModelCrossRegion(awsModelId, awsRegionPrefix)
 	}
 
-	// init empty request.header
-	requestHeader := http.Header{}
-	a.SetupRequestHeader(c, &requestHeader, info)
-	headerOverride, err := channel.ResolveHeaderOverride(info, c)
-	if err != nil {
-		return nil, err
-	}
-	for key, value := range headerOverride {
-		requestHeader.Set(key, value)
-	}
-
 	if isNovaModel(awsModelId) {
 		var novaReq *NovaRequest
 		err = common.DecodeJson(requestBody, &novaReq)
@@ -141,38 +130,58 @@ func doAwsClientRequest(c *gin.Context, info *relaycommon.RelayInfo, a *Adaptor,
 		awsReq.Body = reqBody
 		a.AwsReq = awsReq
 		return nil, nil
-	} else {
-		awsClaudeReq, err := formatRequest(requestBody, requestHeader)
-		if err != nil {
-			return nil, types.NewError(errors.Wrap(err, "format aws request fail"), types.ErrorCodeBadRequestBody)
-		}
-
-		if info.IsStream {
-			awsReq := &bedrockruntime.InvokeModelWithResponseStreamInput{
-				ModelId:     aws.String(awsModelId),
-				Accept:      aws.String("application/json"),
-				ContentType: aws.String("application/json"),
-			}
-			awsReq.Body, err = buildAwsRequestBody(c, info, awsClaudeReq)
-			if err != nil {
-				return nil, types.NewError(errors.Wrap(err, "marshal aws request fail"), types.ErrorCodeBadRequestBody)
-			}
-			a.AwsReq = awsReq
-			return nil, nil
-		} else {
-			awsReq := &bedrockruntime.InvokeModelInput{
-				ModelId:     aws.String(awsModelId),
-				Accept:      aws.String("application/json"),
-				ContentType: aws.String("application/json"),
-			}
-			awsReq.Body, err = buildAwsRequestBody(c, info, awsClaudeReq)
-			if err != nil {
-				return nil, types.NewError(errors.Wrap(err, "marshal aws request fail"), types.ErrorCodeBadRequestBody)
-			}
-			a.AwsReq = awsReq
-			return nil, nil
-		}
 	}
+
+	body, err := prepareAwsInvokeBody(c, info, a, requestBody)
+	if err != nil {
+		return nil, types.NewError(err, types.ErrorCodeBadRequestBody)
+	}
+
+	if info.IsStream {
+		a.AwsReq = &bedrockruntime.InvokeModelWithResponseStreamInput{
+			ModelId:     aws.String(awsModelId),
+			Accept:      aws.String("application/json"),
+			ContentType: aws.String("application/json"),
+			Body:        body,
+		}
+		return nil, nil
+	}
+	a.AwsReq = &bedrockruntime.InvokeModelInput{
+		ModelId:     aws.String(awsModelId),
+		Accept:      aws.String("application/json"),
+		ContentType: aws.String("application/json"),
+		Body:        body,
+	}
+	return nil, nil
+}
+
+// prepareAwsInvokeBody builds the payload InvokeModel takes, over the headers the
+// body preparation reads: formatRequest stamps Bedrock's own anthropic_version
+// field and decodes model/stream away, and buildAwsRequestBody applies the
+// pass-through rule. Both the SDK path and the api-key path use it, so the two
+// cannot drift into bodies Bedrock accepts from one and rejects from the other.
+func prepareAwsInvokeBody(c *gin.Context, info *relaycommon.RelayInfo, a *Adaptor, requestBody io.Reader) ([]byte, error) {
+	requestHeader := http.Header{}
+	if err := a.SetupRequestHeader(c, &requestHeader, info); err != nil {
+		return nil, err
+	}
+	headerOverride, err := channel.ResolveHeaderOverride(info, c)
+	if err != nil {
+		return nil, err
+	}
+	for key, value := range headerOverride {
+		requestHeader.Set(key, value)
+	}
+
+	awsClaudeReq, err := formatRequest(requestBody, requestHeader)
+	if err != nil {
+		return nil, errors.Wrap(err, "format aws request fail")
+	}
+	body, err := buildAwsRequestBody(c, info, awsClaudeReq)
+	if err != nil {
+		return nil, errors.Wrap(err, "marshal aws request fail")
+	}
+	return body, nil
 }
 
 // buildAwsRequestBody prepares the payload for AWS requests, applying passthrough rules when enabled.
