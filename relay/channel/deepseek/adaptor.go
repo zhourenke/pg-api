@@ -40,6 +40,14 @@ func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayIn
 	return claudeRequest, nil
 }
 
+// ConvertGeminiRequest serves generateContent through the same
+// /v1/chat/completions endpoint as the OpenAI format: DeepSeek offers no Gemini
+// dialect, so the request is converted to the chat shape and then shaped by this
+// channel's own OpenAI rules (thinking-suffix handling included).
+func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
+	return openai.ConvertGeminiToChannelOpenAIRequest(c, info, request, a.ConvertOpenAIRequest)
+}
+
 func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 }
 

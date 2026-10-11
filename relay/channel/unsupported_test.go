@@ -11,7 +11,7 @@ import (
 	"github.com/zhourenke/pg-api/constant"
 	"github.com/zhourenke/pg-api/relay/channel"
 	"github.com/zhourenke/pg-api/relay/channel/ali"
-	"github.com/zhourenke/pg-api/relay/channel/mistral"
+	"github.com/zhourenke/pg-api/relay/channel/dify"
 	"github.com/zhourenke/pg-api/relay/channel/openai"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	"github.com/zhourenke/pg-api/relaykit/dto"
@@ -35,33 +35,33 @@ func assertUnsupportedFormat(t *testing.T, err error, channelTypeName string, fo
 }
 
 func TestEmbeddedUnsupportedRefusesEveryFormatItDoesNotServe(t *testing.T) {
-	info := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{ChannelType: constant.ChannelTypeMistral}}
+	info := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{ChannelType: constant.ChannelTypeDify}}
 	context := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
-	context.Set(string(constant.ContextKeyChannelType), constant.ChannelTypeMistral)
+	context.Set(string(constant.ContextKeyChannelType), constant.ChannelTypeDify)
 
-	adaptor := &mistral.Adaptor{}
+	adaptor := &dify.Adaptor{}
 	_, err := adaptor.ConvertClaudeRequest(nil, info, &dto.ClaudeRequest{})
-	assertUnsupportedFormat(t, err, "Mistral", "Claude Messages")
+	assertUnsupportedFormat(t, err, "Dify", "Claude Messages")
 
 	_, err = adaptor.ConvertGeminiRequest(nil, info, &dto.GeminiChatRequest{})
-	assertUnsupportedFormat(t, err, "Mistral", "Gemini generateContent")
+	assertUnsupportedFormat(t, err, "Dify", "Gemini generateContent")
 
 	_, err = adaptor.ConvertOpenAIResponsesRequest(nil, info, dto.OpenAIResponsesRequest{})
-	assertUnsupportedFormat(t, err, "Mistral", "OpenAI Responses")
+	assertUnsupportedFormat(t, err, "Dify", "OpenAI Responses")
 
 	_, err = adaptor.ConvertAudioRequest(nil, info, dto.AudioRequest{})
-	assertUnsupportedFormat(t, err, "Mistral", "audio")
+	assertUnsupportedFormat(t, err, "Dify", "audio")
 
 	_, err = adaptor.ConvertImageRequest(nil, info, dto.ImageRequest{})
-	assertUnsupportedFormat(t, err, "Mistral", "image")
+	assertUnsupportedFormat(t, err, "Dify", "image")
 
 	_, err = adaptor.ConvertEmbeddingRequest(nil, info, dto.EmbeddingRequest{})
-	assertUnsupportedFormat(t, err, "Mistral", "embeddings")
+	assertUnsupportedFormat(t, err, "Dify", "embeddings")
 
 	// Rerank carries no RelayInfo, so the default reads the channel type from the
 	// request context that channel selection filled in.
 	_, err = adaptor.ConvertRerankRequest(context, 0, dto.RerankRequest{})
-	assertUnsupportedFormat(t, err, "Mistral", "rerank")
+	assertUnsupportedFormat(t, err, "Dify", "rerank")
 }
 
 // A real conversion implemented by the adaptor always wins over the embedded
@@ -75,8 +75,8 @@ func TestExplicitConversionWinsOverEmbeddedUnsupported(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, request, converted)
 
-	_, err = adaptor.ConvertGeminiRequest(nil, info, &dto.GeminiChatRequest{})
-	assertUnsupportedFormat(t, err, "Ali", "Gemini generateContent")
+	_, err = adaptor.ConvertAudioRequest(nil, info, dto.AudioRequest{})
+	assertUnsupportedFormat(t, err, "Ali", "audio")
 }
 
 // Missing channel metadata must still produce the same client error instead of a

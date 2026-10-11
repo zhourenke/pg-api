@@ -28,6 +28,14 @@ func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayIn
 	return claudeAdaptor.ConvertClaudeRequest(c, info, req)
 }
 
+// ConvertGeminiRequest serves generateContent through the same
+// /api/paas/v4/chat/completions endpoint as the OpenAI format: Zhipu offers no
+// Gemini dialect, so the request is converted to the chat shape and then shaped
+// by this channel's own OpenAI rules.
+func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
+	return openai.ConvertGeminiToChannelOpenAIRequest(c, info, request, a.ConvertOpenAIRequest)
+}
+
 func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
 	return request, nil
 }

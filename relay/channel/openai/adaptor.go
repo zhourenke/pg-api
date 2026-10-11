@@ -59,6 +59,38 @@ func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayIn
 	return a.ConvertOpenAIRequest(c, info, openaiRequest)
 }
 
+// ConvertGeminiToChannelOpenAIRequest converts a Gemini generateContent request
+// into the OpenAI chat request an OpenAI-compatible channel relays, then hands
+// it to shape so that channel applies its own OpenAI request shaping.
+//
+// A channel needs three pieces for the Gemini format: this conversion, its own
+// ConvertOpenAIRequest, and a chat endpoint for the converted body. Routing the
+// result through shape keeps the channel's shaping (image and tool-call
+// handling, vendor-only fields, model-name rules) identical on the Gemini path
+// and the OpenAI path; calling ConvertGeminiRequest on a bare openai.Adaptor
+// would send the unshaped OpenAI body instead.
+func ConvertGeminiToChannelOpenAIRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest, shape func(*gin.Context, *relaycommon.RelayInfo, *dto.GeneralOpenAIRequest) (any, error)) (any, error) {
+	if request == nil {
+		return nil, errors.New("request is nil")
+	}
+	result, err := service.ConvertRequest(c, info, types.RelayFormatOpenAI, request)
+	if err != nil {
+		return nil, err
+	}
+	openaiRequest, ok := result.Value.(*dto.GeneralOpenAIRequest)
+	if !ok {
+		return nil, fmt.Errorf("expected OpenAI chat completions request, got %T", result.Value)
+	}
+	// Downstream protocols report usage in their own shape and never carry
+	// stream_options themselves, so a streaming request asks for it here.
+	if info.SupportStreamOptions && info.IsStream {
+		openaiRequest.StreamOptions = &dto.StreamOptions{
+			IncludeUsage: true,
+		}
+	}
+	return shape(c, info, openaiRequest)
+}
+
 func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.ClaudeRequest) (any, error) {
 	//if !strings.Contains(request.Model, "claude") {
 	//	return nil, fmt.Errorf("you are using openai channel type with path /v1/messages, only claude model supported convert, but got %s", request.Model)

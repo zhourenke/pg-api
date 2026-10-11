@@ -59,7 +59,9 @@ func TestChannelCapabilitiesMatchAdaptors(t *testing.T) {
 // Resolving through the api type keeps the declaration usable from channel
 // selection, which holds a channel type, not an api type.
 func TestChannelCapabilitiesForResolvesThroughTheAdaptorApiType(t *testing.T) {
-	caps, declared := common.ChannelCapabilitiesFor(constant.ChannelTypeMistral)
+	// Dify serves only the universal OpenAI chat shape, so its row is the empty
+	// set the resolution has to carry through.
+	caps, declared := common.ChannelCapabilitiesFor(constant.ChannelTypeDify)
 	require.True(t, declared)
 	assert.Equal(t, constant.Capabilities(0), caps)
 

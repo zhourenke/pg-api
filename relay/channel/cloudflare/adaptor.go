@@ -21,12 +21,19 @@ type Adaptor struct {
 	channel.Unsupported
 }
 
+// ConvertGeminiRequest serves generateContent through the Workers AI
+// OpenAI-compatible chat endpoint; the converted request is shaped by this
+// channel's own OpenAI rules.
+func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
+	return openai.ConvertGeminiToChannelOpenAIRequest(c, info, request, a.ConvertOpenAIRequest)
+}
+
 func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 }
 
 func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 	switch info.RelayMode {
-	case constant.RelayModeChatCompletions:
+	case constant.RelayModeChatCompletions, constant.RelayModeGemini:
 		return fmt.Sprintf("%s/client/v4/accounts/%s/ai/v1/chat/completions", info.ChannelBaseUrl, info.ApiVersion), nil
 	case constant.RelayModeEmbeddings:
 		return fmt.Sprintf("%s/client/v4/accounts/%s/ai/v1/embeddings", info.ChannelBaseUrl, info.ApiVersion), nil
@@ -85,6 +92,13 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 }
 
 func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (usage any, err *types.NewAPIError) {
+	// The Gemini format relays through the same OpenAI-compatible chat endpoint,
+	// but the Cloudflare chat handler writes the OpenAI shape; only the OpenAI
+	// adaptor renders a chat body as generateContent.
+	if info.RelayFormat == types.RelayFormatGemini {
+		adaptor := openai.Adaptor{}
+		return adaptor.DoResponse(c, resp, info)
+	}
 	switch info.RelayMode {
 	case constant.RelayModeEmbeddings:
 		fallthrough

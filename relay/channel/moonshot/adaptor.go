@@ -28,6 +28,14 @@ func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayIn
 	return adaptor.ConvertClaudeRequest(c, info, req)
 }
 
+// ConvertGeminiRequest serves generateContent through the same
+// /v1/chat/completions endpoint as the OpenAI format: Moonshot offers no Gemini
+// dialect, so the request is converted to the chat shape and then shaped by this
+// channel's own OpenAI rules.
+func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
+	return openai.ConvertGeminiToChannelOpenAIRequest(c, info, request, a.ConvertOpenAIRequest)
+}
+
 func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
 	adaptor := openai.Adaptor{}
 	return adaptor.ConvertImageRequest(c, info, request)
@@ -42,7 +50,10 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 		if info.RelayFormat == types.RelayFormatClaude {
 			return fmt.Sprintf("%s/v1/messages", specialPlan.ClaudeBaseURL), nil
 		}
-		if info.RelayFormat == types.RelayFormatOpenAI {
+		// A coding-plan base URL replaces the whole host, so the chat path of the
+		// plan has to be picked for every format that is converted to it — the
+		// Gemini format relays through the same OpenAI-protocol endpoint.
+		if info.RelayFormat == types.RelayFormatOpenAI || info.RelayFormat == types.RelayFormatGemini {
 			return fmt.Sprintf("%s/chat/completions", specialPlan.OpenAIBaseURL), nil
 		}
 	}

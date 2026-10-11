@@ -23,6 +23,14 @@ type Adaptor struct {
 	channel.Unsupported
 }
 
+// ConvertGeminiRequest serves generateContent through the OpenAI-compatible chat
+// endpoint: xAI offers no Gemini dialect, so the request is converted to the chat
+// shape and then shaped by this channel's own OpenAI rules (search and reasoning
+// model handling included).
+func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
+	return openai.ConvertGeminiToChannelOpenAIRequest(c, info, request, a.ConvertOpenAIRequest)
+}
+
 func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.AudioRequest) (io.Reader, error) {
 	//not available
 	return nil, errors.New("not available")
@@ -42,6 +50,12 @@ func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 }
 
 func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
+	// The client's path is forwarded as-is, and for a request that already speaks
+	// OpenAI that path is the chat endpoint. A generateContent request names the
+	// Gemini protocol instead, so it has to be mapped to the chat endpoint.
+	if info.RelayFormat == types.RelayFormatGemini {
+		return relaycommon.GetFullRequestURL(info.ChannelBaseUrl, "/v1/chat/completions", info.ChannelType), nil
+	}
 	return relaycommon.GetFullRequestURL(info.ChannelBaseUrl, info.RequestURLPath, info.ChannelType), nil
 }
 
@@ -100,6 +114,13 @@ func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, request
 }
 
 func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (usage any, err *types.NewAPIError) {
+	// xAI's own handler below rewrites the body into the OpenAI shape, which is the
+	// right answer for an OpenAI client and the wrong one for a Gemini client: the
+	// OpenAI adaptor knows how to render a chat body as generateContent.
+	if info.RelayFormat == types.RelayFormatGemini {
+		adaptor := openai.Adaptor{}
+		return adaptor.DoResponse(c, resp, info)
+	}
 	switch info.RelayMode {
 	case constant.RelayModeImagesGenerations, constant.RelayModeImagesEdits:
 		usage, err = openai.OpenaiImageHandler(c, info, resp)
