@@ -2502,6 +2502,37 @@ func TestXunfeiStreamsTheConvertedFormats(t *testing.T) {
 	}
 }
 
+// Dialing through channel.DoWssRequest is what gives the channel the upstream's
+// status code: a handshake 讯飞 rejects now reaches the client as that rejection
+// instead of an opaque dial error, and it carries the channel's base url, which
+// the dialer this channel used to build ignored.
+func TestXunfeiReportsARejectedHandshake(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"error":"bad signature"}`))
+	}))
+	defer upstream.Close()
+
+	info := geminiRelayInfo(constant.ChannelTypeXunfei)
+	info.ChannelBaseUrl = upstream.URL
+	info.ApiKey = "app|secret|key"
+
+	c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1beta/models/x:generateContent", nil)
+
+	adaptor := GetAdaptor(constant.APITypeXunfei)
+	require.NotNil(t, adaptor)
+	_, err := adaptor.ConvertGeminiRequest(c, info, geminiRequest())
+	require.NoError(t, err)
+
+	usage, apiErr := adaptor.DoResponse(c, &http.Response{StatusCode: http.StatusOK}, info)
+	assert.Nil(t, usage)
+	require.NotNil(t, apiErr)
+	assert.Equal(t, types.ErrorCodeDoRequestFailed, apiErr.GetErrorCode())
+	assert.Equal(t, http.StatusUnauthorized, apiErr.StatusCode)
+}
+
 func geminiRelayInfo(channelType int) *relaycommon.RelayInfo {
 	return &relaycommon.RelayInfo{
 		RelayFormat:     types.RelayFormatGemini,
