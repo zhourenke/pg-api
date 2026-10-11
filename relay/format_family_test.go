@@ -315,6 +315,189 @@ func TestClaudeFamilyRendersResponsesInTheClaudeShape(t *testing.T) {
 	}
 }
 
+// A channel that speaks a protocol of its own serves the converted formats
+// through that protocol: the request is converted to the chat shape and then
+// turned into the vendor request the channel always sends, and the vendor
+// response is rendered back into the protocol the client asked for. Cohere is
+// such a channel — its request flattens the messages into chat_history plus
+// message, so the converted request looks nothing like a chat request.
+func TestCohereConvertsTheOtherFormatsIntoItsOwnRequest(t *testing.T) {
+	adaptor := GetAdaptor(constant.APITypeCohere)
+	require.NotNil(t, adaptor)
+
+	tests := []struct {
+		name    string
+		convert func(c *gin.Context, info *relaycommon.RelayInfo) (any, error)
+		info    *relaycommon.RelayInfo
+		asserts func(t *testing.T, encoded []byte)
+	}{
+		{
+			name: "gemini",
+			convert: func(c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+				return adaptor.ConvertGeminiRequest(c, info, geminiRequest())
+			},
+			info: geminiRelayInfo(constant.ChannelTypeCohere),
+			asserts: func(t *testing.T, encoded []byte) {
+				// The Gemini request carries one user turn and no system prompt, so
+				// Cohere receives it as the single prompt with no history.
+				assert.Equal(t, "gemini-2.5-flash", gjson.GetBytes(encoded, "model").String(), string(encoded))
+				assert.Equal(t, "hello", gjson.GetBytes(encoded, "message").String(), string(encoded))
+				assert.Empty(t, gjson.GetBytes(encoded, "chat_history").Array(), string(encoded))
+			},
+		},
+		{
+			name: "claude",
+			convert: func(c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+				return adaptor.ConvertClaudeRequest(c, info, claudeRequest("cohere-model"))
+			},
+			info: claudeRelayInfo(constant.ChannelTypeCohere, "cohere-model"),
+			asserts: func(t *testing.T, encoded []byte) {
+				// The Anthropic system prompt and the tool_result turn become
+				// history entries; the tool_result keeps its text but loses the
+				// pairing the Anthropic request declared, which is what this
+				// channel's chat conversion does for the OpenAI format as well.
+				assert.Equal(t, "cohere-model", gjson.GetBytes(encoded, "model").String(), string(encoded))
+				assert.Equal(t, "weather?", gjson.GetBytes(encoded, "message").String(), string(encoded))
+				assert.Equal(t, "SYSTEM", gjson.GetBytes(encoded, "chat_history.0.role").String(), string(encoded))
+				assert.Equal(t, "you are brief", gjson.GetBytes(encoded, "chat_history.0.message").String(), string(encoded))
+				assert.Equal(t, "USER", gjson.GetBytes(encoded, "chat_history.2.role").String(), string(encoded))
+				assert.Equal(t, "18C", gjson.GetBytes(encoded, "chat_history.2.message").String(), string(encoded))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
+			requestURL, err := adaptor.GetRequestURL(tt.info)
+			require.NoError(t, err)
+			assert.Equal(t, "https://upstream.example.com/v1/chat", requestURL)
+
+			converted, err := tt.convert(c, tt.info)
+			require.NoError(t, err)
+			encoded, err := common.Marshal(converted)
+			require.NoError(t, err)
+
+			assert.False(t, gjson.GetBytes(encoded, "contents").Exists(), "the Gemini shape must not reach Cohere: %s", encoded)
+			assert.False(t, gjson.GetBytes(encoded, "system").Exists(), "the Anthropic shape must not reach Cohere: %s", encoded)
+			tt.asserts(t, encoded)
+		})
+	}
+}
+
+func TestCohereRendersTheOtherFormatsFromItsOwnResponse(t *testing.T) {
+	const upstreamBody = `{"response_id":"cohere-1","text":"hi","finish_reason":"COMPLETE",` +
+		`"meta":{"billed_units":{"input_tokens":3,"output_tokens":1}}}`
+
+	tests := []struct {
+		name    string
+		info    *relaycommon.RelayInfo
+		asserts func(t *testing.T, body []byte)
+	}{
+		{
+			name: "gemini",
+			info: geminiRelayInfo(constant.ChannelTypeCohere),
+			asserts: func(t *testing.T, body []byte) {
+				assert.Equal(t, "hi", gjson.GetBytes(body, "candidates.0.content.parts.0.text").String(), string(body))
+				assert.Equal(t, int64(4), gjson.GetBytes(body, "usageMetadata.totalTokenCount").Int(), string(body))
+			},
+		},
+		{
+			name: "claude",
+			info: claudeRelayInfo(constant.ChannelTypeCohere, "cohere-model"),
+			asserts: func(t *testing.T, body []byte) {
+				assert.Equal(t, "message", gjson.GetBytes(body, "type").String(), string(body))
+				assert.Equal(t, "hi", gjson.GetBytes(body, "content.0.text").String(), string(body))
+				assert.Equal(t, int64(3), gjson.GetBytes(body, "usage.input_tokens").Int(), string(body))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			c := gin.CreateTestContextOnly(recorder, gin.New())
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(upstreamBody)),
+			}
+
+			usage, apiErr := GetAdaptor(constant.APITypeCohere).DoResponse(c, resp, tt.info)
+			require.Nil(t, apiErr)
+			require.NotNil(t, usage)
+
+			body := recorder.Body.Bytes()
+			assert.False(t, gjson.GetBytes(body, "choices").Exists(), "the chat shape must not reach the client: %s", body)
+			tt.asserts(t, body)
+		})
+	}
+}
+
+// A streaming converted request ends in the closing event of the client's own
+// protocol rather than a chat [DONE], so the vendor stream has to run through the
+// same chat-to-format rendering the OpenAI stream uses.
+func TestCohereStreamsTheConvertedFormats(t *testing.T) {
+	const upstreamStream = `{"is_finished":false,"text":"hi","event_type":"text-generation"}` + "\n" +
+		`{"is_finished":true,"finish_reason":"COMPLETE","response":{"response_id":"cohere-1","text":"",` +
+		`"meta":{"billed_units":{"input_tokens":3,"output_tokens":1}}}}` + "\n"
+
+	tests := []struct {
+		name        string
+		info        *relaycommon.RelayInfo
+		wantContain []string
+	}{
+		{
+			name:        "gemini",
+			info:        geminiRelayInfo(constant.ChannelTypeCohere),
+			wantContain: []string{"candidates", "hi", "totalTokenCount"},
+		},
+		{
+			name:        "claude",
+			info:        claudeRelayInfo(constant.ChannelTypeCohere, "cohere-model"),
+			wantContain: []string{"message_start", "content_block_delta", "hi", "message_stop"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder := newStreamRecorder()
+			c := gin.CreateTestContextOnly(recorder, gin.New())
+			tt.info.IsStream = true
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+				Body:       io.NopCloser(strings.NewReader(upstreamStream)),
+			}
+
+			usage, apiErr := GetAdaptor(constant.APITypeCohere).DoResponse(c, resp, tt.info)
+			require.Nil(t, apiErr)
+			require.NotNil(t, usage)
+
+			body := recorder.Body.String()
+			for _, want := range tt.wantContain {
+				assert.Contains(t, body, want, body)
+			}
+			assert.NotContains(t, body, "[DONE]", body)
+		})
+	}
+}
+
+// gin's Context.Stream refuses a writer that is not an http.CloseNotifier, which
+// httptest.ResponseRecorder is not.
+type streamRecorder struct {
+	*httptest.ResponseRecorder
+	closed chan bool
+}
+
+func newStreamRecorder() *streamRecorder {
+	return &streamRecorder{ResponseRecorder: httptest.NewRecorder(), closed: make(chan bool)}
+}
+
+func (r *streamRecorder) CloseNotify() <-chan bool {
+	return r.closed
+}
+
 func geminiRelayInfo(channelType int) *relaycommon.RelayInfo {
 	return &relaycommon.RelayInfo{
 		RelayFormat:     types.RelayFormatGemini,

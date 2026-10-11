@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/zhourenke/pg-api/relay/channel"
+	"github.com/zhourenke/pg-api/relay/channel/openai"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	"github.com/zhourenke/pg-api/relay/constant"
 	"github.com/zhourenke/pg-api/relaykit/dto"
@@ -16,6 +17,18 @@ import (
 
 type Adaptor struct {
 	channel.Unsupported
+}
+
+// ConvertClaudeRequest serves Anthropic Messages on the same /v1/chat endpoint
+// the OpenAI format uses: Cohere has no Anthropic dialect, so the request is
+// converted to the chat shape and then built as a Cohere request.
+func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayInfo, req *dto.ClaudeRequest) (any, error) {
+	return openai.ConvertToChannelOpenAIRequest(c, info, req, a.ConvertOpenAIRequest)
+}
+
+// ConvertGeminiRequest serves generateContent the same way.
+func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
+	return openai.ConvertToChannelOpenAIRequest(c, info, request, a.ConvertOpenAIRequest)
 }
 
 func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
