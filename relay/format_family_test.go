@@ -315,6 +315,140 @@ func TestClaudeFamilyRendersResponsesInTheClaudeShape(t *testing.T) {
 	}
 }
 
+// An OpenAI-compatible upstream decides how many chunks its answer arrives in and
+// whether it reports usage at all, and the client has to receive a complete stream
+// in its own protocol either way: one opening, one closing, and the same answer text
+// billed as the OpenAI format bills it. The shared OpenAI handler owns that for every
+// compatible channel, and it renders the last chunk of a stream separately from the
+// ones before it, which is where the opening used to be emitted twice or not at all.
+func TestConvertedStreamsAreCompleteWhateverTheUpstreamChunkCount(t *testing.T) {
+	const model = "grok-3"
+	const content = `{"id":"chatcmpl-1","model":"grok-3","choices":[{"index":0,"delta":{"role":"assistant","content":"hi"}}]}`
+	const finish = `{"id":"chatcmpl-1","model":"grok-3","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`
+	const single = `{"id":"chatcmpl-1","model":"grok-3","choices":[{"index":0,"delta":{"content":"hi"},"finish_reason":"stop"}]}`
+	const terminalUsage = `{"id":"chatcmpl-1","model":"grok-3","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],` +
+		`"usage":{"prompt_tokens":3,"completion_tokens":1,"total_tokens":4}}`
+
+	bodyOf := func(frames ...string) string {
+		var b strings.Builder
+		for _, frame := range frames {
+			b.WriteString("data: " + frame + "\n\n")
+		}
+		return b.String() + "data: [DONE]\n\n"
+	}
+
+	// One RelayInfo per client protocol, each shaped the way production builds it:
+	// the chat path has a relay mode, the Claude path has none (no OpenAI relay mode
+	// matches /v1/messages) and the Gemini path has its own. All three name the same
+	// model, because the fallback completion count is model-dependent.
+	infos := map[string]func() *relaycommon.RelayInfo{
+		"openai": func() *relaycommon.RelayInfo {
+			info := openaiRelayInfo(constant.ChannelTypeOpenAI, model)
+			info.RelayMode = relayconstant.RelayModeChatCompletions
+			return info
+		},
+		"claude": func() *relaycommon.RelayInfo {
+			return claudeRelayInfo(constant.ChannelTypeOpenAI, model)
+		},
+		"gemini": func() *relaycommon.RelayInfo {
+			info := geminiRelayInfo(constant.ChannelTypeOpenAI)
+			info.OriginModelName = model
+			info.UpstreamModelName = model
+			return info
+		},
+	}
+
+	run := func(t *testing.T, client string, body string) (string, *dto.Usage) {
+		t.Helper()
+		previousTimeout := constant.StreamingTimeout
+		constant.StreamingTimeout = 30
+		t.Cleanup(func() { constant.StreamingTimeout = previousTimeout })
+
+		recorder := newStreamRecorder()
+		c := gin.CreateTestContextOnly(recorder, gin.New())
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+		info := infos[client]()
+		info.IsStream = true
+		resp := &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+			Body:       io.NopCloser(strings.NewReader(body)),
+		}
+
+		usageAny, apiErr := GetAdaptor(constant.APITypeOpenAI).DoResponse(c, resp, info)
+		require.Nil(t, apiErr)
+		usage, ok := usageAny.(*dto.Usage)
+		require.True(t, ok)
+		return recorder.Body.String(), usage
+	}
+
+	_, chatUsage := run(t, "openai", bodyOf(content, finish))
+	require.Positive(t, chatUsage.CompletionTokens, "the answer text has to be counted when the upstream reports no usage")
+
+	tests := []struct {
+		name string
+		// The client protocol, and the upstream frames it receives.
+		client string
+		body   string
+		want   []string
+		// A Claude stream opens the message exactly once; the chat protocol has no
+		// opening event to duplicate.
+		openingFrames  int
+		closesWithDone bool
+		// The answer text arrived in the same chunks as the chat case and the
+		// upstream reported no usage, so the fallback count has to match it.
+		billedLikeChat bool
+	}{
+		{
+			name: "openai, one content chunk and a terminal chunk", client: "openai", body: bodyOf(content, finish),
+			want: []string{content, finish}, closesWithDone: true, billedLikeChat: true,
+		},
+		{
+			name: "claude, one content chunk and a terminal chunk", client: "claude", body: bodyOf(content, finish),
+			want: []string{"content_block_start", `"text":"hi"`, "message_stop"}, openingFrames: 1, billedLikeChat: true,
+		},
+		{
+			name: "claude, one chunk holding the whole answer", client: "claude", body: bodyOf(single),
+			want: []string{"message_start", `"text":"hi"`, "message_stop"}, openingFrames: 1, billedLikeChat: true,
+		},
+		{
+			name: "claude, terminal chunk reporting the usage", client: "claude", body: bodyOf(content, terminalUsage),
+			want: []string{`"output_tokens":1`, "message_stop"}, openingFrames: 1,
+		},
+		{
+			name: "claude, no data frame at all", client: "claude", body: bodyOf(),
+			want: []string{"message_start", "message_delta", "message_stop"}, openingFrames: 1,
+		},
+		{
+			name: "gemini, one content chunk and a terminal chunk", client: "gemini", body: bodyOf(content, finish),
+			want: []string{"candidates", `"text":"hi"`, `"finishReason":"STOP"`, "totalTokenCount"}, billedLikeChat: true,
+		},
+		{
+			name: "gemini, no data frame at all", client: "gemini", body: bodyOf(),
+			want: []string{"candidates", "totalTokenCount"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body, usage := run(t, tt.client, tt.body)
+
+			for _, want := range tt.want {
+				assert.Contains(t, body, want, body)
+			}
+			assert.Equal(t, tt.openingFrames, strings.Count(body, `"type":"message_start"`), body)
+			if tt.closesWithDone {
+				assert.Contains(t, body, "data: [DONE]", body)
+			} else {
+				assert.NotContains(t, body, "[DONE]", body)
+			}
+			if tt.billedLikeChat {
+				assert.Equal(t, chatUsage.CompletionTokens, usage.CompletionTokens, body)
+			}
+		})
+	}
+}
+
 // A channel that speaks a protocol of its own serves the converted formats
 // through that protocol: the request is converted to the chat shape and then
 // turned into the vendor request the channel always sends, and the vendor

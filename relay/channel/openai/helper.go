@@ -137,23 +137,29 @@ func ProcessStreamResponse(streamResponse dto.ChatCompletionsStreamResponse, res
 	return nil
 }
 
+// processTokenData accumulates the answer text this request falls back to billing
+// when the upstream reports no usage, and observes the model it answered with.
+// Every streaming body this handler serves is a chat chunk, including the Claude
+// and Gemini client formats, which are converted from one; only the legacy
+// completions mode differs. The request's own relay mode therefore cannot decide
+// the chunk shape: /v1/messages has no relay mode of its own and the Gemini paths
+// set their own, so both would otherwise bill a completion of zero tokens.
 func processTokenData(info *relaycommon.RelayInfo, data string, responseTextBuilder *strings.Builder, toolCount *int) error {
-	switch info.RelayMode {
-	case relayconstant.RelayModeChatCompletions:
-		var streamResponse dto.ChatCompletionsStreamResponse
-		if err := common.UnmarshalJsonStr(data, &streamResponse); err != nil {
-			return err
-		}
-		info.ObserveResponseModel(streamResponse.Model)
-		return ProcessStreamResponse(streamResponse, responseTextBuilder, toolCount)
-	case relayconstant.RelayModeCompletions:
+	if info.RelayMode == relayconstant.RelayModeCompletions {
 		var streamResponse dto.CompletionsStreamResponse
 		if err := common.UnmarshalJsonStr(data, &streamResponse); err != nil {
 			return err
 		}
 		processCompletionsStreamResponse(streamResponse, responseTextBuilder)
+		return nil
 	}
-	return nil
+
+	var streamResponse dto.ChatCompletionsStreamResponse
+	if err := common.UnmarshalJsonStr(data, &streamResponse); err != nil {
+		return err
+	}
+	info.ObserveResponseModel(streamResponse.Model)
+	return ProcessStreamResponse(streamResponse, responseTextBuilder, toolCount)
 }
 
 func processCompletionsStreamResponse(streamResponse dto.CompletionsStreamResponse, responseTextBuilder *strings.Builder) {
@@ -194,6 +200,22 @@ func HandleFinalResponse(c *gin.Context, info *relaycommon.RelayInfo, lastStream
 	responseId string, createAt int64, model string, systemFingerprint string,
 	usage *dto.Usage, containStreamUsage bool) {
 
+	// The converted formats open the client's protocol and emit its closing event
+	// by converting one terminal chat chunk. A stream that carried no data frame at
+	// all has none to convert, which would leave the client with an empty stream
+	// and two errors in the log, so it closes over an empty terminal chunk instead.
+	if lastStreamData == "" && (info.RelayFormat == types.RelayFormatClaude || info.RelayFormat == types.RelayFormatGemini) {
+		stopReason := "stop"
+		encoded, err := common.Marshal(dto.ChatCompletionsStreamResponse{
+			Choices: []dto.ChatCompletionsStreamResponseChoice{{Index: 0, FinishReason: &stopReason}},
+		})
+		if err != nil {
+			common.SysLog("error marshalling the empty terminal chunk: " + err.Error())
+			return
+		}
+		lastStreamData = string(encoded)
+	}
+
 	switch info.RelayFormat {
 	case types.RelayFormatOpenAI:
 		if info.ShouldIncludeUsage && !containStreamUsage {
@@ -209,6 +231,15 @@ func HandleFinalResponse(c *gin.Context, info *relaycommon.RelayInfo, lastStream
 			common.SysLog("error unmarshalling stream response: " + err.Error())
 			return
 		}
+
+		// The converter opens the message on the chunk that brings its chunk
+		// counter to one. A caller that holds its terminal chunk back instead of
+		// streaming it renders that chunk here, so this pass counts it as well;
+		// without that an answer of exactly one chunk would open the message twice.
+		// The same call creates the per-stream state that a stream without any
+		// chunk would otherwise leave nil.
+		info.EnsureClaudeConvertInfo()
+		info.IncrSendResponseCount()
 
 		info.ClaudeConvertInfo.Usage = usage
 
