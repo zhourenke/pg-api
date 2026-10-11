@@ -49,6 +49,7 @@ func TestGeminiFamilyConvertsRequestsToTheChatEndpoint(t *testing.T) {
 		{"perplexity", constant.APITypePerplexity, constant.ChannelTypePerplexity, "https://upstream.example.com/chat/completions", true},
 		{"siliconflow", constant.APITypeSiliconFlow, constant.ChannelTypeSiliconFlow, "https://upstream.example.com/v1/chat/completions", false},
 		{"submodel", constant.APITypeSubmodel, constant.ChannelTypeSubmodel, "https://upstream.example.com/v1/chat/completions", false},
+		{"volcengine", constant.APITypeVolcEngine, constant.ChannelTypeVolcEngine, "https://upstream.example.com/api/v3/chat/completions", false},
 		{"xai", constant.APITypeXai, constant.ChannelTypeXai, "https://upstream.example.com/v1/chat/completions", false},
 		{"zhipu_4v", constant.APITypeZhipuV4, constant.ChannelTypeZhipu_v4, "https://upstream.example.com/api/paas/v4/chat/completions", true},
 	}
@@ -251,6 +252,7 @@ func TestGeminiFamilyRendersResponsesInTheGeminiShape(t *testing.T) {
 		{"moonshot", constant.APITypeMoonshot, constant.ChannelTypeMoonshot},
 		{"perplexity", constant.APITypePerplexity, constant.ChannelTypePerplexity},
 		{"submodel", constant.APITypeSubmodel, constant.ChannelTypeSubmodel},
+		{"volcengine", constant.APITypeVolcEngine, constant.ChannelTypeVolcEngine},
 	}
 
 	for _, tt := range tests {
@@ -274,6 +276,88 @@ func TestGeminiFamilyRendersResponsesInTheGeminiShape(t *testing.T) {
 			assert.False(t, gjson.GetBytes(body, "choices").Exists(), "a Gemini client must not receive the chat shape: %s", body)
 		})
 	}
+}
+
+// The generic table above drives one base URL per channel, which cannot express a
+// channel that picks its endpoint from the base URL as well as from the relay mode.
+// Volcengine is one: its coding plans replace the host of the chat path, a bot
+// model has a path of its own on the default host, and the Claude format keeps an
+// Anthropic-compatible endpoint the Gemini format has no reason to use.
+func TestVolcengineServesGeminiFromTheEndpointItsBaseUrlNames(t *testing.T) {
+	adaptor := GetAdaptor(constant.APITypeVolcEngine)
+	require.NotNil(t, adaptor)
+
+	tests := []struct {
+		name    string
+		baseURL string
+		model   string
+		wantURL string
+	}{
+		{
+			name: "default base url", baseURL: "https://upstream.example.com", model: "doubao-seed-1-6",
+			wantURL: "https://upstream.example.com/api/v3/chat/completions",
+		},
+		{
+			name: "bot model", baseURL: "https://upstream.example.com", model: "bot-20250101",
+			wantURL: "https://upstream.example.com/api/v3/bots/chat/completions",
+		},
+		{
+			name: "coding plan", baseURL: "doubao-coding-plan", model: "doubao-seed-1-6",
+			wantURL: "https://ark.cn-beijing.volces.com/api/coding/v3/chat/completions",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1beta/models/x:generateContent", nil)
+			info := geminiRelayInfo(constant.ChannelTypeVolcEngine)
+			info.ChannelBaseUrl = tt.baseURL
+			info.OriginModelName = tt.model
+			info.UpstreamModelName = tt.model
+
+			requestURL, err := adaptor.GetRequestURL(info)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantURL, requestURL)
+
+			converted, err := adaptor.ConvertGeminiRequest(c, info, geminiRequest())
+			require.NoError(t, err)
+			encoded, err := common.Marshal(converted)
+			require.NoError(t, err)
+			assert.Equal(t, "user", gjson.GetBytes(encoded, "messages.0.role").String(), string(encoded))
+			assert.False(t, gjson.GetBytes(encoded, "contents").Exists(), "the Gemini shape must not reach Volcengine: %s", encoded)
+		})
+	}
+
+	// The converted body goes through this channel's own OpenAI conversion rather
+	// than through the OpenAI adaptor's, and the thinking-suffix rewrite that only
+	// the former carries is what proves it.
+	t.Run("the channel's own OpenAI shaping applies", func(t *testing.T) {
+		c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1beta/models/x:generateContent", nil)
+		info := geminiRelayInfo(constant.ChannelTypeVolcEngine)
+		info.OriginModelName = "deepseek-v3.1-thinking"
+		info.UpstreamModelName = "deepseek-v3.1-thinking"
+
+		converted, err := adaptor.ConvertGeminiRequest(c, info, geminiRequest())
+		require.NoError(t, err)
+		encoded, err := common.Marshal(converted)
+		require.NoError(t, err)
+		assert.Equal(t, "deepseek-v3.1", gjson.GetBytes(encoded, "model").String(), string(encoded))
+		assert.Equal(t, "enabled", gjson.GetBytes(encoded, "thinking.type").String(), string(encoded))
+		assert.Equal(t, "deepseek-v3.1", info.UpstreamModelName, string(encoded))
+	})
+
+	// The converted formats share the chat endpoint, so the one format that does
+	// have an endpoint of its own must not lose it to the new branch.
+	t.Run("claude keeps the coding plan's Anthropic endpoint", func(t *testing.T) {
+		info := claudeRelayInfo(constant.ChannelTypeVolcEngine, "doubao-seed-1-6")
+		info.ChannelBaseUrl = "doubao-coding-plan"
+
+		requestURL, err := adaptor.GetRequestURL(info)
+		require.NoError(t, err)
+		assert.Equal(t, "https://ark.cn-beijing.volces.com/api/coding/v1/messages", requestURL)
+	})
 }
 
 func TestClaudeFamilyRendersResponsesInTheClaudeShape(t *testing.T) {

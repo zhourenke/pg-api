@@ -84,7 +84,7 @@ var ChannelCapabilitiesByAPIType = map[int]Capabilities{
 	APITypeMistral:     CapabilitiesOf(CapabilityClaude, CapabilityGemini),
 	APITypeDeepSeek:    CapabilitiesOf(CapabilityClaude, CapabilityGemini, CapabilityOpenAIResponses),
 	APITypeMokaAI:      CapabilitiesOf(CapabilityEmbedding),
-	APITypeVolcEngine:  CapabilitiesOf(CapabilityClaude, CapabilityOpenAIResponses, CapabilityAudio, CapabilityImage, CapabilityEmbedding),
+	APITypeVolcEngine:  CapabilitiesOf(CapabilityClaude, CapabilityGemini, CapabilityOpenAIResponses, CapabilityAudio, CapabilityImage, CapabilityEmbedding),
 	APITypeBaiduV2:     CapabilitiesOf(CapabilityClaude, CapabilityGemini),
 	APITypeOpenRouter:  CapabilitiesOf(CapabilityClaude, CapabilityGemini, CapabilityOpenAIResponses, CapabilityAudio, CapabilityImage, CapabilityEmbedding, CapabilityRerank),
 	APITypeXinference:  CapabilitiesOf(CapabilityClaude, CapabilityGemini, CapabilityOpenAIResponses, CapabilityAudio, CapabilityImage, CapabilityEmbedding, CapabilityRerank),

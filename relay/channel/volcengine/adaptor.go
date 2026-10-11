@@ -42,6 +42,15 @@ func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayIn
 	return adaptor.ConvertClaudeRequest(c, info, req)
 }
 
+// A coding plan serves the Claude format from an Anthropic-compatible endpoint of
+// its own; everything else on this provider is a chat request to the v3 chat
+// endpoint. Gemini has no endpoint anywhere here, so a generateContent request is
+// converted into the chat shape and then reshaped by this channel's own OpenAI
+// conversion, exactly like the OpenAI format, and it goes to that chat endpoint.
+func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
+	return openai.ConvertToChannelOpenAIRequest(c, info, request, a.ConvertOpenAIRequest)
+}
+
 func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.AudioRequest) (io.Reader, error) {
 	if info.RelayMode != constant.RelayModeAudioSpeech {
 		return nil, errors.New("unsupported audio relay mode")
@@ -250,7 +259,10 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 		return fmt.Sprintf("%s/api/v3/chat/completions", baseUrl), nil
 	default:
 		switch info.RelayMode {
-		case constant.RelayModeChatCompletions:
+		case constant.RelayModeChatCompletions, constant.RelayModeGemini:
+			// generateContent is converted to the chat shape, so it takes the
+			// same endpoint as the OpenAI format: a coding plan replaces the host
+			// of the chat path, and a bot model has a path of its own.
 			if hasSpecialPlan && specialPlan.OpenAIBaseURL != "" {
 				return fmt.Sprintf("%s/chat/completions", specialPlan.OpenAIBaseURL), nil
 			}
