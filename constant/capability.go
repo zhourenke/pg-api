@@ -92,7 +92,7 @@ var ChannelCapabilitiesByAPIType = map[int]Capabilities{
 	APITypeCoze:        0,
 	APITypeJimeng:      CapabilitiesOf(CapabilityImage),
 	APITypeMoonshot:    CapabilitiesOf(CapabilityClaude, CapabilityGemini, CapabilityImage, CapabilityEmbedding, CapabilityRerank),
-	APITypeSubmodel:    0,
+	APITypeSubmodel:    CapabilitiesOf(CapabilityClaude, CapabilityGemini),
 	APITypeMiniMax:     CapabilitiesOf(CapabilityClaude, CapabilityAudio, CapabilityImage, CapabilityEmbedding),
 	APITypeReplicate:   CapabilitiesOf(CapabilityImage),
 	APITypeCodex:       CapabilitiesOf(CapabilityOpenAIResponses),

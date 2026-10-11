@@ -47,6 +47,7 @@ func TestGeminiFamilyConvertsRequestsToTheChatEndpoint(t *testing.T) {
 		{"moonshot", constant.APITypeMoonshot, constant.ChannelTypeMoonshot, "https://upstream.example.com/v1/chat/completions", false},
 		{"perplexity", constant.APITypePerplexity, constant.ChannelTypePerplexity, "https://upstream.example.com/chat/completions", true},
 		{"siliconflow", constant.APITypeSiliconFlow, constant.ChannelTypeSiliconFlow, "https://upstream.example.com/v1/chat/completions", false},
+		{"submodel", constant.APITypeSubmodel, constant.ChannelTypeSubmodel, "https://upstream.example.com/v1/chat/completions", false},
 		{"xai", constant.APITypeXai, constant.ChannelTypeXai, "https://upstream.example.com/v1/chat/completions", false},
 		{"zhipu_4v", constant.APITypeZhipuV4, constant.ChannelTypeZhipu_v4, "https://upstream.example.com/api/paas/v4/chat/completions", true},
 	}
@@ -142,6 +143,11 @@ func TestClaudeFamilyConvertsRequestsToTheChatEndpoint(t *testing.T) {
 			name: "siliconflow", apiType: constant.APITypeSiliconFlow, channelType: constant.ChannelTypeSiliconFlow,
 			wantURL: "https://upstream.example.com/v1/chat/completions",
 			model:   "Qwen/Qwen3-8B", wantTopP: 1,
+		},
+		{
+			name: "submodel", apiType: constant.APITypeSubmodel, channelType: constant.ChannelTypeSubmodel,
+			wantURL: "https://upstream.example.com/v1/chat/completions",
+			model:   "deepseek-v3", wantTopP: 1,
 		},
 		{
 			name: "xai", apiType: constant.APITypeXai, channelType: constant.ChannelTypeXai,
@@ -242,6 +248,7 @@ func TestGeminiFamilyRendersResponsesInTheGeminiShape(t *testing.T) {
 		{"cloudflare", constant.APITypeCloudflare, constant.ChannelCloudflare},
 		{"moonshot", constant.APITypeMoonshot, constant.ChannelTypeMoonshot},
 		{"perplexity", constant.APITypePerplexity, constant.ChannelTypePerplexity},
+		{"submodel", constant.APITypeSubmodel, constant.ChannelTypeSubmodel},
 	}
 
 	for _, tt := range tests {
@@ -281,6 +288,7 @@ func TestClaudeFamilyRendersResponsesInTheClaudeShape(t *testing.T) {
 		{"cloudflare", constant.APITypeCloudflare, constant.ChannelCloudflare},
 		// Mistral's own handler already routes through the OpenAI rendering.
 		{"mistral", constant.APITypeMistral, constant.ChannelTypeMistral},
+		{"submodel", constant.APITypeSubmodel, constant.ChannelTypeSubmodel},
 	}
 
 	for _, tt := range tests {
