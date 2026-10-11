@@ -357,6 +357,62 @@ func TestAwsStreamHandlerUsesFinalUpstreamUsage(t *testing.T) {
 	assert.Contains(t, recorder.Body.String(), "[DONE]")
 }
 
+// The AKSK path reads Bedrock's event stream and hands every event to the Claude
+// handlers, which render the protocol the client asked for. This pins the Gemini
+// half of that: Gemini frames carrying the answer, the stop reason and the output
+// tokens, no OpenAI terminator, and the usage the adaptor returns for billing.
+//
+// The prompt count of the streamed usage frame is deliberately not asserted: the
+// upstream reports the input tokens once, in message_start, and each converted
+// chunk carries only its own usage, so the frame reports the output tokens alone.
+// That under-report is older than this format and shared with the Claude-format
+// path (whose branch patches the frame back to the accumulated usage); it is
+// reported to the owner rather than pinned here.
+func TestAwsStreamHandlerRendersGeminiFromBedrockEvents(t *testing.T) {
+	originalRelayTimeout := common.RelayTimeout
+	common.RelayTimeout = 0
+	t.Cleanup(func() {
+		common.RelayTimeout = originalRelayTimeout
+	})
+
+	events := []string{
+		`{"type":"message_start","message":{"id":"msg_test","type":"message","role":"assistant","model":"claude-test","content":[],"usage":{"input_tokens":100,"output_tokens":1}}}`,
+		`{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`,
+		`{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"partial"}}`,
+		`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":423}}`,
+		`{"type":"message_stop"}`,
+	}
+	client := newAwsTestClient(awsHTTPClientFunc(func(request *http.Request) (*http.Response, error) {
+		var body bytes.Buffer
+		for _, event := range events {
+			if err := writeAwsStreamEvent(&body, event); err != nil {
+				return nil, err
+			}
+		}
+		return newAwsStreamResponse(request, io.NopCloser(bytes.NewReader(body.Bytes()))), nil
+	}))
+	adaptor := &Adaptor{AwsClient: client, AwsReq: newAwsStreamInput()}
+	recorder := httptest.NewRecorder()
+	c := newAwsTestContext(recorder, context.Background())
+
+	info := newAwsTestRelayInfo()
+	info.RelayFormat = relaytypes.RelayFormatGemini
+
+	handlerErr, usage := awsStreamHandler(c, info, adaptor)
+
+	require.Nil(t, handlerErr)
+	require.NotNil(t, usage)
+	assert.Equal(t, 100, usage.PromptTokens)
+	assert.Equal(t, 423, usage.CompletionTokens)
+
+	body := recorder.Body.String()
+	assert.Contains(t, body, "partial", body)
+	assert.Contains(t, body, `"finishReason":"STOP"`, body)
+	assert.Contains(t, body, `"candidatesTokenCount":423`, body)
+	assert.NotContains(t, body, `"choices"`, body)
+	assert.NotContains(t, body, "[DONE]", body)
+}
+
 func TestAwsStreamHandlerStopsAtClientCancellation(t *testing.T) {
 	originalRelayTimeout := common.RelayTimeout
 	common.RelayTimeout = 0

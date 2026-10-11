@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/zhourenke/pg-api/relay/channel"
 	"github.com/zhourenke/pg-api/relay/channel/claude"
+	"github.com/zhourenke/pg-api/relay/channel/openai"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	"github.com/zhourenke/pg-api/relaykit/dto"
 	"github.com/zhourenke/pg-api/relaykit/types"
@@ -99,6 +100,21 @@ func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *rel
 		req.Set("Authorization", "Bearer "+info.ApiKey)
 	}
 	return nil
+}
+
+// ConvertGeminiRequest serves the Gemini format the way this channel serves the
+// chat format: Bedrock takes the Anthropic Messages body that this channel's own
+// ConvertOpenAIRequest builds (it stamps anthropic_version on it in AKSK mode),
+// and the response half needs nothing new because the Claude handlers it already
+// delegates to are format-aware. Nova is the exception: that branch is built from
+// a chat request alone and answers in the OpenAI shape without streaming, so a
+// Gemini client stays refused on a Nova model instead of receiving the wrong
+// protocol with a 200.
+func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
+	if isNovaModel(info.UpstreamModelName) {
+		return a.Unsupported.ConvertGeminiRequest(c, info, request)
+	}
+	return openai.ConvertToChannelOpenAIRequest(c, info, request, a.ConvertOpenAIRequest)
 }
 
 func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeneralOpenAIRequest) (any, error) {

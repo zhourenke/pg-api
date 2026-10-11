@@ -152,7 +152,10 @@ func GeminiHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *typ
 		}
 	}
 
-	usage, openaiErr := adaptor.DoResponse(c, resp.(*http.Response), info)
+	// Pass the typed response, not a fresh assertion: a channel that runs the
+	// request itself (AWS in AKSK mode) answers DoRequest with a nil interface,
+	// and an unchecked assertion would panic even though DoResponse never reads it.
+	usage, openaiErr := adaptor.DoResponse(c, httpResp, info)
 	if openaiErr != nil {
 		service.ResetStatusCode(openaiErr, statusCodeMappingStr)
 		return openaiErr
@@ -255,7 +258,10 @@ func GeminiEmbeddingHandler(c *gin.Context, info *relaycommon.RelayInfo) (newAPI
 		}
 	}
 
-	usage, openaiErr := adaptor.DoResponse(c, resp.(*http.Response), info)
+	// Pass the typed response, not a fresh assertion: a channel that runs the
+	// request itself (AWS in AKSK mode) answers DoRequest with a nil interface,
+	// and an unchecked assertion would panic even though DoResponse never reads it.
+	usage, openaiErr := adaptor.DoResponse(c, httpResp, info)
 	if openaiErr != nil {
 		service.ResetStatusCode(openaiErr, statusCodeMappingStr)
 		return openaiErr

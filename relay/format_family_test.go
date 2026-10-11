@@ -360,6 +360,103 @@ func TestVolcengineServesGeminiFromTheEndpointItsBaseUrlNames(t *testing.T) {
 	})
 }
 
+// AWS builds one body for every format: this channel's own ConvertOpenAIRequest
+// turns the chat request into the Anthropic Messages body Bedrock's InvokeModel
+// takes, and AKSK mode then stamps anthropic_version on it. Gemini therefore needs
+// no new upstream shape and no new handler — the Claude handlers this channel
+// already delegates to render the client's protocol — but the Nova branch of that
+// builder is chat-only: it takes no streaming and answers in the OpenAI shape, so
+// a Nova model stays refused instead of returning the wrong protocol with a 200.
+func TestAwsServesGeminiThroughItsBedrockBody(t *testing.T) {
+	const model = "claude-3-5-sonnet-20240620"
+	const anthropicBody = `{"id":"msg_1","type":"message","role":"assistant","model":"claude-3-5-sonnet-20240620",` +
+		`"content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn",` +
+		`"usage":{"input_tokens":3,"output_tokens":1}}`
+
+	adaptor := GetAdaptor(constant.APITypeAws)
+	require.NotNil(t, adaptor)
+
+	t.Run("the request becomes Bedrock's Anthropic body", func(t *testing.T) {
+		c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1beta/models/x:generateContent", nil)
+		info := geminiRelayInfo(constant.ChannelTypeAws)
+		info.UpstreamModelName = model
+
+		converted, err := adaptor.ConvertGeminiRequest(c, info, geminiRequest())
+		require.NoError(t, err)
+		encoded, err := common.Marshal(converted)
+		require.NoError(t, err)
+
+		assert.Equal(t, model, gjson.GetBytes(encoded, "model").String(), string(encoded))
+		assert.Equal(t, "user", gjson.GetBytes(encoded, "messages.0.role").String(), string(encoded))
+		assert.Contains(t, gjson.GetBytes(encoded, "messages.0.content").String(), "hello")
+		assert.False(t, gjson.GetBytes(encoded, "contents").Exists(), "the Gemini shape must not reach Bedrock: %s", encoded)
+		assert.False(t, gjson.GetBytes(encoded, "choices").Exists(), string(encoded))
+	})
+
+	// API-key mode posts the body in the request itself instead of driving the SDK,
+	// which makes it the one mode this package can drive without an AWS client: it
+	// stands in here for the response half, since the rendering it borrows from the
+	// Claude channel is what renders a Gemini client's answer. GetRequestURL is
+	// called only because it selects the client mode DoResponse dispatches on; the
+	// URL it returns is not asserted, because that mode assembles the host from the
+	// two key halves in the other order (reported to the owner) and the AKSK mode
+	// every other assertion here exercises does not use this URL at all.
+	t.Run("the response keeps the Gemini shape", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+		c := gin.CreateTestContextOnly(recorder, gin.New())
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1beta/models/x:generateContent", nil)
+		info := geminiRelayInfo(constant.ChannelTypeAws)
+		info.UpstreamModelName = model
+		info.ChannelOtherSettings.AwsKeyType = dto.AwsKeyTypeApiKey
+		info.ApiKey = "bedrock-api-key|us-east-1"
+
+		_, err := adaptor.GetRequestURL(info)
+		require.NoError(t, err)
+
+		resp := &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(anthropicBody)),
+		}
+		usage, apiErr := adaptor.DoResponse(c, resp, info)
+		require.Nil(t, apiErr)
+		require.NotNil(t, usage)
+
+		body := recorder.Body.Bytes()
+		assert.Equal(t, "hi", gjson.GetBytes(body, "candidates.0.content.parts.0.text").String(), string(body))
+		assert.Equal(t, int64(4), gjson.GetBytes(body, "usageMetadata.totalTokenCount").Int(), string(body))
+		assert.False(t, gjson.GetBytes(body, "choices").Exists(), "a Gemini client must not receive the chat shape: %s", body)
+	})
+
+	// The control for the refusal below: Nova keeps its own conversion on the chat
+	// format, so what is refused is that branch reaching a Gemini client.
+	t.Run("nova keeps the chat format", func(t *testing.T) {
+		c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
+		info := openaiRelayInfo(constant.ChannelTypeAws, "nova-lite-v1:0")
+
+		converted, err := adaptor.ConvertOpenAIRequest(c, info, &dto.GeneralOpenAIRequest{
+			Model:    "nova-lite-v1:0",
+			Messages: []dto.Message{{Role: "user", Content: "hello"}},
+		})
+		require.NoError(t, err)
+		encoded, err := common.Marshal(converted)
+		require.NoError(t, err)
+		assert.Equal(t, "messages-v1", gjson.GetBytes(encoded, "schemaVersion").String(), string(encoded))
+	})
+
+	t.Run("a Nova model stays refused", func(t *testing.T) {
+		c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
+		info := geminiRelayInfo(constant.ChannelTypeAws)
+		info.UpstreamModelName = "nova-lite-v1:0"
+
+		_, err := adaptor.ConvertGeminiRequest(c, info, geminiRequest())
+		var apiErr *types.NewAPIError
+		require.ErrorAs(t, err, &apiErr)
+		assert.Equal(t, types.ErrorCodeChannelFormatUnsupported, apiErr.GetErrorCode())
+	})
+}
+
 func TestClaudeFamilyRendersResponsesInTheClaudeShape(t *testing.T) {
 	const upstreamBody = `{"id":"chatcmpl-1","object":"chat.completion","model":"grok-3",` +
 		`"choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],` +
