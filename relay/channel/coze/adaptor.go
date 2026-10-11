@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/zhourenke/pg-api/relay/channel"
+	"github.com/zhourenke/pg-api/relay/channel/openai"
 	"github.com/zhourenke/pg-api/relay/common"
 	"github.com/zhourenke/pg-api/relaykit/dto"
 	"github.com/zhourenke/pg-api/relaykit/types"
@@ -26,6 +27,20 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *common.RelayInfo, r
 		return nil, errors.New("request is nil")
 	}
 	return convertCozeChatRequest(c, *request), nil
+}
+
+// ConvertClaudeRequest serves Anthropic Messages on the bot's /v3/chat endpoint,
+// which takes a message list rather than Anthropic's shape: Coze has no Anthropic
+// dialect, so the request becomes a chat request first and this channel's own
+// flattening applies to it.
+func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *common.RelayInfo, request *dto.ClaudeRequest) (any, error) {
+	return openai.ConvertToChannelOpenAIRequest(c, info, request, a.ConvertOpenAIRequest)
+}
+
+// ConvertGeminiRequest serves generateContent the same way: the chat request is
+// what convertCozeChatRequest turns into additional_messages.
+func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *common.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
+	return openai.ConvertToChannelOpenAIRequest(c, info, request, a.ConvertOpenAIRequest)
 }
 
 // DoRequest implements channel.Adaptor.

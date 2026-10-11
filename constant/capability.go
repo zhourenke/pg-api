@@ -89,7 +89,7 @@ var ChannelCapabilitiesByAPIType = map[int]Capabilities{
 	APITypeOpenRouter:  CapabilitiesOf(CapabilityClaude, CapabilityGemini, CapabilityOpenAIResponses, CapabilityAudio, CapabilityImage, CapabilityEmbedding, CapabilityRerank),
 	APITypeXinference:  CapabilitiesOf(CapabilityClaude, CapabilityGemini, CapabilityOpenAIResponses, CapabilityAudio, CapabilityImage, CapabilityEmbedding, CapabilityRerank),
 	APITypeXai:         CapabilitiesOf(CapabilityClaude, CapabilityGemini, CapabilityOpenAIResponses, CapabilityImage),
-	APITypeCoze:        0,
+	APITypeCoze:        CapabilitiesOf(CapabilityClaude, CapabilityGemini),
 	APITypeJimeng:      CapabilitiesOf(CapabilityImage),
 	APITypeMoonshot:    CapabilitiesOf(CapabilityClaude, CapabilityGemini, CapabilityImage, CapabilityEmbedding, CapabilityRerank),
 	APITypeSubmodel:    CapabilitiesOf(CapabilityClaude, CapabilityGemini),

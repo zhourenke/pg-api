@@ -1943,6 +1943,227 @@ func TestTencentStreamsTheConvertedFormats(t *testing.T) {
 	}
 }
 
+// Coze has no dialect for the other two formats: a request becomes additional_messages
+// for the bot's /v3/chat, and the answer comes back as a message list the channel turns
+// into the chat body every other format is rendered from. The bot id comes from the
+// channel's other field and the user id has to be a JSON string, which is what the
+// request id becomes when the client sent no user.
+func TestCozeConvertsBothConvertedFormatsToItsBotRequest(t *testing.T) {
+	adaptor := GetAdaptor(constant.APITypeCoze)
+	require.NotNil(t, adaptor)
+
+	tests := []struct {
+		name        string
+		info        *relaycommon.RelayInfo
+		convert     func(*gin.Context, *relaycommon.RelayInfo) (any, error)
+		wantContent string
+		goneShape   string
+	}{
+		{
+			name: "gemini",
+			info: geminiRelayInfo(constant.ChannelTypeCoze),
+			convert: func(c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+				return adaptor.ConvertGeminiRequest(c, info, geminiRequest())
+			},
+			wantContent: "hello",
+			goneShape:   "contents",
+		},
+		{
+			name: "claude",
+			info: claudeRelayInfo(constant.ChannelTypeCoze, "coze-bot"),
+			convert: func(c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+				return adaptor.ConvertClaudeRequest(c, info, claudeRequest("coze-bot"))
+			},
+			wantContent: "weather?",
+			goneShape:   "system",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+			c.Set("bot_id", "bot-1")
+
+			requestURL, err := adaptor.GetRequestURL(tt.info)
+			require.NoError(t, err)
+			assert.Equal(t, "https://upstream.example.com/v3/chat", requestURL)
+
+			converted, err := tt.convert(c, tt.info)
+			require.NoError(t, err)
+			encoded, err := common.Marshal(converted)
+			require.NoError(t, err)
+
+			// A body the upstream would reject as malformed is the failure mode of
+			// an unquoted user id, so the whole body has to parse.
+			var body map[string]any
+			require.NoError(t, common.Unmarshal(encoded, &body), string(encoded))
+
+			assert.Equal(t, "bot-1", gjson.GetBytes(encoded, "bot_id").String(), string(encoded))
+			assert.Equal(t, gjson.String, gjson.GetBytes(encoded, "user_id").Type, string(encoded))
+			assert.Equal(t, "user", gjson.GetBytes(encoded, "additional_messages.0.role").String(), string(encoded))
+			assert.Equal(t, "text", gjson.GetBytes(encoded, "additional_messages.0.content_type").String(), string(encoded))
+			assert.Equal(t, tt.wantContent, gjson.GetBytes(encoded, "additional_messages.0.content").String(), string(encoded))
+			// This channel's own shaping keeps the user turns and drops the rest.
+			assert.NotContains(t, string(encoded), "toolu_01", string(encoded))
+			assert.False(t, gjson.GetBytes(encoded, tt.goneShape).Exists(), "the client shape must not reach Coze: %s", encoded)
+		})
+	}
+}
+
+// The non-stream answer needs two upstream calls after the run: the retrieve poll
+// that carries the usage and the message list that carries the text. Every format
+// is rendered from the chat body built out of that list.
+func TestCozeRendersEveryFormatFromItsMessageList(t *testing.T) {
+	const upstreamBody = `{"code":0,"data":[{"type":"answer","content":"hi","created_at":1700000000}]}`
+
+	tests := []struct {
+		name    string
+		info    *relaycommon.RelayInfo
+		asserts func(t *testing.T, body []byte)
+	}{
+		{
+			name: "gemini",
+			info: geminiRelayInfo(constant.ChannelTypeCoze),
+			asserts: func(t *testing.T, body []byte) {
+				assert.Equal(t, "hi", gjson.GetBytes(body, "candidates.0.content.parts.0.text").String(), string(body))
+				assert.Equal(t, "STOP", gjson.GetBytes(body, "candidates.0.finishReason").String(), string(body))
+				assert.Equal(t, int64(4), gjson.GetBytes(body, "usageMetadata.totalTokenCount").Int(), string(body))
+			},
+		},
+		{
+			name: "claude",
+			info: claudeRelayInfo(constant.ChannelTypeCoze, "coze-bot"),
+			asserts: func(t *testing.T, body []byte) {
+				assert.Equal(t, "message", gjson.GetBytes(body, "type").String(), string(body))
+				assert.Equal(t, "hi", gjson.GetBytes(body, "content.0.text").String(), string(body))
+				assert.Equal(t, "end_turn", gjson.GetBytes(body, "stop_reason").String(), string(body))
+				assert.Equal(t, "coze-bot", gjson.GetBytes(body, "model").String(), string(body))
+				assert.Equal(t, int64(3), gjson.GetBytes(body, "usage.input_tokens").Int(), string(body))
+				assert.Equal(t, int64(1), gjson.GetBytes(body, "usage.output_tokens").Int(), string(body))
+			},
+		},
+		{
+			name: "openai",
+			info: openaiRelayInfo(constant.ChannelTypeCoze, "coze-bot"),
+			asserts: func(t *testing.T, body []byte) {
+				assert.Equal(t, "hi", gjson.GetBytes(body, "choices.0.message.content").String(), string(body))
+				assert.Equal(t, "stop", gjson.GetBytes(body, "choices.0.finish_reason").String(), string(body))
+				assert.Equal(t, int64(4), gjson.GetBytes(body, "usage.total_tokens").Int(), string(body))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			c := gin.CreateTestContextOnly(recorder, gin.New())
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+			// The poll that saw the run complete is what fills the usage in.
+			c.Set("coze_input_count", 3)
+			c.Set("coze_output_count", 1)
+			c.Set("coze_token_count", 4)
+
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(upstreamBody)),
+			}
+
+			adaptor := GetAdaptor(constant.APITypeCoze)
+			require.NotNil(t, adaptor)
+			usage, apiErr := adaptor.DoResponse(c, resp, tt.info)
+			require.Nil(t, apiErr)
+			require.NotNil(t, usage)
+
+			body := recorder.Body.Bytes()
+			if tt.info.RelayFormat != types.RelayFormatOpenAI {
+				assert.False(t, gjson.GetBytes(body, "choices").Exists(), "the chat shape must not reach the client: %s", body)
+			}
+			tt.asserts(t, body)
+		})
+	}
+}
+
+// Coze's stream carries the text and the usage in separate events, and its own
+// chunks have no finish reason: the terminal chat chunk the handler builds from
+// the completed event is what closes the converted formats, while the OpenAI
+// client keeps the chat stream it always got.
+func TestCozeStreamsTheConvertedFormats(t *testing.T) {
+	const upstreamStream = "event: conversation.message.delta\n" +
+		`data: {"content":"hi"}` + "\n\n" +
+		"event: conversation.chat.completed\n" +
+		`data: {"status":"completed","usage":{"token_count":4,"output_count":1,"input_count":3}}` + "\n\n"
+
+	tests := []struct {
+		name        string
+		info        *relaycommon.RelayInfo
+		wantContain []string
+		// The OpenAI format is the one that ends with a chat [DONE].
+		closesWithDone bool
+		openingFrame   int
+	}{
+		{
+			name:        "gemini",
+			info:        geminiRelayInfo(constant.ChannelTypeCoze),
+			wantContain: []string{"candidates", "hi", "totalTokenCount"},
+		},
+		{
+			name:        "claude",
+			info:        claudeRelayInfo(constant.ChannelTypeCoze, "coze-bot"),
+			wantContain: []string{"message_start", "content_block_delta", "hi", "message_stop", `"output_tokens"`},
+			// The terminal frame is the only frame that closes the stream, so a
+			// second opening would mean it was rendered twice.
+			openingFrame: 1,
+		},
+		{
+			name:           "openai",
+			info:           openaiRelayInfo(constant.ChannelTypeCoze, "coze-bot"),
+			wantContain:    []string{`"content":"hi"`, `"finish_reason":"stop"`},
+			closesWithDone: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder := newStreamRecorder()
+			c := gin.CreateTestContextOnly(recorder, gin.New())
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+			tt.info.IsStream = true
+
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+				Body:       io.NopCloser(strings.NewReader(upstreamStream)),
+			}
+
+			adaptor := GetAdaptor(constant.APITypeCoze)
+			require.NotNil(t, adaptor)
+			usage, apiErr := adaptor.DoResponse(c, resp, tt.info)
+			require.Nil(t, apiErr)
+			require.NotNil(t, usage)
+
+			body := recorder.Body.String()
+			for _, want := range tt.wantContain {
+				assert.Contains(t, body, want, body)
+			}
+			if tt.closesWithDone {
+				assert.Contains(t, body, "data: [DONE]", body)
+			} else {
+				assert.NotContains(t, body, "[DONE]", body)
+			}
+			assert.Equal(t, tt.openingFrame, strings.Count(body, `"type":"message_start"`), body)
+		})
+	}
+}
+
+func adaptor_DoResponse(t *testing.T, c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (any, *types.NewAPIError) {
+	t.Helper()
+	adaptor := GetAdaptor(constant.APITypeCoze)
+	require.NotNil(t, adaptor)
+	return adaptor.DoResponse(c, resp, info)
+}
+
 func geminiRelayInfo(channelType int) *relaycommon.RelayInfo {
 	return &relaycommon.RelayInfo{
 		RelayFormat:     types.RelayFormatGemini,

@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/samber/lo"
 	"github.com/zhourenke/pg-api/common"
+	"github.com/zhourenke/pg-api/relay/channel/openai"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	"github.com/zhourenke/pg-api/relay/helper"
 	"github.com/zhourenke/pg-api/relaykit/dto"
@@ -35,7 +37,10 @@ func convertCozeChatRequest(c *gin.Context, request dto.GeneralOpenAIRequest) *C
 	}
 	user := request.User
 	if len(user) == 0 {
-		user = json.RawMessage(helper.GetResponseID(c))
+		// Coze takes user_id as a JSON string, and the request id is one once
+		// quoted: the bare id would make the whole body invalid JSON, which is
+		// what every request without a user field used to send.
+		user = json.RawMessage(strconv.Quote(helper.GetResponseID(c)))
 	}
 	cozeRequest := &CozeChatRequest{
 		BotId:              c.GetString("bot_id"),
@@ -46,6 +51,9 @@ func convertCozeChatRequest(c *gin.Context, request dto.GeneralOpenAIRequest) *C
 	return cozeRequest
 }
 
+// cozeChatHandler renders the message list a completed /v3/chat run produced. The
+// chat body it builds is also the intermediate the other protocols are converted
+// from, so the same bot serves Anthropic Messages and generateContent.
 func cozeChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -53,9 +61,7 @@ func cozeChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Res
 	}
 	service.CloseResponseBodyGracefully(resp)
 	// convert coze response to openai response
-	var response dto.TextResponse
 	var cozeResponse CozeChatDetailResponse
-	response.Model = info.UpstreamModelName
 	err = json.Unmarshal(responseBody, &cozeResponse)
 	if err != nil {
 		return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
@@ -68,27 +74,48 @@ func cozeChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Res
 	usage.PromptTokens = c.GetInt("coze_input_count")
 	usage.CompletionTokens = c.GetInt("coze_output_count")
 	usage.TotalTokens = c.GetInt("coze_token_count")
-	response.Usage = usage
-	response.Id = helper.GetResponseID(c)
 
-	var responseContent json.RawMessage
+	response := dto.OpenAITextResponse{
+		Id:      helper.GetResponseID(c),
+		Object:  "chat.completion",
+		Created: common.GetTimestamp(),
+		Model:   info.UpstreamModelName,
+		Usage:   usage,
+	}
+	// The intermediate carries the answer as plain text: the converted formats
+	// read the message content as a string, and the chat shape is unchanged.
+	var answer string
 	for _, data := range cozeResponse.Data {
-		if data.Type == "answer" {
-			responseContent = data.Content
-			response.Created = data.CreatedAt
+		if data.Type != "answer" {
+			continue
 		}
+		if err := json.Unmarshal(data.Content, &answer); err != nil {
+			common.SysLog("error_unmarshalling_answer_content: " + err.Error())
+			continue
+		}
+		response.Created = data.CreatedAt
 	}
 	// 添加 response.Choices
 	response.Choices = []dto.OpenAITextResponseChoice{
 		{
 			Index:        0,
-			Message:      dto.Message{Role: "assistant", Content: responseContent},
+			Message:      dto.Message{Role: "assistant", Content: answer},
 			FinishReason: "stop",
 		},
 	}
-	jsonResponse, err := json.Marshal(response)
+	jsonResponse, err := common.Marshal(response)
 	if err != nil {
 		return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
+	}
+	if info.RelayFormat != types.RelayFormatOpenAI {
+		convertResult, err := service.ConvertResponse(c, info, info.RelayFormat, &response)
+		if err != nil {
+			return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
+		}
+		jsonResponse, err = common.Marshal(convertResult.Value)
+		if err != nil {
+			return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
+		}
 	}
 	c.Writer.Header().Set("Content-Type", "application/json")
 	c.Writer.WriteHeader(resp.StatusCode)
@@ -107,6 +134,7 @@ func cozeChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *ht
 	var currentEvent string
 	var currentData string
 	var usage = &dto.Usage{}
+	var lastStreamData string
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -114,7 +142,9 @@ func cozeChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *ht
 		if line == "" {
 			if currentEvent != "" && currentData != "" {
 				// handle last event
-				handleCozeEvent(c, currentEvent, currentData, &responseText, usage, id, info)
+				if apiErr := handleCozeEvent(c, currentEvent, currentData, &responseText, usage, id, info, &lastStreamData); apiErr != nil {
+					return nil, apiErr
+				}
 				currentEvent = ""
 				currentData = ""
 			}
@@ -134,22 +164,70 @@ func cozeChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *ht
 
 	// Last event
 	if currentEvent != "" && currentData != "" {
-		handleCozeEvent(c, currentEvent, currentData, &responseText, usage, id, info)
+		if apiErr := handleCozeEvent(c, currentEvent, currentData, &responseText, usage, id, info, &lastStreamData); apiErr != nil {
+			return nil, apiErr
+		}
 	}
 
 	if err := scanner.Err(); err != nil {
 		return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
 	}
-	helper.Done(c)
 
 	if usage.TotalTokens == 0 {
 		usage = service.ResponseText2Usage(c, responseText, info.UpstreamModelName, c.GetInt("coze_input_count"))
 	}
 
+	if info.RelayFormat != types.RelayFormatOpenAI {
+		// Coze's own chunks carry neither a finish reason nor the usage (that
+		// arrives in conversation.chat.completed), and both converted formats
+		// close over a terminal chat chunk that has them. It also opens the
+		// protocol when the run sent no delta event at all.
+		finishReason := "stop"
+		terminal := dto.ChatCompletionsStreamResponse{
+			Id:      id,
+			Object:  "chat.completion.chunk",
+			Created: common.GetTimestamp(),
+			Model:   info.UpstreamModelName,
+			Choices: []dto.ChatCompletionsStreamResponseChoice{{Index: 0, FinishReason: &finishReason}},
+			Usage:   usage,
+		}
+		if apiErr := emitCozeStreamChunk(c, info, terminal, &lastStreamData); apiErr != nil {
+			return nil, apiErr
+		}
+		// The converted formats end with their own closing event instead of a
+		// chat [DONE]; the Claude path needs its per-stream state.
+		info.EnsureClaudeConvertInfo()
+		openai.HandleFinalResponse(c, info, lastStreamData, id, common.GetTimestamp(), info.UpstreamModelName, "", usage, false)
+		return usage, nil
+	}
+
+	helper.Done(c)
+
 	return usage, nil
 }
 
-func handleCozeEvent(c *gin.Context, event string, data string, responseText *string, usage *dto.Usage, id string, info *relaycommon.RelayInfo) {
+// emitCozeStreamChunk sends one chat chunk as the OpenAI stream, or -- for a
+// client that asked in another protocol -- as the intermediate that protocol's
+// renderer converts, so one Coze event stream serves all three formats.
+func emitCozeStreamChunk(c *gin.Context, info *relaycommon.RelayInfo, chunk dto.ChatCompletionsStreamResponse, lastStreamData *string) *types.NewAPIError {
+	if info.RelayFormat == types.RelayFormatOpenAI {
+		if err := helper.ObjectData(c, chunk); err != nil {
+			common.SysLog(err.Error())
+		}
+		return nil
+	}
+	encoded, err := common.Marshal(chunk)
+	if err != nil {
+		return types.NewError(err, types.ErrorCodeBadResponseBody)
+	}
+	*lastStreamData = string(encoded)
+	if err := openai.HandleStreamFormat(c, info, *lastStreamData, false, false); err != nil {
+		return types.NewError(err, types.ErrorCodeBadResponseBody)
+	}
+	return nil
+}
+
+func handleCozeEvent(c *gin.Context, event string, data string, responseText *string, usage *dto.Usage, id string, info *relaycommon.RelayInfo, lastStreamData *string) *types.NewAPIError {
 	switch event {
 	case "conversation.chat.completed":
 		// 将 data 解析为 CozeChatResponseData
@@ -157,16 +235,22 @@ func handleCozeEvent(c *gin.Context, event string, data string, responseText *st
 		err := json.Unmarshal([]byte(data), &chatData)
 		if err != nil {
 			common.SysLog("error_unmarshalling_stream_response: " + err.Error())
-			return
+			return nil
 		}
 
 		usage.PromptTokens = chatData.Usage.InputCount
 		usage.CompletionTokens = chatData.Usage.OutputCount
 		usage.TotalTokens = chatData.Usage.TokenCount
 
-		finishReason := "stop"
-		stopResponse := helper.GenerateStopResponse(id, common.GetTimestamp(), info.UpstreamModelName, finishReason)
-		helper.ObjectData(c, stopResponse)
+		// A converted format is closed by the terminal chunk built at the end of
+		// the stream, so the stop frame belongs to the OpenAI path alone.
+		if info.RelayFormat != types.RelayFormatOpenAI {
+			return nil
+		}
+		stopResponse := helper.GenerateStopResponse(id, common.GetTimestamp(), info.UpstreamModelName, "stop")
+		if err := helper.ObjectData(c, stopResponse); err != nil {
+			common.SysLog(err.Error())
+		}
 
 	case "conversation.message.delta":
 		// 将 data 解析为 CozeChatV3MessageDetail
@@ -174,14 +258,14 @@ func handleCozeEvent(c *gin.Context, event string, data string, responseText *st
 		err := json.Unmarshal([]byte(data), &messageData)
 		if err != nil {
 			common.SysLog("error_unmarshalling_stream_response: " + err.Error())
-			return
+			return nil
 		}
 
 		var content string
 		err = json.Unmarshal(messageData.Content, &content)
 		if err != nil {
 			common.SysLog("error_unmarshalling_stream_response: " + err.Error())
-			return
+			return nil
 		}
 
 		*responseText += content
@@ -199,18 +283,19 @@ func handleCozeEvent(c *gin.Context, event string, data string, responseText *st
 		choice.Delta.SetContentString(content)
 		openaiResponse.Choices = append(openaiResponse.Choices, choice)
 
-		helper.ObjectData(c, openaiResponse)
+		return emitCozeStreamChunk(c, info, openaiResponse, lastStreamData)
 
 	case "error":
 		var errorData CozeError
 		err := json.Unmarshal([]byte(data), &errorData)
 		if err != nil {
 			common.SysLog("error_unmarshalling_stream_response: " + err.Error())
-			return
+			return nil
 		}
 
 		common.SysLog(fmt.Sprintf("stream event error: %v %v", errorData.Code, errorData.Message))
 	}
+	return nil
 }
 
 func checkIfChatComplete(a *Adaptor, c *gin.Context, info *relaycommon.RelayInfo) (error, bool) {
