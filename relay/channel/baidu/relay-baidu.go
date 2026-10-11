@@ -1,7 +1,6 @@
 package baidu
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -13,6 +12,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/constant"
+	"github.com/zhourenke/pg-api/relay/channel/openai"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	"github.com/zhourenke/pg-api/relay/helper"
 	"github.com/zhourenke/pg-api/relaykit/dto"
@@ -75,7 +75,9 @@ func responseBaidu2OpenAI(response *BaiduChatResponse) *dto.OpenAITextResponse {
 	return &fullTextResponse
 }
 
-func streamResponseBaidu2OpenAI(baiduResponse *BaiduChatStreamResponse) *dto.ChatCompletionsStreamResponse {
+// Every frame of a Baidu stream names the model that answered it; the model used
+// to be the literal "ernie-bot" on all of them.
+func streamResponseBaidu2OpenAI(baiduResponse *BaiduChatStreamResponse, model string) *dto.ChatCompletionsStreamResponse {
 	var choice dto.ChatCompletionsStreamResponseChoice
 	choice.Delta.SetContentString(baiduResponse.Result)
 	if baiduResponse.IsEnd {
@@ -85,7 +87,7 @@ func streamResponseBaidu2OpenAI(baiduResponse *BaiduChatStreamResponse) *dto.Cha
 		Id:      baiduResponse.Id,
 		Object:  "chat.completion.chunk",
 		Created: baiduResponse.Created,
-		Model:   "ernie-bot",
+		Model:   model,
 		Choices: []dto.ChatCompletionsStreamResponseChoice{choice},
 	}
 	return &response
@@ -114,8 +116,29 @@ func embeddingResponseBaidu2OpenAI(response *BaiduEmbeddingResponse) *dto.OpenAI
 	return &openAIEmbeddingResponse
 }
 
+// A client that asked in the Anthropic or the Gemini protocol gets that protocol
+// back: this channel has no dialect of its own for either, so the chat response
+// built here is the intermediate they are rendered from. The two formats are
+// named instead of testing for "not OpenAI" because the embedding format shares
+// this package and renders its own response, and both response handlers have to
+// agree on the answer.
+func isConvertedRelayFormat(info *relaycommon.RelayInfo) bool {
+	switch info.RelayFormat {
+	case types.RelayFormatClaude, types.RelayFormatGemini:
+		return true
+	}
+	return false
+}
+
+// A Baidu stream is a run of frames holding answer text and one closing frame
+// carrying is_end plus the usage. The OpenAI format keeps the frames it always
+// sent, now closed with the [DONE] marker every other channel sends; a client
+// that asked in another protocol gets that protocol back, rendered from the same
+// chat chunks and closed on the last frame, which carries the finish reason and
+// the usage together.
 func baiduStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*types.NewAPIError, *dto.Usage) {
 	usage := &dto.Usage{}
+	lastStreamData := ""
 	helper.StreamScannerHandler(c, resp, info, func(data string, sr *helper.StreamResult) {
 		var baiduResponse BaiduChatStreamResponse
 		if err := common.Unmarshal([]byte(data), &baiduResponse); err != nil {
@@ -128,13 +151,39 @@ func baiduStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.
 			usage.PromptTokens = baiduResponse.Usage.PromptTokens
 			usage.CompletionTokens = baiduResponse.Usage.TotalTokens - baiduResponse.Usage.PromptTokens
 		}
-		response := streamResponseBaidu2OpenAI(&baiduResponse)
-		if err := helper.ObjectData(c, response); err != nil {
-			common.SysLog("error sending stream response: " + err.Error())
+		response := streamResponseBaidu2OpenAI(&baiduResponse, info.UpstreamModelName)
+		if !isConvertedRelayFormat(info) {
+			if err := helper.ObjectData(c, response); err != nil {
+				common.SysLog("error sending stream response: " + err.Error())
+				sr.Error(err)
+			}
+			return
+		}
+		if baiduResponse.IsEnd {
+			response.Usage = usage
+		}
+		encoded, err := common.Marshal(response)
+		if err != nil {
+			common.SysLog("error marshalling stream response: " + err.Error())
+			sr.Error(err)
+			return
+		}
+		lastStreamData = string(encoded)
+		if err := openai.HandleStreamFormat(c, info, lastStreamData, false, false); err != nil {
+			common.SysLog("error converting stream response: " + err.Error())
 			sr.Error(err)
 		}
 	})
 	service.CloseResponseBodyGracefully(resp)
+	if isConvertedRelayFormat(info) {
+		// The converted formats end with their own closing event instead of a chat
+		// [DONE], and the Claude path needs its per-stream state. A stream that
+		// ended without a finishing frame is closed here.
+		info.EnsureClaudeConvertInfo()
+		openai.HandleFinalResponse(c, info, lastStreamData, helper.GetResponseID(c), common.GetTimestamp(), info.UpstreamModelName, "", usage, false)
+		return nil, usage
+	}
+	helper.Done(c)
 	return nil, usage
 }
 
@@ -145,7 +194,7 @@ func baiduHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respon
 		return types.NewError(err, types.ErrorCodeBadResponseBody), nil
 	}
 	service.CloseResponseBodyGracefully(resp)
-	err = json.Unmarshal(responseBody, &baiduResponse)
+	err = common.Unmarshal(responseBody, &baiduResponse)
 	if err != nil {
 		return types.NewError(err, types.ErrorCodeBadResponseBody), nil
 	}
@@ -153,9 +202,24 @@ func baiduHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respon
 		return types.NewError(fmt.Errorf("%s", baiduResponse.ErrorMsg), types.ErrorCodeBadResponseBody), nil
 	}
 	fullTextResponse := responseBaidu2OpenAI(&baiduResponse)
-	jsonResponse, err := json.Marshal(fullTextResponse)
-	if err != nil {
-		return types.NewError(err, types.ErrorCodeBadResponseBody), nil
+	// The chat body is the intermediate the converted formats are rendered from,
+	// and an empty model name is what it used to carry for every format.
+	fullTextResponse.Model = info.UpstreamModelName
+	var jsonResponse []byte
+	if isConvertedRelayFormat(info) {
+		convertResult, err := service.ConvertResponse(c, info, info.RelayFormat, fullTextResponse)
+		if err != nil {
+			return types.NewError(err, types.ErrorCodeBadResponseBody), nil
+		}
+		jsonResponse, err = common.Marshal(convertResult.Value)
+		if err != nil {
+			return types.NewError(err, types.ErrorCodeBadResponseBody), nil
+		}
+	} else {
+		jsonResponse, err = common.Marshal(fullTextResponse)
+		if err != nil {
+			return types.NewError(err, types.ErrorCodeBadResponseBody), nil
+		}
 	}
 	c.Writer.Header().Set("Content-Type", "application/json")
 	c.Writer.WriteHeader(resp.StatusCode)
@@ -170,7 +234,7 @@ func baiduEmbeddingHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *ht
 		return types.NewError(err, types.ErrorCodeBadResponseBody), nil
 	}
 	service.CloseResponseBodyGracefully(resp)
-	err = json.Unmarshal(responseBody, &baiduResponse)
+	err = common.Unmarshal(responseBody, &baiduResponse)
 	if err != nil {
 		return types.NewError(err, types.ErrorCodeBadResponseBody), nil
 	}
@@ -178,7 +242,7 @@ func baiduEmbeddingHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *ht
 		return types.NewError(fmt.Errorf("%s", baiduResponse.ErrorMsg), types.ErrorCodeBadResponseBody), nil
 	}
 	fullTextResponse := embeddingResponseBaidu2OpenAI(&baiduResponse)
-	jsonResponse, err := json.Marshal(fullTextResponse)
+	jsonResponse, err := common.Marshal(fullTextResponse)
 	if err != nil {
 		return types.NewError(err, types.ErrorCodeBadResponseBody), nil
 	}
@@ -230,7 +294,7 @@ func getBaiduAccessTokenHelper(apiKey string) (*BaiduAccessToken, error) {
 	defer res.Body.Close()
 
 	var accessToken BaiduAccessToken
-	err = json.NewDecoder(res.Body).Decode(&accessToken)
+	err = common.DecodeJson(res.Body, &accessToken)
 	if err != nil {
 		return nil, err
 	}

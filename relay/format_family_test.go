@@ -1186,6 +1186,208 @@ func TestZhipuRendersClaudeFromTheAnthropicEndpoint(t *testing.T) {
 	assert.False(t, gjson.GetBytes(body, "choices").Exists(), "the chat shape must not reach the client: %s", body)
 }
 
+// Baidu's own protocol has no Anthropic and no Gemini dialect, so both formats
+// are converted into a chat request and then reshaped by the channel's own OpenAI
+// conversion, exactly like the OpenAI format itself. The request URL is not
+// asserted here: resolving it fetches a Baidu access token from the vendor's fixed
+// token host, and the endpoint is shared by every format, so the converted
+// formats do not change it.
+func TestBaiduConvertsTheOtherFormatsIntoItsOwnRequest(t *testing.T) {
+	adaptor := GetAdaptor(constant.APITypeBaidu)
+	require.NotNil(t, adaptor)
+
+	t.Run("claude", func(t *testing.T) {
+		info := claudeRelayInfo(constant.ChannelTypeBaidu, "ERNIE-4.0-8K")
+		info.IsStream = true
+		c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+
+		maxTokens := uint(64)
+		converted, err := adaptor.ConvertClaudeRequest(c, info, &dto.ClaudeRequest{
+			Model:     "ERNIE-4.0-8K",
+			MaxTokens: &maxTokens,
+			Stream:    common.GetPointer(true),
+			System:    "you are brief",
+			Messages:  []dto.ClaudeMessage{{Role: "user", Content: "weather?"}},
+		})
+		require.NoError(t, err)
+		encoded, err := common.Marshal(converted)
+		require.NoError(t, err)
+
+		// A streaming client reaches the same endpoint, and the vendor body is what
+		// tells Baidu to answer with SSE frames.
+		assert.True(t, gjson.GetBytes(encoded, "stream").Bool(), string(encoded))
+		// Anthropic carries the system prompt as a top-level field while a chat
+		// upstream carries it as a message; Baidu has a field of its own for it, so
+		// the message list holds the conversation turns only.
+		assert.Equal(t, "you are brief", gjson.GetBytes(encoded, "system").String(), string(encoded))
+		assert.Equal(t, int64(1), gjson.GetBytes(encoded, "messages.#").Int(), string(encoded))
+		assert.Equal(t, "user", gjson.GetBytes(encoded, "messages.0.role").String(), string(encoded))
+		assert.Equal(t, "weather?", gjson.GetBytes(encoded, "messages.0.content").String(), string(encoded))
+		assert.Equal(t, int64(64), gjson.GetBytes(encoded, "max_output_tokens").Int(), string(encoded))
+		assert.False(t, gjson.GetBytes(encoded, "contents").Exists(), "the Gemini shape must not reach Baidu: %s", encoded)
+	})
+
+	t.Run("gemini", func(t *testing.T) {
+		info := geminiRelayInfo(constant.ChannelTypeBaidu)
+		info.IsStream = true
+		c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1beta/models/gemini-2.5-flash:streamGenerateContent", nil)
+
+		converted, err := adaptor.ConvertGeminiRequest(c, info, geminiRequest())
+		require.NoError(t, err)
+		encoded, err := common.Marshal(converted)
+		require.NoError(t, err)
+
+		assert.True(t, gjson.GetBytes(encoded, "stream").Bool(), string(encoded))
+		assert.Equal(t, "user", gjson.GetBytes(encoded, "messages.0.role").String(), string(encoded))
+		assert.Equal(t, "hello", gjson.GetBytes(encoded, "messages.0.content").String(), string(encoded))
+		assert.False(t, gjson.GetBytes(encoded, "contents").Exists(), "the Gemini shape must not reach Baidu: %s", encoded)
+	})
+}
+
+func TestBaiduRendersEveryFormatFromItsOwnResponse(t *testing.T) {
+	const upstreamBody = `{"id":"as-1","object":"chat.completion","created":1700000000,"result":"hi",` +
+		`"is_truncated":false,"need_clear_history":false,` +
+		`"usage":{"prompt_tokens":3,"completion_tokens":1,"total_tokens":4}}`
+
+	tests := []struct {
+		name    string
+		info    *relaycommon.RelayInfo
+		asserts func(t *testing.T, body []byte)
+	}{
+		{
+			name: "gemini",
+			info: geminiRelayInfo(constant.ChannelTypeBaidu),
+			asserts: func(t *testing.T, body []byte) {
+				assert.Equal(t, "hi", gjson.GetBytes(body, "candidates.0.content.parts.0.text").String(), string(body))
+				assert.Equal(t, int64(4), gjson.GetBytes(body, "usageMetadata.totalTokenCount").Int(), string(body))
+			},
+		},
+		{
+			name: "claude",
+			info: claudeRelayInfo(constant.ChannelTypeBaidu, "ERNIE-4.0-8K"),
+			asserts: func(t *testing.T, body []byte) {
+				assert.Equal(t, "message", gjson.GetBytes(body, "type").String(), string(body))
+				assert.Equal(t, "hi", gjson.GetBytes(body, "content.0.text").String(), string(body))
+				assert.Equal(t, "end_turn", gjson.GetBytes(body, "stop_reason").String(), string(body))
+				// The Anthropic message takes its model name from the chat body,
+				// which used to carry an empty one.
+				assert.Equal(t, "ERNIE-4.0-8K", gjson.GetBytes(body, "model").String(), string(body))
+				assert.Equal(t, int64(3), gjson.GetBytes(body, "usage.input_tokens").Int(), string(body))
+				assert.Equal(t, int64(1), gjson.GetBytes(body, "usage.output_tokens").Int(), string(body))
+			},
+		},
+		{
+			name: "openai",
+			info: openaiRelayInfo(constant.ChannelTypeBaidu, "ERNIE-4.0-8K"),
+			asserts: func(t *testing.T, body []byte) {
+				assert.Equal(t, "as-1", gjson.GetBytes(body, "id").String(), string(body))
+				assert.Equal(t, "ERNIE-4.0-8K", gjson.GetBytes(body, "model").String(), string(body))
+				assert.Equal(t, "hi", gjson.GetBytes(body, "choices.0.message.content").String(), string(body))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			c := gin.CreateTestContextOnly(recorder, gin.New())
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(upstreamBody)),
+			}
+
+			usage, apiErr := GetAdaptor(constant.APITypeBaidu).DoResponse(c, resp, tt.info)
+			require.Nil(t, apiErr)
+			require.NotNil(t, usage)
+
+			body := recorder.Body.Bytes()
+			if tt.info.RelayFormat != types.RelayFormatOpenAI {
+				assert.False(t, gjson.GetBytes(body, "choices").Exists(), "the chat shape must not reach the client: %s", body)
+			}
+			tt.asserts(t, body)
+		})
+	}
+}
+
+// The OpenAI format keeps the chat stream this channel always sent, now closed
+// with the [DONE] marker every other channel sends, while the converted formats
+// close on the frame that carries both the finish reason and the usage.
+func TestBaiduStreamsTheConvertedFormats(t *testing.T) {
+	const upstreamStream = `data: {"id":"as-1","object":"chat.completion","created":1700000000,` +
+		`"sentence_id":0,"is_end":false,"result":"hi"}` + "\n" +
+		`data: {"id":"as-1","object":"chat.completion","created":1700000000,` +
+		`"sentence_id":1,"is_end":true,"result":"",` +
+		`"usage":{"prompt_tokens":3,"completion_tokens":1,"total_tokens":4}}` + "\n"
+
+	tests := []struct {
+		name        string
+		info        *relaycommon.RelayInfo
+		wantContain []string
+		// The OpenAI format is the one that ends with a chat [DONE].
+		closesWithDone bool
+		openingFrame   int
+	}{
+		{
+			name:        "gemini",
+			info:        geminiRelayInfo(constant.ChannelTypeBaidu),
+			wantContain: []string{"candidates", "hi", "totalTokenCount"},
+		},
+		{
+			name:        "claude",
+			info:        claudeRelayInfo(constant.ChannelTypeBaidu, "ERNIE-4.0-8K"),
+			wantContain: []string{"message_start", "content_block_delta", "hi", "message_stop", `"output_tokens":1`},
+			// The closing frame carries the finish reason and the usage, so the
+			// stream is opened and closed by that one frame: a second opening would
+			// mean the terminal frame was rendered twice.
+			openingFrame: 1,
+		},
+		{
+			name:           "openai",
+			info:           openaiRelayInfo(constant.ChannelTypeBaidu, "ERNIE-4.0-8K"),
+			wantContain:    []string{`"id":"as-1"`, `"model":"ERNIE-4.0-8K"`, `"finish_reason":"stop"`},
+			closesWithDone: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// The shared Baidu scanner derives its idle timeout from this setting.
+			previousTimeout := constant.StreamingTimeout
+			constant.StreamingTimeout = 30
+			t.Cleanup(func() { constant.StreamingTimeout = previousTimeout })
+
+			recorder := newStreamRecorder()
+			c := gin.CreateTestContextOnly(recorder, gin.New())
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+			tt.info.IsStream = true
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+				Body:       io.NopCloser(strings.NewReader(upstreamStream)),
+			}
+
+			usage, apiErr := GetAdaptor(constant.APITypeBaidu).DoResponse(c, resp, tt.info)
+			require.Nil(t, apiErr)
+			require.NotNil(t, usage)
+
+			body := recorder.Body.String()
+			for _, want := range tt.wantContain {
+				assert.Contains(t, body, want, body)
+			}
+			if tt.closesWithDone {
+				assert.Contains(t, body, "data: [DONE]", body)
+			} else {
+				assert.NotContains(t, body, "[DONE]", body)
+			}
+			assert.Equal(t, tt.openingFrame, strings.Count(body, `"type":"message_start"`), body)
+		})
+	}
+}
+
 func geminiRelayInfo(channelType int) *relaycommon.RelayInfo {
 	return &relaycommon.RelayInfo{
 		RelayFormat:     types.RelayFormatGemini,
@@ -1196,6 +1398,22 @@ func geminiRelayInfo(channelType int) *relaycommon.RelayInfo {
 			ChannelType:       channelType,
 			ChannelBaseUrl:    "https://upstream.example.com",
 			UpstreamModelName: "gemini-2.5-flash",
+			ApiVersion:        "account-1",
+		},
+	}
+}
+
+// An OpenAI-format request, which is the path that produces the chat body the
+// converted formats are rendered from.
+func openaiRelayInfo(channelType int, model string) *relaycommon.RelayInfo {
+	return &relaycommon.RelayInfo{
+		RelayFormat:     types.RelayFormatOpenAI,
+		RequestURLPath:  "/v1/chat/completions",
+		OriginModelName: model,
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:       channelType,
+			ChannelBaseUrl:    "https://upstream.example.com",
+			UpstreamModelName: model,
 			ApiVersion:        "account-1",
 		},
 	}

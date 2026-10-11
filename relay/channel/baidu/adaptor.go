@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/zhourenke/pg-api/relay/channel"
+	"github.com/zhourenke/pg-api/relay/channel/openai"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	"github.com/zhourenke/pg-api/relay/constant"
 	"github.com/zhourenke/pg-api/relaykit/dto"
@@ -107,6 +108,17 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 		baiduRequest := requestOpenAI2Baidu(*request)
 		return baiduRequest, nil
 	}
+}
+
+// Baidu's own protocol has no Anthropic and no Gemini dialect, so a request in
+// either format is converted into a chat request and then shaped by this
+// channel's own OpenAI rules, exactly like the OpenAI format itself.
+func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.ClaudeRequest) (any, error) {
+	return openai.ConvertToChannelOpenAIRequest(c, info, request, a.ConvertOpenAIRequest)
+}
+
+func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
+	return openai.ConvertToChannelOpenAIRequest(c, info, request, a.ConvertOpenAIRequest)
 }
 
 func (a *Adaptor) ConvertEmbeddingRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.EmbeddingRequest) (any, error) {
