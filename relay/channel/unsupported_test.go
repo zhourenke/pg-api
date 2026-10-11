@@ -132,12 +132,14 @@ func TestChannelsWithoutTheFormatAnswerTheSharedClientError(t *testing.T) {
 			wantFormatSub: "Claude Messages",
 		},
 		{
-			name: "ollama gemini", channelType: constant.ChannelTypeOllama,
+			// Ollama serves the Gemini format through its own chat protocol, but
+			// it has no image endpoint at all.
+			name: "ollama image", channelType: constant.ChannelTypeOllama,
 			convert: func(info *relaycommon.RelayInfo) error {
-				_, err := (&ollama.Adaptor{}).ConvertGeminiRequest(nil, info, &dto.GeminiChatRequest{})
+				_, err := (&ollama.Adaptor{}).ConvertImageRequest(nil, info, dto.ImageRequest{})
 				return err
 			},
-			wantFormatSub: "Gemini generateContent",
+			wantFormatSub: "image",
 		},
 		{
 			name: "replicate claude", channelType: constant.ChannelTypeReplicate,

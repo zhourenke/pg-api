@@ -11,6 +11,7 @@ import (
 	"github.com/zhourenke/pg-api/constant"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	"github.com/zhourenke/pg-api/relaykit/dto"
+	"github.com/zhourenke/pg-api/relaykit/types"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -71,6 +72,7 @@ func TestOllamaChatHandlerNonStreamToolCalls(t *testing.T) {
 			}
 
 			usage, apiErr := ollamaChatHandler(c, &relaycommon.RelayInfo{
+				RelayFormat: types.RelayFormatOpenAI,
 				ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: "fallback-model"},
 			}, resp)
 			require.Nil(t, apiErr)
@@ -198,6 +200,7 @@ func TestOllamaStreamHandlerDoneToolCalls(t *testing.T) {
 	}
 
 	usage, apiErr := ollamaStreamHandler(c, &relaycommon.RelayInfo{
+		RelayFormat: types.RelayFormatOpenAI,
 		ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: "fallback-model"},
 	}, resp)
 	require.Nil(t, apiErr)

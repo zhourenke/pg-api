@@ -26,6 +26,15 @@ func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayIn
 	return adaptor.ConvertClaudeRequest(c, info, request)
 }
 
+// ConvertGeminiRequest serves generateContent through the chat protocol this
+// channel is configured for: with OllamaOpenAIChat the request becomes the chat
+// shape and goes to /v1/chat/completions, otherwise it becomes Ollama's own chat
+// request and goes to /api/chat. ConvertOpenAIRequest already makes that choice,
+// so the converted request is handed to it rather than to openai.Adaptor.
+func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
+	return openai.ConvertToChannelOpenAIRequest(c, info, request, a.ConvertOpenAIRequest)
+}
+
 func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 	// OpenAI-compatible chat responses are handled by the OpenAI adaptor, which
 	// relies on the thinking-to-content state initialized here.

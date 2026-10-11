@@ -498,6 +498,140 @@ func (r *streamRecorder) CloseNotify() <-chan bool {
 	return r.closed
 }
 
+// Ollama has two chat protocols behind one channel type: its own /api/chat and,
+// when OllamaOpenAIChat is on, the OpenAI-compatible /v1/chat/completions. A
+// Gemini client is served through whichever protocol the channel is configured
+// for, so the endpoint, the request body and the response rendering all follow
+// that choice.
+func TestOllamaServesGeminiThroughBothChatProtocols(t *testing.T) {
+	tests := []struct {
+		name         string
+		openAIChat   bool
+		wantURL      string
+		assertTarget func(t *testing.T, encoded []byte)
+	}{
+		{
+			name:       "native ollama chat",
+			openAIChat: false,
+			wantURL:    "https://upstream.example.com/api/chat",
+			assertTarget: func(t *testing.T, encoded []byte) {
+				// Ollama's own chat request carries the sampling parameters in
+				// options, not at the top level.
+				assert.Equal(t, 1.5, gjson.GetBytes(encoded, "options.top_p").Float(), string(encoded))
+				assert.False(t, gjson.GetBytes(encoded, "top_p").Exists(), string(encoded))
+			},
+		},
+		{
+			name:       "openai compatible chat",
+			openAIChat: true,
+			wantURL:    "https://upstream.example.com/v1/chat/completions",
+			assertTarget: func(t *testing.T, encoded []byte) {
+				assert.Equal(t, 1.5, gjson.GetBytes(encoded, "top_p").Float(), string(encoded))
+				assert.False(t, gjson.GetBytes(encoded, "options").Exists(), string(encoded))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			adaptor := GetAdaptor(constant.APITypeOllama)
+			require.NotNil(t, adaptor)
+
+			c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
+			info := geminiRelayInfo(constant.ChannelTypeOllama)
+			info.ChannelOtherSettings.OllamaOpenAIChat = tt.openAIChat
+
+			requestURL, err := adaptor.GetRequestURL(info)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantURL, requestURL)
+
+			converted, err := adaptor.ConvertGeminiRequest(c, info, geminiRequest())
+			require.NoError(t, err)
+			encoded, err := common.Marshal(converted)
+			require.NoError(t, err)
+
+			assert.Equal(t, "gemini-2.5-flash", gjson.GetBytes(encoded, "model").String(), string(encoded))
+			assert.Equal(t, "user", gjson.GetBytes(encoded, "messages.0.role").String(), string(encoded))
+			assert.Contains(t, gjson.GetBytes(encoded, "messages.0.content").String(), "hello")
+			assert.False(t, gjson.GetBytes(encoded, "contents").Exists(), "the Gemini shape must not reach Ollama: %s", encoded)
+			tt.assertTarget(t, encoded)
+		})
+	}
+}
+
+// The native chat response is Ollama's own shape (a single object or NDJSON
+// lines); the Gemini client is answered from the chat body the handler already
+// builds, and the OpenAI-compatible half is rendered by the OpenAI adaptor.
+func TestOllamaRendersGeminiFromBothChatProtocols(t *testing.T) {
+	const nativeBody = `{"model":"llama3.1","created_at":"2026-10-11T00:00:00Z",` +
+		`"message":{"role":"assistant","content":"hi"},"done":true,"done_reason":"stop",` +
+		`"prompt_eval_count":3,"eval_count":2}`
+	const chatBody = `{"id":"chatcmpl-1","object":"chat.completion","model":"llama3.1",` +
+		`"choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],` +
+		`"usage":{"prompt_tokens":3,"completion_tokens":2,"total_tokens":5}}`
+
+	tests := []struct {
+		name       string
+		openAIChat bool
+		body       string
+	}{
+		{"native ollama chat", false, nativeBody},
+		{"openai compatible chat", true, chatBody},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			c := gin.CreateTestContextOnly(recorder, gin.New())
+			info := geminiRelayInfo(constant.ChannelTypeOllama)
+			info.ChannelOtherSettings.OllamaOpenAIChat = tt.openAIChat
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(tt.body)),
+			}
+
+			usage, apiErr := GetAdaptor(constant.APITypeOllama).DoResponse(c, resp, info)
+			require.Nil(t, apiErr)
+			require.NotNil(t, usage)
+
+			body := recorder.Body.Bytes()
+			assert.Equal(t, "hi", gjson.GetBytes(body, "candidates.0.content.parts.0.text").String(), string(body))
+			assert.Equal(t, int64(5), gjson.GetBytes(body, "usageMetadata.totalTokenCount").Int(), string(body))
+			assert.False(t, gjson.GetBytes(body, "choices").Exists(), "a Gemini client must not receive the chat shape: %s", body)
+		})
+	}
+}
+
+// A native Ollama stream is NDJSON, and the Gemini client still receives Gemini
+// chunks and none of the chat stream's closing frames.
+func TestOllamaStreamsGeminiFromItsNativeProtocol(t *testing.T) {
+	const nativeStream = `{"model":"llama3.1","created_at":"2026-10-11T00:00:00Z",` +
+		`"message":{"role":"assistant","content":"hi"},"done":false}` + "\n" +
+		`{"model":"llama3.1","created_at":"2026-10-11T00:00:01Z","message":{"role":"assistant","content":""},` +
+		`"done":true,"done_reason":"stop","prompt_eval_count":3,"eval_count":2}` + "\n"
+
+	recorder := httptest.NewRecorder()
+	c := gin.CreateTestContextOnly(recorder, gin.New())
+	info := geminiRelayInfo(constant.ChannelTypeOllama)
+	info.IsStream = true
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/x-ndjson"}},
+		Body:       io.NopCloser(strings.NewReader(nativeStream)),
+	}
+
+	usage, apiErr := GetAdaptor(constant.APITypeOllama).DoResponse(c, resp, info)
+	require.Nil(t, apiErr)
+	require.NotNil(t, usage)
+
+	body := recorder.Body.String()
+	assert.Contains(t, body, "candidates", body)
+	assert.Contains(t, body, "hi", body)
+	assert.Contains(t, body, "totalTokenCount", body)
+	assert.NotContains(t, body, "[DONE]", body)
+}
+
 func geminiRelayInfo(channelType int) *relaycommon.RelayInfo {
 	return &relaycommon.RelayInfo{
 		RelayFormat:     types.RelayFormatGemini,

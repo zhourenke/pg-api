@@ -11,6 +11,7 @@ import (
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/constant"
 	"github.com/zhourenke/pg-api/logger"
+	"github.com/zhourenke/pg-api/relay/channel/openai"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	"github.com/zhourenke/pg-api/relay/helper"
 	"github.com/zhourenke/pg-api/relaykit/dto"
@@ -124,6 +125,19 @@ func buildOllamaStreamDelta(chunk *ollamaChatStreamChunk, responseID string, cre
 	return delta, hasPayload
 }
 
+// sendOllamaStreamData hands one chat chunk to the client: the OpenAI format
+// writes the chunk itself, and the other formats are rendered from it, so a
+// channel that speaks its own chat protocol can serve them too.
+func sendOllamaStreamData(c *gin.Context, info *relaycommon.RelayInfo, data []byte) {
+	if info.RelayFormat != types.RelayFormatOpenAI {
+		if err := openai.HandleStreamFormat(c, info, string(data), false, false); err != nil {
+			logger.LogError(c, "error converting stream response: "+err.Error())
+		}
+		return
+	}
+	_ = helper.StringData(c, string(data))
+}
+
 func toUnix(ts string) int64 {
 	if ts == "" {
 		return time.Now().Unix()
@@ -153,9 +167,14 @@ func ollamaStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 	var responseId = common.GetUUID()
 	var created = time.Now().Unix()
 	var toolCallIndex int
-	start := helper.GenerateStartEmptyResponse(responseId, created, model, nil)
-	if data, err := common.Marshal(start); err == nil {
-		_ = helper.StringData(c, string(data))
+	var lastStreamData string
+	// The empty opening frame exists so a chat client learns the role before the
+	// first token; the other formats get their opening from the conversion.
+	if info.RelayFormat == types.RelayFormatOpenAI {
+		start := helper.GenerateStartEmptyResponse(responseId, created, model, nil)
+		if data, err := common.Marshal(start); err == nil {
+			_ = helper.StringData(c, string(data))
+		}
 	}
 
 	for scanner.Scan() {
@@ -177,14 +196,16 @@ func ollamaStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 		if !chunk.Done {
 			delta, _ := buildOllamaStreamDelta(&chunk, responseId, created, model, &toolCallIndex)
 			if data, err := common.Marshal(delta); err == nil {
-				_ = helper.StringData(c, string(data))
+				lastStreamData = string(data)
+				sendOllamaStreamData(c, info, data)
 			}
 			continue
 		}
 		// done frame
 		if delta, hasPayload := buildOllamaStreamDelta(&chunk, responseId, created, model, &toolCallIndex); hasPayload {
 			if data, err := common.Marshal(delta); err == nil {
-				_ = helper.StringData(c, string(data))
+				lastStreamData = string(data)
+				sendOllamaStreamData(c, info, data)
 			}
 		}
 		// finalize once and break loop
@@ -201,8 +222,15 @@ func ollamaStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 		// emit stop delta
 		if stop := helper.GenerateStopResponse(responseId, created, model, finishReason); stop != nil {
 			if data, err := common.Marshal(stop); err == nil {
-				_ = helper.StringData(c, string(data))
+				lastStreamData = string(data)
+				sendOllamaStreamData(c, info, data)
 			}
+		}
+		if info.RelayFormat != types.RelayFormatOpenAI {
+			// The converted formats end with their own closing event, and Gemini
+			// needs this step to finalize its stream state from the last chunk.
+			openai.HandleFinalResponse(c, info, lastStreamData, responseId, created, model, "", usage, false)
+			break
 		}
 		// emit usage frame
 		if final := helper.GenerateFinalUsageResponse(responseId, created, model, *usage); final != nil {
@@ -326,7 +354,15 @@ func ollamaChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.R
 		finishReason = constant.FinishReasonToolCalls
 	}
 
-	msg := dto.Message{Role: "assistant", Content: contentPtr(content)}
+	msg := dto.Message{Role: "assistant"}
+	if info.RelayFormat == types.RelayFormatOpenAI {
+		msg.Content = contentPtr(content)
+	} else {
+		// dto.Message.StringContent only unwraps a plain string or a media array,
+		// so the pointer the OpenAI shape tolerates would read as empty text by
+		// the converters that render another protocol from this body.
+		msg.Content = content
+	}
 	if len(toolCalls) > 0 {
 		if rawToolCalls, err := common.Marshal(toolCalls); err == nil {
 			msg.ToolCalls = rawToolCalls
@@ -348,6 +384,18 @@ func ollamaChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.R
 		Usage: *usage,
 	}
 	out, _ := common.Marshal(full)
+	// A client that asked in another protocol gets that protocol back: the chat
+	// body built above is the intermediate it is rendered from.
+	if info.RelayFormat != types.RelayFormatOpenAI {
+		convertResult, err := service.ConvertResponse(c, info, info.RelayFormat, &full)
+		if err != nil {
+			return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+		}
+		out, err = common.Marshal(convertResult.Value)
+		if err != nil {
+			return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+		}
+	}
 	service.IOCopyBytesGracefully(c, resp, out)
 	return usage, nil
 }
