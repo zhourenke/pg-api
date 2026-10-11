@@ -20,6 +20,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 	"github.com/zhourenke/pg-api/common"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	"github.com/zhourenke/pg-api/relaykit/dto"
@@ -183,68 +184,45 @@ func TestDoAwsClientRequest_AppliesRuntimeHeaderOverrideToAnthropicBeta(t *testi
 	require.Equal(t, []any{"computer-use-2025-01-24"}, values)
 }
 
-// An api_key channel is served by the SDK path: GetRequestURL is what assigns
-// ClientMode and nothing calls it before DoRequest, so the plain-HTTP branch is not
-// reached today. These three pieces are pinned directly all the same -- they are
-// what that branch would send if it were wired up, and they have to agree with the
-// path, the bearer token and the body the SDK path builds.
-func TestAwsApiKeyModeBuildsTheInvokeModelRequest(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	c, _ := gin.CreateTestContext(httptest.NewRecorder())
-	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+// The non-stream half of the path the test above reads in chunks: one Bedrock
+// response is handed to the Claude handler this channel delegates to, and the body
+// that reaches the client is the Gemini one. nil is passed for the HTTP response
+// because the SDK path issues the request itself and never returns one.
+func TestAwsHandlerRendersGeminiFromBedrockResponse(t *testing.T) {
+	const anthropicBody = `{"id":"msg_test","type":"message","role":"assistant","model":"claude-test",` +
+		`"content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn",` +
+		`"usage":{"input_tokens":3,"output_tokens":1}}`
 
-	info := &relaycommon.RelayInfo{
-		OriginModelName: "claude-3-5-sonnet-20240620",
-		ChannelMeta: &relaycommon.ChannelMeta{
-			ApiKey:            "mock-api-key|us-east-1",
-			UpstreamModelName: "claude-3-5-sonnet-20240620",
-		},
-	}
-	info.ChannelOtherSettings.AwsKeyType = dto.AwsKeyTypeApiKey
-	adaptor := &Adaptor{}
+	client := newAwsTestClient(awsHTTPClientFunc(func(request *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Status:     "200 OK",
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(anthropicBody)),
+			Request:    request,
+		}, nil
+	}))
+	adaptor := &Adaptor{AwsClient: client, AwsReq: newAwsInvokeModelInput()}
+	recorder := httptest.NewRecorder()
+	c := newAwsTestContext(recorder, context.Background())
 
-	requestURL, err := adaptor.GetRequestURL(info)
-	require.NoError(t, err)
-	assert.Equal(t, ClientModeApiKey, adaptor.ClientMode)
-	assert.Equal(t,
-		"https://bedrock-runtime.us-east-1.amazonaws.com/model/us.anthropic.claude-3-5-sonnet-20240620-v1:0/invoke",
-		requestURL)
+	info := newAwsTestRelayInfo()
+	info.IsStream = false
+	info.RelayFormat = relaytypes.RelayFormatGemini
 
-	header := http.Header{}
-	require.NoError(t, adaptor.SetupRequestHeader(c, &header, info))
-	assert.Equal(t, "Bearer mock-api-key", header.Get("Authorization"), "the region half is not part of the token")
-	assert.Equal(t, "application/json", header.Get("Content-Type"))
+	usage, apiErr := adaptor.DoResponse(c, nil, info)
 
-	body, err := prepareAwsInvokeBody(c, info, adaptor, strings.NewReader(
-		`{"model":"claude-3-5-sonnet-20240620","stream":true,"max_tokens":64,"messages":[{"role":"user","content":"hello"}]}`))
-	require.NoError(t, err)
-	var payload map[string]any
-	require.NoError(t, common.Unmarshal(body, &payload))
-	assert.Equal(t, "bedrock-2023-05-31", payload["anthropic_version"], string(body))
-	assert.NotContains(t, payload, "model", string(body))
-	assert.NotContains(t, payload, "stream", string(body))
-	messages, ok := payload["messages"].([]any)
-	require.True(t, ok, string(body))
-	first, ok := messages[0].(map[string]any)
-	require.True(t, ok, string(body))
-	assert.Equal(t, "user", first["role"])
+	require.Nil(t, apiErr)
+	require.NotNil(t, usage)
+	require.IsType(t, &dto.Usage{}, usage)
+	assert.Equal(t, 3, usage.(*dto.Usage).PromptTokens)
+	assert.Equal(t, 1, usage.(*dto.Usage).CompletionTokens)
 
-	// AK/SK mode keeps returning no URL of its own, because the SDK builds it.
-	aksAdaptor := &Adaptor{}
-	aksURL, err := aksAdaptor.GetRequestURL(&relaycommon.RelayInfo{
-		ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: "claude-3-5-sonnet-20240620"},
-	})
-	require.NoError(t, err)
-	assert.Empty(t, aksURL)
-	assert.Equal(t, ClientModeAKSK, aksAdaptor.ClientMode)
-
-	// A key that is not <api-key>|<region> is refused before any request is built.
-	badInfo := &relaycommon.RelayInfo{
-		ChannelMeta: &relaycommon.ChannelMeta{ApiKey: "just-a-key", UpstreamModelName: "claude-3-5-sonnet-20240620"},
-	}
-	badInfo.ChannelOtherSettings.AwsKeyType = dto.AwsKeyTypeApiKey
-	_, err = (&Adaptor{}).GetRequestURL(badInfo)
-	require.Error(t, err)
+	body := recorder.Body.Bytes()
+	assert.Equal(t, "hi", gjson.GetBytes(body, "candidates.0.content.parts.0.text").String(), string(body))
+	assert.Equal(t, "STOP", gjson.GetBytes(body, "candidates.0.finishReason").String(), string(body))
+	assert.Equal(t, int64(4), gjson.GetBytes(body, "usageMetadata.totalTokenCount").Int(), string(body))
+	assert.False(t, gjson.GetBytes(body, "choices").Exists(), "a Gemini client must not receive the chat shape: %s", body)
 }
 
 func TestNewAwsInvokeContextInheritsParent(t *testing.T) {

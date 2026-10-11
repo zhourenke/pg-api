@@ -1,12 +1,9 @@
 package aws
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
-	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime"
 	"github.com/pkg/errors"
@@ -21,20 +18,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type ClientMode int
-
-const (
-	ClientModeApiKey ClientMode = iota + 1
-	ClientModeAKSK
-)
-
 type Adaptor struct {
 	channel.Unsupported
-	ClientMode ClientMode
-	AwsClient  *bedrockruntime.Client
-	AwsModelId string
-	AwsReq     any
-	IsNova     bool
+	AwsClient *bedrockruntime.Client
+	AwsReq    any
+	IsNova    bool
 }
 
 func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.ClaudeRequest) (any, error) {
@@ -81,44 +69,23 @@ func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayIn
 func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 }
 
+// GetRequestURL returns no URL for any format: this channel hands the request to
+// the AWS SDK, which builds the Bedrock endpoint from the region inside the channel
+// key (see newAwsClient). The two key shapes are both credential material the SDK
+// consumes -- <api-key>|<region> becomes a bearer token provider, <ak>|<sk>|<region>
+// becomes SigV4 credentials -- so neither of them has an endpoint of its own here.
+// The endpoint is InvokeModel's, POST /model/{id}/invoke (streaming:
+// /invoke-with-response-stream), with the Anthropic Messages body this package
+// builds and anthropic_version stamped on it.
 func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
-	if info.ChannelOtherSettings.AwsKeyType == dto.AwsKeyTypeApiKey {
-		// This branch is not the one a relay request takes: ClientMode is assigned
-		// here and nowhere else, and this branch is the only caller of
-		// channel.DoApiRequest, so an api_key channel reaches the SDK path in
-		// DoRequest and is served by the bearer token provider newAwsClient builds
-		// from the same two-part key. It is kept coherent with that path all the
-		// same, because wiring it up as it used to be would have sent a request
-		// Bedrock rejects.
-		a.ClientMode = ClientModeApiKey
-		awsSecret := strings.Split(info.ApiKey, "|")
-		if len(awsSecret) != 2 {
-			return "", errors.New("invalid aws api key, should be in format of <api-key>|<region>")
-		}
-		region := awsSecret[1]
-		// InvokeModel's path, not Converse's: the body this channel builds is the
-		// model-native Anthropic one, while Converse takes a schema of its own and
-		// answers in a shape of its own.
-		awsModelId := getAwsModelID(info.UpstreamModelName)
-		regionPrefix := getAwsRegionPrefix(region)
-		if awsModelCanCrossRegion(awsModelId, regionPrefix) {
-			awsModelId = awsModelCrossRegion(awsModelId, regionPrefix)
-		}
-		return fmt.Sprintf("https://bedrock-runtime.%s.amazonaws.com/model/%s/invoke", region, url.PathEscape(awsModelId)), nil
-	}
-	a.ClientMode = ClientModeAKSK
 	return "", nil
 }
 
 func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *relaycommon.RelayInfo) error {
+	// Authentication is the SDK's business: it signs with the credentials or sends
+	// the bearer token newAwsClient built. What is left here feeds formatRequest,
+	// which reads the Anthropic headers out of the map it is given.
 	claude.CommonClaudeHeadersOperation(c, req, info)
-	if a.ClientMode == ClientModeApiKey {
-		// The channel key is <api-key>|<region>: the key half is the bearer token,
-		// and GetRequestURL is what puts the region into the host.
-		apiKey, _, _ := strings.Cut(info.ApiKey, "|")
-		req.Set("Authorization", "Bearer "+apiKey)
-		req.Set("Content-Type", "application/json")
-	}
 	return nil
 }
 
@@ -162,35 +129,16 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 }
 
 func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, requestBody io.Reader) (any, error) {
-	if a.ClientMode == ClientModeApiKey {
-		// See GetRequestURL: nothing assigns ClientMode before DoRequest, so this
-		// branch is not reached today. The body preparation is the SDK path's, which
-		// is what makes the plain-HTTP request carry the anthropic_version Bedrock
-		// requires and no model/stream fields.
-		body, err := prepareAwsInvokeBody(c, info, a, requestBody)
-		if err != nil {
-			return nil, types.NewError(err, types.ErrorCodeBadRequestBody)
-		}
-		return channel.DoApiRequest(a, c, info, bytes.NewReader(body))
-	} else {
-		return doAwsClientRequest(c, info, a, requestBody)
-	}
+	return doAwsClientRequest(c, info, a, requestBody)
 }
 
 func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (usage any, err *types.NewAPIError) {
-	if a.ClientMode == ClientModeApiKey {
-		claudeAdaptor := claude.Adaptor{}
-		usage, err = claudeAdaptor.DoResponse(c, resp, info)
+	if a.IsNova {
+		err, usage = handleNovaRequest(c, info, a)
+	} else if info.IsStream {
+		err, usage = awsStreamHandler(c, info, a)
 	} else {
-		if a.IsNova {
-			err, usage = handleNovaRequest(c, info, a)
-		} else {
-			if info.IsStream {
-				err, usage = awsStreamHandler(c, info, a)
-			} else {
-				err, usage = awsHandler(c, info, a)
-			}
-		}
+		err, usage = awsHandler(c, info, a)
 	}
 	return
 }

@@ -132,9 +132,28 @@ func doAwsClientRequest(c *gin.Context, info *relaycommon.RelayInfo, a *Adaptor,
 		return nil, nil
 	}
 
-	body, err := prepareAwsInvokeBody(c, info, a, requestBody)
+	// The InvokeModel body is built over the Anthropic headers: formatRequest reads
+	// them, stamps Bedrock's own anthropic_version field and decodes model/stream
+	// away, and buildAwsRequestBody applies the pass-through rule.
+	requestHeader := http.Header{}
+	if err := a.SetupRequestHeader(c, &requestHeader, info); err != nil {
+		return nil, types.NewError(err, types.ErrorCodeBadRequestBody)
+	}
+	headerOverride, err := channel.ResolveHeaderOverride(info, c)
 	if err != nil {
 		return nil, types.NewError(err, types.ErrorCodeBadRequestBody)
+	}
+	for key, value := range headerOverride {
+		requestHeader.Set(key, value)
+	}
+
+	awsClaudeReq, err := formatRequest(requestBody, requestHeader)
+	if err != nil {
+		return nil, types.NewError(errors.Wrap(err, "format aws request fail"), types.ErrorCodeBadRequestBody)
+	}
+	body, err := buildAwsRequestBody(c, info, awsClaudeReq)
+	if err != nil {
+		return nil, types.NewError(errors.Wrap(err, "marshal aws request fail"), types.ErrorCodeBadRequestBody)
 	}
 
 	if info.IsStream {
@@ -153,35 +172,6 @@ func doAwsClientRequest(c *gin.Context, info *relaycommon.RelayInfo, a *Adaptor,
 		Body:        body,
 	}
 	return nil, nil
-}
-
-// prepareAwsInvokeBody builds the payload InvokeModel takes, over the headers the
-// body preparation reads: formatRequest stamps Bedrock's own anthropic_version
-// field and decodes model/stream away, and buildAwsRequestBody applies the
-// pass-through rule. Both the SDK path and the api-key path use it, so the two
-// cannot drift into bodies Bedrock accepts from one and rejects from the other.
-func prepareAwsInvokeBody(c *gin.Context, info *relaycommon.RelayInfo, a *Adaptor, requestBody io.Reader) ([]byte, error) {
-	requestHeader := http.Header{}
-	if err := a.SetupRequestHeader(c, &requestHeader, info); err != nil {
-		return nil, err
-	}
-	headerOverride, err := channel.ResolveHeaderOverride(info, c)
-	if err != nil {
-		return nil, err
-	}
-	for key, value := range headerOverride {
-		requestHeader.Set(key, value)
-	}
-
-	awsClaudeReq, err := formatRequest(requestBody, requestHeader)
-	if err != nil {
-		return nil, errors.Wrap(err, "format aws request fail")
-	}
-	body, err := buildAwsRequestBody(c, info, awsClaudeReq)
-	if err != nil {
-		return nil, errors.Wrap(err, "marshal aws request fail")
-	}
-	return body, nil
 }
 
 // buildAwsRequestBody prepares the payload for AWS requests, applying passthrough rules when enabled.

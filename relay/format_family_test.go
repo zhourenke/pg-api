@@ -369,9 +369,6 @@ func TestVolcengineServesGeminiFromTheEndpointItsBaseUrlNames(t *testing.T) {
 // a Nova model stays refused instead of returning the wrong protocol with a 200.
 func TestAwsServesGeminiThroughItsBedrockBody(t *testing.T) {
 	const model = "claude-3-5-sonnet-20240620"
-	const anthropicBody = `{"id":"msg_1","type":"message","role":"assistant","model":"claude-3-5-sonnet-20240620",` +
-		`"content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn",` +
-		`"usage":{"input_tokens":3,"output_tokens":1}}`
 
 	adaptor := GetAdaptor(constant.APITypeAws)
 	require.NotNil(t, adaptor)
@@ -394,39 +391,11 @@ func TestAwsServesGeminiThroughItsBedrockBody(t *testing.T) {
 		assert.False(t, gjson.GetBytes(encoded, "choices").Exists(), string(encoded))
 	})
 
-	// API-key mode posts the body in the request itself instead of driving the SDK,
-	// which makes it the one mode this package can drive without an AWS client: it
-	// stands in here for the response half, since the rendering it borrows from the
-	// Claude channel is what renders a Gemini client's answer. GetRequestURL is
-	// called only because it selects the client mode DoResponse dispatches on; the
-	// request that mode would send is pinned in the aws package, next to the SDK
-	// path it has to agree with.
-	t.Run("the response keeps the Gemini shape", func(t *testing.T) {
-		recorder := httptest.NewRecorder()
-		c := gin.CreateTestContextOnly(recorder, gin.New())
-		c.Request = httptest.NewRequest(http.MethodPost, "/v1beta/models/x:generateContent", nil)
-		info := geminiRelayInfo(constant.ChannelTypeAws)
-		info.UpstreamModelName = model
-		info.ChannelOtherSettings.AwsKeyType = dto.AwsKeyTypeApiKey
-		info.ApiKey = "bedrock-api-key|us-east-1"
-
-		_, err := adaptor.GetRequestURL(info)
-		require.NoError(t, err)
-
-		resp := &http.Response{
-			StatusCode: http.StatusOK,
-			Header:     http.Header{"Content-Type": []string{"application/json"}},
-			Body:       io.NopCloser(strings.NewReader(anthropicBody)),
-		}
-		usage, apiErr := adaptor.DoResponse(c, resp, info)
-		require.Nil(t, apiErr)
-		require.NotNil(t, usage)
-
-		body := recorder.Body.Bytes()
-		assert.Equal(t, "hi", gjson.GetBytes(body, "candidates.0.content.parts.0.text").String(), string(body))
-		assert.Equal(t, int64(4), gjson.GetBytes(body, "usageMetadata.totalTokenCount").Int(), string(body))
-		assert.False(t, gjson.GetBytes(body, "choices").Exists(), "a Gemini client must not receive the chat shape: %s", body)
-	})
+	// The response half needs a Bedrock client, because this channel drives the AWS
+	// SDK rather than posting through the shared request helper, so both of its
+	// shapes are pinned next to that path in the aws package:
+	// TestAwsHandlerRendersGeminiFromBedrockResponse for one answer and
+	// TestAwsStreamHandlerRendersGeminiFromBedrockEvents for the chunked one.
 
 	// The control for the refusal below: Nova keeps its own conversion on the chat
 	// format, so what is refused is that branch reaching a Gemini client.
