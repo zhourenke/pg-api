@@ -962,6 +962,84 @@ func TestPaLMStreamsTheConvertedFormats(t *testing.T) {
 	}
 }
 
+// Zhipu's Anthropic-compatible endpoint exists only for the coding-plan base URLs,
+// which are stored as the plan name in the channel's base URL field. Any other base
+// URL speaks the legacy v3 model-api protocol, which takes neither an Anthropic
+// body nor anything derived from one, so the shared refusal stays in place there and
+// the capability cannot be declared per api type.
+func TestZhipuServesClaudeOnCodingPlanBasesOnly(t *testing.T) {
+	adaptor := GetAdaptor(constant.APITypeZhipu)
+	require.NotNil(t, adaptor)
+
+	t.Run("coding plan", func(t *testing.T) {
+		info := claudeRelayInfo(constant.ChannelTypeZhipu, "glm-4.6")
+		info.ChannelBaseUrl = "glm-coding-plan"
+		info.ApiKey = "coding-plan-key"
+
+		c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+		requestURL, err := adaptor.GetRequestURL(info)
+		require.NoError(t, err)
+		assert.Equal(t, "https://open.bigmodel.cn/api/anthropic/v1/messages", requestURL)
+
+		header := http.Header{}
+		require.NoError(t, adaptor.SetupRequestHeader(c, &header, info))
+		// The Anthropic-compatible endpoint takes the key itself, not the signed
+		// token the v3 model-api endpoints require.
+		assert.Equal(t, "Bearer coding-plan-key", header.Get("Authorization"))
+
+		converted, err := adaptor.ConvertClaudeRequest(c, info, claudeRequest("glm-4.6"))
+		require.NoError(t, err)
+		encoded, err := common.Marshal(converted)
+		require.NoError(t, err)
+		assert.Equal(t, "you are brief", gjson.GetBytes(encoded, "system").String(), string(encoded))
+		assert.Equal(t, "weather?", gjson.GetBytes(encoded, "messages.0.content").String(), string(encoded))
+		assert.False(t, gjson.GetBytes(encoded, "prompt").Exists(), "the v3 shape must not reach the Anthropic endpoint: %s", encoded)
+	})
+
+	t.Run("legacy base url", func(t *testing.T) {
+		info := claudeRelayInfo(constant.ChannelTypeZhipu, "glm-4.6")
+		c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
+
+		_, err := adaptor.ConvertClaudeRequest(c, info, claudeRequest("glm-4.6"))
+		var apiErr *types.NewAPIError
+		require.ErrorAs(t, err, &apiErr)
+		assert.Equal(t, http.StatusBadRequest, apiErr.StatusCode)
+		assert.Equal(t, types.ErrorCodeChannelFormatUnsupported, apiErr.GetErrorCode())
+
+		// The v3 endpoint is still the one the OpenAI format uses.
+		requestURL, err := adaptor.GetRequestURL(info)
+		require.NoError(t, err)
+		assert.Equal(t, "https://upstream.example.com/api/paas/v3/model-api/glm-4.6/invoke", requestURL)
+	})
+}
+
+func TestZhipuRendersClaudeFromTheAnthropicEndpoint(t *testing.T) {
+	const upstreamBody = `{"id":"msg_1","type":"message","role":"assistant",` +
+		`"model":"glm-4.6","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn",` +
+		`"usage":{"input_tokens":3,"output_tokens":1}}`
+
+	recorder := httptest.NewRecorder()
+	c := gin.CreateTestContextOnly(recorder, gin.New())
+	info := claudeRelayInfo(constant.ChannelTypeZhipu, "glm-4.6")
+	info.ChannelBaseUrl = "glm-coding-plan"
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(upstreamBody)),
+	}
+
+	usage, apiErr := GetAdaptor(constant.APITypeZhipu).DoResponse(c, resp, info)
+	require.Nil(t, apiErr)
+	require.NotNil(t, usage)
+
+	body := recorder.Body.Bytes()
+	assert.Equal(t, "message", gjson.GetBytes(body, "type").String(), string(body))
+	assert.Equal(t, "hi", gjson.GetBytes(body, "content.0.text").String(), string(body))
+	assert.Equal(t, int64(3), gjson.GetBytes(body, "usage.input_tokens").Int(), string(body))
+	assert.False(t, gjson.GetBytes(body, "choices").Exists(), "the chat shape must not reach the client: %s", body)
+}
+
 func geminiRelayInfo(channelType int) *relaycommon.RelayInfo {
 	return &relaycommon.RelayInfo{
 		RelayFormat:     types.RelayFormatGemini,
