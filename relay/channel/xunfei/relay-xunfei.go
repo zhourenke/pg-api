@@ -4,7 +4,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/url"
@@ -14,6 +13,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/constant"
+	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	"github.com/zhourenke/pg-api/relay/helper"
 	"github.com/zhourenke/pg-api/relaykit/dto"
 	"github.com/zhourenke/pg-api/relaykit/types"
@@ -128,9 +128,8 @@ func buildXunfeiAuthUrl(hostUrl string, apiKey, apiSecret string) string {
 	return callUrl
 }
 
-func xunfeiStreamHandler(c *gin.Context, textRequest dto.GeneralOpenAIRequest, appId string, apiSecret string, apiKey string) (*dto.Usage, *types.NewAPIError) {
-	domain, authUrl := getXunfeiAuthUrl(c, apiKey, apiSecret, textRequest.Model)
-	dataChan, stopChan, err := xunfeiMakeRequest(textRequest, domain, authUrl, appId)
+func xunfeiStreamHandler(c *gin.Context, conn *websocket.Conn, textRequest dto.GeneralOpenAIRequest, appId string, domain string) (*dto.Usage, *types.NewAPIError) {
+	dataChan, stopChan, err := xunfeiMakeRequest(c, conn, textRequest, domain, appId)
 	if err != nil {
 		return nil, types.NewError(err, types.ErrorCodeDoRequestFailed)
 	}
@@ -143,7 +142,7 @@ func xunfeiStreamHandler(c *gin.Context, textRequest dto.GeneralOpenAIRequest, a
 			usage.CompletionTokens += xunfeiResponse.Payload.Usage.Text.CompletionTokens
 			usage.TotalTokens += xunfeiResponse.Payload.Usage.Text.TotalTokens
 			response := streamResponseXunfei2OpenAI(&xunfeiResponse)
-			jsonResponse, err := json.Marshal(response)
+			jsonResponse, err := common.Marshal(response)
 			if err != nil {
 				common.SysLog("error marshalling stream response: " + err.Error())
 				return true
@@ -158,9 +157,8 @@ func xunfeiStreamHandler(c *gin.Context, textRequest dto.GeneralOpenAIRequest, a
 	return &usage, nil
 }
 
-func xunfeiHandler(c *gin.Context, textRequest dto.GeneralOpenAIRequest, appId string, apiSecret string, apiKey string) (*dto.Usage, *types.NewAPIError) {
-	domain, authUrl := getXunfeiAuthUrl(c, apiKey, apiSecret, textRequest.Model)
-	dataChan, stopChan, err := xunfeiMakeRequest(textRequest, domain, authUrl, appId)
+func xunfeiHandler(c *gin.Context, conn *websocket.Conn, textRequest dto.GeneralOpenAIRequest, appId string, domain string) (*dto.Usage, *types.NewAPIError) {
+	dataChan, stopChan, err := xunfeiMakeRequest(c, conn, textRequest, domain, appId)
 	if err != nil {
 		return nil, types.NewError(err, types.ErrorCodeDoRequestFailed)
 	}
@@ -191,7 +189,7 @@ func xunfeiHandler(c *gin.Context, textRequest dto.GeneralOpenAIRequest, appId s
 	xunfeiResponse.Payload.Choices.Text[0].Content = content
 
 	response := responseXunfei2OpenAI(&xunfeiResponse)
-	jsonResponse, err := json.Marshal(response)
+	jsonResponse, err := common.Marshal(response)
 	if err != nil {
 		return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
 	}
@@ -200,23 +198,17 @@ func xunfeiHandler(c *gin.Context, textRequest dto.GeneralOpenAIRequest, appId s
 	return &usage, nil
 }
 
-func xunfeiMakeRequest(textRequest dto.GeneralOpenAIRequest, domain, authUrl, appId string) (chan XunfeiChatResponse, chan bool, error) {
-	d := websocket.Dialer{
-		HandshakeTimeout: 5 * time.Second,
-	}
-	conn, resp, err := d.Dial(authUrl, nil)
-	if err != nil || resp.StatusCode != 101 {
-		return nil, nil, err
-	}
-
+func xunfeiMakeRequest(c *gin.Context, conn *websocket.Conn, textRequest dto.GeneralOpenAIRequest, domain, appId string) (chan XunfeiChatResponse, chan bool, error) {
 	data := requestOpenAI2Xunfei(textRequest, appId, domain)
-	err = conn.WriteJSON(data)
+	err := conn.WriteJSON(data)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	dataChan := make(chan XunfeiChatResponse)
-	stopChan := make(chan bool)
+	// 读取协程收尾时要把最后的结果交给 stopChan：缓冲一格，客户端提前断开时它才不会
+	// 卡在没人再读的 stopChan 上。
+	stopChan := make(chan bool, 1)
 	go func() {
 		defer func() {
 			conn.Close()
@@ -228,16 +220,18 @@ func xunfeiMakeRequest(textRequest dto.GeneralOpenAIRequest, domain, authUrl, ap
 				break
 			}
 			var response XunfeiChatResponse
-			err = json.Unmarshal(msg, &response)
+			err = common.Unmarshal(msg, &response)
 			if err != nil {
 				common.SysLog("error unmarshalling stream response: " + err.Error())
 				break
 			}
-			dataChan <- response
+			select {
+			case dataChan <- response:
+			case <-c.Request.Context().Done():
+				stopChan <- true
+				return
+			}
 			if response.Payload.Choices.Status == 2 {
-				if err != nil {
-					common.SysLog("error closing websocket connection: " + err.Error())
-				}
 				break
 			}
 		}
@@ -263,10 +257,17 @@ func apiVersion2domain(apiVersion string) string {
 	return "general" + apiVersion
 }
 
-func getXunfeiAuthUrl(c *gin.Context, apiKey string, apiSecret string, modelName string) (string, string) {
+// getXunfeiAuthUrl 解析请求体要带的 domain 和要拨的签名 websocket url。版本号依次看请求的
+// api-version 查询参数、模型名、渠道里配置的版本；端点用渠道的 base url 拼上该版本的路径，
+// 渠道的 base url 因此才开始生效（此前这个主机是写死的 spark-api.xf-yun.com）。
+func getXunfeiAuthUrl(c *gin.Context, info *relaycommon.RelayInfo, apiKey string, apiSecret string, modelName string) (string, string) {
 	apiVersion := getAPIVersion(c, modelName)
 	domain := apiVersion2domain(apiVersion)
-	authUrl := buildXunfeiAuthUrl(fmt.Sprintf("wss://spark-api.xf-yun.com/%s/chat", apiVersion), apiKey, apiSecret)
+	baseUrl := info.ChannelBaseUrl
+	if baseUrl == "" {
+		baseUrl = "https://spark-api.xf-yun.com"
+	}
+	authUrl := buildXunfeiAuthUrl(fmt.Sprintf("%s/%s/chat", strings.TrimSuffix(baseUrl, "/"), apiVersion), apiKey, apiSecret)
 	return domain, authUrl
 }
 

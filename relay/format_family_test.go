@@ -2157,13 +2157,6 @@ func TestCozeStreamsTheConvertedFormats(t *testing.T) {
 	}
 }
 
-func adaptor_DoResponse(t *testing.T, c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (any, *types.NewAPIError) {
-	t.Helper()
-	adaptor := GetAdaptor(constant.APITypeCoze)
-	require.NotNil(t, adaptor)
-	return adaptor.DoResponse(c, resp, info)
-}
-
 func geminiRelayInfo(channelType int) *relaycommon.RelayInfo {
 	return &relaycommon.RelayInfo{
 		RelayFormat:     types.RelayFormatGemini,
