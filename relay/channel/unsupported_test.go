@@ -43,13 +43,7 @@ func TestEmbeddedUnsupportedRefusesEveryFormatItDoesNotServe(t *testing.T) {
 	context.Set(string(constant.ContextKeyChannelType), constant.ChannelTypeDify)
 
 	adaptor := &dify.Adaptor{}
-	_, err := adaptor.ConvertClaudeRequest(nil, info, &dto.ClaudeRequest{})
-	assertUnsupportedFormat(t, err, "Dify", "Claude Messages")
-
-	_, err = adaptor.ConvertGeminiRequest(nil, info, &dto.GeminiChatRequest{})
-	assertUnsupportedFormat(t, err, "Dify", "Gemini generateContent")
-
-	_, err = adaptor.ConvertOpenAIResponsesRequest(nil, info, dto.OpenAIResponsesRequest{})
+	_, err := adaptor.ConvertOpenAIResponsesRequest(nil, info, dto.OpenAIResponsesRequest{})
 	assertUnsupportedFormat(t, err, "Dify", "OpenAI Responses")
 
 	_, err = adaptor.ConvertAudioRequest(nil, info, dto.AudioRequest{})

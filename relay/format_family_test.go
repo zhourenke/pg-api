@@ -632,6 +632,176 @@ func TestOllamaStreamsGeminiFromItsNativeProtocol(t *testing.T) {
 	assert.NotContains(t, body, "[DONE]", body)
 }
 
+// A Dify app takes one flattened prompt instead of a message list, so the
+// converted formats are turned into a chat request and then flattened by the
+// channel's own conversion, exactly like the OpenAI format.
+func TestDifyConvertsTheOtherFormatsIntoItsOwnRequest(t *testing.T) {
+	adaptor := GetAdaptor(constant.APITypeDify)
+	require.NotNil(t, adaptor)
+
+	tests := []struct {
+		name    string
+		convert func(c *gin.Context, info *relaycommon.RelayInfo) (any, error)
+		info    *relaycommon.RelayInfo
+		query   string
+	}{
+		{
+			name: "gemini",
+			convert: func(c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+				return adaptor.ConvertGeminiRequest(c, info, geminiRequest())
+			},
+			info:  geminiRelayInfo(constant.ChannelTypeDify),
+			query: "USER: \nhello\n",
+		},
+		{
+			name: "claude",
+			convert: func(c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+				return adaptor.ConvertClaudeRequest(c, info, claudeRequest("dify-model"))
+			},
+			info: claudeRelayInfo(constant.ChannelTypeDify, "dify-model"),
+			// The Anthropic system prompt and the tool_result turn keep their text
+			// but lose the roles Dify has no notion of, which is what this channel
+			// already does with the OpenAI format.
+			query: "SYSTEM: \nyou are brief\nUSER: \nweather?\nASSISTANT: \n\nUSER: \n18C\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
+			requestURL, err := adaptor.GetRequestURL(tt.info)
+			require.NoError(t, err)
+			assert.Equal(t, "https://upstream.example.com/v1/chat-messages", requestURL)
+
+			converted, err := tt.convert(c, tt.info)
+			require.NoError(t, err)
+			encoded, err := common.Marshal(converted)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.query, gjson.GetBytes(encoded, "query").String(), string(encoded))
+			assert.Equal(t, "blocking", gjson.GetBytes(encoded, "response_mode").String(), string(encoded))
+			assert.NotEmpty(t, gjson.GetBytes(encoded, "user").String(), string(encoded))
+			assert.False(t, gjson.GetBytes(encoded, "contents").Exists(), "the Gemini shape must not reach Dify: %s", encoded)
+			assert.False(t, gjson.GetBytes(encoded, "system").Exists(), "the Anthropic shape must not reach Dify: %s", encoded)
+		})
+	}
+}
+
+func TestDifyRendersTheOtherFormatsFromItsOwnResponse(t *testing.T) {
+	const upstreamBody = `{"conversation_id":"dify-1","answer":"hi","created_at":1,` +
+		`"metadata":{"usage":{"prompt_tokens":3,"completion_tokens":1,"total_tokens":4}}}`
+
+	tests := []struct {
+		name    string
+		info    *relaycommon.RelayInfo
+		asserts func(t *testing.T, body []byte)
+	}{
+		{
+			name: "gemini",
+			info: geminiRelayInfo(constant.ChannelTypeDify),
+			asserts: func(t *testing.T, body []byte) {
+				assert.Equal(t, "hi", gjson.GetBytes(body, "candidates.0.content.parts.0.text").String(), string(body))
+				assert.Equal(t, int64(4), gjson.GetBytes(body, "usageMetadata.totalTokenCount").Int(), string(body))
+			},
+		},
+		{
+			name: "claude",
+			info: claudeRelayInfo(constant.ChannelTypeDify, "dify-model"),
+			asserts: func(t *testing.T, body []byte) {
+				assert.Equal(t, "message", gjson.GetBytes(body, "type").String(), string(body))
+				assert.Equal(t, "hi", gjson.GetBytes(body, "content.0.text").String(), string(body))
+				assert.Equal(t, int64(3), gjson.GetBytes(body, "usage.input_tokens").Int(), string(body))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			c := gin.CreateTestContextOnly(recorder, gin.New())
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(upstreamBody)),
+			}
+
+			usage, apiErr := GetAdaptor(constant.APITypeDify).DoResponse(c, resp, tt.info)
+			require.Nil(t, apiErr)
+			require.NotNil(t, usage)
+
+			body := recorder.Body.Bytes()
+			assert.False(t, gjson.GetBytes(body, "choices").Exists(), "the chat shape must not reach the client: %s", body)
+			tt.asserts(t, body)
+		})
+	}
+}
+
+// A Dify stream carries answer chunks and one message_end with the usage; the
+// converted formats are rendered from those chunks and close with their own
+// event instead of a chat [DONE], including when the run answers with nothing.
+func TestDifyStreamsTheConvertedFormats(t *testing.T) {
+	const upstreamStream = `data: {"event":"message","conversation_id":"dify-1","answer":"hi"}` + "\n\n" +
+		`data: {"event":"message_end","conversation_id":"dify-1","metadata":{"usage":{"prompt_tokens":3,"completion_tokens":1,"total_tokens":4}}}` + "\n\n"
+	const emptyStream = `data: {"event":"message_end","conversation_id":"dify-1","metadata":{"usage":{"prompt_tokens":3,"completion_tokens":0,"total_tokens":3}}}` + "\n\n"
+
+	tests := []struct {
+		name        string
+		info        *relaycommon.RelayInfo
+		upstream    string
+		wantContain []string
+	}{
+		{
+			name:        "gemini",
+			info:        geminiRelayInfo(constant.ChannelTypeDify),
+			upstream:    upstreamStream,
+			wantContain: []string{"candidates", "hi", "totalTokenCount"},
+		},
+		{
+			name:        "claude",
+			info:        claudeRelayInfo(constant.ChannelTypeDify, "dify-model"),
+			upstream:    upstreamStream,
+			wantContain: []string{"message_start", "content_block_delta", "hi", "message_stop"},
+		},
+		{
+			// A run without an answer sends no message event at all, and the
+			// Claude client still has to receive a complete, closed stream.
+			name:        "claude without an answer",
+			info:        claudeRelayInfo(constant.ChannelTypeDify, "dify-model"),
+			upstream:    emptyStream,
+			wantContain: []string{"message_start", "message_delta", "message_stop"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// The shared Dify scanner derives its idle timeout from this setting.
+			previousTimeout := constant.StreamingTimeout
+			constant.StreamingTimeout = 30
+			t.Cleanup(func() { constant.StreamingTimeout = previousTimeout })
+
+			recorder := newStreamRecorder()
+			c := gin.CreateTestContextOnly(recorder, gin.New())
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+			tt.info.IsStream = true
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+				Body:       io.NopCloser(strings.NewReader(tt.upstream)),
+			}
+
+			usage, apiErr := GetAdaptor(constant.APITypeDify).DoResponse(c, resp, tt.info)
+			require.Nil(t, apiErr)
+			require.NotNil(t, usage)
+
+			body := recorder.Body.String()
+			for _, want := range tt.wantContain {
+				assert.Contains(t, body, want, body)
+			}
+			assert.NotContains(t, body, "[DONE]", body)
+		})
+	}
+}
+
 func geminiRelayInfo(channelType int) *relaycommon.RelayInfo {
 	return &relaycommon.RelayInfo{
 		RelayFormat:     types.RelayFormatGemini,

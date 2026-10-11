@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/zhourenke/pg-api/relay/channel"
+	"github.com/zhourenke/pg-api/relay/channel/openai"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	"github.com/zhourenke/pg-api/relaykit/dto"
 	"github.com/zhourenke/pg-api/relaykit/types"
@@ -63,6 +64,20 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 		return nil, errors.New("request is nil")
 	}
 	return requestOpenAI2Dify(c, info, *request), nil
+}
+
+// ConvertClaudeRequest serves Anthropic Messages on the app's /v1/chat-messages
+// endpoint, which takes a single query string rather than a message list: Dify
+// has no Anthropic dialect, so the request becomes a chat request first and then
+// that channel's own flattening applies to it.
+func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.ClaudeRequest) (any, error) {
+	return openai.ConvertToChannelOpenAIRequest(c, info, request, a.ConvertOpenAIRequest)
+}
+
+// ConvertGeminiRequest serves generateContent the same way. The chat request is
+// what requestOpenAI2Dify flattens into query plus files.
+func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
+	return openai.ConvertToChannelOpenAIRequest(c, info, request, a.ConvertOpenAIRequest)
 }
 
 func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, requestBody io.Reader) (any, error) {

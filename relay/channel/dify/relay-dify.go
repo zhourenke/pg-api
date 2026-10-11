@@ -14,6 +14,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/constant"
+	"github.com/zhourenke/pg-api/relay/channel/openai"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	"github.com/zhourenke/pg-api/relay/helper"
 	"github.com/zhourenke/pg-api/relaykit/dto"
@@ -110,7 +111,7 @@ func uploadDifyFile(c *gin.Context, info *relaycommon.RelayInfo, user string, me
 		var result struct {
 			Id string `json:"id"`
 		}
-		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		if err := common.DecodeJson(resp.Body, &result); err != nil {
 			common.SysLog("failed to decode response: " + err.Error())
 			return nil
 		}
@@ -135,7 +136,7 @@ func requestOpenAI2Dify(c *gin.Context, info *relaycommon.RelayInfo, request dto
 		user = json.RawMessage(helper.GetResponseID(c))
 	}
 	var stringUser string
-	err := json.Unmarshal(user, &stringUser)
+	err := common.Unmarshal(user, &stringUser)
 	if err != nil {
 		common.SysLog("failed to unmarshal user: " + err.Error())
 		stringUser = helper.GetResponseID(c)
@@ -227,10 +228,11 @@ func difyStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.R
 	var responseText string
 	usage := &dto.Usage{}
 	var nodeToken int
+	lastStreamData := ""
 	helper.SetEventStreamHeaders(c)
 	helper.StreamScannerHandler(c, resp, info, func(data string, sr *helper.StreamResult) {
 		var difyResponse DifyChunkChatCompletionResponse
-		if err := json.Unmarshal([]byte(data), &difyResponse); err != nil {
+		if err := common.Unmarshal(common.StringToByteSlice(data), &difyResponse); err != nil {
 			common.SysLog("error unmarshalling stream response: " + err.Error())
 			sr.Error(err)
 			return
@@ -250,16 +252,57 @@ func difyStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.R
 				nodeToken += 1
 			}
 		}
+		// A client that asked in another protocol gets that protocol back. The
+		// chat chunk built here is the intermediate it is rendered from, so a
+		// Dify app can serve Anthropic Messages and generateContent too.
+		if info.RelayFormat != types.RelayFormatOpenAI {
+			encoded, err := common.Marshal(openaiResponse)
+			if err != nil {
+				common.SysLog("error marshalling stream response: " + err.Error())
+				sr.Error(err)
+				return
+			}
+			lastStreamData = string(encoded)
+			if err := openai.HandleStreamFormat(c, info, lastStreamData, false, false); err != nil {
+				common.SysLog("error converting stream response: " + err.Error())
+				sr.Error(err)
+			}
+			return
+		}
 		if err := helper.ObjectData(c, openaiResponse); err != nil {
 			common.SysLog(err.Error())
 			sr.Error(err)
 		}
 	})
-	helper.Done(c)
 	if usage.TotalTokens == 0 {
 		usage = service.ResponseText2Usage(c, responseText, info.UpstreamModelName, info.GetEstimatePromptTokens())
 	}
 	usage.CompletionTokens += nodeToken
+	if info.RelayFormat != types.RelayFormatOpenAI {
+		// Dify's own chunks carry neither a finish reason nor the usage (that
+		// arrives in message_end), and both converted formats close over a
+		// terminal chat chunk that has them. It also opens the protocol when the
+		// run answered with nothing and sent no message event at all.
+		terminal := streamResponseDify2OpenAI(DifyChunkChatCompletionResponse{})
+		finishReason := "stop"
+		terminal.Choices[0].FinishReason = &finishReason
+		terminal.Usage = usage
+		encoded, err := common.Marshal(terminal)
+		if err != nil {
+			common.SysLog("error marshalling final stream response: " + err.Error())
+		} else {
+			lastStreamData = string(encoded)
+			if err := openai.HandleStreamFormat(c, info, lastStreamData, false, false); err != nil {
+				common.SysLog("error converting final stream response: " + err.Error())
+			}
+		}
+		// The converted formats end with their own closing event instead of a
+		// chat [DONE]; the Claude path needs its per-stream state.
+		info.EnsureClaudeConvertInfo()
+		openai.HandleFinalResponse(c, info, lastStreamData, helper.GetResponseID(c), common.GetTimestamp(), info.UpstreamModelName, "", usage, false)
+		return usage, nil
+	}
+	helper.Done(c)
 	return usage, nil
 }
 
@@ -290,12 +333,25 @@ func difyHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respons
 		FinishReason: "stop",
 	}
 	fullTextResponse.Choices = append(fullTextResponse.Choices, choice)
-	jsonResponse, err := json.Marshal(fullTextResponse)
+	jsonResponse, err := common.Marshal(fullTextResponse)
 	if err != nil {
 		return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
 	}
+	// A client that asked in another protocol gets that protocol back: the chat
+	// body built here is the intermediate it is rendered from, so a Dify app can
+	// serve Anthropic Messages and generateContent as well.
+	if info.RelayFormat != types.RelayFormatOpenAI {
+		convertResult, err := service.ConvertResponse(c, info, info.RelayFormat, &fullTextResponse)
+		if err != nil {
+			return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
+		}
+		jsonResponse, err = common.Marshal(convertResult.Value)
+		if err != nil {
+			return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
+		}
+	}
 	c.Writer.Header().Set("Content-Type", "application/json")
 	c.Writer.WriteHeader(resp.StatusCode)
-	c.Writer.Write(jsonResponse)
+	_, _ = c.Writer.Write(jsonResponse)
 	return &difyResponse.MetaData.Usage, nil
 }

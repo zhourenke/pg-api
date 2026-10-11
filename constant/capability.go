@@ -76,7 +76,7 @@ var ChannelCapabilitiesByAPIType = map[int]Capabilities{
 	APITypePerplexity:  CapabilitiesOf(CapabilityClaude, CapabilityGemini, CapabilityOpenAIResponses),
 	APITypeAws:         CapabilitiesOf(CapabilityClaude),
 	APITypeCohere:      CapabilitiesOf(CapabilityClaude, CapabilityGemini, CapabilityRerank),
-	APITypeDify:        0,
+	APITypeDify:        CapabilitiesOf(CapabilityClaude, CapabilityGemini),
 	APITypeJina:        CapabilitiesOf(CapabilityEmbedding, CapabilityRerank),
 	APITypeCloudflare:  CapabilitiesOf(CapabilityClaude, CapabilityGemini, CapabilityOpenAIResponses, CapabilityAudio, CapabilityEmbedding),
 	APITypeSiliconFlow: CapabilitiesOf(CapabilityClaude, CapabilityGemini, CapabilityAudio, CapabilityImage, CapabilityEmbedding, CapabilityRerank),
