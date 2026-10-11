@@ -5,7 +5,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/constant"
+	"github.com/zhourenke/pg-api/relay/channel/openai"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	"github.com/zhourenke/pg-api/relay/helper"
 	"github.com/zhourenke/pg-api/relaykit/dto"
@@ -73,16 +73,20 @@ func responseTencent2OpenAI(response *TencentChatResponse) *dto.OpenAITextRespon
 	return &fullTextResponse
 }
 
-func streamResponseTencent2OpenAI(TencentResponse *TencentChatResponse) *dto.ChatCompletionsStreamResponse {
+// Every frame of a Tencent stream carries the upstream conversation id and names
+// the model that answered it; the model used to be the literal "tencent-hunyuan"
+// on all of them and the id was empty.
+func streamResponseTencent2OpenAI(tencentResponse *TencentChatResponse, model string) *dto.ChatCompletionsStreamResponse {
 	response := dto.ChatCompletionsStreamResponse{
+		Id:      tencentResponse.Id,
 		Object:  "chat.completion.chunk",
 		Created: common.GetTimestamp(),
-		Model:   "tencent-hunyuan",
+		Model:   model,
 	}
-	if len(TencentResponse.Choices) > 0 {
+	if len(tencentResponse.Choices) > 0 {
 		var choice dto.ChatCompletionsStreamResponseChoice
-		choice.Delta.SetContentString(TencentResponse.Choices[0].Delta.Content)
-		if TencentResponse.Choices[0].FinishReason == "stop" {
+		choice.Delta.SetContentString(tencentResponse.Choices[0].Delta.Content)
+		if tencentResponse.Choices[0].FinishReason == "stop" {
 			choice.FinishReason = &constant.FinishReasonStop
 		}
 		response.Choices = append(response.Choices, choice)
@@ -90,8 +94,28 @@ func streamResponseTencent2OpenAI(TencentResponse *TencentChatResponse) *dto.Cha
 	return &response
 }
 
+// A client that asked in the Anthropic or the Gemini protocol gets that protocol
+// back: this channel has no dialect of its own for either, so the chat chunks and
+// the chat body built here are the intermediates they are rendered from. The two
+// formats are named instead of testing for "not OpenAI" so that both response
+// handlers ask the same question, and so that a future format on this channel does
+// not silently join the converted path.
+func isConvertedRelayFormat(info *relaycommon.RelayInfo) bool {
+	switch info.RelayFormat {
+	case types.RelayFormatClaude, types.RelayFormatGemini:
+		return true
+	}
+	return false
+}
+
+// A Tencent stream is a run of frames holding answer text plus one frame carrying
+// the finish reason, which is what this channel always used to detect the end of
+// the answer. The OpenAI format keeps the frames it always sent and closes with
+// the [DONE] marker; a client that asked in another protocol gets that protocol
+// back, rendered from the same chat chunks and closed by the terminal frame.
 func tencentStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
 	var responseText strings.Builder
+	lastStreamData := ""
 	scanner := helper.NewStreamScanner(resp.Body)
 	scanner.Split(bufio.ScanLines)
 
@@ -111,14 +135,26 @@ func tencentStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *htt
 			continue
 		}
 
-		response := streamResponseTencent2OpenAI(&tencentResponse)
+		response := streamResponseTencent2OpenAI(&tencentResponse, info.UpstreamModelName)
 		if len(response.Choices) != 0 {
 			responseText.WriteString(response.Choices[0].Delta.GetContentString())
 		}
 
-		err = helper.ObjectData(c, response)
+		if !isConvertedRelayFormat(info) {
+			err = helper.ObjectData(c, response)
+			if err != nil {
+				common.SysLog(err.Error())
+			}
+			continue
+		}
+		encoded, err := common.Marshal(response)
 		if err != nil {
-			common.SysLog(err.Error())
+			common.SysLog("error marshalling stream response: " + err.Error())
+			continue
+		}
+		lastStreamData = string(encoded)
+		if err := openai.HandleStreamFormat(c, info, lastStreamData, false, false); err != nil {
+			common.SysLog("error converting stream response: " + err.Error())
 		}
 	}
 
@@ -126,11 +162,20 @@ func tencentStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *htt
 		common.SysLog("error reading stream: " + err.Error())
 	}
 
-	helper.Done(c)
-
+	usage := service.ResponseText2Usage(c, responseText.String(), info.UpstreamModelName, info.GetEstimatePromptTokens())
+	if isConvertedRelayFormat(info) {
+		// The converted formats end with their own closing event instead of a chat
+		// [DONE], and the Claude path needs its per-stream state. The terminal
+		// frame carries the finish reason but no usage, so the closing event is
+		// emitted here, from the usage this request is billed with.
+		info.EnsureClaudeConvertInfo()
+		openai.HandleFinalResponse(c, info, lastStreamData, helper.GetResponseID(c), common.GetTimestamp(), info.UpstreamModelName, "", usage, false)
+	} else {
+		helper.Done(c)
+	}
 	service.CloseResponseBodyGracefully(resp)
 
-	return service.ResponseText2Usage(c, responseText.String(), info.UpstreamModelName, info.GetEstimatePromptTokens()), nil
+	return usage, nil
 }
 
 func tencentHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
@@ -140,7 +185,7 @@ func tencentHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Resp
 		return nil, types.NewOpenAIError(err, types.ErrorCodeReadResponseBodyFailed, http.StatusInternalServerError)
 	}
 	service.CloseResponseBodyGracefully(resp)
-	err = json.Unmarshal(responseBody, &tencentSb)
+	err = common.Unmarshal(responseBody, &tencentSb)
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 	}
@@ -151,9 +196,24 @@ func tencentHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Resp
 		}, resp.StatusCode)
 	}
 	fullTextResponse := responseTencent2OpenAI(&tencentSb.Response)
-	jsonResponse, err := common.Marshal(fullTextResponse)
-	if err != nil {
-		return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
+	// The chat body is the intermediate the converted formats are rendered from,
+	// and an empty model name is what it used to carry for every format.
+	fullTextResponse.Model = info.UpstreamModelName
+	var jsonResponse []byte
+	if isConvertedRelayFormat(info) {
+		convertResult, err := service.ConvertResponse(c, info, info.RelayFormat, fullTextResponse)
+		if err != nil {
+			return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
+		}
+		jsonResponse, err = common.Marshal(convertResult.Value)
+		if err != nil {
+			return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
+		}
+	} else {
+		jsonResponse, err = common.Marshal(fullTextResponse)
+		if err != nil {
+			return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
+		}
 	}
 	c.Writer.Header().Set("Content-Type", "application/json")
 	c.Writer.WriteHeader(resp.StatusCode)
@@ -193,7 +253,7 @@ func getTencentSign(req TencentChatRequest, adaptor *Adaptor, secId, secKey stri
 	canonicalHeaders := fmt.Sprintf("content-type:%s\nhost:%s\nx-tc-action:%s\n",
 		"application/json", host, strings.ToLower(adaptor.Action))
 	signedHeaders := "content-type;host;x-tc-action"
-	payload, _ := json.Marshal(req)
+	payload, _ := common.Marshal(req)
 	hashedRequestPayload := sha256hex(string(payload))
 	canonicalRequest := fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s",
 		httpRequestMethod,

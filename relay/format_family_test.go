@@ -1388,6 +1388,235 @@ func TestBaiduStreamsTheConvertedFormats(t *testing.T) {
 	}
 }
 
+// Tencent serves two protocols behind one channel type: a three-segment ak/sk key
+// goes to the native TC3 action API, a single TokenHub key to an OpenAI-compatible
+// endpoint. The native protocol has no Anthropic and no Gemini dialect of its own,
+// so both formats are converted into a chat request and then reshaped by that
+// adaptor's own OpenAI conversion, exactly like the OpenAI format. The endpoint, the
+// action header and the TC3 signature are shared by all three formats, so nothing
+// per format is asserted about them here.
+func TestTencentConvertsTheOtherFormatsIntoItsOwnRequest(t *testing.T) {
+	const apiKey = "1300000000|AKIDxxxxxxxxxxxxxxxx|secretxxxxxxxxxxxxxxxx"
+
+	t.Run("claude", func(t *testing.T) {
+		info := claudeRelayInfo(constant.ChannelTypeTencent, "hunyuan-pro")
+		info.ApiKey = apiKey
+		info.IsStream = true
+		adaptor := GetAdaptor(constant.APITypeTencent)
+		require.NotNil(t, adaptor)
+		adaptor.Init(info)
+
+		c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+		common.SetContextKey(c, constant.ContextKeyChannelKey, apiKey)
+
+		maxTokens := uint(64)
+		converted, err := adaptor.ConvertClaudeRequest(c, info, &dto.ClaudeRequest{
+			Model:     "hunyuan-pro",
+			MaxTokens: &maxTokens,
+			Stream:    common.GetPointer(true),
+			System:    "you are brief",
+			Messages:  []dto.ClaudeMessage{{Role: "user", Content: "weather?"}},
+		})
+		require.NoError(t, err)
+		encoded, err := common.Marshal(converted)
+		require.NoError(t, err)
+
+		// The Anthropic system prompt arrives as a message of its own, which is
+		// the only place this protocol takes it, and the fields keep the
+		// capitalized names the API is described with.
+		assert.Equal(t, "hunyuan-pro", gjson.GetBytes(encoded, "Model").String(), string(encoded))
+		assert.True(t, gjson.GetBytes(encoded, "Stream").Bool(), string(encoded))
+		assert.Equal(t, int64(2), gjson.GetBytes(encoded, "Messages.#").Int(), string(encoded))
+		assert.Equal(t, "system", gjson.GetBytes(encoded, "Messages.0.Role").String(), string(encoded))
+		assert.Equal(t, "you are brief", gjson.GetBytes(encoded, "Messages.0.Content").String(), string(encoded))
+		assert.Equal(t, "user", gjson.GetBytes(encoded, "Messages.1.Role").String(), string(encoded))
+		assert.Equal(t, "weather?", gjson.GetBytes(encoded, "Messages.1.Content").String(), string(encoded))
+		// The native protocol has no output-length field, so max_tokens is
+		// dropped here exactly as it already is on the OpenAI path.
+		assert.False(t, gjson.GetBytes(encoded, "max_tokens").Exists(), string(encoded))
+		assert.False(t, gjson.GetBytes(encoded, "system").Exists(), string(encoded))
+	})
+
+	t.Run("gemini", func(t *testing.T) {
+		info := geminiRelayInfo(constant.ChannelTypeTencent)
+		info.ApiKey = apiKey
+		info.IsStream = true
+		adaptor := GetAdaptor(constant.APITypeTencent)
+		require.NotNil(t, adaptor)
+		adaptor.Init(info)
+
+		c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1beta/models/gemini-2.5-flash:streamGenerateContent", nil)
+		common.SetContextKey(c, constant.ContextKeyChannelKey, apiKey)
+
+		converted, err := adaptor.ConvertGeminiRequest(c, info, geminiRequest())
+		require.NoError(t, err)
+		encoded, err := common.Marshal(converted)
+		require.NoError(t, err)
+
+		assert.True(t, gjson.GetBytes(encoded, "Stream").Bool(), string(encoded))
+		assert.Equal(t, "user", gjson.GetBytes(encoded, "Messages.0.Role").String(), string(encoded))
+		assert.Equal(t, "hello", gjson.GetBytes(encoded, "Messages.0.Content").String(), string(encoded))
+		assert.False(t, gjson.GetBytes(encoded, "contents").Exists(), "the Gemini shape must not reach Tencent: %s", encoded)
+	})
+}
+
+// The native protocol answers inside a "Response" envelope, and the chat body built
+// from it is the intermediate the converted formats are rendered from.
+func TestTencentRendersEveryFormatFromItsOwnResponse(t *testing.T) {
+	const apiKey = "1300000000|AKIDxxxxxxxxxxxxxxxx|secretxxxxxxxxxxxxxxxx"
+	const upstreamBody = `{"Response":{"Id":"tencent-1","Created":1700000000,` +
+		`"Choices":[{"FinishReason":"stop","Message":{"Role":"assistant","Content":"hi"}}],` +
+		`"Usage":{"PromptTokens":3,"CompletionTokens":1,"TotalTokens":4},` +
+		`"Error":{"Code":0,"Message":""}}}`
+
+	tests := []struct {
+		name    string
+		info    *relaycommon.RelayInfo
+		asserts func(t *testing.T, body []byte)
+	}{
+		{
+			name: "gemini",
+			info: geminiRelayInfo(constant.ChannelTypeTencent),
+			asserts: func(t *testing.T, body []byte) {
+				assert.Equal(t, "hi", gjson.GetBytes(body, "candidates.0.content.parts.0.text").String(), string(body))
+				assert.Equal(t, "STOP", gjson.GetBytes(body, "candidates.0.finishReason").String(), string(body))
+				assert.Equal(t, int64(4), gjson.GetBytes(body, "usageMetadata.totalTokenCount").Int(), string(body))
+			},
+		},
+		{
+			name: "claude",
+			info: claudeRelayInfo(constant.ChannelTypeTencent, "hunyuan-pro"),
+			asserts: func(t *testing.T, body []byte) {
+				assert.Equal(t, "message", gjson.GetBytes(body, "type").String(), string(body))
+				assert.Equal(t, "hi", gjson.GetBytes(body, "content.0.text").String(), string(body))
+				assert.Equal(t, "end_turn", gjson.GetBytes(body, "stop_reason").String(), string(body))
+				// The Anthropic message takes its model name from the chat body,
+				// which used to carry an empty one.
+				assert.Equal(t, "hunyuan-pro", gjson.GetBytes(body, "model").String(), string(body))
+				assert.Equal(t, int64(3), gjson.GetBytes(body, "usage.input_tokens").Int(), string(body))
+				assert.Equal(t, int64(1), gjson.GetBytes(body, "usage.output_tokens").Int(), string(body))
+			},
+		},
+		{
+			name: "openai",
+			info: openaiRelayInfo(constant.ChannelTypeTencent, "hunyuan-pro"),
+			asserts: func(t *testing.T, body []byte) {
+				assert.Equal(t, "tencent-1", gjson.GetBytes(body, "id").String(), string(body))
+				assert.Equal(t, "hunyuan-pro", gjson.GetBytes(body, "model").String(), string(body))
+				assert.Equal(t, "hi", gjson.GetBytes(body, "choices.0.message.content").String(), string(body))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			c := gin.CreateTestContextOnly(recorder, gin.New())
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+			tt.info.ApiKey = apiKey
+			adaptor := GetAdaptor(constant.APITypeTencent)
+			require.NotNil(t, adaptor)
+			adaptor.Init(tt.info)
+
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(upstreamBody)),
+			}
+
+			usage, apiErr := adaptor.DoResponse(c, resp, tt.info)
+			require.Nil(t, apiErr)
+			require.NotNil(t, usage)
+
+			body := recorder.Body.Bytes()
+			if tt.info.RelayFormat != types.RelayFormatOpenAI {
+				assert.False(t, gjson.GetBytes(body, "choices").Exists(), "the chat shape must not reach the client: %s", body)
+			}
+			tt.asserts(t, body)
+		})
+	}
+}
+
+// A native Tencent stream is a run of frames holding answer text plus one frame
+// carrying the finish reason and no usage. The OpenAI format keeps the chat stream
+// this channel always sent, now with the upstream id and the real model name on
+// every frame and closed with [DONE]; the converted formats close on that terminal
+// frame, whose closing event is emitted by the shared final-response helper from the
+// usage this request is billed with.
+func TestTencentStreamsTheConvertedFormats(t *testing.T) {
+	const apiKey = "1300000000|AKIDxxxxxxxxxxxxxxxx|secretxxxxxxxxxxxxxxxx"
+	const upstreamStream = `data: {"Id":"tencent-1","Created":1700000000,` +
+		`"Choices":[{"Delta":{"Role":"assistant","Content":"hi"}}]}` + "\n" +
+		`data: {"Id":"tencent-1","Created":1700000000,` +
+		`"Choices":[{"FinishReason":"stop"}],` +
+		`"Usage":{"PromptTokens":3,"CompletionTokens":1,"TotalTokens":4}}` + "\n"
+
+	tests := []struct {
+		name        string
+		info        *relaycommon.RelayInfo
+		wantContain []string
+		// The OpenAI format is the one that ends with a chat [DONE].
+		closesWithDone bool
+		openingFrame   int
+	}{
+		{
+			name:        "gemini",
+			info:        geminiRelayInfo(constant.ChannelTypeTencent),
+			wantContain: []string{"candidates", "hi", "totalTokenCount"},
+		},
+		{
+			name:        "claude",
+			info:        claudeRelayInfo(constant.ChannelTypeTencent, "hunyuan-pro"),
+			wantContain: []string{"message_start", "content_block_delta", "hi", "message_stop", `"output_tokens"`},
+			// The terminal frame is the only frame that closes the stream, so a
+			// second opening would mean it was rendered twice.
+			openingFrame: 1,
+		},
+		{
+			name:           "openai",
+			info:           openaiRelayInfo(constant.ChannelTypeTencent, "hunyuan-pro"),
+			wantContain:    []string{`"id":"tencent-1"`, `"model":"hunyuan-pro"`, `"finish_reason":"stop"`},
+			closesWithDone: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder := newStreamRecorder()
+			c := gin.CreateTestContextOnly(recorder, gin.New())
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+			tt.info.IsStream = true
+			tt.info.ApiKey = apiKey
+			adaptor := GetAdaptor(constant.APITypeTencent)
+			require.NotNil(t, adaptor)
+			adaptor.Init(tt.info)
+
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+				Body:       io.NopCloser(strings.NewReader(upstreamStream)),
+			}
+
+			usage, apiErr := adaptor.DoResponse(c, resp, tt.info)
+			require.Nil(t, apiErr)
+			require.NotNil(t, usage)
+
+			body := recorder.Body.String()
+			for _, want := range tt.wantContain {
+				assert.Contains(t, body, want, body)
+			}
+			if tt.closesWithDone {
+				assert.Contains(t, body, "data: [DONE]", body)
+			} else {
+				assert.NotContains(t, body, "[DONE]", body)
+			}
+			assert.Equal(t, tt.openingFrame, strings.Count(body, `"type":"message_start"`), body)
+		})
+	}
+}
+
 func geminiRelayInfo(channelType int) *relaycommon.RelayInfo {
 	return &relaycommon.RelayInfo{
 		RelayFormat:     types.RelayFormatGemini,

@@ -11,6 +11,7 @@ import (
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/constant"
 	"github.com/zhourenke/pg-api/relay/channel"
+	"github.com/zhourenke/pg-api/relay/channel/openai"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	"github.com/zhourenke/pg-api/relaykit/dto"
 	"github.com/zhourenke/pg-api/relaykit/types"
@@ -61,6 +62,23 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 	// we have to calculate the sign here
 	a.Sign = getTencentSign(*tencentRequest, a, secretId, secretKey)
 	return tencentRequest, nil
+}
+
+// The native TC3 protocol has no Anthropic and no Gemini dialect: a client asking
+// in either of those protocols is converted into a chat request and then reshaped
+// by this channel's own OpenAI conversion, exactly like the OpenAI format. Only
+// the body differs — the endpoint, the action header and the TC3 signature are the
+// same for all three formats, so nothing else here is format-aware.
+//
+// These two methods are reached only when the key is the three-segment ak/sk form;
+// DispatchAdaptor hands a single-segment TokenHub key to the OpenAI adaptor, which
+// converts both formats itself.
+func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.ClaudeRequest) (any, error) {
+	return openai.ConvertToChannelOpenAIRequest(c, info, request, a.ConvertOpenAIRequest)
+}
+
+func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
+	return openai.ConvertToChannelOpenAIRequest(c, info, request, a.ConvertOpenAIRequest)
 }
 
 func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, requestBody io.Reader) (any, error) {
