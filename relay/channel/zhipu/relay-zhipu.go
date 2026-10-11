@@ -2,7 +2,6 @@ package zhipu
 
 import (
 	"bufio"
-	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
@@ -12,6 +11,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/constant"
+	"github.com/zhourenke/pg-api/relay/channel/openai"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	"github.com/zhourenke/pg-api/relay/helper"
 	"github.com/zhourenke/pg-api/relaykit/dto"
@@ -129,34 +129,43 @@ func responseZhipu2OpenAI(response *ZhipuResponse) *dto.OpenAITextResponse {
 	return &fullTextResponse
 }
 
-func streamResponseZhipu2OpenAI(zhipuResponse string) *dto.ChatCompletionsStreamResponse {
+// Every frame of a v3 stream carries the same identity, which is what the
+// converted formats render their own ids and model names from.
+func streamResponseZhipu2OpenAI(zhipuResponse string, responseId string, createdTime int64, model string) *dto.ChatCompletionsStreamResponse {
 	var choice dto.ChatCompletionsStreamResponseChoice
 	choice.Delta.SetContentString(zhipuResponse)
 	response := dto.ChatCompletionsStreamResponse{
+		Id:      responseId,
 		Object:  "chat.completion.chunk",
-		Created: common.GetTimestamp(),
-		Model:   "chatglm",
+		Created: createdTime,
+		Model:   model,
 		Choices: []dto.ChatCompletionsStreamResponseChoice{choice},
 	}
 	return &response
 }
 
-func streamMetaResponseZhipu2OpenAI(zhipuResponse *ZhipuStreamMetaResponse) (*dto.ChatCompletionsStreamResponse, *dto.Usage) {
+func streamMetaResponseZhipu2OpenAI(zhipuResponse *ZhipuStreamMetaResponse, responseId string, createdTime int64, model string) (*dto.ChatCompletionsStreamResponse, *dto.Usage) {
 	var choice dto.ChatCompletionsStreamResponseChoice
 	choice.Delta.SetContentString("")
 	choice.FinishReason = &constant.FinishReasonStop
 	response := dto.ChatCompletionsStreamResponse{
-		Id:      zhipuResponse.RequestId,
+		Id:      responseId,
 		Object:  "chat.completion.chunk",
-		Created: common.GetTimestamp(),
-		Model:   "chatglm",
+		Created: createdTime,
+		Model:   model,
 		Choices: []dto.ChatCompletionsStreamResponseChoice{choice},
 	}
 	return &response, &zhipuResponse.Usage
 }
 
+// A v3 stream is a run of data frames carrying answer text and a trailing meta
+// frame carrying the finish reason and the usage, so the meta frame is the one
+// the converted formats close on.
 func zhipuStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
 	var usage *dto.Usage
+	responseId := helper.GetResponseID(c)
+	createdTime := common.GetTimestamp()
+	lastStreamData := ""
 	scanner := helper.NewStreamScanner(resp.Body)
 	scanner.Split(bufio.ScanLines)
 	dataChan := make(chan string)
@@ -189,31 +198,60 @@ func zhipuStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.
 	c.Stream(func(w io.Writer) bool {
 		select {
 		case data := <-dataChan:
-			response := streamResponseZhipu2OpenAI(data)
-			jsonResponse, err := json.Marshal(response)
+			response := streamResponseZhipu2OpenAI(data, responseId, createdTime, info.UpstreamModelName)
+			jsonResponse, err := common.Marshal(response)
 			if err != nil {
 				common.SysLog("error marshalling stream response: " + err.Error())
+				return true
+			}
+			// A client that asked in another protocol gets that protocol back,
+			// rendered from the chat chunk built here.
+			if info.RelayFormat != types.RelayFormatOpenAI {
+				lastStreamData = string(jsonResponse)
+				if err := openai.HandleStreamFormat(c, info, lastStreamData, false, false); err != nil {
+					common.SysLog("error converting stream response: " + err.Error())
+				}
 				return true
 			}
 			c.Render(-1, common.CustomEvent{Data: "data: " + string(jsonResponse)})
 			return true
 		case data := <-metaChan:
 			var zhipuResponse ZhipuStreamMetaResponse
-			err := json.Unmarshal([]byte(data), &zhipuResponse)
+			err := common.Unmarshal(common.StringToByteSlice(data), &zhipuResponse)
 			if err != nil {
 				common.SysLog("error unmarshalling stream response: " + err.Error())
 				return true
 			}
-			response, zhipuUsage := streamMetaResponseZhipu2OpenAI(&zhipuResponse)
-			jsonResponse, err := json.Marshal(response)
+			response, zhipuUsage := streamMetaResponseZhipu2OpenAI(&zhipuResponse, responseId, createdTime, info.UpstreamModelName)
+			usage = zhipuUsage
+			// The converted formats close on a chunk that carries both the finish
+			// reason and the usage; the OpenAI format keeps sending the usage only
+			// when the client asked for it, as it did before.
+			if info.RelayFormat != types.RelayFormatOpenAI {
+				response.Usage = zhipuUsage
+			}
+			jsonResponse, err := common.Marshal(response)
 			if err != nil {
 				common.SysLog("error marshalling stream response: " + err.Error())
 				return true
 			}
-			usage = zhipuUsage
+			if info.RelayFormat != types.RelayFormatOpenAI {
+				lastStreamData = string(jsonResponse)
+				if err := openai.HandleStreamFormat(c, info, lastStreamData, false, false); err != nil {
+					common.SysLog("error converting stream response: " + err.Error())
+				}
+				return true
+			}
 			c.Render(-1, common.CustomEvent{Data: "data: " + string(jsonResponse)})
 			return true
 		case <-stopChan:
+			if info.RelayFormat != types.RelayFormatOpenAI {
+				// The converted formats end with their own closing event instead
+				// of a chat [DONE]; the Claude path needs its per-stream state.
+				info.EnsureClaudeConvertInfo()
+				openai.HandleFinalResponse(c, info, lastStreamData, responseId, createdTime, info.UpstreamModelName, "", usage, false)
+				return false
+			}
 			c.Render(-1, common.CustomEvent{Data: "data: [DONE]"})
 			return false
 		}
@@ -229,7 +267,7 @@ func zhipuHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respon
 		return nil, types.NewOpenAIError(err, types.ErrorCodeReadResponseBodyFailed, http.StatusInternalServerError)
 	}
 	service.CloseResponseBodyGracefully(resp)
-	err = json.Unmarshal(responseBody, &zhipuResponse)
+	err = common.Unmarshal(responseBody, &zhipuResponse)
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 	}
@@ -240,9 +278,22 @@ func zhipuHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respon
 		}, resp.StatusCode)
 	}
 	fullTextResponse := responseZhipu2OpenAI(&zhipuResponse)
-	jsonResponse, err := json.Marshal(fullTextResponse)
+	fullTextResponse.Model = info.UpstreamModelName
+	jsonResponse, err := common.Marshal(fullTextResponse)
 	if err != nil {
 		return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
+	}
+	// A client that asked in another protocol gets that protocol back: the chat
+	// body built here is the intermediate it is rendered from.
+	if info.RelayFormat != types.RelayFormatOpenAI {
+		convertResult, err := service.ConvertResponse(c, info, info.RelayFormat, fullTextResponse)
+		if err != nil {
+			return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
+		}
+		jsonResponse, err = common.Marshal(convertResult.Value)
+		if err != nil {
+			return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
+		}
 	}
 	c.Writer.Header().Set("Content-Type", "application/json")
 	c.Writer.WriteHeader(resp.StatusCode)

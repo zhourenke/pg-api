@@ -962,12 +962,12 @@ func TestPaLMStreamsTheConvertedFormats(t *testing.T) {
 	}
 }
 
-// Zhipu's Anthropic-compatible endpoint exists only for the coding-plan base URLs,
-// which are stored as the plan name in the channel's base URL field. Any other base
-// URL speaks the legacy v3 model-api protocol, which takes neither an Anthropic
-// body nor anything derived from one, so the shared refusal stays in place there and
-// the capability cannot be declared per api type.
-func TestZhipuServesClaudeOnCodingPlanBasesOnly(t *testing.T) {
+// Zhipu serves Claude on two endpoints: the coding-plan base URLs expose an
+// Anthropic-compatible endpoint that takes the Anthropic body unchanged, and every
+// other base URL speaks the legacy v3 model-api protocol, which takes Zhipu's own
+// prompt shape instead. Gemini has no dialect of its own on either base URL, so it
+// follows the OpenAI format through the v3 protocol and this channel's own shaping.
+func TestZhipuConvertsClaudeAndGeminiIntoTheShapeItsEndpointTakes(t *testing.T) {
 	adaptor := GetAdaptor(constant.APITypeZhipu)
 	require.NotNil(t, adaptor)
 
@@ -997,21 +997,167 @@ func TestZhipuServesClaudeOnCodingPlanBasesOnly(t *testing.T) {
 		assert.False(t, gjson.GetBytes(encoded, "prompt").Exists(), "the v3 shape must not reach the Anthropic endpoint: %s", encoded)
 	})
 
-	t.Run("legacy base url", func(t *testing.T) {
+	t.Run("v3 base url", func(t *testing.T) {
 		info := claudeRelayInfo(constant.ChannelTypeZhipu, "glm-4.6")
+		info.ApiKey = "zhipu-id.zhipu-secret"
 		c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
 
-		_, err := adaptor.ConvertClaudeRequest(c, info, claudeRequest("glm-4.6"))
-		var apiErr *types.NewAPIError
-		require.ErrorAs(t, err, &apiErr)
-		assert.Equal(t, http.StatusBadRequest, apiErr.StatusCode)
-		assert.Equal(t, types.ErrorCodeChannelFormatUnsupported, apiErr.GetErrorCode())
-
-		// The v3 endpoint is still the one the OpenAI format uses.
 		requestURL, err := adaptor.GetRequestURL(info)
 		require.NoError(t, err)
 		assert.Equal(t, "https://upstream.example.com/api/paas/v3/model-api/glm-4.6/invoke", requestURL)
+
+		// The v3 endpoints take the signed token on every format, including this
+		// one: only the Anthropic-compatible endpoint takes the key itself.
+		header := http.Header{}
+		require.NoError(t, adaptor.SetupRequestHeader(c, &header, info))
+		authorization := header.Get("Authorization")
+		assert.NotEqual(t, "Bearer "+info.ApiKey, authorization)
+		assert.Len(t, strings.Split(authorization, "."), 3, authorization)
+
+		converted, err := adaptor.ConvertClaudeRequest(c, info, claudeRequest("glm-4.6"))
+		require.NoError(t, err)
+		encoded, err := common.Marshal(converted)
+		require.NoError(t, err)
+		// The Anthropic system prompt becomes a prompt turn the v3 protocol
+		// requires an acknowledgement after.
+		assert.Equal(t, "system", gjson.GetBytes(encoded, "prompt.0.role").String(), string(encoded))
+		assert.Equal(t, "you are brief", gjson.GetBytes(encoded, "prompt.0.content").String(), string(encoded))
+		assert.Equal(t, "user", gjson.GetBytes(encoded, "prompt.1.role").String(), string(encoded))
+		assert.Equal(t, "Okay", gjson.GetBytes(encoded, "prompt.1.content").String(), string(encoded))
+		assert.False(t, gjson.GetBytes(encoded, "messages").Exists(), "the Anthropic shape must not reach Zhipu: %s", encoded)
+		assert.False(t, gjson.GetBytes(encoded, "system").Exists(), "the Anthropic shape must not reach Zhipu: %s", encoded)
 	})
+
+	t.Run("gemini", func(t *testing.T) {
+		info := geminiRelayInfo(constant.ChannelTypeZhipu)
+		info.IsStream = true
+		c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1beta/models/gemini-2.5-flash:streamGenerateContent", nil)
+
+		// The v3 protocol has one streaming method for every format.
+		requestURL, err := adaptor.GetRequestURL(info)
+		require.NoError(t, err)
+		assert.Equal(t, "https://upstream.example.com/api/paas/v3/model-api/gemini-2.5-flash/sse-invoke", requestURL)
+
+		converted, err := adaptor.ConvertGeminiRequest(c, info, geminiRequest())
+		require.NoError(t, err)
+		encoded, err := common.Marshal(converted)
+		require.NoError(t, err)
+		assert.Equal(t, "user", gjson.GetBytes(encoded, "prompt.0.role").String(), string(encoded))
+		assert.Equal(t, "hello", gjson.GetBytes(encoded, "prompt.0.content").String(), string(encoded))
+		// The request went through this channel's own OpenAI shaping, which is
+		// what keeps top_p at a value the provider accepts.
+		assert.Equal(t, 0.99, gjson.GetBytes(encoded, "top_p").Float(), string(encoded))
+		assert.False(t, gjson.GetBytes(encoded, "contents").Exists(), "the Gemini shape must not reach Zhipu: %s", encoded)
+	})
+}
+
+func TestZhipuRendersTheOtherFormatsFromItsOwnResponse(t *testing.T) {
+	const upstreamBody = `{"code":200,"msg":"","success":true,"data":{"task_id":"zhipu-task-1",` +
+		`"request_id":"zhipu-req-1","task_status":"SUCCESS","choices":[{"role":"assistant","content":"hi"}],` +
+		`"usage":{"prompt_tokens":3,"completion_tokens":1,"total_tokens":4}}}`
+
+	tests := []struct {
+		name    string
+		info    *relaycommon.RelayInfo
+		asserts func(t *testing.T, body []byte)
+	}{
+		{
+			name: "gemini",
+			info: geminiRelayInfo(constant.ChannelTypeZhipu),
+			asserts: func(t *testing.T, body []byte) {
+				assert.Equal(t, "hi", gjson.GetBytes(body, "candidates.0.content.parts.0.text").String(), string(body))
+				assert.Equal(t, int64(4), gjson.GetBytes(body, "usageMetadata.totalTokenCount").Int(), string(body))
+			},
+		},
+		{
+			name: "claude",
+			info: claudeRelayInfo(constant.ChannelTypeZhipu, "glm-4.6"),
+			asserts: func(t *testing.T, body []byte) {
+				assert.Equal(t, "message", gjson.GetBytes(body, "type").String(), string(body))
+				assert.Equal(t, "hi", gjson.GetBytes(body, "content.0.text").String(), string(body))
+				assert.Equal(t, "end_turn", gjson.GetBytes(body, "stop_reason").String(), string(body))
+				assert.Equal(t, int64(3), gjson.GetBytes(body, "usage.input_tokens").Int(), string(body))
+				assert.Equal(t, int64(1), gjson.GetBytes(body, "usage.output_tokens").Int(), string(body))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			c := gin.CreateTestContextOnly(recorder, gin.New())
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(upstreamBody)),
+			}
+
+			usage, apiErr := GetAdaptor(constant.APITypeZhipu).DoResponse(c, resp, tt.info)
+			require.Nil(t, apiErr)
+			require.NotNil(t, usage)
+
+			body := recorder.Body.Bytes()
+			assert.False(t, gjson.GetBytes(body, "choices").Exists(), "the chat shape must not reach the client: %s", body)
+			tt.asserts(t, body)
+		})
+	}
+}
+
+// A v3 stream is a run of data frames holding answer text and a trailing meta
+// frame holding the finish reason and the usage, and the converted formats have to
+// close on that meta frame instead of on a chat [DONE].
+func TestZhipuStreamsTheConvertedFormats(t *testing.T) {
+	const upstreamStream = "data:hi\n" +
+		`meta: {"request_id":"zhipu-req-1","task_id":"zhipu-task-1","task_status":"finish",` +
+		`"usage":{"prompt_tokens":3,"completion_tokens":1,"total_tokens":4}}` + "\n"
+
+	tests := []struct {
+		name         string
+		info         *relaycommon.RelayInfo
+		wantContain  []string
+		openingFrame int
+	}{
+		{
+			name:        "gemini",
+			info:        geminiRelayInfo(constant.ChannelTypeZhipu),
+			wantContain: []string{"candidates", "hi", "totalTokenCount"},
+		},
+		{
+			name:        "claude",
+			info:        claudeRelayInfo(constant.ChannelTypeZhipu, "glm-4.6"),
+			wantContain: []string{"message_start", "content_block_delta", "hi", "message_stop"},
+			// The meta frame carries both the finish reason and the usage, so the
+			// stream is opened and closed by that one frame: a second opening would
+			// mean the terminal frame was rendered twice.
+			openingFrame: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder := newStreamRecorder()
+			c := gin.CreateTestContextOnly(recorder, gin.New())
+			tt.info.IsStream = true
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+				Body:       io.NopCloser(strings.NewReader(upstreamStream)),
+			}
+
+			usage, apiErr := GetAdaptor(constant.APITypeZhipu).DoResponse(c, resp, tt.info)
+			require.Nil(t, apiErr)
+			require.NotNil(t, usage)
+
+			body := recorder.Body.String()
+			for _, want := range tt.wantContain {
+				assert.Contains(t, body, want, body)
+			}
+			assert.NotContains(t, body, "[DONE]", body)
+			assert.Equal(t, tt.openingFrame, strings.Count(body, `"type":"message_start"`), body)
+		})
+	}
 }
 
 func TestZhipuRendersClaudeFromTheAnthropicEndpoint(t *testing.T) {

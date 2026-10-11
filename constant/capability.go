@@ -67,7 +67,7 @@ var ChannelCapabilitiesByAPIType = map[int]Capabilities{
 	APITypeAnthropic:   CapabilitiesOf(CapabilityClaude, CapabilityGemini, CapabilityOpenAIResponses),
 	APITypePaLM:        CapabilitiesOf(CapabilityClaude, CapabilityGemini),
 	APITypeBaidu:       CapabilitiesOf(CapabilityEmbedding),
-	APITypeZhipu:       0,
+	APITypeZhipu:       CapabilitiesOf(CapabilityClaude, CapabilityGemini),
 	APITypeAli:         CapabilitiesOf(CapabilityClaude, CapabilityGemini, CapabilityOpenAIResponses, CapabilityImage, CapabilityEmbedding, CapabilityRerank),
 	APITypeXunfei:      0,
 	APITypeGemini:      CapabilitiesOf(CapabilityClaude, CapabilityGemini, CapabilityOpenAIResponses, CapabilityImage, CapabilityEmbedding),
