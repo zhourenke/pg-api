@@ -2,7 +2,6 @@ package xunfei
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -84,10 +83,18 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 	// rejected handshake, none of which the dialer built here used to have.
 	var apiVersion string
 	a.domain, apiVersion, a.authUrl = getXunfeiAuthUrl(c, info, splits[2], splits[1], a.request.Model)
-	if limit := xunfeiMaxOutputTokens(apiVersion); limit > 0 && a.request.GetMaxTokens() > limit {
-		return nil, types.NewErrorWithStatusCode(
-			fmt.Errorf("max_tokens %d exceeds the documented maximum for %s (%d)", a.request.GetMaxTokens(), apiVersion, limit),
-			types.ErrorCodeInvalidRequest, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
+	// 文档给的分版本答案长度上限：请求超过它时夹到上限再发出去，而不是把整个请求拒掉
+	// （`.agents/rules/billing.md` 要求适配器自己给这类乘数字段设界，clamp 是它认的做法
+	// 之一）。夹的是交给 handler 的那一份拷贝：a.request 保持客户端原样，计费与日志读到
+	// 的仍是客户端传的值。文档没给上限的版本（v2.1、kjwx 与不认识的版本）原样转发。
+	request := *a.request
+	if limit := xunfeiMaxOutputTokens(apiVersion); limit > 0 {
+		// 与 dto.GeneralOpenAIRequest.GetMaxTokens 同一条优先级：max_completion_tokens 优先。
+		if request.MaxCompletionTokens != nil && *request.MaxCompletionTokens > limit {
+			request.MaxCompletionTokens = &limit
+		} else if request.MaxTokens != nil && *request.MaxTokens > limit {
+			request.MaxTokens = &limit
+		}
 	}
 	conn, dialErr := channel.DoWssRequest(a, c, info, nil)
 	if dialErr != nil {
@@ -95,9 +102,9 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 	}
 	defer conn.Close()
 	if info.IsStream {
-		usage, err = xunfeiStreamHandler(c, info, conn, *a.request, splits[0], a.domain)
+		usage, err = xunfeiStreamHandler(c, info, conn, request, splits[0], a.domain)
 	} else {
-		usage, err = xunfeiHandler(c, info, conn, *a.request, splits[0], a.domain)
+		usage, err = xunfeiHandler(c, info, conn, request, splits[0], a.domain)
 	}
 	return
 }

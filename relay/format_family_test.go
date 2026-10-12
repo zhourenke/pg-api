@@ -2,7 +2,6 @@ package relay
 
 import (
 	"encoding/base64"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -2161,6 +2160,10 @@ func TestCozeStreamsTheConvertedFormats(t *testing.T) {
 	}
 }
 
+// xunfeiAnswerFrame 是一轮的最后一个结果帧。只核对出站请求的用例也要回这样一帧：整轮没有
+// 任何带文本的帧现在会被判成一次空回答失败，那样的假上游不能用来演一轮成功的请求。
+const xunfeiAnswerFrame = `{"payload":{"choices":{"status":2,"text":[{"content":"hi"}]},"usage":{"text":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}}}`
+
 // xunfeiUpstream is the websocket endpoint 讯飞's protocol talks to: it records
 // the handshake and the first message, then replays the frames it was handed. It
 // is what lets the channel's own dialect be exercised without 讯飞 credentials.
@@ -2315,7 +2318,7 @@ func TestXunfeiConvertsBothConvertedFormatsIntoItsOwnRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			upstream := newXunfeiUpstream(t)
+			upstream := newXunfeiUpstream(t, xunfeiAnswerFrame)
 			tt.info.UpstreamModelName = tt.model
 			tt.info.ChannelBaseUrl = upstream.URL
 			tt.info.ApiKey = "app|secret|key"
@@ -2398,7 +2401,7 @@ func TestXunfeiSendsTopKFromTheClientTopKOnly(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			upstream := newXunfeiUpstream(t)
+			upstream := newXunfeiUpstream(t, xunfeiAnswerFrame)
 			info := openaiRelayInfo(constant.ChannelTypeXunfei, "SparkDesk-v3.5")
 			info.ChannelBaseUrl = upstream.URL
 			info.ApiKey = "app|secret|key"
@@ -2421,26 +2424,39 @@ func TestXunfeiSendsTopKFromTheClientTopKOnly(t *testing.T) {
 	}
 }
 
-// 文档给每个版本规定了「回答的最大长度」上限：超出就是客户端把参数用错了，在拨号之前按 400
-// 拒掉，而不是原样发上去、让厂商的拒绝落在这条渠道的健康上。
-func TestXunfeiRejectsMaxTokensAboveTheDocumentedLimit(t *testing.T) {
+// 讯飞文档给每个版本一个「回答的最大长度」上限：请求超过它时夹到上限再发出去，而不是把整个
+// 请求拒掉；文档没给上限的版本（v2.1、kjwx 与不认识的版本）原样转发。夹的是交给 handler 的
+// 那一份，所以客户端传的原值在适配器里不被改写。
+func TestXunfeiClampsMaxTokensToTheDocumentedLimit(t *testing.T) {
 	adaptor := GetAdaptor(constant.APITypeXunfei)
 	require.NotNil(t, adaptor)
 
 	tests := []struct {
-		name         string
-		maxTokens    uint
-		wantRejected bool
+		name                string
+		model               string
+		maxTokens           *uint
+		maxCompletionTokens *uint
+		wantSent            uint
 	}{
+		{name: "below the limit is sent as asked", model: "SparkDesk-v1.1", maxTokens: common.GetPointer(uint(3000)), wantSent: 3000},
 		// v1.1（Lite）的文档上限是 4096。
-		{name: "the documented maximum is accepted", maxTokens: 4096},
-		{name: "one token above it is rejected", maxTokens: 4097, wantRejected: true},
+		{name: "the documented maximum is sent as asked", model: "SparkDesk-v1.1", maxTokens: common.GetPointer(uint(4096)), wantSent: 4096},
+		{name: "one token above it is clamped", model: "SparkDesk-v1.1", maxTokens: common.GetPointer(uint(4097)), wantSent: 4096},
+		{
+			// GetMaxTokens 优先取 max_completion_tokens，夹取跟着它走。
+			name:                "the clamp follows the field the request is built from",
+			model:               "SparkDesk-v1.1",
+			maxTokens:           common.GetPointer(uint(1)),
+			maxCompletionTokens: common.GetPointer(uint(4097)),
+			wantSent:            4096,
+		},
+		{name: "a version with no documented ceiling passes through", model: "SparkDesk-v2.1", maxTokens: common.GetPointer(uint(90000)), wantSent: 90000},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			upstream := newXunfeiUpstream(t)
-			info := openaiRelayInfo(constant.ChannelTypeXunfei, "SparkDesk-v1.1")
+			upstream := newXunfeiUpstream(t, xunfeiAnswerFrame)
+			info := openaiRelayInfo(constant.ChannelTypeXunfei, tt.model)
 			info.ChannelBaseUrl = upstream.URL
 			info.ApiKey = "app|secret|key"
 
@@ -2448,92 +2464,97 @@ func TestXunfeiRejectsMaxTokensAboveTheDocumentedLimit(t *testing.T) {
 			c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
 
 			request := &dto.GeneralOpenAIRequest{
-				Messages:  []dto.Message{{Role: "user", Content: "hello"}},
-				MaxTokens: common.GetPointer(tt.maxTokens),
+				Model:               tt.model,
+				Messages:            []dto.Message{{Role: "user", Content: "hello"}},
+				MaxTokens:           tt.maxTokens,
+				MaxCompletionTokens: tt.maxCompletionTokens,
 			}
 			_, err := adaptor.ConvertOpenAIRequest(c, info, request)
 			require.NoError(t, err)
-			_, apiErr := adaptor.DoResponse(c, &http.Response{StatusCode: http.StatusOK}, info)
+			usage, apiErr := adaptor.DoResponse(c, &http.Response{StatusCode: http.StatusOK}, info)
+			require.Nil(t, apiErr)
+			require.NotNil(t, usage)
 
-			if !tt.wantRejected {
-				require.Nil(t, apiErr)
-				assert.Contains(t, string(upstream.request(t).Body), fmt.Sprintf(`"max_tokens":%d`, tt.maxTokens))
-				return
-			}
-			require.NotNil(t, apiErr)
-			assert.Equal(t, types.ErrorCodeInvalidRequest, apiErr.GetErrorCode())
-			assert.Equal(t, http.StatusBadRequest, apiErr.StatusCode)
-			assert.Contains(t, apiErr.Error(), "v1.1")
-			assert.Contains(t, apiErr.Error(), "4096")
-			select {
-			case seen := <-upstream.seen:
-				t.Fatalf("the channel dialed the upstream anyway: %s", seen.Body)
-			default:
-			}
+			body := string(upstream.request(t).Body)
+			assert.Equal(t, float64(tt.wantSent), gjson.Get(body, "parameter.chat.max_tokens").Float(), body)
 		})
 	}
 }
 
-// 厂商把这一轮判成失败时，报的是一帧 header.code 非零、且没有 payload.choices 的报文：网关
-// 只按 payload.choices.status == 2 收尾，header.code 全包没人读，于是这种帧被当普通帧跳过，
-// 上游关连接即正常收尾，客户端拿到 200 与一个空答案——厂商给的原因到不了客户端，这一层也不
-// 报错，所以没有任何东西把渠道判成失败，计费按返回的零用量折算。
-// 这一条只钉我们这一半的现状：它不表示厂商真会这么回，也不能当成厂商侧的结论；把错误帧改成
-// 显式失败（不再静默 200 空答案）是行为变更，要等真实流量的形状。
-func TestXunfeiAnswersAnErrorFrameWithAnEmptySuccess(t *testing.T) {
+// 厂商把这一轮判成失败时，报的是一帧 header.code 非零、且没有 payload.choices 的报文；也可能
+// 什么都不给就把连接关掉。两种情形的共同事实是「整轮没有任何一帧带可用文本」，现在都返回一个
+// empty_response 失败：handler 不写正文、不返回用量，客户端拿到厂商给的原因（或我们拼的那句）
+// 而不是一个 200 的空答案，这一层也终于有东西把渠道判成失败、没有 token 可以结算。判据故意不看
+// header.code——它非零那一帧的真实形状与语义还没有厂商侧证据。
+func TestXunfeiFailsARoundWithNoAnswerFrame(t *testing.T) {
+	const errorFrame = `{"header":{"code":11200,"message":"invalid app id","sid":"sid-1"}}`
+
 	adaptor := GetAdaptor(constant.APITypeXunfei)
 	require.NotNil(t, adaptor)
 
-	const errorFrame = `{"header":{"code":11200,"message":"invalid app id","sid":"sid-1"}}`
-
 	tests := []struct {
-		name    string
-		info    *relaycommon.RelayInfo
-		convert func(*gin.Context, *relaycommon.RelayInfo) (any, error)
-		asserts func(t *testing.T, body []byte)
+		name        string
+		frames      []string
+		info        *relaycommon.RelayInfo
+		convert     func(*gin.Context, *relaycommon.RelayInfo) (any, error)
+		stream      bool
+		wantMessage string
 	}{
 		{
-			name: "openai",
+			name:   "openai: an error frame",
+			frames: []string{errorFrame},
+			info:   openaiRelayInfo(constant.ChannelTypeXunfei, "SparkDesk-v3.5"),
+			convert: func(c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+				request := &dto.GeneralOpenAIRequest{Messages: []dto.Message{{Role: "user", Content: "hello"}}}
+				return adaptor.ConvertOpenAIRequest(c, info, request)
+			},
+			wantMessage: "invalid app id",
+		},
+		{
+			name:   "gemini: an error frame",
+			frames: []string{errorFrame},
+			info:   geminiRelayInfo(constant.ChannelTypeXunfei),
+			convert: func(c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+				return adaptor.ConvertGeminiRequest(c, info, geminiRequest())
+			},
+			wantMessage: "invalid app id",
+		},
+		{
+			name: "openai: the upstream closes without sending any frame",
 			info: openaiRelayInfo(constant.ChannelTypeXunfei, "SparkDesk-v3.5"),
 			convert: func(c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
 				request := &dto.GeneralOpenAIRequest{Messages: []dto.Message{{Role: "user", Content: "hello"}}}
 				return adaptor.ConvertOpenAIRequest(c, info, request)
 			},
-			asserts: func(t *testing.T, body []byte) {
-				assert.Equal(t, "", gjson.GetBytes(body, "choices.0.message.content").String(), string(body))
-				assert.Equal(t, "stop", gjson.GetBytes(body, "choices.0.finish_reason").String(), string(body))
-			},
+			wantMessage: "xunfei returned no answer",
 		},
 		{
-			name: "claude",
-			info: claudeRelayInfo(constant.ChannelTypeXunfei, "SparkDesk-v3.5"),
-			convert: func(c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
-				return adaptor.ConvertClaudeRequest(c, info, claudeRequest("SparkDesk-v3.5"))
-			},
-			asserts: func(t *testing.T, body []byte) {
-				assert.Equal(t, "", gjson.GetBytes(body, "content.0.text").String(), string(body))
-				assert.Equal(t, "end_turn", gjson.GetBytes(body, "stop_reason").String(), string(body))
-			},
-		},
-		{
-			name: "gemini",
-			info: geminiRelayInfo(constant.ChannelTypeXunfei),
+			name:   "gemini stream: the stream is not closed with a terminal chunk",
+			frames: []string{errorFrame},
+			info:   geminiRelayInfo(constant.ChannelTypeXunfei),
 			convert: func(c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
 				return adaptor.ConvertGeminiRequest(c, info, geminiRequest())
 			},
-			asserts: func(t *testing.T, body []byte) {
-				assert.Equal(t, "", gjson.GetBytes(body, "candidates.0.content.parts.0.text").String(), string(body))
-			},
+			stream:      true,
+			wantMessage: "invalid app id",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			upstream := newXunfeiUpstream(t, errorFrame)
+			upstream := newXunfeiUpstream(t, tt.frames...)
 			tt.info.ChannelBaseUrl = upstream.URL
 			tt.info.ApiKey = "app|secret|key"
+			tt.info.IsStream = tt.stream
 
-			recorder := httptest.NewRecorder()
+			// gin 的 Context.Stream 要求 writer 是 CloseNotifier，只有流式那一行换实现。
+			var recorder http.ResponseWriter = httptest.NewRecorder()
+			bodyText := func() string { return recorder.(*httptest.ResponseRecorder).Body.String() }
+			if tt.stream {
+				stream := newStreamRecorder()
+				recorder = stream
+				bodyText = func() string { return stream.Body.String() }
+			}
 			c := gin.CreateTestContextOnly(recorder, gin.New())
 			c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
 
@@ -2541,17 +2562,12 @@ func TestXunfeiAnswersAnErrorFrameWithAnEmptySuccess(t *testing.T) {
 			require.NoError(t, err)
 
 			usage, apiErr := adaptor.DoResponse(c, &http.Response{StatusCode: http.StatusOK}, tt.info)
-			// 渠道健康看的是这一层的错误：nil 意味着没有东西把渠道判成失败。
-			require.Nil(t, apiErr)
-			require.NotNil(t, usage)
-			returned, ok := usage.(*dto.Usage)
-			require.True(t, ok, "%T", usage)
-			// 计费按这份 usage 折算，零用量就是零 token 费用。
-			assert.Equal(t, 0, returned.TotalTokens)
-
-			body := recorder.Body.Bytes()
-			assert.NotContains(t, string(body), "invalid app id", string(body))
-			tt.asserts(t, body)
+			require.NotNil(t, apiErr)
+			assert.Equal(t, types.ErrorCodeEmptyResponse, apiErr.GetErrorCode())
+			assert.Contains(t, apiErr.Error(), tt.wantMessage)
+			// 没有用量可结算，handler 也不写任何正文或收尾分片：错误由上层按客户端格式渲染。
+			assert.Nil(t, usage)
+			assert.Empty(t, bodyText())
 		})
 	}
 }
@@ -2644,7 +2660,7 @@ func TestXunfeiForwardsRolesItDoesNotKnowVerbatim(t *testing.T) {
 	adaptor := GetAdaptor(constant.APITypeXunfei)
 	require.NotNil(t, adaptor)
 
-	upstream := newXunfeiUpstream(t)
+	upstream := newXunfeiUpstream(t, xunfeiAnswerFrame)
 	info := openaiRelayInfo(constant.ChannelTypeXunfei, "SparkDesk-v3.5")
 	info.ChannelBaseUrl = upstream.URL
 	info.ApiKey = "app|secret|key"

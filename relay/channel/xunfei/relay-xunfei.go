@@ -4,6 +4,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -149,9 +150,16 @@ func xunfeiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, conn *webs
 	id := helper.GetResponseID(c)
 	var usage dto.Usage
 	var lastStreamData string
+	var lastFrame XunfeiChatResponse
+	var noAnswerErr *types.NewAPIError
+	sawText := false
 	c.Stream(func(w io.Writer) bool {
 		select {
 		case xunfeiResponse := <-dataChan:
+			lastFrame = xunfeiResponse
+			if len(xunfeiResponse.Payload.Choices.Text) > 0 {
+				sawText = true
+			}
 			usage.PromptTokens += xunfeiResponse.Payload.Usage.Text.PromptTokens
 			usage.CompletionTokens += xunfeiResponse.Payload.Usage.Text.CompletionTokens
 			usage.TotalTokens += xunfeiResponse.Payload.Usage.Text.TotalTokens
@@ -174,6 +182,11 @@ func xunfeiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, conn *webs
 			}
 			return true
 		case <-stopChan:
+			// 整轮没有任何一帧带可用文本：这一轮没有回答，也没有用量可结算。
+			if !sawText {
+				noAnswerErr = xunfeiNoAnswerError(lastFrame)
+				return false
+			}
 			if info.RelayFormat != types.RelayFormatOpenAI {
 				// 转换后的协议都要一帧带结束原因和用量的收尾分片才闭合，讯飞自己不给
 				// 这样一帧，所以在这里补一帧，再交给该协议的收尾逻辑。
@@ -200,6 +213,9 @@ func xunfeiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, conn *webs
 			return false
 		}
 	})
+	if noAnswerErr != nil {
+		return nil, noAnswerErr
+	}
 	return &usage, nil
 }
 
@@ -217,6 +233,23 @@ func emitXunfeiStreamChunk(c *gin.Context, info *relaycommon.RelayInfo, chunk dt
 	return nil
 }
 
+// xunfeiNoAnswerError 是「整轮没有任何一帧带可用文本」时的失败。厂商把这一轮判成失败时
+// 报的是一帧带 header.code 的报文，也可能什么都不给就把连接关掉：两种情形此前都只是被跳过
+// 然后正常收尾，客户端拿到一个 200 的空答案。判据故意不看 header.code——它非零时那一帧的
+// 真实形状与语义还没有厂商侧证据，只看「有没有收到可用文本帧」这条我们自己的事实，并把厂商
+// 给的原因（如果给了）带出去。
+func xunfeiNoAnswerError(last XunfeiChatResponse) *types.NewAPIError {
+	message := "xunfei returned no answer"
+	if code := last.Header.Code; code != 0 {
+		if detail := strings.TrimSpace(last.Header.Message); detail != "" {
+			message = fmt.Sprintf("xunfei returned no answer (code %d): %s", code, detail)
+		} else {
+			message = fmt.Sprintf("xunfei returned no answer (code %d)", code)
+		}
+	}
+	return types.NewError(errors.New(message), types.ErrorCodeEmptyResponse)
+}
+
 func xunfeiHandler(c *gin.Context, info *relaycommon.RelayInfo, conn *websocket.Conn, textRequest dto.GeneralOpenAIRequest, appId string, domain string) (*dto.Usage, *types.NewAPIError) {
 	dataChan, stopChan, err := xunfeiMakeRequest(c, conn, textRequest, domain, appId)
 	if err != nil {
@@ -225,6 +258,7 @@ func xunfeiHandler(c *gin.Context, info *relaycommon.RelayInfo, conn *websocket.
 	var usage dto.Usage
 	var content string
 	var xunfeiResponse XunfeiChatResponse
+	sawText := false
 	stop := false
 	for !stop {
 		select {
@@ -232,12 +266,16 @@ func xunfeiHandler(c *gin.Context, info *relaycommon.RelayInfo, conn *websocket.
 			if len(xunfeiResponse.Payload.Choices.Text) == 0 {
 				continue
 			}
+			sawText = true
 			content += xunfeiResponse.Payload.Choices.Text[0].Content
 			usage.PromptTokens += xunfeiResponse.Payload.Usage.Text.PromptTokens
 			usage.CompletionTokens += xunfeiResponse.Payload.Usage.Text.CompletionTokens
 			usage.TotalTokens += xunfeiResponse.Payload.Usage.Text.TotalTokens
 		case stop = <-stopChan:
 		}
+	}
+	if !sawText {
+		return nil, xunfeiNoAnswerError(xunfeiResponse)
 	}
 	if len(xunfeiResponse.Payload.Choices.Text) == 0 {
 		xunfeiResponse.Payload.Choices.Text = []XunfeiChatResponseTextItem{
