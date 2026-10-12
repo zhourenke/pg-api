@@ -2320,6 +2320,67 @@ func TestXunfeiConvertsBothConvertedFormatsIntoItsOwnRequest(t *testing.T) {
 	}
 }
 
+// 讯飞的 top_k 是采样参数（文档区间 [1,6]），OpenAI 的 n 是候选数：两者不是一回事，所以只
+// 把客户端自己传的、且落在区间里的 top_k 写进请求体，越界与没传都交给厂商的默认值。
+func TestXunfeiSendsTopKFromTheClientTopKOnly(t *testing.T) {
+	adaptor := GetAdaptor(constant.APITypeXunfei)
+	require.NotNil(t, adaptor)
+
+	tests := []struct {
+		name     string
+		request  *dto.GeneralOpenAIRequest
+		wantTopK string
+	}{
+		{
+			name: "the client's top_k is sent, its n is not",
+			request: &dto.GeneralOpenAIRequest{
+				Messages: []dto.Message{{Role: "user", Content: "hello"}},
+				TopK:     common.GetPointer(3),
+				N:        common.GetPointer(8),
+			},
+			wantTopK: "3",
+		},
+		{
+			name: "n alone leaves top_k to the vendor default",
+			request: &dto.GeneralOpenAIRequest{
+				Messages: []dto.Message{{Role: "user", Content: "hello"}},
+				N:        common.GetPointer(4),
+			},
+		},
+		{
+			name: "a top_k outside the documented range is left to the vendor default",
+			request: &dto.GeneralOpenAIRequest{
+				Messages: []dto.Message{{Role: "user", Content: "hello"}},
+				TopK:     common.GetPointer(40),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			upstream := newXunfeiUpstream(t)
+			info := openaiRelayInfo(constant.ChannelTypeXunfei, "SparkDesk-v3.5")
+			info.ChannelBaseUrl = upstream.URL
+			info.ApiKey = "app|secret|key"
+
+			c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+
+			_, err := adaptor.ConvertOpenAIRequest(c, info, tt.request)
+			require.NoError(t, err)
+			_, apiErr := adaptor.DoResponse(c, &http.Response{StatusCode: http.StatusOK}, info)
+			require.Nil(t, apiErr)
+
+			body := string(upstream.request(t).Body)
+			if tt.wantTopK == "" {
+				assert.False(t, gjson.Get(body, "parameter.chat.top_k").Exists(), body)
+				return
+			}
+			assert.Equal(t, tt.wantTopK, gjson.Get(body, "parameter.chat.top_k").String(), body)
+		})
+	}
+}
+
 // 讯飞 answers a whole run as status-tagged frames, with the usage in a separate
 // payload: the chat response built from them is the intermediate Anthropic
 // Messages and generateContent are rendered from.

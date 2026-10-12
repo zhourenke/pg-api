@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/samber/lo"
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/constant"
 	"github.com/zhourenke/pg-api/relay/channel/openai"
@@ -51,7 +50,11 @@ func requestOpenAI2Xunfei(request dto.GeneralOpenAIRequest, xunfeiAppId string, 
 	xunfeiRequest.Header.AppId = xunfeiAppId
 	xunfeiRequest.Parameter.Chat.Domain = domain
 	xunfeiRequest.Parameter.Chat.Temperature = request.Temperature
-	xunfeiRequest.Parameter.Chat.TopK = lo.FromPtrOr(request.N, 0)
+	// 讯飞的 top_k 是采样参数，OpenAI 的 n 是候选数：两者不是一回事，所以只带上客户端自己
+	// 传的 top_k，越界与没传都交给厂商用默认值。（这条以前拿 n 去填 top_k。）
+	if request.TopK != nil && *request.TopK >= 1 && *request.TopK <= xunfeiTopKMax {
+		xunfeiRequest.Parameter.Chat.TopK = *request.TopK
+	}
 	xunfeiRequest.Parameter.Chat.MaxTokens = request.GetMaxTokens()
 	xunfeiRequest.Payload.Message.Text = messages
 	return &xunfeiRequest
