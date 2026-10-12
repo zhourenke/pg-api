@@ -106,10 +106,27 @@ func TestFilterCandidateIDs(t *testing.T) {
 	}
 }
 
+// claudeIncapableChannelType is the decoy the format-preference tests below
+// build: a channel type the capability table declares unable to convert Claude.
+// Mistral was that decoy until bdc235905 gave it the Claude and Gemini
+// conversions, and the stale premise then surfaced as a candidate-order diff
+// instead of a named failure, so the premise is asserted here. MokaAI declares
+// embedding only, and its adaptor refuses the chat-shaped formats through the
+// shared refusal.
+func claudeIncapableChannelType(t *testing.T) int {
+	t.Helper()
+	const channelType = constant.ChannelTypeMokaAI
+	caps, declared := common.ChannelCapabilitiesFor(channelType)
+	require.Truef(t, declared, "channel type %d must declare capabilities", channelType)
+	require.Falsef(t, caps.Has(constant.CapabilityClaude),
+		"channel type %d now converts Claude; pick another decoy for this test", channelType)
+	return channelType
+}
+
 func TestFilterCandidateIDsPrefersCapableChannelWithoutExcludingTheRest(t *testing.T) {
-	// openai converts every format; mistral converts none of the seven.
+	// openai converts every format; the decoy declares none of the seven.
 	capable := &Channel{Id: 900020, Type: constant.ChannelTypeOpenAI, Status: common.ChannelStatusEnabled}
-	incapable := &Channel{Id: 900021, Type: constant.ChannelTypeMistral, Status: common.ChannelStatusEnabled}
+	incapable := &Channel{Id: 900021, Type: claudeIncapableChannelType(t), Status: common.ChannelStatusEnabled}
 	preference := dto.ChannelFilter{Kind: dto.FilterCapability, RequiredFormat: constant.CapabilityClaude, Soft: true}
 
 	channelSyncLock.Lock()
@@ -143,7 +160,7 @@ func TestFilterCandidateIDsPrefersCapableChannelWithoutExcludingTheRest(t *testi
 func TestChannelSatisfiesFiltersIgnoresPreferences(t *testing.T) {
 	// A pinned channel must never be rejected by a format preference: pins go
 	// through this predicate, not through filterCandidateIDs.
-	incapable := &Channel{Id: 900022, Type: constant.ChannelTypeMistral}
+	incapable := &Channel{Id: 900022, Type: claudeIncapableChannelType(t)}
 	ok, kind := ChannelSatisfiesFilters(incapable, "m", []dto.ChannelFilter{{
 		Kind:           dto.FilterCapability,
 		RequiredFormat: constant.CapabilityClaude,
@@ -188,7 +205,7 @@ func TestDatabaseSelectionPrefersCapableChannelWithoutExcludingTheRest(t *testin
 	higherPriority := int64(10)
 	lowerPriority := int64(0)
 	unable := &Channel{
-		Id: 1, Type: constant.ChannelTypeMistral, Key: "k", Status: common.ChannelStatusEnabled,
+		Id: 1, Type: claudeIncapableChannelType(t), Key: "k", Status: common.ChannelStatusEnabled,
 		Name: "unable", Group: "default", Models: "capability-model", Priority: &higherPriority, BaseURL: &baseURL,
 	}
 	able := &Channel{

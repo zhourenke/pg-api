@@ -24,7 +24,14 @@ import (
 // database path that every deployment without MEMORY_CACHE_ENABLED takes
 // applies the same preference; model/channel_constraint_test.go covers it.
 func TestDistributePrefersChannelThatConvertsTheRequestFormat(t *testing.T) {
-	// Mistral converts none of the seven formats; Anthropic converts Claude.
+	// The decoy must be a channel type the capability table declares unable to
+	// convert Claude; Anthropic converts Claude. MokaAI declares embedding only,
+	// so it converts none of the seven formats. Mistral used to be the decoy
+	// until bdc235905 gave it the Claude and Gemini conversions.
+	caps, declared := common.ChannelCapabilitiesFor(constant.ChannelTypeMokaAI)
+	require.True(t, declared, "the decoy must declare capabilities")
+	require.False(t, caps.Has(constant.CapabilityClaude),
+		"the decoy now converts Claude; pick another channel type for the unable channel")
 	const unableChannelId = 1
 	const ableChannelId = 2
 
@@ -37,7 +44,7 @@ func TestDistributePrefersChannelThatConvertsTheRequestFormat(t *testing.T) {
 			// only reaches the able channel when the preference applies.
 			higherPriority := int64(10)
 			unable := &model.Channel{
-				Id: unableChannelId, Type: constant.ChannelTypeMistral, Key: "sk-test",
+				Id: unableChannelId, Type: constant.ChannelTypeMokaAI, Key: "sk-test",
 				Status: common.ChannelStatusEnabled, Name: "unable", Group: "default",
 				Models: "route-model", Priority: &higherPriority, BaseURL: &baseURL,
 			}
@@ -100,7 +107,9 @@ func TestDistributePrefersChannelThatConvertsTheRequestFormat(t *testing.T) {
 
 		// Chat completions convert the universal OpenAI shape, so no format is
 		// required and the higher-priority channel stays first. This is also the
-		// control proving the first case is the preference at work.
+		// control proving the first case is the preference at work: the decoy has
+		// no chat endpoint either, and it is still selected here, because only the
+		// seven convertible formats carry a capability.
 		require.NotEqual(t, http.StatusServiceUnavailable, recorder.Code, recorder.Body.String())
 		assert.Equal(t, unableChannelId, selected)
 	})
