@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import DOMPurify from 'dompurify'
+import DOMPurify, { type Config } from 'dompurify'
 import * as katex from 'katex'
 
 import 'katex/dist/katex.min.css'
@@ -128,10 +128,16 @@ const allowedTags = [
   'tspan',
 ]
 
+// A `<style>` element that follows other markup survives DOMPurify's default
+// profile, and this component renders into the page itself, so its selectors
+// (`body { … }`, `* { … }`) restyle or hide the whole application. Layout that
+// notices and FAQ entries really need stays available through style attributes,
+// which are still allowed.
 const sanitizeOptions = {
   ADD_ATTR: allowedAttributes,
   ADD_TAGS: allowedTags,
-} as const
+  FORBID_TAGS: ['style'],
+} satisfies Config
 
 type FlowNode = {
   id: string
