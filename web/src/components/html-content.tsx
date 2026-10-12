@@ -59,6 +59,15 @@ const isolatedContentBaseStyles = `
 </style>
 `
 
+// A `<style>` element that follows other markup survives DOMPurify's default
+// profile, and this variant renders into the page itself, so its selectors
+// (`body { … }`, `* { … }`) restyle or hide the whole application. Content that
+// really needs CSS belongs in the isolated variant, where the shadow root keeps
+// it scoped.
+const inlineSanitizeOptions = {
+  FORBID_TAGS: ['style'],
+} satisfies Config
+
 const isolatedSanitizeOptions = {
   ADD_ATTR: [
     'allowfullscreen',
@@ -128,7 +137,7 @@ function sanitizeHtmlContent(
     return hardenIsolatedHtml(html)
   }
 
-  return DOMPurify.sanitize(content)
+  return DOMPurify.sanitize(content, inlineSanitizeOptions)
 }
 
 function syncDarkClass(wrapper: HTMLElement): void {
