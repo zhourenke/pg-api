@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { describe, expect, test } from 'vitest'
 
+import type { StreamMessageUpdate } from '../lib'
 import type { ChatCompletionRequest } from '../types'
 import { createStreamRequestController } from './use-stream-request'
 
@@ -173,8 +174,11 @@ describe('latest-wins stream request coordination', () => {
       setStreaming: () => undefined,
     })
     const callbacks = {
-      onUpdate: (_type: 'reasoning' | 'content', chunk: string) =>
-        updates.push(chunk),
+      onUpdate: (update: StreamMessageUpdate) => {
+        if (update.type !== 'sources') {
+          updates.push(update.chunk)
+        }
+      },
       onComplete: () => undefined,
       onError: () => undefined,
     }
@@ -195,5 +199,36 @@ describe('latest-wins stream request coordination', () => {
     )
 
     expect(updates).toEqual(['current'])
+  })
+
+  test('reports the citations a chunk carries as a sources update', async () => {
+    const source = new FakeStreamSource()
+    const controller = createStreamRequestController({
+      getHeaders: () => Promise.resolve({ Authorization: 'Bearer current' }),
+      createSource: () => source,
+      setStreaming: () => undefined,
+    })
+    const updates: StreamMessageUpdate[] = []
+    const citation = {
+      type: 'url_citation',
+      url_citation: { url: 'https://example.com/a', title: 'A' },
+    }
+
+    await controller.send(payload, {
+      onUpdate: (update) => updates.push(update),
+      onComplete: () => undefined,
+      onError: () => undefined,
+    })
+    source.emit(
+      'message',
+      JSON.stringify({
+        choices: [{ delta: { content: 'answer', annotations: [citation] } }],
+      })
+    )
+
+    expect(updates).toEqual([
+      { type: 'content', chunk: 'answer' },
+      { type: 'sources', annotations: [citation] },
+    ])
   })
 })

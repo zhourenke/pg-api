@@ -28,6 +28,23 @@ export interface MessageVersion {
   content: string
 }
 
+export interface MessageSource {
+  href: string
+  title: string
+}
+
+// The citation payload of an OpenAI-compatible url_citation annotation. Fields
+// are optional because the shape comes from the upstream, not from this code.
+export interface UrlCitation {
+  url?: string
+  title?: string
+}
+
+export interface MessageAnnotation {
+  type?: string
+  url_citation?: UrlCitation
+}
+
 export interface Message {
   key: string
   from: MessageRole
@@ -36,7 +53,7 @@ export interface Message {
   startedAt?: number
   completedAt?: number
   durationMs?: number
-  sources?: { href: string; title: string }[]
+  sources?: MessageSource[]
   reasoning?: {
     content: string
     duration: number
@@ -89,6 +106,7 @@ export interface ChatCompletionChunk {
       role?: MessageRole
       content?: string
       reasoning_content?: string
+      annotations?: MessageAnnotation[]
     }
     finish_reason: string | null
   }>
@@ -105,6 +123,7 @@ export interface ChatCompletionResponse {
       role: MessageRole
       content: string
       reasoning_content?: string
+      annotations?: MessageAnnotation[]
     }
     finish_reason: string
   }>

@@ -21,6 +21,7 @@ import { t } from 'i18next'
 import { ERROR_MESSAGES, MESSAGE_ROLES, MESSAGE_STATUS } from '../../constants'
 import type { ChatCompletionResponse, Message } from '../../types'
 import { parseThinkTags } from './message-reasoning-utils'
+import { applyMessageSources } from './message-source-utils'
 import {
   completeAssistantTiming,
   completeReasoningTiming,
@@ -190,7 +191,10 @@ function applyChatCompletionChoice(
 ): Message {
   return completeAssistantTiming({
     ...finalizeMessage(
-      updateCurrentVersionContent(message, choice.message?.content || ''),
+      updateCurrentVersionContent(
+        applyMessageSources(message, choice.message?.annotations),
+        choice.message?.content || ''
+      ),
       choice.message?.reasoning_content
     ),
     status: MESSAGE_STATUS.COMPLETE,

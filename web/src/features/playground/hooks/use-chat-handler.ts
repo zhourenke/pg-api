@@ -24,6 +24,7 @@ import { handleServerError } from '@/lib/handle-server-error'
 import { sendChatCompletion } from '../api'
 import { ERROR_MESSAGES } from '../constants'
 import {
+  applyMessageSources,
   applyStreamingChunk,
   buildChatCompletionPayload,
   updateAssistantMessageWithError,
@@ -34,8 +35,14 @@ import {
   hasChatCompletionChoice,
   isAssistantMessageFinal,
   isAssistantMessagePending,
+  type StreamMessageUpdate,
 } from '../lib'
-import type { Message, PlaygroundConfig, ParameterEnabled } from '../types'
+import type {
+  Message,
+  MessageAnnotation,
+  PlaygroundConfig,
+  ParameterEnabled,
+} from '../types'
 import { useStreamRequest } from './use-stream-request'
 
 interface UseChatHandlerOptions {
@@ -51,6 +58,7 @@ type PendingStreamChunks = {
   generation: number
   content: string
   reasoning: string
+  annotations: MessageAnnotation[]
 }
 
 function mergePendingStreamChunk(
@@ -81,6 +89,7 @@ export function useChatHandler({
     generation: 0,
     content: '',
     reasoning: '',
+    annotations: [],
   })
   const streamFlushTimerRef = useRef<number | null>(null)
 
@@ -93,6 +102,7 @@ export function useChatHandler({
       generation,
       content: '',
       reasoning: '',
+      annotations: [],
     }
   }, [])
 
@@ -106,7 +116,11 @@ export function useChatHandler({
 
       const pendingChunks = pendingStreamChunksRef.current
       if (pendingChunks.generation !== generation) return
-      if (!pendingChunks.reasoning && !pendingChunks.content) {
+      if (
+        !pendingChunks.reasoning &&
+        !pendingChunks.content &&
+        pendingChunks.annotations.length === 0
+      ) {
         return
       }
 
@@ -114,11 +128,15 @@ export function useChatHandler({
         generation,
         content: '',
         reasoning: '',
+        annotations: [],
       }
       onMessageUpdate((prev) => {
         if (generation !== requestGenerationRef.current) return prev
         return updateLastAssistantMessage(prev, (message) => {
-          let updatedMessage = message
+          let updatedMessage = applyMessageSources(
+            message,
+            pendingChunks.annotations
+          )
 
           if (pendingChunks.reasoning) {
             updatedMessage = applyStreamingChunk(
@@ -189,13 +207,19 @@ export function useChatHandler({
 
   // Handle stream update
   const handleStreamUpdate = useCallback(
-    (generation: number, type: 'reasoning' | 'content', chunk: string) => {
+    (generation: number, update: StreamMessageUpdate) => {
       if (generation !== requestGenerationRef.current) return
       if (pendingStreamChunksRef.current.generation !== generation) return
-      pendingStreamChunksRef.current[type] = mergePendingStreamChunk(
-        pendingStreamChunksRef.current[type],
-        chunk
-      )
+
+      if (update.type === 'sources') {
+        pendingStreamChunksRef.current.annotations.push(...update.annotations)
+      } else {
+        pendingStreamChunksRef.current[update.type] = mergePendingStreamChunk(
+          pendingStreamChunksRef.current[update.type],
+          update.chunk
+        )
+      }
+
       scheduleStreamFlush(generation)
     },
     [scheduleStreamFlush]
@@ -257,7 +281,7 @@ export function useChatHandler({
       )
       void sendStreamRequest(
         payload,
-        (type, chunk) => handleStreamUpdate(generation, type, chunk),
+        (update) => handleStreamUpdate(generation, update),
         () => handleStreamComplete(generation),
         (error, errorCode) => handleStreamError(generation, error, errorCode)
       )
