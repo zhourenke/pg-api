@@ -2474,6 +2474,199 @@ func TestXunfeiRejectsMaxTokensAboveTheDocumentedLimit(t *testing.T) {
 	}
 }
 
+// 厂商把这一轮判成失败时，报的是一帧 header.code 非零、且没有 payload.choices 的报文：网关
+// 只按 payload.choices.status == 2 收尾，header.code 全包没人读，于是这种帧被当普通帧跳过，
+// 上游关连接即正常收尾，客户端拿到 200 与一个空答案——厂商给的原因到不了客户端，这一层也不
+// 报错，所以没有任何东西把渠道判成失败，计费按返回的零用量折算。
+// 这一条只钉我们这一半的现状：它不表示厂商真会这么回，也不能当成厂商侧的结论；把错误帧改成
+// 显式失败（不再静默 200 空答案）是行为变更，要等真实流量的形状。
+func TestXunfeiAnswersAnErrorFrameWithAnEmptySuccess(t *testing.T) {
+	adaptor := GetAdaptor(constant.APITypeXunfei)
+	require.NotNil(t, adaptor)
+
+	const errorFrame = `{"header":{"code":11200,"message":"invalid app id","sid":"sid-1"}}`
+
+	tests := []struct {
+		name    string
+		info    *relaycommon.RelayInfo
+		convert func(*gin.Context, *relaycommon.RelayInfo) (any, error)
+		asserts func(t *testing.T, body []byte)
+	}{
+		{
+			name: "openai",
+			info: openaiRelayInfo(constant.ChannelTypeXunfei, "SparkDesk-v3.5"),
+			convert: func(c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+				request := &dto.GeneralOpenAIRequest{Messages: []dto.Message{{Role: "user", Content: "hello"}}}
+				return adaptor.ConvertOpenAIRequest(c, info, request)
+			},
+			asserts: func(t *testing.T, body []byte) {
+				assert.Equal(t, "", gjson.GetBytes(body, "choices.0.message.content").String(), string(body))
+				assert.Equal(t, "stop", gjson.GetBytes(body, "choices.0.finish_reason").String(), string(body))
+			},
+		},
+		{
+			name: "claude",
+			info: claudeRelayInfo(constant.ChannelTypeXunfei, "SparkDesk-v3.5"),
+			convert: func(c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+				return adaptor.ConvertClaudeRequest(c, info, claudeRequest("SparkDesk-v3.5"))
+			},
+			asserts: func(t *testing.T, body []byte) {
+				assert.Equal(t, "", gjson.GetBytes(body, "content.0.text").String(), string(body))
+				assert.Equal(t, "end_turn", gjson.GetBytes(body, "stop_reason").String(), string(body))
+			},
+		},
+		{
+			name: "gemini",
+			info: geminiRelayInfo(constant.ChannelTypeXunfei),
+			convert: func(c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+				return adaptor.ConvertGeminiRequest(c, info, geminiRequest())
+			},
+			asserts: func(t *testing.T, body []byte) {
+				assert.Equal(t, "", gjson.GetBytes(body, "candidates.0.content.parts.0.text").String(), string(body))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			upstream := newXunfeiUpstream(t, errorFrame)
+			tt.info.ChannelBaseUrl = upstream.URL
+			tt.info.ApiKey = "app|secret|key"
+
+			recorder := httptest.NewRecorder()
+			c := gin.CreateTestContextOnly(recorder, gin.New())
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+
+			_, err := tt.convert(c, tt.info)
+			require.NoError(t, err)
+
+			usage, apiErr := adaptor.DoResponse(c, &http.Response{StatusCode: http.StatusOK}, tt.info)
+			// 渠道健康看的是这一层的错误：nil 意味着没有东西把渠道判成失败。
+			require.Nil(t, apiErr)
+			require.NotNil(t, usage)
+			returned, ok := usage.(*dto.Usage)
+			require.True(t, ok, "%T", usage)
+			// 计费按这份 usage 折算，零用量就是零 token 费用。
+			assert.Equal(t, 0, returned.TotalTokens)
+
+			body := recorder.Body.Bytes()
+			assert.NotContains(t, string(body), "invalid app id", string(body))
+			tt.asserts(t, body)
+		})
+	}
+}
+
+// 讯飞把用量放在每一帧里，网关逐帧相加（不是取最后一帧）：非流式那一路返回给计费的用量是各帧
+// 之和，而写进正文的用量是最后一帧自己的数——文档说这个字段是整轮一次的累计值，所以两种口径
+// 在文档下同值，但代码走的是累加这条。这一条把现状钉住，不替厂商判断逐帧值到底是累计还是增量。
+func TestXunfeiAddsUpTheUsageOfEveryFrame(t *testing.T) {
+	adaptor := GetAdaptor(constant.APITypeXunfei)
+	require.NotNil(t, adaptor)
+
+	frames := []string{
+		`{"payload":{"choices":{"status":1,"text":[{"content":"hi"}]},"usage":{"text":{"prompt_tokens":2,"completion_tokens":0,"total_tokens":2}}}}`,
+		`{"payload":{"choices":{"status":2,"text":[{"content":"!"}]},"usage":{"text":{"prompt_tokens":3,"completion_tokens":1,"total_tokens":4}}}}`,
+	}
+
+	tests := []struct {
+		name       string
+		info       *relaycommon.RelayInfo
+		convert    func(*gin.Context, *relaycommon.RelayInfo) (any, error)
+		stream     bool
+		assertBody func(t *testing.T, body string)
+	}{
+		{
+			name: "non-stream: the returned usage adds up while the body reports the last frame",
+			info: openaiRelayInfo(constant.ChannelTypeXunfei, "SparkDesk-v3.5"),
+			convert: func(c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+				request := &dto.GeneralOpenAIRequest{Messages: []dto.Message{{Role: "user", Content: "hello"}}}
+				return adaptor.ConvertOpenAIRequest(c, info, request)
+			},
+			assertBody: func(t *testing.T, body string) {
+				assert.Equal(t, "hi!", gjson.Get(body, "choices.0.message.content").String(), body)
+				// 正文这一份来自最后一帧（4），不是累加出来的 6：客户端的数与计费的数在这里并不同源。
+				assert.Equal(t, int64(4), gjson.Get(body, "usage.total_tokens").Int(), body)
+			},
+		},
+		{
+			name:   "stream: the terminal chunk carries the sum",
+			info:   geminiRelayInfo(constant.ChannelTypeXunfei),
+			stream: true,
+			convert: func(c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+				return adaptor.ConvertGeminiRequest(c, info, geminiRequest())
+			},
+			assertBody: func(t *testing.T, body string) {
+				assert.Contains(t, body, `"totalTokenCount":6`, body)
+				assert.NotContains(t, body, `"totalTokenCount":4`, body)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			upstream := newXunfeiUpstream(t, frames...)
+			tt.info.ChannelBaseUrl = upstream.URL
+			tt.info.ApiKey = "app|secret|key"
+			tt.info.IsStream = tt.stream
+
+			var recorder http.ResponseWriter = httptest.NewRecorder()
+			bodyText := func() string { return recorder.(*httptest.ResponseRecorder).Body.String() }
+			if tt.stream {
+				stream := newStreamRecorder()
+				recorder = stream
+				bodyText = func() string { return stream.Body.String() }
+			}
+			c := gin.CreateTestContextOnly(recorder, gin.New())
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+
+			_, err := tt.convert(c, tt.info)
+			require.NoError(t, err)
+
+			usage, apiErr := adaptor.DoResponse(c, &http.Response{StatusCode: http.StatusOK}, tt.info)
+			require.Nil(t, apiErr)
+			require.NotNil(t, usage)
+			returned, ok := usage.(*dto.Usage)
+			require.True(t, ok, "%T", usage)
+			// 2 + 3、0 + 1、2 + 4：两帧都带用量，逐帧累加。
+			assert.Equal(t, 5, returned.PromptTokens)
+			assert.Equal(t, 1, returned.CompletionTokens)
+			assert.Equal(t, 6, returned.TotalTokens)
+
+			tt.assertBody(t, bodyText())
+		})
+	}
+}
+
+// 讯飞文档里的 message.text 是老式的 role/content 对：网关逐条原样落进去，不认识的角色（tool、
+// function）也照发，不折叠、不丢弃，也不翻译成厂商可能接受的角色名。这一条钉住这个转发口径，
+// 不表示厂商会接受它们——文档上的角色只有 system/user/assistant。
+func TestXunfeiForwardsRolesItDoesNotKnowVerbatim(t *testing.T) {
+	adaptor := GetAdaptor(constant.APITypeXunfei)
+	require.NotNil(t, adaptor)
+
+	upstream := newXunfeiUpstream(t)
+	info := openaiRelayInfo(constant.ChannelTypeXunfei, "SparkDesk-v3.5")
+	info.ChannelBaseUrl = upstream.URL
+	info.ApiKey = "app|secret|key"
+
+	c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+
+	request := &dto.GeneralOpenAIRequest{Messages: []dto.Message{
+		{Role: "user", Content: "weather?"},
+		{Role: "tool", Content: "18C"},
+		{Role: "function", Content: "get_weather"},
+	}}
+	_, err := adaptor.ConvertOpenAIRequest(c, info, request)
+	require.NoError(t, err)
+	_, apiErr := adaptor.DoResponse(c, &http.Response{StatusCode: http.StatusOK}, info)
+	require.Nil(t, apiErr)
+
+	body := string(upstream.request(t).Body)
+	assert.Equal(t, []any{"user", "tool", "function"}, gjson.Get(body, "payload.message.text.#.role").Value(), body)
+	assert.Equal(t, []any{"weather?", "18C", "get_weather"}, gjson.Get(body, "payload.message.text.#.content").Value(), body)
+}
+
 // 讯飞 answers a whole run as status-tagged frames, with the usage in a separate
 // payload: the chat response built from them is the intermediate Anthropic
 // Messages and generateContent are rendered from.
