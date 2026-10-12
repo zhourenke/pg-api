@@ -115,7 +115,6 @@ func InitOptionMap() {
 	common.OptionMap["WaffoPancakeStoreID"] = setting.WaffoPancakeStoreID
 	common.OptionMap["WaffoPancakeProductID"] = setting.WaffoPancakeProductID
 	common.OptionMap["TopupGroupRatio"] = common.TopupGroupRatio2JSONString()
-	common.OptionMap["Chats"] = setting.Chats2JsonString()
 	common.OptionMap["AutoGroups"] = setting.AutoGroups2JsonString()
 	common.OptionMap["DefaultUseAutoGroup"] = strconv.FormatBool(setting.DefaultUseAutoGroup)
 	common.OptionMap["MaxTokenAutoGroups"] = strconv.Itoa(setting.GetMaxTokenAutoGroups())
@@ -325,14 +324,16 @@ func UpdateOptionsBulk(values map[string]string) error {
 
 // retiredOptionKeys are option keys whose rows stay in the database but are
 // never published. retiredThemeOptionKey belongs to the removed dashboard
-// frontend; the other three belong to the removed task/video feature. Removing
-// administrator data is not a migration's job, so the rows are filtered out of
-// common.OptionMap and the administrator option API instead.
+// frontend; the other four belong to the removed task/video feature and the
+// removed chat preset list. Removing administrator data is not a migration's
+// job, so the rows are filtered out of common.OptionMap and the administrator
+// option API instead.
 var retiredOptionKeys = map[string]struct{}{
 	retiredThemeOptionKey:                 {},
 	"TaskPublicAddress":                   {},
 	"TaskPluginEnabled":                   {},
 	"billing_setting.plugin_billing_expr": {},
+	"Chats":                               {},
 }
 
 // IsRetiredOptionKey reports whether key configures a feature this fork removed.
@@ -468,8 +469,6 @@ func updateOptionMap(key string, value string) (err error) {
 		system_setting.WorkerValidKey = value
 	case "PayAddress":
 		operation_setting.PayAddress = value
-	case "Chats":
-		err = setting.UpdateChatsByJsonString(value)
 	case "AutoGroups":
 		err = setting.UpdateAutoGroupsByJsonString(value)
 	case "MaxTokenAutoGroups":

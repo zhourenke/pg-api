@@ -213,7 +213,6 @@ export type ContentSettings = {
   'console_setting.announcements_enabled': boolean
   'console_setting.faq_enabled': boolean
   'console_setting.uptime_kuma_enabled': boolean
-  Chats: string
 }
 
 export type ModelSettings = {

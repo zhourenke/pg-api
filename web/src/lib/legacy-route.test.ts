@@ -35,7 +35,8 @@ describe('legacy frontend route migration', () => {
       '/console/user': '/users',
       '/console/personal': '/profile',
       '/console/log': '/usage-logs',
-      '/console/chat/42': '/chat/42',
+      '/console/chat': '/dashboard',
+      '/console/chat/42': '/dashboard',
     }
 
     for (const [source, target] of Object.entries(routes)) {
@@ -56,7 +57,6 @@ describe('legacy frontend route migration', () => {
     const settingsTabs = {
       operation: '/system-settings/operations/behavior',
       dashboard: '/system-settings/content/dashboard',
-      chats: '/system-settings/content/chat',
       payment: '/system-settings/billing/payment',
       ratio: '/system-settings/billing/model-pricing',
       ratelimit: '/system-settings/security/rate-limit',
@@ -74,6 +74,10 @@ describe('legacy frontend route migration', () => {
     }
     expect(resolveLegacyRoute('/console/setting?tab=unknown')).toBe(
       '/system-settings?tab=unknown'
+    )
+    // 聊天预设随该功能一起删除，旧书签回落到系统设置首页而不是失效分区。
+    expect(resolveLegacyRoute('/console/setting?tab=chats')).toBe(
+      '/system-settings?tab=chats'
     )
   })
 

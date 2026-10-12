@@ -20,7 +20,6 @@ import type { ContentSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
 import { AnnouncementsSection } from './announcements-section'
 import { ApiInfoSection } from './api-info-section'
-import { ChatSettingsSection } from './chat-settings-section'
 import { FAQSection } from './faq-section'
 import { UptimeKumaSection } from './uptime-kuma-section'
 
@@ -63,13 +62,6 @@ const CONTENT_SECTIONS = [
         enabled={settings['console_setting.uptime_kuma_enabled']}
         data={settings['console_setting.uptime_kuma_groups']}
       />
-    ),
-  },
-  {
-    id: 'chat',
-    titleKey: 'Chat Presets',
-    build: (settings: ContentSettings) => (
-      <ChatSettingsSection defaultValue={settings.Chats} />
     ),
   },
 ] as const

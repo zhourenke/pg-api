@@ -26,7 +26,6 @@ import { Route as errors403RouteImport } from './routes/(errors)/403'
 import { Route as errors404RouteImport } from './routes/(errors)/404'
 import { Route as errors500RouteImport } from './routes/(errors)/500'
 import { Route as errors503RouteImport } from './routes/(errors)/503'
-import { Route as AuthenticatedChat2linkRouteImport } from './routes/_authenticated/chat2link'
 import { Route as AuthenticatedSystemSettingsRouteRouteImport } from './routes/_authenticated/system-settings/route'
 import { Route as AboutIndexRouteImport } from './routes/about/index'
 import { Route as OauthProviderRouteImport } from './routes/oauth/$provider'
@@ -35,7 +34,6 @@ import { Route as RankingsIndexRouteImport } from './routes/rankings/index'
 import { Route as SetupIndexRouteImport } from './routes/setup/index'
 import { Route as authUserResetRouteImport } from './routes/(auth)/user/reset'
 import { Route as AuthenticatedChannelsIndexRouteImport } from './routes/_authenticated/channels/index'
-import { Route as AuthenticatedChatChatIdRouteImport } from './routes/_authenticated/chat/$chatId'
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard/index'
 import { Route as AuthenticatedDashboardSectionRouteImport } from './routes/_authenticated/dashboard/$section'
 import { Route as AuthenticatedErrorsErrorRouteImport } from './routes/_authenticated/errors/$error'
@@ -154,11 +152,6 @@ const errors503Route = errors503RouteImport.update({
   path: '/503',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedChat2linkRoute = AuthenticatedChat2linkRouteImport.update({
-  id: '/chat2link',
-  path: '/chat2link',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthenticatedSystemSettingsRouteRoute =
   AuthenticatedSystemSettingsRouteRouteImport.update({
     id: '/system-settings',
@@ -201,11 +194,6 @@ const AuthenticatedChannelsIndexRoute =
     path: '/channels/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedChatChatIdRoute = AuthenticatedChatChatIdRouteImport.update({
-  id: '/chat/$chatId',
-  path: '/chat/$chatId',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthenticatedDashboardIndexRoute =
   AuthenticatedDashboardIndexRouteImport.update({
     id: '/dashboard/',
@@ -425,14 +413,12 @@ export interface FileRoutesByFullPath {
   '/404': typeof errors404Route
   '/500': typeof errors500Route
   '/503': typeof errors503Route
-  '/chat2link': typeof AuthenticatedChat2linkRoute
   '/oauth/$provider': typeof OauthProviderRoute
   '/about/': typeof AboutIndexRoute
   '/pricing/': typeof PricingIndexRoute
   '/rankings/': typeof RankingsIndexRoute
   '/setup/': typeof SetupIndexRoute
   '/user/reset': typeof authUserResetRoute
-  '/chat/$chatId': typeof AuthenticatedChatChatIdRoute
   '/dashboard/$section': typeof AuthenticatedDashboardSectionRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/models/$section': typeof AuthenticatedModelsSectionRoute
@@ -485,14 +471,12 @@ export interface FileRoutesByTo {
   '/404': typeof errors404Route
   '/500': typeof errors500Route
   '/503': typeof errors503Route
-  '/chat2link': typeof AuthenticatedChat2linkRoute
   '/oauth/$provider': typeof OauthProviderRoute
   '/about': typeof AboutIndexRoute
   '/pricing': typeof PricingIndexRoute
   '/rankings': typeof RankingsIndexRoute
   '/setup': typeof SetupIndexRoute
   '/user/reset': typeof authUserResetRoute
-  '/chat/$chatId': typeof AuthenticatedChatChatIdRoute
   '/dashboard/$section': typeof AuthenticatedDashboardSectionRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/models/$section': typeof AuthenticatedModelsSectionRoute
@@ -549,14 +533,12 @@ export interface FileRoutesById {
   '/(errors)/404': typeof errors404Route
   '/(errors)/500': typeof errors500Route
   '/(errors)/503': typeof errors503Route
-  '/_authenticated/chat2link': typeof AuthenticatedChat2linkRoute
   '/oauth/$provider': typeof OauthProviderRoute
   '/about/': typeof AboutIndexRoute
   '/pricing/': typeof PricingIndexRoute
   '/rankings/': typeof RankingsIndexRoute
   '/setup/': typeof SetupIndexRoute
   '/(auth)/user/reset': typeof authUserResetRoute
-  '/_authenticated/chat/$chatId': typeof AuthenticatedChatChatIdRoute
   '/_authenticated/dashboard/$section': typeof AuthenticatedDashboardSectionRoute
   '/_authenticated/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/_authenticated/models/$section': typeof AuthenticatedModelsSectionRoute
@@ -612,14 +594,12 @@ export interface FileRouteTypes {
     | '/404'
     | '/500'
     | '/503'
-    | '/chat2link'
     | '/oauth/$provider'
     | '/about/'
     | '/pricing/'
     | '/rankings/'
     | '/setup/'
     | '/user/reset'
-    | '/chat/$chatId'
     | '/dashboard/$section'
     | '/errors/$error'
     | '/models/$section'
@@ -672,14 +652,12 @@ export interface FileRouteTypes {
     | '/404'
     | '/500'
     | '/503'
-    | '/chat2link'
     | '/oauth/$provider'
     | '/about'
     | '/pricing'
     | '/rankings'
     | '/setup'
     | '/user/reset'
-    | '/chat/$chatId'
     | '/dashboard/$section'
     | '/errors/$error'
     | '/models/$section'
@@ -735,14 +713,12 @@ export interface FileRouteTypes {
     | '/(errors)/404'
     | '/(errors)/500'
     | '/(errors)/503'
-    | '/_authenticated/chat2link'
     | '/oauth/$provider'
     | '/about/'
     | '/pricing/'
     | '/rankings/'
     | '/setup/'
     | '/(auth)/user/reset'
-    | '/_authenticated/chat/$chatId'
     | '/_authenticated/dashboard/$section'
     | '/_authenticated/errors/$error'
     | '/_authenticated/models/$section'
@@ -920,13 +896,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof errors503RouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/chat2link': {
-      id: '/_authenticated/chat2link'
-      path: '/chat2link'
-      fullPath: '/chat2link'
-      preLoaderRoute: typeof AuthenticatedChat2linkRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/system-settings': {
       id: '/_authenticated/system-settings'
       path: '/system-settings'
@@ -981,13 +950,6 @@ declare module '@tanstack/react-router' {
       path: '/channels'
       fullPath: '/channels/'
       preLoaderRoute: typeof AuthenticatedChannelsIndexRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/chat/$chatId': {
-      id: '/_authenticated/chat/$chatId'
-      path: '/chat/$chatId'
-      fullPath: '/chat/$chatId'
-      preLoaderRoute: typeof AuthenticatedChatChatIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/dashboard/': {
@@ -1322,8 +1284,6 @@ const AuthenticatedSystemSettingsRouteRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedSystemSettingsRouteRoute: typeof AuthenticatedSystemSettingsRouteRouteWithChildren
-  AuthenticatedChat2linkRoute: typeof AuthenticatedChat2linkRoute
-  AuthenticatedChatChatIdRoute: typeof AuthenticatedChatChatIdRoute
   AuthenticatedDashboardSectionRoute: typeof AuthenticatedDashboardSectionRoute
   AuthenticatedErrorsErrorRoute: typeof AuthenticatedErrorsErrorRoute
   AuthenticatedModelsSectionRoute: typeof AuthenticatedModelsSectionRoute
@@ -1346,8 +1306,6 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSystemSettingsRouteRoute:
     AuthenticatedSystemSettingsRouteRouteWithChildren,
-  AuthenticatedChat2linkRoute: AuthenticatedChat2linkRoute,
-  AuthenticatedChatChatIdRoute: AuthenticatedChatChatIdRoute,
   AuthenticatedDashboardSectionRoute: AuthenticatedDashboardSectionRoute,
   AuthenticatedErrorsErrorRoute: AuthenticatedErrorsErrorRoute,
   AuthenticatedModelsSectionRoute: AuthenticatedModelsSectionRoute,

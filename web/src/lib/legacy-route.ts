@@ -34,7 +34,6 @@ const legacyConsoleRoutes: Record<string, string> = {
 const legacySettingsTabs: Record<string, string> = {
   operation: '/system-settings/operations/behavior',
   dashboard: '/system-settings/content/dashboard',
-  chats: '/system-settings/content/chat',
   payment: '/system-settings/billing/payment',
   ratio: '/system-settings/billing/model-pricing',
   ratelimit: '/system-settings/security/rate-limit',
@@ -82,12 +81,10 @@ export function resolveLegacyRoute(rawHref: string): string | null {
     const target = legacySettingsTabs[tab] ?? '/system-settings'
     return buildTargetHref(target, source)
   }
-  if (pathname === '/console/chat') {
+  if (pathname === '/console/chat' || pathname.startsWith('/console/chat/')) {
+    // The chat preset pages were removed with the chat preset feature; old
+    // bookmarks fall back to the dashboard instead of a missing route.
     return buildTargetHref('/dashboard', source)
-  }
-  if (pathname.startsWith('/console/chat/')) {
-    const chatID = pathname.slice('/console/chat/'.length)
-    return buildTargetHref(chatID ? `/chat/${chatID}` : '/dashboard', source)
   }
 
   const target = legacyConsoleRoutes[pathname]

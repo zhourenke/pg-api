@@ -178,6 +178,7 @@ func TestRetiredOptionsArePersistedButNotPublished(t *testing.T) {
 		"TaskPublicAddress",
 		"TaskPluginEnabled",
 		"billing_setting.plugin_billing_expr",
+		"Chats",
 	}
 	for _, key := range retiredKeys {
 		assert.Truef(t, IsRetiredOptionKey(key), "%s must be reported as retired", key)
