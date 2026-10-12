@@ -99,6 +99,14 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 	return request, nil
 }
 
+// The rerank endpoint takes the body the client already sent: its fields are the
+// ones dto.RerankRequest carries, so there is nothing to convert and no vendor
+// shape to build. Responses come back in the shape the shared RerankHandler
+// parses.
+func (a *Adaptor) ConvertRerankRequest(c *gin.Context, relayMode int, request dto.RerankRequest) (any, error) {
+	return request, nil
+}
+
 func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, requestBody io.Reader) (any, error) {
 	return channel.DoApiRequest(a, c, info, requestBody)
 }

@@ -330,6 +330,14 @@ func (a *Adaptor) ConvertEmbeddingRequest(c *gin.Context, info *relaycommon.Rela
 	return request, nil
 }
 
+// The rerank endpoint takes the body the client already sent: its fields are the
+// ones dto.RerankRequest carries, so there is nothing to convert and no vendor
+// shape to build. Responses come back in the shape the shared RerankHandler
+// parses.
+func (a *Adaptor) ConvertRerankRequest(c *gin.Context, relayMode int, request dto.RerankRequest) (any, error) {
+	return request, nil
+}
+
 func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.OpenAIResponsesRequest) (any, error) {
 	return request, nil
 }

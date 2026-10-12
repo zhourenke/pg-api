@@ -11,11 +11,13 @@ import (
 	"github.com/zhourenke/pg-api/constant"
 	"github.com/zhourenke/pg-api/relay/channel"
 	"github.com/zhourenke/pg-api/relay/channel/ali"
+	"github.com/zhourenke/pg-api/relay/channel/baidu_v2"
 	"github.com/zhourenke/pg-api/relay/channel/codex"
 	"github.com/zhourenke/pg-api/relay/channel/dify"
 	"github.com/zhourenke/pg-api/relay/channel/ollama"
 	"github.com/zhourenke/pg-api/relay/channel/openai"
 	"github.com/zhourenke/pg-api/relay/channel/replicate"
+	"github.com/zhourenke/pg-api/relay/channel/volcengine"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	"github.com/zhourenke/pg-api/relaykit/dto"
 	"github.com/zhourenke/pg-api/relaykit/types"
@@ -164,12 +166,32 @@ func TestEmbeddedUnsupportedToleratesMissingChannelMeta(t *testing.T) {
 	assertUnsupportedFormat(t, err, "Unknown", "rerank")
 }
 
-// Channels that forward the incoming path to an OpenAI-compatible rerank
-// endpoint keep their pass-through; the shared default must not turn them into
-// a refusal.
+// Channels whose provider serves rerank from the body the client already sent
+// keep their pass-through; the shared default must not turn them into a
+// refusal. volcengine and baidu_v2 post to rerank endpoints of their own
+// (/api/v3/rerank and /v2/rerank), but the fields they take are the ones
+// dto.RerankRequest carries, so the body goes out verbatim.
 func TestRerankPassThroughSurvivesTheSharedDefault(t *testing.T) {
-	request := dto.RerankRequest{Model: "bge-reranker-v2-m3", Query: "question", Documents: []any{"doc"}}
-	converted, err := (&openai.Adaptor{}).ConvertRerankRequest(nil, 0, request)
-	require.NoError(t, err)
-	assert.Equal(t, request, converted)
+	topN := 1
+	request := dto.RerankRequest{
+		Model:     "bge-reranker-v2-m3",
+		Query:     "question",
+		Documents: []any{"first", "second"},
+		TopN:      &topN,
+	}
+
+	for _, tc := range []struct {
+		name    string
+		adaptor channel.Adaptor
+	}{
+		{"openai", &openai.Adaptor{}},
+		{"volcengine", &volcengine.Adaptor{}},
+		{"baidu_v2", &baidu_v2.Adaptor{}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			converted, err := tc.adaptor.ConvertRerankRequest(nil, 0, request)
+			require.NoError(t, err)
+			assert.Equal(t, request, converted)
+		})
+	}
 }
