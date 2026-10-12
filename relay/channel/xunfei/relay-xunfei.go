@@ -311,34 +311,64 @@ func xunfeiMakeRequest(c *gin.Context, conn *websocket.Conn, textRequest dto.Gen
 	return dataChan, stopChan, nil
 }
 
-func apiVersion2domain(apiVersion string) string {
-	switch apiVersion {
-	case "v1.1":
-		return "lite"
-	case "v2.1":
-		return "generalv2"
-	case "v3.1":
-		return "generalv3"
-	case "v3.5":
-		return "generalv3.5"
-	case "v4.0":
-		return "4.0Ultra"
-	}
-	return "general" + apiVersion
+// xunfeiEndpoint 是一个 api 版本所在的位置：请求体要带的 domain，以及要签名的路径。多数
+// 版本都在 /{版本}/chat 上，文档另外给出地址的三个版本按名字列出来。
+type xunfeiEndpoint struct {
+	domain string
+	path   string
 }
 
-// getXunfeiAuthUrl 解析请求体要带的 domain 和要拨的签名 websocket url。版本号依次看请求的
-// api-version 查询参数、模型名、渠道里配置的版本；端点用渠道的 base url 拼上该版本的路径，
-// 渠道的 base url 因此才开始生效（此前这个主机是写死的 spark-api.xf-yun.com）。
-func getXunfeiAuthUrl(c *gin.Context, info *relaycommon.RelayInfo, apiKey string, apiSecret string, modelName string) (string, string) {
+func xunfeiEndpointFor(apiVersion string) xunfeiEndpoint {
+	switch apiVersion {
+	case "v1.1":
+		return xunfeiEndpoint{domain: "lite", path: "/v1.1/chat"}
+	case "v2.1":
+		return xunfeiEndpoint{domain: "generalv2", path: "/v2.1/chat"}
+	case "v3.1":
+		return xunfeiEndpoint{domain: "generalv3", path: "/v3.1/chat"}
+	case "v3.5":
+		return xunfeiEndpoint{domain: "generalv3.5", path: "/v3.5/chat"}
+	case "v4.0":
+		return xunfeiEndpoint{domain: "4.0Ultra", path: "/v4.0/chat"}
+	case "pro-128k":
+		return xunfeiEndpoint{domain: "pro-128k", path: "/chat/pro-128k"}
+	case "max-32k":
+		return xunfeiEndpoint{domain: "max-32k", path: "/chat/max-32k"}
+	case "kjwx":
+		return xunfeiEndpoint{domain: "kjwx", path: "/v1.1/chat_kjwx"}
+	}
+	return xunfeiEndpoint{domain: "general" + apiVersion, path: "/" + apiVersion + "/chat"}
+}
+
+// xunfeiMaxOutputTokens 是文档给该版本「回答的最大长度」上限；零表示当前文档没给这个版本
+// 的上限（v2.1、kjwx 与我们不认识的版本），请求于是不做这一项检查。
+func xunfeiMaxOutputTokens(apiVersion string) uint {
+	switch apiVersion {
+	case "v1.1":
+		return 4096
+	case "v3.1", "v3.5":
+		return 8192
+	case "v4.0", "max-32k":
+		return 32768
+	case "pro-128k":
+		return 131072
+	}
+	return 0
+}
+
+// getXunfeiAuthUrl 解析请求体要带的 domain、要拨的签名 websocket url 与选中的版本号。版本号
+// 依次看请求的 api-version 查询参数、模型名、渠道里配置的版本；端点是渠道的 base url 拼上该
+// 版本自己的路径（多数是 /{版本}/chat，上表那三个版本不是），渠道的 base url 因此才生效
+// （此前这个主机是写死的 spark-api.xf-yun.com）。
+func getXunfeiAuthUrl(c *gin.Context, info *relaycommon.RelayInfo, apiKey string, apiSecret string, modelName string) (string, string, string) {
 	apiVersion := getAPIVersion(c, modelName)
-	domain := apiVersion2domain(apiVersion)
+	endpoint := xunfeiEndpointFor(apiVersion)
 	baseUrl := info.ChannelBaseUrl
 	if baseUrl == "" {
 		baseUrl = "https://spark-api.xf-yun.com"
 	}
-	authUrl := buildXunfeiAuthUrl(fmt.Sprintf("%s/%s/chat", strings.TrimSuffix(baseUrl, "/"), apiVersion), apiKey, apiSecret)
-	return domain, authUrl
+	authUrl := buildXunfeiAuthUrl(fmt.Sprintf("%s%s", strings.TrimSuffix(baseUrl, "/"), endpoint.path), apiKey, apiSecret)
+	return endpoint.domain, apiVersion, authUrl
 }
 
 func getAPIVersion(c *gin.Context, modelName string) string {

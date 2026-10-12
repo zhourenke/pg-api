@@ -2,6 +2,7 @@ package relay
 
 import (
 	"encoding/base64"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -2217,7 +2218,9 @@ func (u *xunfeiUpstream) request(t *testing.T) xunfeiRequest {
 // to reach it as 讯飞's own request: one message list, the app id and the domain
 // from the channel, and a handshake signed with the channel key. The endpoint
 // follows the version the request selects (its api-version query, then its model
-// name) and the channel's base url, which this channel used to ignore.
+// name) and the channel's base url, which this channel used to ignore. Most
+// versions live on /{version}/chat; the three whose address the vendor documents
+// elsewhere carry a path of their own.
 func TestXunfeiConvertsBothConvertedFormatsIntoItsOwnRequest(t *testing.T) {
 	adaptor := GetAdaptor(constant.APITypeXunfei)
 	require.NotNil(t, adaptor)
@@ -2269,6 +2272,43 @@ func TestXunfeiConvertsBothConvertedFormatsIntoItsOwnRequest(t *testing.T) {
 			},
 			wantPath:   "/v3.1/chat",
 			wantDomain: "generalv3",
+			wantText:   "weather?",
+		},
+		{
+			// 这三个版本的地址不是 /{版本}/chat：文档各自给了路径，域名也不是 general 加版本。
+			name:       "claude with the pro-128k version",
+			info:       claudeRelayInfo(constant.ChannelTypeXunfei, "SparkDesk-v3.5"),
+			model:      "SparkDesk-v3.5",
+			requestURL: "/v1/messages?api-version=pro-128k",
+			convert: func(c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+				return adaptor.ConvertClaudeRequest(c, info, claudeRequest("SparkDesk-v3.5"))
+			},
+			wantPath:   "/chat/pro-128k",
+			wantDomain: "pro-128k",
+			wantText:   "weather?",
+		},
+		{
+			name:       "claude with the max-32k version",
+			info:       claudeRelayInfo(constant.ChannelTypeXunfei, "SparkDesk-v3.5"),
+			model:      "SparkDesk-v3.5",
+			requestURL: "/v1/messages?api-version=max-32k",
+			convert: func(c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+				return adaptor.ConvertClaudeRequest(c, info, claudeRequest("SparkDesk-v3.5"))
+			},
+			wantPath:   "/chat/max-32k",
+			wantDomain: "max-32k",
+			wantText:   "weather?",
+		},
+		{
+			name:       "claude with the kjwx version",
+			info:       claudeRelayInfo(constant.ChannelTypeXunfei, "SparkDesk-v3.5"),
+			model:      "SparkDesk-v3.5",
+			requestURL: "/v1/messages?api-version=kjwx",
+			convert: func(c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+				return adaptor.ConvertClaudeRequest(c, info, claudeRequest("SparkDesk-v3.5"))
+			},
+			wantPath:   "/v1.1/chat_kjwx",
+			wantDomain: "kjwx",
 			wantText:   "weather?",
 		},
 	}
@@ -2377,6 +2417,59 @@ func TestXunfeiSendsTopKFromTheClientTopKOnly(t *testing.T) {
 				return
 			}
 			assert.Equal(t, tt.wantTopK, gjson.Get(body, "parameter.chat.top_k").String(), body)
+		})
+	}
+}
+
+// 文档给每个版本规定了「回答的最大长度」上限：超出就是客户端把参数用错了，在拨号之前按 400
+// 拒掉，而不是原样发上去、让厂商的拒绝落在这条渠道的健康上。
+func TestXunfeiRejectsMaxTokensAboveTheDocumentedLimit(t *testing.T) {
+	adaptor := GetAdaptor(constant.APITypeXunfei)
+	require.NotNil(t, adaptor)
+
+	tests := []struct {
+		name         string
+		maxTokens    uint
+		wantRejected bool
+	}{
+		// v1.1（Lite）的文档上限是 4096。
+		{name: "the documented maximum is accepted", maxTokens: 4096},
+		{name: "one token above it is rejected", maxTokens: 4097, wantRejected: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			upstream := newXunfeiUpstream(t)
+			info := openaiRelayInfo(constant.ChannelTypeXunfei, "SparkDesk-v1.1")
+			info.ChannelBaseUrl = upstream.URL
+			info.ApiKey = "app|secret|key"
+
+			c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+
+			request := &dto.GeneralOpenAIRequest{
+				Messages:  []dto.Message{{Role: "user", Content: "hello"}},
+				MaxTokens: common.GetPointer(tt.maxTokens),
+			}
+			_, err := adaptor.ConvertOpenAIRequest(c, info, request)
+			require.NoError(t, err)
+			_, apiErr := adaptor.DoResponse(c, &http.Response{StatusCode: http.StatusOK}, info)
+
+			if !tt.wantRejected {
+				require.Nil(t, apiErr)
+				assert.Contains(t, string(upstream.request(t).Body), fmt.Sprintf(`"max_tokens":%d`, tt.maxTokens))
+				return
+			}
+			require.NotNil(t, apiErr)
+			assert.Equal(t, types.ErrorCodeInvalidRequest, apiErr.GetErrorCode())
+			assert.Equal(t, http.StatusBadRequest, apiErr.StatusCode)
+			assert.Contains(t, apiErr.Error(), "v1.1")
+			assert.Contains(t, apiErr.Error(), "4096")
+			select {
+			case seen := <-upstream.seen:
+				t.Fatalf("the channel dialed the upstream anyway: %s", seen.Body)
+			default:
+			}
 		})
 	}
 }

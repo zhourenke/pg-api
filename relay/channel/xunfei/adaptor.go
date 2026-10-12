@@ -2,6 +2,7 @@ package xunfei
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -81,7 +82,13 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 	// the last two of them. Dialing through the shared helper is what gives the
 	// channel the request context, its configured proxy and the status code of a
 	// rejected handshake, none of which the dialer built here used to have.
-	a.domain, a.authUrl = getXunfeiAuthUrl(c, info, splits[2], splits[1], a.request.Model)
+	var apiVersion string
+	a.domain, apiVersion, a.authUrl = getXunfeiAuthUrl(c, info, splits[2], splits[1], a.request.Model)
+	if limit := xunfeiMaxOutputTokens(apiVersion); limit > 0 && a.request.GetMaxTokens() > limit {
+		return nil, types.NewErrorWithStatusCode(
+			fmt.Errorf("max_tokens %d exceeds the documented maximum for %s (%d)", a.request.GetMaxTokens(), apiVersion, limit),
+			types.ErrorCodeInvalidRequest, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
+	}
 	conn, dialErr := channel.DoWssRequest(a, c, info, nil)
 	if dialErr != nil {
 		return nil, types.NewError(dialErr, types.ErrorCodeDoRequestFailed)
