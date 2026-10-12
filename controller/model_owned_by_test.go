@@ -35,6 +35,16 @@ func TestChannelOwnerNameUsesAdaptorChannelName(t *testing.T) {
 			expected:    "openrouter",
 		},
 		{
+			name:        "volcengine",
+			channelType: constant.ChannelTypeVolcEngine,
+			expected:    "volcengine",
+		},
+		{
+			name:        "baidu_v2",
+			channelType: constant.ChannelTypeBaiduV2,
+			expected:    "baidu_v2",
+		},
+		{
 			name:        "azure fallback",
 			channelType: constant.ChannelTypeAzure,
 			expected:    "azure",
