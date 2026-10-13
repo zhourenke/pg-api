@@ -93,13 +93,26 @@ type ModelHistoryPoint = {
   tokens: number
 }
 
+/**
+ * One bucket boundary of the selected period. Every bucket of the range is
+ * listed, including the ones without traffic, so the chart can keep idle
+ * stretches on the axis instead of collapsing them.
+ */
+type RankingTimelineBucket = {
+  ts: string
+  /** Pre-formatted x-axis label (e.g. "May 5", "12:00"). */
+  label: string
+}
+
 export type ModelHistorySeries = {
   /** Flat points ready for VChart, ordered oldest → newest. */
   points: ModelHistoryPoint[]
   /** Models that appear in the series, sorted by total tokens desc. */
   models: Array<{ name: string; vendor: string; total: number }>
-  /** Bucket count (used for sizing axis ticks). */
+  /** Timeline bucket count, i.e. how many columns the axis spans. */
   buckets: number
+  /** Every bucket of the range, ordered oldest → newest. */
+  timeline: RankingTimelineBucket[]
 }
 
 /**
@@ -120,7 +133,10 @@ export type VendorShareSeries = {
   points: VendorSharePoint[]
   /** Vendors that appear in the series, sorted by aggregate tokens desc. */
   vendors: Array<{ name: string; total: number; share: number }>
+  /** Timeline bucket count, i.e. how many columns the axis spans. */
   buckets: number
+  /** Every bucket of the range, ordered oldest → newest. */
+  timeline: RankingTimelineBucket[]
 }
 
 export type RankingsSnapshot = {

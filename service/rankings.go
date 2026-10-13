@@ -76,10 +76,20 @@ type ModelHistoryModel struct {
 	Total  int64  `json:"total"`
 }
 
+// RankingBucket marks one bucket boundary of the requested period. Every
+// boundary the range touches is listed, including the ones without traffic, so
+// the histories can keep idle stretches on the x-axis.
+type RankingBucket struct {
+	Ts    string `json:"ts"`
+	Label string `json:"label"`
+}
+
 type ModelHistorySeries struct {
 	Points  []ModelHistoryPoint `json:"points"`
 	Models  []ModelHistoryModel `json:"models"`
 	Buckets int                 `json:"buckets"`
+	// Timeline is the full x-axis: Buckets is its length.
+	Timeline []RankingBucket `json:"timeline"`
 }
 
 type VendorSharePoint struct {
@@ -100,6 +110,8 @@ type VendorShareSeries struct {
 	Points  []VendorSharePoint  `json:"points"`
 	Vendors []VendorShareVendor `json:"vendors"`
 	Buckets int                 `json:"buckets"`
+	// Timeline is the full x-axis: Buckets is its length.
+	Timeline []RankingBucket `json:"timeline"`
 }
 
 type rankingPeriodConfig struct {
@@ -181,6 +193,7 @@ func rankingConfig(period string) (rankingPeriodConfig, error) {
 
 func buildRankingsSnapshot(config rankingPeriodConfig, now time.Time) (*RankingsResponse, error) {
 	startTime, endTime := rankingTimeRange(config, now)
+	timeline := rankingTimeline(startTime, endTime, config)
 	currentTotals, err := model.GetRankingQuotaTotals(startTime, endTime)
 	if err != nil {
 		return nil, err
@@ -206,8 +219,8 @@ func buildRankingsSnapshot(config rankingPeriodConfig, now time.Time) (*Rankings
 
 	rankedModels := buildRankedModels(currentTotals, totalTokens, previousRankByModel, previousTokensByModel, meta, config.hasPrevious)
 	vendors := buildRankedVendors(currentTotals, previousTotals, totalTokens, meta, config.hasPrevious)
-	modelHistory := buildModelHistory(currentBuckets, currentTotals, meta, config)
-	vendorHistory := buildVendorShareHistory(currentBuckets, vendors, totalTokens, meta, config)
+	modelHistory := buildModelHistory(currentBuckets, currentTotals, meta, config, timeline)
+	vendorHistory := buildVendorShareHistory(currentBuckets, vendors, totalTokens, meta, config, timeline)
 	movers, droppers := buildRankingMovers(rankedModels)
 
 	return &RankingsResponse{
@@ -358,7 +371,7 @@ func ensureVendorAggregate(aggregates map[string]*vendorAggregate, meta rankingM
 	return agg
 }
 
-func buildModelHistory(buckets []model.RankingQuotaBucket, totals []model.RankingQuotaTotal, meta map[string]rankingModelMeta, config rankingPeriodConfig) ModelHistorySeries {
+func buildModelHistory(buckets []model.RankingQuotaBucket, totals []model.RankingQuotaTotal, meta map[string]rankingModelMeta, config rankingPeriodConfig, timeline []RankingBucket) ModelHistorySeries {
 	topModels := make(map[string]struct{})
 	models := make([]ModelHistoryModel, 0, minInt(len(totals), rankingHistoryLimit)+1)
 	otherTotal := int64(0)
@@ -408,13 +421,14 @@ func buildModelHistory(buckets []model.RankingQuotaBucket, totals []model.Rankin
 	}
 
 	return ModelHistorySeries{
-		Points:  points,
-		Models:  models,
-		Buckets: len(sortedBuckets),
+		Points:   points,
+		Models:   models,
+		Buckets:  len(timeline),
+		Timeline: timeline,
 	}
 }
 
-func buildVendorShareHistory(buckets []model.RankingQuotaBucket, vendors []RankedVendor, totalTokens int64, meta map[string]rankingModelMeta, config rankingPeriodConfig) VendorShareSeries {
+func buildVendorShareHistory(buckets []model.RankingQuotaBucket, vendors []RankedVendor, totalTokens int64, meta map[string]rankingModelMeta, config rankingPeriodConfig, timeline []RankingBucket) VendorShareSeries {
 	topVendors := make(map[string]struct{})
 	vendorRows := make([]VendorShareVendor, 0, minInt(len(vendors), rankingVendorLimit)+1)
 	otherTotal := int64(0)
@@ -466,10 +480,38 @@ func buildVendorShareHistory(buckets []model.RankingQuotaBucket, vendors []Ranke
 	}
 
 	return VendorShareSeries{
-		Points:  points,
-		Vendors: vendorRows,
-		Buckets: len(sortedBuckets),
+		Points:   points,
+		Vendors:  vendorRows,
+		Buckets:  len(timeline),
+		Timeline: timeline,
 	}
+}
+
+// rankingTimeline lists every bucket boundary the range touches — the partial
+// first and last bucket included — so the histories can keep the whole period
+// on the x-axis. A label already on the timeline is skipped, because the band
+// scale merges two categories carrying the same label (an hourly window can
+// reach the same local hour twice).
+func rankingTimeline(startTime int64, endTime int64, config rankingPeriodConfig) []RankingBucket {
+	bucketSize := config.bucketSize
+	if bucketSize <= 0 {
+		bucketSize = 3600
+	}
+
+	timeline := make([]RankingBucket, 0, (endTime-startTime)/bucketSize+2)
+	seen := make(map[string]struct{})
+	for bucket := startTime / bucketSize * bucketSize; bucket <= endTime; bucket += bucketSize {
+		label := rankingBucketLabel(bucket, config)
+		if _, ok := seen[label]; ok {
+			continue
+		}
+		seen[label] = struct{}{}
+		timeline = append(timeline, RankingBucket{
+			Ts:    rankingBucketTs(bucket),
+			Label: label,
+		})
+	}
+	return timeline
 }
 
 func buildRankingMovers(models []RankedModel) ([]RankingMover, []RankingMover) {

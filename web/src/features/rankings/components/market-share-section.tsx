@@ -128,6 +128,13 @@ export function MarketShareSection(props: MarketShareSectionProps) {
     })
   }, [props.history])
 
+  // The axis spans every bucket of the selected period, so an idle stretch
+  // reads as empty columns instead of collapsing the timeline.
+  const categories = useMemo(
+    () => props.history.timeline.map((bucket) => bucket.label),
+    [props.history]
+  )
+
   const spec = useMemo(() => {
     if (orderedPoints.length === 0) return null
     return {
@@ -143,6 +150,8 @@ export function MarketShareSection(props: MarketShareSectionProps) {
       axes: [
         {
           orient: 'bottom',
+          type: 'band' as const,
+          domain: categories,
           label: {
             style: { fill: chartTextColor, fontSize: 10 },
             autoHide: true,
@@ -204,7 +213,7 @@ export function MarketShareSection(props: MarketShareSectionProps) {
       },
       animationAppear: { duration: 500 },
     }
-  }, [chartGridColor, chartTextColor, colourMap, orderedPoints])
+  }, [categories, chartGridColor, chartTextColor, colourMap, orderedPoints])
 
   const visible = props.rows.slice(0, MAX_VENDORS_IN_LIST)
   const half = Math.ceil(visible.length / 2)

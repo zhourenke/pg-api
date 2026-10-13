@@ -77,6 +77,13 @@ export function ModelsSection(props: ModelsSectionProps) {
     [props.rows]
   )
 
+  // The axis spans every bucket of the selected period, so an idle stretch
+  // reads as empty columns instead of collapsing the timeline.
+  const categories = useMemo(
+    () => props.history.timeline.map((bucket) => bucket.label),
+    [props.history]
+  )
+
   const spec = useMemo(() => {
     if (orderedPoints.length === 0) return null
     return {
@@ -90,6 +97,8 @@ export function ModelsSection(props: ModelsSectionProps) {
       axes: [
         {
           orient: 'bottom',
+          type: 'band' as const,
+          domain: categories,
           label: {
             style: { fill: chartTextColor, fontSize: 10 },
             autoHide: true,
@@ -161,7 +170,7 @@ export function ModelsSection(props: ModelsSectionProps) {
       },
       animationAppear: { duration: 500 },
     }
-  }, [chartGridColor, chartTextColor, orderedPoints, t])
+  }, [categories, chartGridColor, chartTextColor, orderedPoints, t])
 
   return (
     <section className='bg-card overflow-hidden rounded-lg border'>
