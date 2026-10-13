@@ -36,10 +36,14 @@ export const MOTION_TRANSITION: Record<string, Transition> = {
 }
 
 export const MOTION_VARIANTS = {
+  // No `filter` here on purpose: a blur on this wrapper softens every table on
+  // the page, and `blur(0px)` stays in the inline style once the entrance has
+  // settled, which keeps the whole route in a composited layer with a filter
+  // applied. See the page-transition regression test.
   pageEnter: {
-    initial: { opacity: 0, y: 8, filter: 'blur(4px)' },
-    animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
-    exit: { opacity: 0, y: -4, filter: 'blur(2px)' },
+    initial: { opacity: 0, y: 8 },
+    animate: { opacity: 1, y: 0 },
+    exit: { opacity: 0, y: -4 },
   },
   fadeIn: {
     initial: { opacity: 0 },
