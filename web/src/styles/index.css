@@ -352,10 +352,6 @@ For commercial licensing, please contact support@quantumnous.com
   }
 
   /* Animations */
-  .animate-appear {
-    animation: appear 0.6s forwards ease-out;
-  }
-
   .animate-appear-zoom {
     animation: appear-zoom 0.6s forwards ease-out;
   }
@@ -374,22 +370,6 @@ For commercial licensing, please contact support@quantumnous.com
 
   .animation-delay-1000 {
     animation-delay: 1000ms;
-  }
-
-  @keyframes appear {
-    0% {
-      opacity: 0;
-      transform: translateY(1rem);
-      filter: blur(0.5rem);
-    }
-    50% {
-      filter: blur(0);
-    }
-    100% {
-      opacity: 1;
-      transform: translateY(0);
-      filter: blur(0);
-    }
   }
 
   @keyframes appear-zoom {
@@ -431,7 +411,6 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-appear,
   .animate-appear-zoom,
   .animate-scroll-up,
   .animate-scroll-down,
