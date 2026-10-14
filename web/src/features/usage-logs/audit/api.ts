@@ -21,6 +21,7 @@ import { t } from 'i18next'
 import type { ApiResponse } from '@/features/profile/types'
 import { api } from '@/lib/api'
 import { createServerError } from '@/lib/server-error-message'
+import type { TimeWindowId } from '@/lib/time-window'
 
 export interface AuditLog {
   event_id: string
@@ -47,6 +48,12 @@ export interface AuditFilters {
   page_size: number
   start_timestamp?: number
   end_timestamp?: number
+  /**
+   * The preset the range came from. This view keeps its filters in memory only,
+   * so the id is lost on reload and a calendar window is then re-derived from
+   * the timestamps alone; persisting it belongs with the URL work.
+   */
+  preset?: TimeWindowId
   success?: string
   category?: string
   token_ref?: string

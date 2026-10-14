@@ -126,7 +126,15 @@ afterEach(async () => {
 it('applies the selected mobile date range directly and resets pagination while retaining filters', async () => {
   const router = await renderMobileFilter()
   const user = userEvent.setup()
-  await user.click(screen.getByRole('button', { name: /^\d{4}-\d{2}/ }))
+  // The picker now opens on the trailing 24 hours, so the dated range comes
+  // from the custom branch; the trigger is addressed as the picker's own
+  // popover trigger rather than by the range label it currently shows.
+  const trigger = document.querySelector<HTMLElement>(
+    '[aria-haspopup="dialog"]'
+  )
+  if (!trigger) throw new Error('date range trigger not found')
+  await user.click(trigger)
+  await user.click(screen.getByRole('button', { name: 'Custom Time Range' }))
   fireEvent.change(screen.getByLabelText('Start Time'), {
     target: { value: '2026-09-07T09:30' },
   })
@@ -229,10 +237,11 @@ it('keeps Search visible while loading and prevents repeated searches', async ()
 it('collapses only date and statistics while keeping the right-hand quick actions visible', async () => {
   await renderMobileFilter()
   const user = userEvent.setup()
-  const date =
-    screen
-      .getByRole('button', { name: /^\d{4}-\d{2}/ })
-      .getAttribute('aria-label') ?? ''
+  const trigger = document.querySelector<HTMLElement>(
+    '[aria-haspopup="dialog"]'
+  )
+  expect(trigger).not.toBeNull()
+  const date = trigger?.getAttribute('aria-label') ?? ''
   expect(await screen.findByText('Usage')).toBeVisible()
   await user.click(screen.getByRole('button', { name: 'Collapse' }))
   expect(screen.getByRole('button', { name: 'Expand' })).toHaveAttribute(
@@ -253,13 +262,15 @@ it('collapses only date and statistics while keeping the right-hand quick action
     'aria-expanded',
     'true'
   )
-  expect(screen.getByRole('button', { name: date })).toBeVisible()
   expect(await screen.findByText('Usage')).toBeVisible()
+  expect(screen.getByRole('button', { name: date })).toBeVisible()
 })
 
 it.each([{ language: 'zhCN', resources: zh.translation }])(
   'labels the calendar-month preset as 本月 in $language and selects the complete month',
   async ({ language, resources }) => {
+    // Selecting a preset reads the calendar from the clock, so freeze it too,
+    // otherwise the assertion would depend on the day the suite runs.
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date(2026, 8, 8, 12))
     i18next.addResourceBundle(language, 'translation', resources, true, true)
@@ -276,10 +287,14 @@ it.each([{ language: 'zhCN', resources: zh.translation }])(
     await user.click(screen.getByRole('button', { name: /^2026/ }))
     const preset = screen.getByRole('button', { name: '本月' })
     expect(preset).toBeVisible()
+    expect(preset).toHaveAttribute('aria-pressed', 'false')
     await user.click(preset)
     expect(onChange).toHaveBeenCalledWith({
       start: new Date(2026, 8, 1),
-      end: new Date(2026, 8, 30, 23, 59, 59, 999),
+      // The window is second precision, so the last second of the month rather
+      // than its last millisecond — the management APIs take seconds anyway.
+      end: new Date(2026, 8, 30, 23, 59, 59),
+      preset: 'this-month',
     })
   }
 )

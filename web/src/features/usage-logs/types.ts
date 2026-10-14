@@ -21,6 +21,7 @@ For commercial licensing, please contact support@quantumnous.com
  */
 import type { RequestRuleTrace } from '@/features/pricing/lib/billing-expr'
 import type { PolicyEvent } from '@/features/system-settings/request-policies/api'
+import type { TimeWindowId } from '@/lib/time-window'
 
 import type { UsageLog } from './data/schema'
 
@@ -34,6 +35,8 @@ import type { UsageLog } from './data/schema'
 export interface CommonLogFilters {
   startTime?: Date
   endTime?: Date
+  /** The preset behind the range, so a calendar window can be recomputed. */
+  preset?: TimeWindowId
   channel?: string
   model?: string
   token?: string

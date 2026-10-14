@@ -77,12 +77,14 @@ export function AuditLogFilterBar(props: {
             ? undefined
             : new Date(props.filters.end_timestamp * 1000)
         }
-        onChange={({ start, end }) =>
+        preset={props.filters.preset}
+        onChange={({ start, end, preset }) =>
           props.onChange({
             start_timestamp: start
               ? Math.floor(start.getTime() / 1000)
               : undefined,
             end_timestamp: end ? Math.floor(end.getTime() / 1000) : undefined,
+            preset,
           })
         }
       />

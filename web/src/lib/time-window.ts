@@ -45,7 +45,7 @@ export type TimeWindowId =
   | 'this-month'
   | 'last-month'
 
-export type TimeWindowKind = 'rolling' | 'calendar'
+type TimeWindowKind = 'rolling' | 'calendar'
 
 export interface TimeWindowPreset {
   id: TimeWindowId
@@ -119,17 +119,11 @@ export interface TimeWindow {
   end: number
 }
 
-export function findTimeWindowPreset(
-  id: TimeWindowId
-): TimeWindowPreset | undefined {
-  return TIME_WINDOW_PRESETS.find((preset) => preset.id === id)
-}
-
 export function resolveTimeWindow(
   id: TimeWindowId,
   now: Date = new Date()
 ): TimeWindow {
-  const preset = findTimeWindowPreset(id)
+  const preset = TIME_WINDOW_PRESETS.find((item) => item.id === id)
   if (!preset) {
     throw new Error(`unknown time window preset: ${id}`)
   }
@@ -191,4 +185,18 @@ export function toTimeWindow(start: Date, end: Date): TimeWindow {
     start: Math.floor(start.getTime() / 1000),
     end: Math.floor(end.getTime() / 1000),
   }
+}
+
+/**
+ * Whether a stored window still equals the preset that produced it. Calendar
+ * windows move at local midnight, so a window read back from a URL, a store or
+ * localStorage can be one day stale while the chosen preset stays correct.
+ */
+export function isTimeWindowStale(
+  id: TimeWindowId,
+  window: TimeWindow,
+  now: Date = new Date()
+): boolean {
+  const fresh = resolveTimeWindow(id, now)
+  return fresh.start !== window.start || fresh.end !== window.end
 }

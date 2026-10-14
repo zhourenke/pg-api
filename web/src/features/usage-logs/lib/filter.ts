@@ -34,6 +34,7 @@ export function buildSearchParams(
   return {
     ...(filters.startTime && { startTime: filters.startTime.getTime() }),
     ...(filters.endTime && { endTime: filters.endTime.getTime() }),
+    ...(filters.preset && { preset: filters.preset }),
     ...(filters.channel && { channel: filters.channel }),
     ...(filters.model && { model: filters.model }),
     ...(filters.token && { token: filters.token }),

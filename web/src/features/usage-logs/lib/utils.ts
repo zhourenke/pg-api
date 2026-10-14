@@ -19,6 +19,8 @@ For commercial licensing, please contact support@quantumnous.com
 /**
  * Utility functions for usage logs feature
  */
+import { DEFAULT_TIME_WINDOW_ID, resolveTimeWindow } from '@/lib/time-window'
+
 import {
   LOG_TYPES,
   DISPLAYABLE_LOG_TYPES,
@@ -59,15 +61,15 @@ export function isPerCallBilling(modelPrice?: number): boolean {
 }
 
 /**
- * Get default time range (today 00:00:00 to now + 1 hour)
+ * Default window for callers that reach the API without time parameters, so
+ * they end up on the same range the filter bar opens with.
  */
-export function getDefaultTimeRange(): { start: Date; end: Date } {
-  const now = new Date()
-  const start = new Date(now)
-  start.setHours(0, 0, 0, 0)
-  const end = new Date(now.getTime() + 3600 * 1000) // +1 hour
-
-  return { start, end }
+function getDefaultTimeRange(): { start: Date; end: Date } {
+  const window = resolveTimeWindow(DEFAULT_TIME_WINDOW_ID)
+  return {
+    start: new Date(window.start * 1000),
+    end: new Date(window.end * 1000),
+  }
 }
 
 /**

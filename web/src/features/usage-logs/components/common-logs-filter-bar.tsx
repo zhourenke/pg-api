@@ -20,7 +20,7 @@ import { useQueryClient, useIsFetching, useQuery } from '@tanstack/react-query'
 import { useNavigate, getRouteApi } from '@tanstack/react-router'
 import type { Table } from '@tanstack/react-table'
 import { Eye, EyeOff } from 'lucide-react'
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
@@ -43,10 +43,15 @@ import { getGroups } from '@/features/users/api'
 import { useMediaQuery } from '@/hooks'
 import { getUserGroups } from '@/lib/api'
 import { requireServerSuccess } from '@/lib/server-error-message'
+import {
+  DEFAULT_TIME_WINDOW_ID,
+  isTimeWindowStale,
+  resolveTimeWindow,
+  type TimeWindowId,
+} from '@/lib/time-window'
 
 import { LOG_TYPE_ALL_VALUE, LOG_TYPE_FILTERS } from '../constants'
 import { buildSearchParams } from '../lib/filter'
-import { getDefaultTimeRange } from '../lib/utils'
 import type { CommonLogFilters } from '../types'
 import { CommonLogsStats } from './common-logs-stats'
 import { CompactDateTimeRangePicker } from './compact-date-time-range-picker'
@@ -74,6 +79,19 @@ function isLogTypeValue(value: string): value is LogTypeValue {
   return logTypeValueSet.has(value)
 }
 
+/**
+ * The window a log page opens on: the trailing 24 hours from resolveTimeWindow
+ * rather than "today 00:00 until now", which kept returning yesterday's rows
+ * until the page was reloaded after midnight.
+ */
+function defaultWindow(): { start: Date; end: Date } {
+  const window = resolveTimeWindow(DEFAULT_TIME_WINDOW_ID)
+  return {
+    start: new Date(window.start * 1000),
+    end: new Date(window.end * 1000),
+  }
+}
+
 function getLogTypeValue(value: unknown): LogTypeValue {
   return Array.isArray(value) &&
     value.length === 1 &&
@@ -86,6 +104,7 @@ function getLogTypeValue(value: unknown): LogTypeValue {
 function buildSearchSourceKey(values: {
   startTime?: unknown
   endTime?: unknown
+  preset?: unknown
   channel?: unknown
   model?: unknown
   token?: unknown
@@ -98,6 +117,7 @@ function buildSearchSourceKey(values: {
   return [
     values.startTime,
     values.endTime,
+    values.preset,
     values.channel,
     values.model,
     values.token,
@@ -146,10 +166,11 @@ export function CommonLogsFilterBar<TData>(
   }, [isAdmin, adminGroups, userGroups])
 
   const searchState = useMemo<CommonLogDraft>(() => {
-    const { start, end } = getDefaultTimeRange()
+    const defaultRange = defaultWindow()
     const sourceValues = {
       startTime: searchParams.startTime,
       endTime: searchParams.endTime,
+      preset: searchParams.preset,
       channel: searchParams.channel,
       model: searchParams.model,
       token: searchParams.token,
@@ -162,8 +183,11 @@ export function CommonLogsFilterBar<TData>(
     const filters: CommonLogFilters = {
       startTime: searchParams.startTime
         ? new Date(searchParams.startTime)
-        : start,
-      endTime: searchParams.endTime ? new Date(searchParams.endTime) : end,
+        : defaultRange.start,
+      endTime: searchParams.endTime
+        ? new Date(searchParams.endTime)
+        : defaultRange.end,
+      preset: searchParams.preset,
       channel: searchParams.channel || undefined,
       model: searchParams.model || undefined,
       token: searchParams.token || undefined,
@@ -180,6 +204,7 @@ export function CommonLogsFilterBar<TData>(
   }, [
     searchParams.startTime,
     searchParams.endTime,
+    searchParams.preset,
     searchParams.channel,
     searchParams.model,
     searchParams.token,
@@ -196,7 +221,10 @@ export function CommonLogsFilterBar<TData>(
   const logType = activeDraft.logType
 
   const handleChange = useCallback(
-    (field: keyof CommonLogFilters, value: Date | string | undefined) => {
+    (
+      field: keyof CommonLogFilters,
+      value: Date | string | TimeWindowId | undefined
+    ) => {
       setDraft((current) => {
         const base =
           current.sourceKey === searchState.sourceKey ? current : searchState
@@ -209,6 +237,33 @@ export function CommonLogsFilterBar<TData>(
     },
     [searchState]
   )
+
+  // A calendar window such as "this week" is fixed in the URL until it is
+  // rewritten, so a page opened yesterday would keep asking for yesterday's
+  // week. Refresh it once per mount; `filters` changes again after that, but
+  // the stored bounds then match and the effect stops.
+  useEffect(() => {
+    const window = {
+      start: Math.floor((filters.startTime?.getTime() ?? 0) / 1000),
+      end: Math.floor((filters.endTime?.getTime() ?? 0) / 1000),
+    }
+    if (!filters.preset || !isTimeWindowStale(filters.preset, window)) return
+
+    const fresh = resolveTimeWindow(filters.preset)
+    navigate({
+      to: '/usage-logs/$section',
+      params: { section: 'common' },
+      search: {
+        ...buildSearchParams(filters),
+        type: [logType],
+        startTime: fresh.start * 1000,
+        endTime: fresh.end * 1000,
+        preset: filters.preset,
+        page: 1,
+      },
+      replace: true,
+    })
+  }, [filters, logType, navigate])
 
   const handleApply = useCallback(
     (nextFilters: CommonLogFilters = filters) => {
@@ -229,12 +284,17 @@ export function CommonLogsFilterBar<TData>(
   )
 
   const handleReset = useCallback(() => {
-    const { start, end } = getDefaultTimeRange()
-    const resetFilters: CommonLogFilters = { startTime: start, endTime: end }
+    const { start, end } = defaultWindow()
+    const resetFilters: CommonLogFilters = {
+      startTime: start,
+      endTime: end,
+      preset: DEFAULT_TIME_WINDOW_ID,
+    }
     const resetSearch = {
       type: [LOG_TYPE_ALL_VALUE],
       startTime: start.getTime(),
       endTime: end.getTime(),
+      preset: DEFAULT_TIME_WINDOW_ID,
     }
     setDraft({
       sourceKey: buildSearchSourceKey(resetSearch),
@@ -323,11 +383,19 @@ export function CommonLogsFilterBar<TData>(
       <CompactDateTimeRangePicker
         start={filters.startTime}
         end={filters.endTime}
-        onChange={({ start, end }) => {
+        preset={filters.preset}
+        onChange={({ start, end, preset: nextPreset }) => {
+          const nextFilters: CommonLogFilters = {
+            ...filters,
+            startTime: start,
+            endTime: end,
+            preset: nextPreset,
+          }
           handleChange('startTime', start)
           handleChange('endTime', end)
+          handleChange('preset', nextPreset)
           if (isMobile) {
-            handleApply({ ...filters, startTime: start, endTime: end })
+            handleApply(nextFilters)
           }
         }}
       />

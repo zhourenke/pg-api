@@ -28,13 +28,44 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import dayjs from '@/lib/dayjs'
+import {
+  isTimeWindowStale,
+  matchTimeWindowPreset,
+  resolveTimeWindow,
+  TIME_WINDOW_PRESETS,
+  toTimeWindow,
+  type TimeWindow,
+  type TimeWindowId,
+} from '@/lib/time-window'
 import { cn } from '@/lib/utils'
 
 interface CompactDateTimeRangePickerProps {
   start?: Date
   end?: Date
-  onChange: (range: { start?: Date; end?: Date }) => void
+  /** The preset the current range came from; absent when it was hand-picked. */
+  preset?: TimeWindowId
+  onChange: (range: { start?: Date; end?: Date; preset?: TimeWindowId }) => void
   className?: string
+}
+
+/**
+ * A window is nothing but its bounds, and the preset id is optional context, so
+ * neither alone can decide which chip is lit. Take the stored id when it still
+ * describes the range, and fall back to a lookup for callers that only kept the
+ * timestamps.
+ */
+function resolvePreset(
+  preset: TimeWindowId | undefined,
+  window: TimeWindow
+): TimeWindowId | null {
+  if (
+    preset &&
+    !isTimeWindowStale(preset, window) &&
+    matchTimeWindowPreset(window) === preset
+  ) {
+    return preset
+  }
+  return matchTimeWindowPreset(window)
 }
 
 function toInputValue(date?: Date): string {
@@ -50,6 +81,7 @@ function fromInputValue(value: string): Date | undefined {
 export function CompactDateTimeRangePicker({
   start,
   end,
+  preset,
   onChange,
   className,
 }: CompactDateTimeRangePickerProps) {
@@ -57,9 +89,26 @@ export function CompactDateTimeRangePicker({
   const [open, setOpen] = useState(false)
   const [draftStart, setDraftStart] = useState(toInputValue(start))
   const [draftEnd, setDraftEnd] = useState(toInputValue(end))
+  // A hand-picked range is the one thing the preset id cannot describe, so the
+  // popover tracks it separately from the presets it can.
+  const [customRange, setCustomRange] = useState(false)
+
+  const selectedPreset = useMemo(
+    () =>
+      resolvePreset(
+        preset,
+        toTimeWindow(start ?? new Date(), end ?? new Date())
+      ),
+    [end, preset, start]
+  )
+  const activePreset = start || end ? selectedPreset : null
 
   const label = useMemo(() => {
     if (!start && !end) return t('Date Range')
+    const presetLabel = TIME_WINDOW_PRESETS.find(
+      (item) => item.id === selectedPreset
+    )
+    if (presetLabel) return t(presetLabel.labelKey)
     // The popover's <input type="datetime-local"> only supports minute
     // precision, so seconds are always 00 (manual pick) or 59 (preset
     // end-of-day). Hide them in the trigger label to keep the button
@@ -67,20 +116,22 @@ export function CompactDateTimeRangePicker({
     const startText = start ? dayjs(start).format('YYYY-MM-DD HH:mm') : '-'
     const endText = end ? dayjs(end).format('YYYY-MM-DD HH:mm') : '-'
     return `${startText} ~ ${endText}`
-  }, [end, start, t])
+  }, [end, selectedPreset, start, t])
 
   const mobileLabel = useMemo(() => {
+    if (selectedPreset) return label
     if (!start || !end) return label
     if (dayjs(start).isSame(end, 'day')) {
       return `${dayjs(start).format('MM/DD HH:mm')}–${dayjs(end).format('HH:mm')}`
     }
     return label
-  }, [start, end, label])
+  }, [start, end, label, selectedPreset])
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
       setDraftStart(toInputValue(start))
       setDraftEnd(toInputValue(end))
+      setCustomRange(!selectedPreset && Boolean(start || end))
     }
     setOpen(nextOpen)
   }
@@ -93,35 +144,23 @@ export function CompactDateTimeRangePicker({
     setOpen(false)
   }
 
-  const applyPreset = (kind: 'today' | '7d' | 'week' | '30d' | 'month') => {
-    const now = dayjs()
-    const presets = {
-      today: {
-        start: now.startOf('day').toDate(),
-        end: now.endOf('day').toDate(),
-      },
-      '7d': {
-        start: now.subtract(6, 'day').startOf('day').toDate(),
-        end: now.endOf('day').toDate(),
-      },
-      week: {
-        start: now.startOf('week').toDate(),
-        end: now.endOf('week').toDate(),
-      },
-      '30d': {
-        start: now.subtract(29, 'day').startOf('day').toDate(),
-        end: now.endOf('day').toDate(),
-      },
-      month: {
-        start: now.startOf('month').toDate(),
-        end: now.endOf('month').toDate(),
-      },
+  const applyPreset = (id: TimeWindowId) => {
+    const window = resolveTimeWindow(id)
+    const range = {
+      start: new Date(window.start * 1000),
+      end: new Date(window.end * 1000),
     }
-    const range = presets[kind]
     setDraftStart(toInputValue(range.start))
     setDraftEnd(toInputValue(range.end))
-    onChange(range)
+    setCustomRange(false)
+    onChange({ ...range, preset: id })
     setOpen(false)
+  }
+
+  const openCustomRange = () => {
+    setCustomRange(true)
+    setDraftStart(toInputValue(start))
+    setDraftEnd(toInputValue(end))
   }
 
   return (
@@ -151,89 +190,76 @@ export function CompactDateTimeRangePicker({
         className='w-[min(520px,calc(100vw-2rem))] p-3'
       >
         <div className='space-y-3'>
-          <div className='grid gap-2 sm:grid-cols-[1fr_auto_1fr] sm:items-end'>
-            <div className='space-y-1.5'>
-              <div className='text-muted-foreground text-xs'>
-                {t('Start Time')}
-              </div>
-              <Input
-                type='datetime-local'
-                value={draftStart}
-                aria-label={t('Start Time')}
-                onChange={(e) => setDraftStart(e.target.value)}
-                className='h-8 text-sm leading-5 tabular-nums'
-              />
-            </div>
-            <span className='text-muted-foreground hidden pb-2 text-xs sm:block'>
-              ~
-            </span>
-            <div className='space-y-1.5'>
-              <div className='text-muted-foreground text-xs'>
-                {t('End Time')}
-              </div>
-              <Input
-                type='datetime-local'
-                value={draftEnd}
-                aria-label={t('End Time')}
-                onChange={(e) => setDraftEnd(e.target.value)}
-                className='h-8 text-sm leading-5 tabular-nums'
-              />
-            </div>
-          </div>
-
-          <div className='flex flex-wrap gap-1.5'>
+          <div
+            role='group'
+            aria-label={t('Time range')}
+            className='grid grid-cols-2 gap-1.5 sm:grid-cols-4'
+          >
+            {TIME_WINDOW_PRESETS.map((item) => (
+              <Button
+                key={item.id}
+                type='button'
+                data-preset={item.id}
+                variant={activePreset === item.id ? 'default' : 'secondary'}
+                size='sm'
+                aria-pressed={activePreset === item.id}
+                className='h-7 w-auto px-2 text-xs whitespace-nowrap'
+                onClick={() => applyPreset(item.id)}
+              >
+                {t(item.labelKey)}
+              </Button>
+            ))}
             <Button
               type='button'
-              variant='secondary'
+              variant={customRange ? 'default' : 'outline'}
               size='sm'
-              className='h-7 flex-1 px-2 text-xs'
-              onClick={() => applyPreset('today')}
+              aria-pressed={customRange}
+              className='h-7 w-auto px-2 text-xs whitespace-nowrap'
+              onClick={openCustomRange}
             >
-              {t('Today')}
-            </Button>
-            <Button
-              type='button'
-              variant='secondary'
-              size='sm'
-              className='h-7 flex-1 px-2 text-xs'
-              onClick={() => applyPreset('7d')}
-            >
-              {t('7 Days')}
-            </Button>
-            <Button
-              type='button'
-              variant='secondary'
-              size='sm'
-              className='h-7 flex-1 px-2 text-xs'
-              onClick={() => applyPreset('week')}
-            >
-              {t('This week')}
-            </Button>
-            <Button
-              type='button'
-              variant='secondary'
-              size='sm'
-              className='h-7 flex-1 px-2 text-xs'
-              onClick={() => applyPreset('30d')}
-            >
-              {t('30 Days')}
-            </Button>
-            <Button
-              type='button'
-              variant='secondary'
-              size='sm'
-              className='h-7 flex-1 px-2 text-xs'
-              onClick={() => applyPreset('month')}
-            >
-              {t('Current month')}
+              {t('Custom Time Range')}
             </Button>
           </div>
 
-          <div className='flex justify-end'>
-            <Button size='sm' className='h-8' onClick={applyDraft}>
-              {t('Confirm')}
-            </Button>
-          </div>
+          {customRange && (
+            <>
+              <div className='grid gap-2 sm:grid-cols-[1fr_auto_1fr] sm:items-end'>
+                <div className='space-y-1.5'>
+                  <div className='text-muted-foreground text-xs'>
+                    {t('Start Time')}
+                  </div>
+                  <Input
+                    type='datetime-local'
+                    value={draftStart}
+                    aria-label={t('Start Time')}
+                    onChange={(e) => setDraftStart(e.target.value)}
+                    className='h-8 text-sm leading-5 tabular-nums'
+                  />
+                </div>
+                <span className='text-muted-foreground hidden pb-2 text-xs sm:block'>
+                  ~
+                </span>
+                <div className='space-y-1.5'>
+                  <div className='text-muted-foreground text-xs'>
+                    {t('End Time')}
+                  </div>
+                  <Input
+                    type='datetime-local'
+                    value={draftEnd}
+                    aria-label={t('End Time')}
+                    onChange={(e) => setDraftEnd(e.target.value)}
+                    className='h-8 text-sm leading-5 tabular-nums'
+                  />
+                </div>
+              </div>
+
+              <div className='flex justify-end'>
+                <Button size='sm' className='h-8' onClick={applyDraft}>
+                  {t('Confirm')}
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </PopoverContent>
     </Popover>
