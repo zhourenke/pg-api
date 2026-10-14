@@ -33,16 +33,24 @@ import { AuditLogFilterBar } from './audit-log-filter-bar'
 
 const EMPTY_LOGS: AuditLog[] = []
 
+/** Where the viewer is embedded, the caller owns the filters. */
 export function AuditLogViewer(props: {
   scope: 'all' | 'self'
+  /**
+   * The filters to query with. The page keeps them in the address bar and the
+   * embedded access history keeps them in memory; either way the viewer only
+   * reports the changes it wants and never holds a second copy.
+   */
+  filters: AuditFilters
+  onFiltersChange: (filters: AuditFilters) => void
   accessOnly?: boolean
   currentTokenRef?: string
   onAccessDenied?: () => Promise<void>
 }) {
   const { t } = useTranslation()
   const userId = useAuthStore((state) => state.auth.user?.id)
-  const [filters, setFilters] = useState<AuditFilters>({ p: 1, page_size: 20 })
   const [tokenScope, setTokenScope] = useState('all')
+  const filters = props.filters
   const params = { ...filters }
   if (props.accessOnly) params.category = 'access_token'
   if (tokenScope === 'current') params.token_ref = props.currentTokenRef
@@ -84,17 +92,15 @@ export function AuditLogViewer(props: {
     pagination: { pageIndex: filters.p - 1, pageSize: filters.page_size },
     onPaginationChange: (updater) => {
       if (query.isFetching || query.isError || invalidRange || !canQuery) return
-      setFilters((previous) => {
-        const current = {
-          pageIndex: previous.p - 1,
-          pageSize: previous.page_size,
-        }
-        const next = typeof updater === 'function' ? updater(current) : updater
-        return {
-          ...previous,
-          p: next.pageSize === previous.page_size ? next.pageIndex + 1 : 1,
-          page_size: next.pageSize,
-        }
+      const current = {
+        pageIndex: filters.p - 1,
+        pageSize: filters.page_size,
+      }
+      const next = typeof updater === 'function' ? updater(current) : updater
+      props.onFiltersChange({
+        ...filters,
+        p: next.pageSize === filters.page_size ? next.pageIndex + 1 : 1,
+        page_size: next.pageSize,
       })
     },
     enableRowSelection: false,
@@ -103,7 +109,7 @@ export function AuditLogViewer(props: {
     manualPagination: true,
   })
   const update = (patch: Partial<AuditFilters>) =>
-    setFilters((previous) => ({ ...previous, ...patch, p: 1 }))
+    props.onFiltersChange({ ...filters, ...patch, p: 1 })
 
   return (
     <div className='flex h-full min-h-0 flex-col'>
@@ -140,7 +146,7 @@ export function AuditLogViewer(props: {
               }}
               onReset={() => {
                 setTokenScope('all')
-                setFilters({ p: 1, page_size: filters.page_size })
+                props.onFiltersChange({ p: 1, page_size: filters.page_size })
               }}
             />
             {invalidRange && (

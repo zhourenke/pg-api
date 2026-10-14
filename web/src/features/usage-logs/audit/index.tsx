@@ -17,7 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQueryClient } from '@tanstack/react-query'
-import { useCallback, useState } from 'react'
+import { getRouteApi, useNavigate } from '@tanstack/react-router'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
@@ -29,16 +30,32 @@ import {
   hasPermission,
 } from '@/lib/admin-permissions'
 import { ROLE } from '@/lib/roles'
+import { isTimeWindowStale, resolveTimeWindow } from '@/lib/time-window'
 import { useAuthStore } from '@/stores/auth-store'
 
+import type { AuditFilters } from './api'
 import { AuditLogViewer } from './components/audit-log-viewer'
+import {
+  auditFiltersFromSearch,
+  buildAuditSearchParams,
+} from './lib/search-params'
+
+const route = getRouteApi('/_authenticated/usage-logs/audit')
 
 export function AuditLogs() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
+  const searchParams = route.useSearch()
   const user = useAuthStore((state) => state.auth.user)
   const queryClient = useQueryClient()
   const [scope, setScope] = useState<'all' | 'self'>('all')
   const [accessRevoked, setAccessRevoked] = useState(false)
+  // The address bar is the single source of truth for the filters, so a reload
+  // or a shared link reopens the same view and a chosen window keeps its name.
+  const filters = useMemo(
+    () => auditFiltersFromSearch(searchParams),
+    [searchParams]
+  )
   const canReadAll =
     !!user &&
     user.role >= ROLE.ADMIN &&
@@ -87,6 +104,38 @@ export function AuditLogs() {
       // Keep the denied scope closed when refreshing capabilities fails.
     }
   }, [queryClient, userId])
+  const handleFiltersChange = useCallback(
+    (next: AuditFilters) => {
+      navigate({
+        to: '/usage-logs/audit',
+        search: buildAuditSearchParams(next),
+      })
+    },
+    [navigate]
+  )
+
+  // A calendar window ("this week") is stored in the address bar as bounds that
+  // stop matching once local midnight passes, so resolve it again on the way in;
+  // a rolling window's stored bounds are simply refreshed. Once they match, the
+  // effect stops rewriting the URL.
+  useEffect(() => {
+    const { preset, start_timestamp: start, end_timestamp: end } = filters
+    if (!preset || start === undefined || end === undefined) return
+    if (!isTimeWindowStale(preset, { start, end })) return
+
+    const fresh = resolveTimeWindow(preset)
+    navigate({
+      to: '/usage-logs/audit',
+      search: {
+        ...buildAuditSearchParams(filters),
+        startTime: fresh.start,
+        endTime: fresh.end,
+        preset,
+      },
+      replace: true,
+    })
+  }, [filters, navigate])
+
   return (
     <SectionPageLayout fixedContent>
       <SectionPageLayout.Title>{t('Audit Logs')}</SectionPageLayout.Title>
@@ -116,6 +165,8 @@ export function AuditLogs() {
             <AuditLogViewer
               key={`${userId}:${effectiveScope}`}
               scope={effectiveScope}
+              filters={filters}
+              onFiltersChange={handleFiltersChange}
               onAccessDenied={handleAccessDenied}
             />
           </div>

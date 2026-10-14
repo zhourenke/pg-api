@@ -55,6 +55,11 @@ beforeEach(() => {
     value: vi.fn(),
   })
   vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+  // Only the clock is faked: the range picker reads it to decide what the
+  // current window is, so a real clock makes the label of the default window
+  // depend on where a second boundary falls between two renders.
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date(2026, 8, 8, 12))
 })
 
 function Fixture() {

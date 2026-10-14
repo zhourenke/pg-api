@@ -31,6 +31,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { SecureVerificationDialog } from '@/features/auth/secure-verification'
+import type { AuditFilters } from '@/features/usage-logs/audit/api'
 import { AuditLogViewer } from '@/features/usage-logs/audit/components/audit-log-viewer'
 import dayjs from '@/lib/dayjs'
 
@@ -44,6 +45,12 @@ export function AccessTokenCard() {
     null
   )
   const [historyOpen, setHistoryOpen] = useState(false)
+  // This history is a panel inside the security page, not a page of its own, so
+  // its filters stay in memory instead of going into that page's URL.
+  const [auditFilters, setAuditFilters] = useState<AuditFilters>({
+    p: 1,
+    page_size: 20,
+  })
   const pending = access.pending
   const status = access.status.data
   const ready = !access.status.isError && !access.status.isPending && !!status
@@ -210,6 +217,8 @@ export function AccessTokenCard() {
               <AuditLogViewer
                 scope='self'
                 accessOnly
+                filters={auditFilters}
+                onFiltersChange={setAuditFilters}
                 currentTokenRef={ready ? status.token_ref : undefined}
               />
             )}

@@ -24,6 +24,7 @@ import {
   isUsageLogsSectionId,
   USAGE_LOGS_DEFAULT_SECTION,
 } from '@/features/usage-logs/section-registry'
+import { TIME_WINDOW_IDS } from '@/lib/time-window'
 
 const logTypeValues = ['0', '1', '2', '3', '4', '5', '6', '7'] as const
 const logTypeSearchSchema = z
@@ -46,20 +47,7 @@ const usageLogsSearchSchema = z.object({
   upstreamRequestId: z.string().optional().catch(''),
   startTime: z.number().optional(),
   endTime: z.number().optional(),
-  preset: z
-    .enum([
-      '24h',
-      '7d',
-      '30d',
-      'today',
-      'yesterday',
-      'this-week',
-      'last-week',
-      'this-month',
-      'last-month',
-    ])
-    .optional()
-    .catch(undefined),
+  preset: z.enum(TIME_WINDOW_IDS).optional().catch(undefined),
 })
 
 export const Route = createFileRoute('/_authenticated/usage-logs/$section')({

@@ -34,16 +34,27 @@ For commercial licensing, please contact support@quantumnous.com
  */
 import dayjs from '@/lib/dayjs'
 
-export type TimeWindowId =
-  | '24h'
-  | '7d'
-  | '30d'
-  | 'today'
-  | 'yesterday'
-  | 'this-week'
-  | 'last-week'
-  | 'this-month'
-  | 'last-month'
+/**
+ * Every selectable window id, in the order a picker should offer them.
+ *
+ * This list exists so that the search schemas can validate a `preset` without
+ * repeating the ids: adding a window means adding it here and describing it in
+ * `TIME_WINDOW_PRESETS` (a test asserts the two stay in step), rather than
+ * editing a zod enum in every route that reads one.
+ */
+export const TIME_WINDOW_IDS = [
+  '24h',
+  '7d',
+  '30d',
+  'today',
+  'yesterday',
+  'this-week',
+  'last-week',
+  'this-month',
+  'last-month',
+] as const satisfies readonly string[]
+
+export type TimeWindowId = (typeof TIME_WINDOW_IDS)[number]
 
 type TimeWindowKind = 'rolling' | 'calendar'
 

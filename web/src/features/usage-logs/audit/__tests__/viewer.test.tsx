@@ -18,6 +18,13 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  RouterProvider,
+} from '@tanstack/react-router'
+import {
   cleanup,
   fireEvent,
   render,
@@ -28,15 +35,70 @@ import {
 import userEvent from '@testing-library/user-event'
 import { AxiosError, type AxiosResponse } from 'axios'
 import { createInstance } from 'i18next'
+import { useState } from 'react'
 import { I18nextProvider } from 'react-i18next'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 import zh from '@/i18n/locales/zh.json'
 import { api } from '@/lib/api'
+import { resolveTimeWindow } from '@/lib/time-window'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { AuditLogs } from '..'
+import type { AuditFilters } from '../api'
 import { AuditLogViewer } from '../components/audit-log-viewer'
+import { auditSearchSchema } from '../lib/search-params'
+
+/**
+ * The viewer no longer holds the filters itself; the page keeps them in the URL
+ * and the embedded access history keeps them in memory. Tests that are about
+ * the viewer rather than about the URL use this in-memory owner.
+ */
+function InMemoryAuditViewer(props: {
+  scope: 'all' | 'self'
+  accessOnly?: boolean
+  currentTokenRef?: string
+  initialFilters?: AuditFilters
+}) {
+  const [filters, setFilters] = useState<AuditFilters>(
+    props.initialFilters ?? { p: 1, page_size: 20 }
+  )
+  return (
+    <AuditLogViewer
+      scope={props.scope}
+      filters={filters}
+      onFiltersChange={setFilters}
+      accessOnly={props.accessOnly}
+      currentTokenRef={props.currentTokenRef}
+    />
+  )
+}
+
+/** Mounts the audit page on the real route so its URL-backed filters apply. */
+async function renderAuditPage(
+  client: QueryClient,
+  initialEntry = '/usage-logs/audit'
+) {
+  const root = createRootRoute()
+  const auth = createRoute({ getParentRoute: () => root, id: '_authenticated' })
+  const audit = createRoute({
+    getParentRoute: () => auth,
+    path: '/usage-logs/audit',
+    component: AuditLogs,
+    validateSearch: auditSearchSchema,
+  })
+  const router = createRouter({
+    routeTree: root.addChildren([auth.addChildren([audit])]),
+    history: createMemoryHistory({ initialEntries: [initialEntry] }),
+  })
+  render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
+  )
+  await screen.findByRole('button', { name: 'Refresh' })
+  return router
+}
 
 it.each([
   [
@@ -159,7 +221,7 @@ it.each([
     })
     render(
       <QueryClientProvider client={client}>
-        <AuditLogViewer scope='self' />
+        <InMemoryAuditViewer scope='self' />
       </QueryClientProvider>
     )
     // The suite-wide 5s asyncUtilTimeout (src/test-setup.ts) is not enough for
@@ -219,7 +281,7 @@ it.each([false, true])(
     })
     render(
       <QueryClientProvider client={client}>
-        <AuditLogViewer scope='self' />
+        <InMemoryAuditViewer scope='self' />
       </QueryClientProvider>
     )
     const id = await screen.findByText('(ID: 11)')
@@ -352,7 +414,7 @@ it.each([
     render(
       <I18nextProvider i18n={i18n}>
         <QueryClientProvider client={client}>
-          <AuditLogViewer scope='self' />
+          <InMemoryAuditViewer scope='self' />
         </QueryClientProvider>
       </I18nextProvider>
     )
@@ -386,7 +448,7 @@ function renderViewer(scope: 'all' | 'self' = 'self') {
   })
   render(
     <QueryClientProvider client={client}>
-      <AuditLogViewer
+      <InMemoryAuditViewer
         scope={scope}
         accessOnly
         currentTokenRef={'a'.repeat(64)}
@@ -517,11 +579,7 @@ it.each([10, 100])(
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
-    render(
-      <QueryClientProvider client={client}>
-        <AuditLogs />
-      </QueryClientProvider>
-    )
+    await renderAuditPage(client)
     expect(screen.getByRole('tab', { name: 'All' })).toHaveAttribute(
       'aria-selected',
       'true'
@@ -559,11 +617,7 @@ it.each([1, 10])(
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
-    render(
-      <QueryClientProvider client={client}>
-        <AuditLogs />
-      </QueryClientProvider>
-    )
+    await renderAuditPage(client)
     await waitFor(() =>
       expect(get).toHaveBeenCalledWith('/api/audit/self', expect.anything())
     )
@@ -641,11 +695,7 @@ it('clears global records and open details on revocation, falls back to self, an
     }
   })
   client.setQueryData(['audit', 99, 'all'], { items: ['separate-session'] })
-  render(
-    <QueryClientProvider client={client}>
-      <AuditLogs />
-    </QueryClientProvider>
-  )
+  await renderAuditPage(client)
   await screen.findByText('other-account')
   await userEvent.click(screen.getByRole('button', { name: 'Details' }))
   expect(
@@ -771,4 +821,48 @@ it('keeps the access-record table on a narrow viewport and sizes its columns by 
   expect(widths.length).toBeGreaterThan(1)
   expect(widths.every((width) => width.endsWith('%'))).toBe(true)
   expect(screen.queryByRole('separator')).not.toBeInTheDocument()
+})
+
+it('keeps the audit filters in the address bar instead of in memory', async () => {
+  vi.spyOn(api, 'get').mockResolvedValue({
+    data: { success: true, data: { items: [], total: 0 } },
+  })
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  const router = await renderAuditPage(client)
+
+  await userEvent.click(screen.getByRole('combobox', { name: 'Result' }))
+  await userEvent.click(await screen.findByRole('option', { name: 'Failed' }))
+
+  await waitFor(() =>
+    expect(router.state.location.search).toMatchObject({ success: false })
+  )
+  // Defaults stay out of the URL, so a shared link only carries what was picked.
+  expect(router.state.location.search).not.toHaveProperty('page')
+  expect(router.state.location.search).not.toHaveProperty('pageSize')
+})
+
+it('resolves a calendar window the page was opened with', async () => {
+  vi.spyOn(api, 'get').mockResolvedValue({
+    data: { success: true, data: { items: [], total: 0 } },
+  })
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  // Bounds that cannot be the current week any more: whatever they were, the
+  // page has to resolve today's window for the preset it was given.
+  const router = await renderAuditPage(
+    client,
+    '/usage-logs/audit?preset=this-week&startTime=1&endTime=2'
+  )
+  const expected = resolveTimeWindow('this-week')
+
+  await waitFor(() =>
+    expect(router.state.location.search).toMatchObject({
+      preset: 'this-week',
+      startTime: expected.start,
+      endTime: expected.end,
+    })
+  )
 })

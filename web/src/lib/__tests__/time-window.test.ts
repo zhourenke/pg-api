@@ -22,6 +22,7 @@ import dayjs from '@/lib/dayjs'
 import {
   matchTimeWindowPreset,
   resolveTimeWindow,
+  TIME_WINDOW_IDS,
   TIME_WINDOW_PRESETS,
   type TimeWindowId,
 } from '@/lib/time-window'
@@ -56,6 +57,15 @@ describe('time window presets', () => {
     ])
     expect(new Set(ids).size).toBe(ids.length)
     expect(new Set(labelKeys).size).toBe(labelKeys.length)
+  })
+
+  it('keeps the id list the URL schemas validate against in the same order', () => {
+    // The search schemas build a zod enum from TIME_WINDOW_IDS, so a window
+    // added to one list and not the other must fail here rather than silently
+    // dropping out of a URL.
+    expect([...TIME_WINDOW_IDS]).toEqual(
+      TIME_WINDOW_PRESETS.map((preset) => preset.id)
+    )
   })
 })
 

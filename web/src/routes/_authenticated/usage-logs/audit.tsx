@@ -19,7 +19,9 @@ For commercial licensing, please contact support@quantumnous.com
 import { createFileRoute } from '@tanstack/react-router'
 
 import { AuditLogs } from '@/features/usage-logs/audit'
+import { auditSearchSchema } from '@/features/usage-logs/audit/lib/search-params'
 
 export const Route = createFileRoute('/_authenticated/usage-logs/audit')({
+  validateSearch: auditSearchSchema,
   component: AuditLogs,
 })

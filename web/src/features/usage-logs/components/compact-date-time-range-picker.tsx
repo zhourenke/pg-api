@@ -29,7 +29,6 @@ import {
 } from '@/components/ui/popover'
 import dayjs from '@/lib/dayjs'
 import {
-  isTimeWindowStale,
   matchTimeWindowPreset,
   resolveTimeWindow,
   TIME_WINDOW_PRESETS,
@@ -49,23 +48,17 @@ interface CompactDateTimeRangePickerProps {
 }
 
 /**
- * A window is nothing but its bounds, and the preset id is optional context, so
- * neither alone can decide which chip is lit. Take the stored id when it still
- * describes the range, and fall back to a lookup for callers that only kept the
- * timestamps.
+ * The stored id is the viewer's own choice and names the window even after its
+ * bounds have aged: a rolling window is a second older the moment it is written,
+ * so re-deriving the label from the clock would turn "24 Hours" into a pair of
+ * timestamps on the next render. Only a range that arrives without an id — a
+ * hand-picked one — has to be matched against the presets.
  */
 function resolvePreset(
   preset: TimeWindowId | undefined,
   window: TimeWindow
 ): TimeWindowId | null {
-  if (
-    preset &&
-    !isTimeWindowStale(preset, window) &&
-    matchTimeWindowPreset(window) === preset
-  ) {
-    return preset
-  }
-  return matchTimeWindowPreset(window)
+  return preset ?? matchTimeWindowPreset(window)
 }
 
 function toInputValue(date?: Date): string {

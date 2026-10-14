@@ -49,9 +49,10 @@ export interface AuditFilters {
   start_timestamp?: number
   end_timestamp?: number
   /**
-   * The preset the range came from. This view keeps its filters in memory only,
-   * so the id is lost on reload and a calendar window is then re-derived from
-   * the timestamps alone; persisting it belongs with the URL work.
+   * The preset the range came from, or `undefined` for a hand-picked one. The
+   * audit page keeps its copy of these filters in the address bar, so the id
+   * survives a reload and a calendar window is resolved again rather than
+   * guessed back from its timestamps.
    */
   preset?: TimeWindowId
   success?: string
