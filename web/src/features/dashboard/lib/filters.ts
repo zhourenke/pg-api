@@ -22,8 +22,6 @@ import {
   DEFAULT_TIME_GRANULARITY,
   EMPTY_DASHBOARD_FILTERS,
   TIME_GRANULARITY_STORAGE_KEY,
-  TIME_RANGE_PRESETS,
-  TIME_RANGE_BY_GRANULARITY,
 } from '@/features/dashboard/constants'
 import type {
   ConsumptionDistributionChartType,
@@ -32,10 +30,47 @@ import type {
   ModelAnalyticsChartTab,
 } from '@/features/dashboard/types'
 import { getSiteDefaultTimeGranularity } from '@/lib/status-query'
-import { getRollingDateRange, type TimeGranularity } from '@/lib/time'
+import type { TimeGranularity } from '@/lib/time'
+import {
+  DEFAULT_TIME_WINDOW_ID,
+  resolveTimeWindow,
+  TIME_WINDOW_PRESETS,
+  type TimeWindow,
+  type TimeWindowId,
+} from '@/lib/time-window'
+
+/**
+ * Day counts the chart preferences used to store, mapped onto the nearest of
+ * the shared presets. `14` has no equivalent of its own because every picker in
+ * the app now offers the same nine windows.
+ */
+const LEGACY_TIME_WINDOW_BY_DAYS: Record<number, TimeWindowId> = {
+  1: '24h',
+  7: '7d',
+  14: '7d',
+  29: '30d',
+}
 
 function isTimeGranularity(value: unknown): value is TimeGranularity {
   return value === 'hour' || value === 'day' || value === 'week'
+}
+
+function isTimeWindowId(value: unknown): value is TimeWindowId {
+  return (
+    typeof value === 'string' &&
+    TIME_WINDOW_PRESETS.some((preset) => preset.id === value)
+  )
+}
+
+function readTimeWindowId(value: unknown, legacyDays: unknown): TimeWindowId {
+  if (isTimeWindowId(value)) return value
+  if (
+    typeof legacyDays === 'number' &&
+    LEGACY_TIME_WINDOW_BY_DAYS[legacyDays] !== undefined
+  ) {
+    return LEGACY_TIME_WINDOW_BY_DAYS[legacyDays]
+  }
+  return DEFAULT_TIME_WINDOW_ID
 }
 
 function getLegacySavedGranularity(): TimeGranularity {
@@ -77,13 +112,7 @@ function isModelAnalyticsChartTab(
   return value === 'trend' || value === 'proportion' || value === 'top'
 }
 
-function isTimeRangePresetDays(value: unknown): value is number {
-  return TIME_RANGE_PRESETS.some((preset) => preset.days === value)
-}
-
-export function cleanFilters<T extends Record<string, unknown>>(
-  filters: T
-): Partial<T> {
+export function cleanFilters<T extends object>(filters: T): Partial<T> {
   const cleaned: Partial<T> = {}
   for (const [key, value] of Object.entries(filters)) {
     if (value === undefined || value === null) continue
@@ -125,7 +154,9 @@ export function getSavedChartPreferences(): DashboardChartPreferences {
     const raw = localStorage.getItem(DASHBOARD_CHART_PREFERENCES_STORAGE_KEY)
     if (!raw) return fallbackPreferences
 
-    const parsed = JSON.parse(raw) as Partial<DashboardChartPreferences>
+    const parsed = JSON.parse(raw) as Partial<DashboardChartPreferences> & {
+      defaultTimeRangeDays?: unknown
+    }
     return {
       consumptionDistributionChart: isConsumptionDistributionChartType(
         parsed.consumptionDistributionChart
@@ -135,9 +166,10 @@ export function getSavedChartPreferences(): DashboardChartPreferences {
       modelAnalyticsChart: isModelAnalyticsChartTab(parsed.modelAnalyticsChart)
         ? parsed.modelAnalyticsChart
         : fallbackPreferences.modelAnalyticsChart,
-      defaultTimeRangeDays: isTimeRangePresetDays(parsed.defaultTimeRangeDays)
-        ? parsed.defaultTimeRangeDays
-        : fallbackPreferences.defaultTimeRangeDays,
+      defaultTimeWindowId: readTimeWindowId(
+        parsed.defaultTimeWindowId,
+        parsed.defaultTimeRangeDays
+      ),
       defaultTimeGranularity: isTimeGranularity(parsed.defaultTimeGranularity)
         ? parsed.defaultTimeGranularity
         : fallbackPreferences.defaultTimeGranularity,
@@ -157,25 +189,35 @@ export function saveChartPreferences(
   )
 }
 
-export function getDefaultDays(granularity?: TimeGranularity): number {
-  if (!granularity) return getSavedChartPreferences().defaultTimeRangeDays
-  return TIME_RANGE_BY_GRANULARITY[getSavedGranularity(granularity)]
-}
-
 export function buildDefaultDashboardFilters(
   preferences: DashboardChartPreferences = getSavedChartPreferences()
 ): DashboardFilters {
-  const { start, end } = getRollingDateRange(preferences.defaultTimeRangeDays)
   return {
     ...EMPTY_DASHBOARD_FILTERS,
-    start_timestamp: start,
-    end_timestamp: end,
+    preset: preferences.defaultTimeWindowId,
     time_granularity: preferences.defaultTimeGranularity,
   }
 }
 
+/**
+ * The window the dashboard queries with. A preset is resolved on demand, so a
+ * calendar window ("today", "this month") is never served from a stale pair of
+ * stored timestamps; a hand-picked range carries no preset and is used as
+ * stored.
+ */
+export function resolveDashboardWindow(
+  filters?: DashboardFilters,
+  now: Date = new Date()
+): TimeWindow {
+  if (filters?.preset) return resolveTimeWindow(filters.preset, now)
+  if (filters?.start_timestamp && filters?.end_timestamp) {
+    return { start: filters.start_timestamp, end: filters.end_timestamp }
+  }
+  return resolveTimeWindow(DEFAULT_TIME_WINDOW_ID, now)
+}
+
 export function buildQueryParams(
-  timeRange: { start_timestamp: number; end_timestamp: number },
+  window: TimeWindow,
   filters?: { time_granularity?: TimeGranularity; username?: string }
 ): {
   start_timestamp: number
@@ -184,7 +226,8 @@ export function buildQueryParams(
   username?: string
 } {
   return {
-    ...timeRange,
+    start_timestamp: window.start,
+    end_timestamp: window.end,
     default_time: getSavedGranularity(filters?.time_granularity),
     ...(filters?.username && { username: filters.username }),
   }

@@ -16,6 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { DEFAULT_TIME_WINDOW_ID } from '@/lib/time-window'
+
 import type { DashboardChartPreferences, DashboardFilters } from './types'
 
 export const TIME_GRANULARITY_STORAGE_KEY = 'data_export_default_time'
@@ -27,27 +29,14 @@ export const MAX_CHART_TREND_POINTS = 7
 export const DEFAULT_DASHBOARD_CHART_PREFERENCES: DashboardChartPreferences = {
   consumptionDistributionChart: 'bar',
   modelAnalyticsChart: 'trend',
-  defaultTimeRangeDays: 1,
+  defaultTimeWindowId: DEFAULT_TIME_WINDOW_ID,
   defaultTimeGranularity: DEFAULT_TIME_GRANULARITY,
 }
-
-export const TIME_RANGE_BY_GRANULARITY = {
-  hour: 1,
-  day: 7,
-  week: 29,
-} as const
 
 export const TIME_GRANULARITY_OPTIONS = [
   { label: 'Hour', value: 'hour' },
   { label: 'Day', value: 'day' },
   { label: 'Week', value: 'week' },
-] as const
-
-export const TIME_RANGE_PRESETS = [
-  { label: '1 Day', days: 1 },
-  { label: '7 Days', days: 7 },
-  { label: '14 Days', days: 14 },
-  { label: '29 Days', days: 29 },
 ] as const
 
 export const CONSUMPTION_DISTRIBUTION_CHART_OPTIONS = [
@@ -62,8 +51,6 @@ export const MODEL_ANALYTICS_CHART_OPTIONS = [
 ] as const
 
 export const EMPTY_DASHBOARD_FILTERS: DashboardFilters = {
-  start_timestamp: undefined,
-  end_timestamp: undefined,
-  time_granularity: 'hour',
+  time_granularity: DEFAULT_TIME_GRANULARITY,
   username: '',
 }

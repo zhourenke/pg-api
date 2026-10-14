@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { TimeGranularity } from '@/lib/time'
+import type { TimeWindowId } from '@/lib/time-window'
 
 // ============================================================================
 // Quota & Usage Data Types
@@ -185,8 +186,15 @@ export interface UptimeGroupResult {
 // ============================================================================
 
 export interface DashboardFilters {
-  start_timestamp?: Date
-  end_timestamp?: Date
+  /** Inclusive bounds in seconds, the unit every management API takes. */
+  start_timestamp?: number
+  end_timestamp?: number
+  /**
+   * The preset the window came from, or `undefined` for a hand-picked range.
+   * Bounds are only stored for a hand-picked range: a preset is resolved when
+   * the window is needed, so a calendar window cannot go stale.
+   */
+  preset?: TimeWindowId
   time_granularity?: TimeGranularity
   username?: string
 }
@@ -198,15 +206,15 @@ export type ModelAnalyticsChartTab = 'trend' | 'proportion' | 'top'
 export interface DashboardChartPreferences {
   consumptionDistributionChart: ConsumptionDistributionChartType
   modelAnalyticsChart: ModelAnalyticsChartTab
-  defaultTimeRangeDays: number
+  defaultTimeWindowId: TimeWindowId
   defaultTimeGranularity: TimeGranularity
 }
 
 // User analytics selections are held by the dashboard parent so they survive
 // switching between dashboard sub-sections, matching the model/flow filters.
 export interface UserChartsFilters {
+  preset: TimeWindowId
   timeGranularity: TimeGranularity
-  selectedRange: number
   topUserLimit: number
 }
 

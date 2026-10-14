@@ -21,10 +21,10 @@ export {
   buildQueryParams,
   getSavedGranularity,
   saveGranularity,
-  getDefaultDays,
   getSavedChartPreferences,
   saveChartPreferences,
   buildDefaultDashboardFilters,
+  resolveDashboardWindow,
   hasLocalGranularityChoice,
 } from './filters'
 export { processChartData, processUserChartData } from './charts'

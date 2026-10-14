@@ -58,7 +58,7 @@ describe('dashboard granularity default', () => {
       DASHBOARD_CHART_PREFERENCES_STORAGE_KEY,
       JSON.stringify({
         defaultTimeGranularity: 'hour',
-        defaultTimeRangeDays: 7,
+        defaultTimeWindowId: '7d',
       })
     )
 

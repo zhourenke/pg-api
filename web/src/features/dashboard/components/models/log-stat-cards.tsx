@@ -23,10 +23,10 @@ import { IconBadge } from '@/components/ui/icon-badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getUserQuotaDates } from '@/features/dashboard/api'
 import { useModelStatCardsConfig } from '@/features/dashboard/hooks/use-dashboard-config'
+import { useDashboardWindow } from '@/features/dashboard/hooks/use-dashboard-window'
 import {
   buildQueryParams,
   calculateDashboardStats,
-  getDefaultDays,
 } from '@/features/dashboard/lib'
 import type {
   QuotaDataItem,
@@ -34,7 +34,6 @@ import type {
 } from '@/features/dashboard/types'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatCompactNumber, formatNumber, formatQuota } from '@/lib/format'
-import { computeTimeRange } from '@/lib/time'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -74,6 +73,7 @@ export function LogStatCards(props: LogStatCardsProps) {
   const [timeRangeMinutes, setTimeRangeMinutes] = useState(0)
 
   const { filters, onDataUpdate } = props
+  const window = useDashboardWindow(filters)
 
   useEffect(() => {
     const abortController = new AbortController()
@@ -83,15 +83,9 @@ export function LogStatCards(props: LogStatCardsProps) {
     setError(false)
     onDataUpdate?.([], true)
 
-    const timeRange = computeTimeRange(
-      getDefaultDays(filters?.time_granularity),
-      filters?.start_timestamp,
-      filters?.end_timestamp
-    )
-    const timeDiff = (timeRange.end_timestamp - timeRange.start_timestamp) / 60
-    setTimeRangeMinutes(timeDiff)
+    setTimeRangeMinutes((window.end - window.start) / 60)
 
-    void getUserQuotaDates(buildQueryParams(timeRange, filters), isAdmin)
+    void getUserQuotaDates(buildQueryParams(window, filters), isAdmin)
       .then((res) => {
         if (abortController.signal.aborted) return
         const data = res?.data || []
@@ -113,7 +107,7 @@ export function LogStatCards(props: LogStatCardsProps) {
     return () => {
       abortController.abort()
     }
-  }, [filters, isAdmin, onDataUpdate])
+  }, [filters, isAdmin, onDataUpdate, window])
 
   const adaptedStats = {
     rpm: stats?.totalCount ?? 0,

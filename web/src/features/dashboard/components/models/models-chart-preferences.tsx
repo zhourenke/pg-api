@@ -35,7 +35,6 @@ import {
   CONSUMPTION_DISTRIBUTION_CHART_OPTIONS,
   MODEL_ANALYTICS_CHART_OPTIONS,
   TIME_GRANULARITY_OPTIONS,
-  TIME_RANGE_PRESETS,
 } from '@/features/dashboard/constants'
 import type {
   ConsumptionDistributionChartType,
@@ -43,6 +42,7 @@ import type {
   ModelAnalyticsChartTab,
 } from '@/features/dashboard/types'
 import type { TimeGranularity } from '@/lib/time'
+import { TIME_WINDOW_PRESETS, type TimeWindowId } from '@/lib/time-window'
 
 interface ModelsChartPreferencesProps {
   preferences: DashboardChartPreferences
@@ -91,15 +91,15 @@ export function ModelsChartPreferences(props: ModelsChartPreferencesProps) {
       <div className='grid gap-1.5'>
         <Label htmlFor='default-time-range'>{t('Default range')}</Label>
         <Select
-          items={TIME_RANGE_PRESETS.map((option) => ({
-            value: String(option.days),
-            label: t(option.label),
+          items={TIME_WINDOW_PRESETS.map((preset) => ({
+            value: preset.id,
+            label: t(preset.labelKey),
           }))}
-          value={String(draft.defaultTimeRangeDays)}
+          value={draft.defaultTimeWindowId}
           onValueChange={(value) =>
             setDraft((prev) => ({
               ...prev,
-              defaultTimeRangeDays: Number(value),
+              defaultTimeWindowId: value as TimeWindowId,
             }))
           }
         >
@@ -108,9 +108,9 @@ export function ModelsChartPreferences(props: ModelsChartPreferencesProps) {
           </SelectTrigger>
           <SelectContent alignItemWithTrigger={false}>
             <SelectGroup>
-              {TIME_RANGE_PRESETS.map((option) => (
-                <SelectItem key={option.days} value={String(option.days)}>
-                  {t(option.label)}
+              {TIME_WINDOW_PRESETS.map((preset) => (
+                <SelectItem key={preset.id} value={preset.id}>
+                  {t(preset.labelKey)}
                 </SelectItem>
               ))}
             </SelectGroup>

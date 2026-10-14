@@ -53,7 +53,6 @@ import { OverviewDashboard } from './components/overview/overview-dashboard'
 import { DEFAULT_TIME_GRANULARITY } from './constants'
 import {
   buildDefaultDashboardFilters,
-  getDefaultDays,
   getSavedChartPreferences,
   getSavedGranularity,
   hasLocalGranularityChoice,
@@ -182,14 +181,11 @@ export function Dashboard() {
     buildDefaultDashboardFilters(getSavedChartPreferences())
   )
   const [userChartsFilters, setUserChartsFilters] = useState<UserChartsFilters>(
-    () => {
-      const granularity = getSavedGranularity()
-      return {
-        timeGranularity: granularity,
-        selectedRange: getDefaultDays(granularity),
-        topUserLimit: 10,
-      }
-    }
+    () => ({
+      preset: getSavedChartPreferences().defaultTimeWindowId,
+      timeGranularity: getSavedGranularity(),
+      topUserLimit: 10,
+    })
   )
   const [flowSensitiveVisible, setFlowSensitiveVisible] = useState(true)
 
@@ -233,6 +229,10 @@ export function Dashboard() {
     (preferences: DashboardChartPreferences) => {
       setChartPreferences(preferences)
       setModelFilters(buildDefaultDashboardFilters(preferences))
+      setUserChartsFilters((previous) => ({
+        ...previous,
+        preset: preferences.defaultTimeWindowId,
+      }))
       saveChartPreferences(preferences)
     },
     []
@@ -266,7 +266,6 @@ export function Dashboard() {
           onPreferencesChange={handleChartPreferencesChange}
         />
         <ModelsFilter
-          preferences={chartPreferences}
           currentFilters={modelFilters}
           onFilterChange={handleFilterChange}
           onReset={handleResetFilters}
@@ -301,7 +300,6 @@ export function Dashboard() {
           </TooltipContent>
         </Tooltip>
         <ModelsFilter
-          preferences={chartPreferences}
           currentFilters={modelFilters}
           onFilterChange={handleFilterChange}
           onReset={handleResetFilters}

@@ -40,6 +40,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { getGroups } from '@/features/users/api'
+import { useDebouncedFilterChange } from '@/hooks/use-debounced-filter-change'
 import { getUserGroups } from '@/lib/api'
 import { requireServerSuccess } from '@/lib/server-error-message'
 import {
@@ -60,7 +61,6 @@ import {
   LogsFilterToolbar,
 } from './logs-filter-toolbar'
 import { useLogsViewScope, useUsageLogsContext } from './usage-logs-provider'
-import { useDebouncedFilterChange } from './use-debounced-filter-change'
 
 const route = getRouteApi('/_authenticated/usage-logs/$section')
 

@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Filter, RotateCcw, Calendar, Search } from 'lucide-react'
+import { Filter, RotateCcw, Calendar } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -34,52 +34,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  TIME_GRANULARITY_OPTIONS,
-  TIME_RANGE_PRESETS,
-} from '@/features/dashboard/constants'
-import {
-  buildDefaultDashboardFilters,
-  cleanFilters,
-} from '@/features/dashboard/lib'
-import type {
-  DashboardChartPreferences,
-  DashboardFilters,
-} from '@/features/dashboard/types'
-import { getRollingDateRange, type TimeGranularity } from '@/lib/time'
+import { TIME_GRANULARITY_OPTIONS } from '@/features/dashboard/constants'
+import { cleanFilters, resolveDashboardWindow } from '@/features/dashboard/lib'
+import type { DashboardFilters } from '@/features/dashboard/types'
+import { useDebouncedFilterChange } from '@/hooks/use-debounced-filter-change'
+import type { TimeGranularity } from '@/lib/time'
+import { TIME_WINDOW_PRESETS, type TimeWindowId } from '@/lib/time-window'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
 interface ModelsFilterProps {
-  preferences: DashboardChartPreferences
-  // The filters currently applied to the dashboard. The dialog edits a copy of
-  // these so reopening it never discards a manually picked range.
+  // The window the dashboard is querying with. Every control writes straight
+  // through to it, so the dialog never holds a draft that could go out of sync.
   currentFilters: DashboardFilters
   onFilterChange: (filters: DashboardFilters) => void
   onReset: () => void
   titleKey?: string
   descriptionKey?: string
-}
-
-// Quick-range presets imply a sensible granularity (matching the app's
-// range<->granularity pairing), so picking "7 Days" requests daily buckets
-// instead of leaving the granularity on its previous value (e.g. hourly).
-function granularityForRangeDays(days: number): TimeGranularity {
-  if (days <= 1) return 'hour'
-  if (days >= 29) return 'week'
-  return 'day'
-}
-
-// Highlights the matching quick-range button when the applied range spans an
-// exact preset; custom ranges leave every quick button unselected.
-function detectQuickRangeDays(
-  filters: DashboardFilters | undefined
-): number | null {
-  const start = filters?.start_timestamp
-  const end = filters?.end_timestamp
-  if (!start || !end) return null
-  const days = Math.round((end.getTime() - start.getTime()) / 86_400_000)
-  return TIME_RANGE_PRESETS.some((preset) => preset.days === days) ? days : null
 }
 
 /**
@@ -103,74 +74,55 @@ export function ModelsFilter(props: ModelsFilterProps) {
   const isAdmin = user?.role && user.role >= 10
 
   const [open, setOpen] = useState(false)
-  const [filters, setFilters] = useState<DashboardFilters>(
-    () =>
-      props.currentFilters ?? buildDefaultDashboardFilters(props.preferences)
-  )
-  const [selectedRange, setSelectedRange] = useState<number | null>(() =>
-    detectQuickRangeDays(props.currentFilters)
-  )
+  // Picking a preset drops the stored bounds: the preset is resolved when the
+  // window is needed, which is what keeps a calendar window from going stale.
+  const window = resolveDashboardWindow(props.currentFilters)
 
-  const handleOpenChange = (nextOpen: boolean) => {
-    // Sync the editing state from the applied filters every time the dialog
-    // opens so a previously applied manual range is preserved.
-    if (nextOpen) {
-      const applied =
-        props.currentFilters ?? buildDefaultDashboardFilters(props.preferences)
-      setFilters(applied)
-      setSelectedRange(detectQuickRangeDays(applied))
-    }
-    setOpen(nextOpen)
+  const apply = (patch: Partial<DashboardFilters>) => {
+    props.onFilterChange(cleanFilters({ ...props.currentFilters, ...patch }))
   }
 
-  const handleApply = () => {
-    props.onFilterChange(
-      cleanFilters(
-        filters as unknown as Record<string, unknown>
-      ) as typeof filters
-    )
-    setOpen(false)
+  // Typed text cannot apply on every keystroke, unlike the other controls.
+  const { change: changeUsername, isPending: usernamePending } =
+    useDebouncedFilterChange<string>((username) => apply({ username }))
+
+  const handlePreset = (preset: TimeWindowId) => {
+    apply({
+      preset,
+      start_timestamp: undefined,
+      end_timestamp: undefined,
+    })
+  }
+
+  const handleBoundChange = (
+    field: 'start_timestamp' | 'end_timestamp',
+    date: Date | undefined
+  ) => {
+    if (!date) return
+    // A hand-picked bound makes the range custom, so the preset goes away and
+    // both bounds are stored explicitly.
+    apply({
+      preset: undefined,
+      start_timestamp:
+        field === 'start_timestamp'
+          ? Math.floor(date.getTime() / 1000)
+          : window.start,
+      end_timestamp:
+        field === 'end_timestamp'
+          ? Math.floor(date.getTime() / 1000)
+          : window.end,
+    })
   }
 
   const handleReset = () => {
-    const days = props.preferences.defaultTimeRangeDays
-    const { start, end } = getRollingDateRange(days)
-    setFilters({
-      ...buildDefaultDashboardFilters(props.preferences),
-      start_timestamp: start,
-      end_timestamp: end,
-    })
-    setSelectedRange(days)
     props.onReset()
     setOpen(false)
-  }
-
-  const handleChange = (
-    field: keyof DashboardFilters,
-    value: Date | string | undefined
-  ) => {
-    setFilters((prev) => ({ ...prev, [field]: value }))
-    if (field === 'start_timestamp' || field === 'end_timestamp') {
-      setSelectedRange(null)
-    }
-  }
-
-  const handleQuickRange = (days: number) => {
-    const { start, end } = getRollingDateRange(days)
-
-    setFilters((prev) => ({
-      ...prev,
-      start_timestamp: start,
-      end_timestamp: end,
-      time_granularity: granularityForRangeDays(days),
-    }))
-    setSelectedRange(days)
   }
 
   return (
     <Dialog
       open={open}
-      onOpenChange={handleOpenChange}
+      onOpenChange={setOpen}
       trigger={
         <Button variant='outline' size='sm'>
           <Filter className='mr-2 h-4 w-4' />
@@ -184,18 +136,11 @@ export function ModelsFilter(props: ModelsFilterProps) {
       )}
       contentClassName='max-sm:h-dvh max-sm:w-screen max-sm:max-w-none max-sm:rounded-none max-sm:p-4 sm:max-w-lg'
       contentHeight='min(48vh, 460px)'
-      footerClassName='grid grid-cols-2 gap-2 sm:flex'
       footer={
-        <>
-          <Button onClick={handleReset} variant='outline' type='button'>
-            <RotateCcw className='mr-2 h-4 w-4' />
-            {t('Reset')}
-          </Button>
-          <Button onClick={handleApply} type='submit'>
-            <Search className='mr-2 h-4 w-4' />
-            {t('Apply Filters')}
-          </Button>
-        </>
+        <Button onClick={handleReset} variant='outline' type='button'>
+          <RotateCcw className='mr-2 h-4 w-4' />
+          {t('Reset')}
+        </Button>
       }
     >
       <ScrollArea className='h-full pr-3 sm:pr-4'>
@@ -206,23 +151,28 @@ export function ModelsFilter(props: ModelsFilterProps) {
               <Calendar className='h-4 w-4' />
               {t('Quick Range')}
             </Label>
-            <div className='grid grid-cols-2 gap-2 sm:flex'>
-              {TIME_RANGE_PRESETS.map((range) => (
-                <Button
-                  key={range.days}
-                  type='button'
-                  size='sm'
-                  variant={selectedRange === range.days ? 'default' : 'outline'}
-                  onClick={() => handleQuickRange(range.days)}
-                  className={cn(
-                    'flex-1',
-                    selectedRange === range.days &&
-                      'ring-ring ring-2 ring-offset-2'
-                  )}
-                >
-                  {t(range.label)}
-                </Button>
-              ))}
+            <div className='flex flex-wrap gap-2'>
+              {TIME_WINDOW_PRESETS.map((preset) => {
+                const active = props.currentFilters.preset === preset.id
+
+                return (
+                  <Button
+                    key={preset.id}
+                    type='button'
+                    size='sm'
+                    variant={active ? 'default' : 'outline'}
+                    aria-pressed={active}
+                    data-preset={preset.id}
+                    onClick={() => handlePreset(preset.id)}
+                    className={cn(
+                      'flex-1',
+                      active && 'ring-ring ring-2 ring-offset-2'
+                    )}
+                  >
+                    {t(preset.labelKey)}
+                  </Button>
+                )
+              })}
             </div>
           </div>
 
@@ -233,10 +183,8 @@ export function ModelsFilter(props: ModelsFilterProps) {
             <div className='grid gap-2'>
               <Label htmlFor='start_timestamp'>{t('Start Time')}</Label>
               <DateTimePicker
-                value={filters.start_timestamp}
-                onChange={(date) =>
-                  handleChange('start_timestamp', date || undefined)
-                }
+                value={new Date(window.start * 1000)}
+                onChange={(date) => handleBoundChange('start_timestamp', date)}
                 placeholder={t('Select start time')}
               />
             </div>
@@ -244,10 +192,8 @@ export function ModelsFilter(props: ModelsFilterProps) {
             <div className='grid gap-2'>
               <Label htmlFor='end_timestamp'>{t('End Time')}</Label>
               <DateTimePicker
-                value={filters.end_timestamp}
-                onChange={(date) =>
-                  handleChange('end_timestamp', date || undefined)
-                }
+                value={new Date(window.end * 1000)}
+                onChange={(date) => handleBoundChange('end_timestamp', date)}
                 placeholder={t('Select end time')}
               />
             </div>
@@ -262,9 +208,9 @@ export function ModelsFilter(props: ModelsFilterProps) {
                 value: option.value,
                 label: t(option.label),
               }))}
-              value={filters.time_granularity}
+              value={props.currentFilters.time_granularity}
               onValueChange={(value) =>
-                handleChange('time_granularity', value as TimeGranularity)
+                apply({ time_granularity: value as TimeGranularity })
               }
             >
               <SelectTrigger>
@@ -289,12 +235,20 @@ export function ModelsFilter(props: ModelsFilterProps) {
 
               <div className='grid gap-2'>
                 <Label htmlFor='username'>{t('Username')}</Label>
-                <Input
-                  id='username'
-                  placeholder={t('Filter by username')}
-                  value={filters.username}
-                  onChange={(e) => handleChange('username', e.target.value)}
-                />
+                <div className='relative'>
+                  <Input
+                    id='username'
+                    placeholder={t('Filter by username')}
+                    value={props.currentFilters.username ?? ''}
+                    onChange={(e) => changeUsername(e.target.value)}
+                  />
+                  {usernamePending && (
+                    <span
+                      aria-hidden='true'
+                      className='bg-primary pointer-events-none absolute top-1/2 right-2 size-1.5 -translate-y-1/2 rounded-full'
+                    />
+                  )}
+                </div>
               </div>
             </>
           )}

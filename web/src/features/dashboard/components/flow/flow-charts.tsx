@@ -61,13 +61,13 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { getFlowQuotaDates } from '@/features/dashboard/api'
+import { useDashboardWindow } from '@/features/dashboard/hooks/use-dashboard-window'
 import {
   buildDashboardFlowData,
   buildFlowSankeySpec,
   buildQueryParams,
   flowNodeFilterFromSankeyDatum,
   flowSankeyDatumValue,
-  getDefaultDays,
   getFlowStages,
 } from '@/features/dashboard/lib'
 import {
@@ -87,7 +87,6 @@ import type {
 import { formatQuota } from '@/lib/format'
 import { ROLE } from '@/lib/roles'
 import { requireServerSuccess } from '@/lib/server-error-message'
-import { computeTimeRange } from '@/lib/time'
 import { useChartTheme } from '@/lib/use-chart-theme'
 import { cn } from '@/lib/utils'
 import { VCHART_OPTION } from '@/lib/vchart'
@@ -312,22 +311,10 @@ export function FlowCharts(props: FlowChartsProps) {
     })
   }
 
-  const timeRange = useMemo(
-    () =>
-      computeTimeRange(
-        getDefaultDays(props.filters?.time_granularity),
-        props.filters?.start_timestamp,
-        props.filters?.end_timestamp
-      ),
-    [
-      props.filters?.end_timestamp,
-      props.filters?.start_timestamp,
-      props.filters?.time_granularity,
-    ]
-  )
+  const window = useDashboardWindow(props.filters)
   const flowQueryParams = useMemo(
-    () => buildQueryParams(timeRange, props.filters),
-    [props.filters, timeRange]
+    () => buildQueryParams(window, props.filters),
+    [props.filters, window]
   )
 
   const {

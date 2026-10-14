@@ -27,21 +27,16 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useTheme } from '@/context/theme-provider'
 import { getUserQuotaDataByUsers } from '@/features/dashboard/api'
-import {
-  TIME_GRANULARITY_OPTIONS,
-  TIME_RANGE_PRESETS,
-} from '@/features/dashboard/constants'
-import {
-  getDefaultDays,
-  saveGranularity,
-  processUserChartData,
-} from '@/features/dashboard/lib'
+import { TIME_GRANULARITY_OPTIONS } from '@/features/dashboard/constants'
+import { useDashboardWindow } from '@/features/dashboard/hooks/use-dashboard-window'
+import { saveGranularity, processUserChartData } from '@/features/dashboard/lib'
 import type {
   ProcessedUserChartData,
   UserChartsFilters,
 } from '@/features/dashboard/types'
 import { requireServerSuccess } from '@/lib/server-error-message'
-import { getRollingDateRange, type TimeGranularity } from '@/lib/time'
+import type { TimeGranularity } from '@/lib/time'
+import { TIME_WINDOW_PRESETS, type TimeWindowId } from '@/lib/time-window'
 import { VCHART_OPTION } from '@/lib/vchart'
 
 let themeManagerPromise: Promise<
@@ -81,23 +76,24 @@ export function UserCharts(props: UserChartsProps) {
   >(null)
 
   // The selection is owned by the dashboard parent so it persists across
-  // sub-section switches; the rolling window is derived from the chosen range.
+  // sub-section switches; the window is resolved from the chosen preset.
   const timeGranularity = props.filters.timeGranularity
-  const selectedRange = props.filters.selectedRange
+  const preset = props.filters.preset
   const topUserLimit = props.filters.topUserLimit
   const onFiltersChange = props.onFiltersChange
 
-  const timeRange = useMemo(() => {
-    const { start, end } = getRollingDateRange(selectedRange)
-    return {
-      start_timestamp: Math.floor(start.getTime() / 1000),
-      end_timestamp: Math.floor(end.getTime() / 1000),
-    }
-  }, [selectedRange])
+  const window = useDashboardWindow({ preset })
+  const timeRange = useMemo(
+    () => ({
+      start_timestamp: window.start,
+      end_timestamp: window.end,
+    }),
+    [window]
+  )
 
-  const handleRangeChange = useCallback(
-    (days: number) => {
-      onFiltersChange({ ...props.filters, selectedRange: days })
+  const handlePresetChange = useCallback(
+    (next: TimeWindowId) => {
+      onFiltersChange({ ...props.filters, preset: next })
     },
     [onFiltersChange, props.filters]
   )
@@ -105,11 +101,7 @@ export function UserCharts(props: UserChartsProps) {
   const handleGranularityChange = useCallback(
     (g: TimeGranularity) => {
       saveGranularity(g)
-      onFiltersChange({
-        ...props.filters,
-        timeGranularity: g,
-        selectedRange: getDefaultDays(g),
-      })
+      onFiltersChange({ ...props.filters, timeGranularity: g })
     },
     [onFiltersChange, props.filters]
   )
@@ -160,18 +152,19 @@ export function UserCharts(props: UserChartsProps) {
     <div className='space-y-3'>
       <div className='flex items-center gap-1.5 overflow-x-auto pb-1 sm:gap-2'>
         <Tabs
-          value={String(selectedRange)}
-          onValueChange={(value) => handleRangeChange(Number(value))}
+          value={preset}
+          onValueChange={(value) => handlePresetChange(value as TimeWindowId)}
           className='shrink-0'
         >
           <TabsList>
-            {TIME_RANGE_PRESETS.map((preset) => (
+            {TIME_WINDOW_PRESETS.map((item) => (
               <TabsTrigger
-                key={preset.days}
-                value={String(preset.days)}
+                key={item.id}
+                value={item.id}
+                data-preset={item.id}
                 className='px-2.5 text-xs'
               >
-                {t(preset.label)}
+                {t(item.labelKey)}
               </TabsTrigger>
             ))}
           </TabsList>

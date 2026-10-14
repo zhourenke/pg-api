@@ -26,12 +26,12 @@ import { StaggerContainer, StaggerItem } from '@/components/page-transition'
 import { Button } from '@/components/ui/button'
 import { getUserQuotaDates } from '@/features/dashboard/api'
 import { useSummaryCardsConfig } from '@/features/dashboard/hooks/use-dashboard-config'
+import { useDashboardWindow } from '@/features/dashboard/hooks/use-dashboard-window'
 import type { QuotaDataItem } from '@/features/dashboard/types'
 import { useStatus } from '@/hooks/use-status'
 import { getCurrencyLabel, isCurrencyDisplayEnabled } from '@/lib/currency'
 import { formatNumber, formatQuota } from '@/lib/format'
 import { requireServerSuccess } from '@/lib/server-error-message'
-import { computeTimeRange } from '@/lib/time'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -142,7 +142,9 @@ export function SummaryCards() {
   const user = useAuthStore((state) => state.auth.user)
   const { status, loading } = useStatus()
 
-  const summaryTimeRange = useMemo(() => computeTimeRange(1), [])
+  // The overview sparklines always cover the default window; no filter reaches
+  // this panel, so the shared preset is resolved without any selection.
+  const summaryWindow = useDashboardWindow()
   const remainQuota = Number(user?.quota ?? 0)
   const usedQuota = Number(user?.used_quota ?? 0)
   const requestCount = Number(user?.request_count ?? 0)
@@ -152,14 +154,14 @@ export function SummaryCards() {
       'dashboard',
       'overview',
       'summary-sparklines',
-      summaryTimeRange.start_timestamp,
-      summaryTimeRange.end_timestamp,
+      summaryWindow.start,
+      summaryWindow.end,
     ],
     queryFn: async () =>
       requireServerSuccess(
         await getUserQuotaDates({
-          start_timestamp: summaryTimeRange.start_timestamp,
-          end_timestamp: summaryTimeRange.end_timestamp,
+          start_timestamp: summaryWindow.start,
+          end_timestamp: summaryWindow.end,
           default_time: 'hour',
         })
       ),
@@ -189,13 +191,13 @@ export function SummaryCards() {
       buildSummarySparklines(
         usageTrendQuery.data?.data ?? [],
         remainQuota,
-        summaryTimeRange.start_timestamp,
-        summaryTimeRange.end_timestamp
+        summaryWindow.start,
+        summaryWindow.end
       ),
     [
       remainQuota,
-      summaryTimeRange.end_timestamp,
-      summaryTimeRange.start_timestamp,
+      summaryWindow.end,
+      summaryWindow.start,
       usageTrendQuery.data?.data,
     ]
   )
