@@ -10,7 +10,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func parseFlowQuotaTimeRange(c *gin.Context) (int64, int64, bool) {
+// parseQuotaDataTimeRange validates the second-precision window every
+// quota-data endpoint shares. There is no span ceiling: the dashboard time
+// windows include calendar months, and "last month" is 31 days in a long
+// month, which a fixed 30-day cap rejected outright.
+func parseQuotaDataTimeRange(c *gin.Context) (int64, int64, bool) {
 	startTimestamp, err := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
 	if err != nil || startTimestamp <= 0 {
 		common.ApiErrorMsg(c, "invalid start_timestamp")
@@ -62,14 +66,8 @@ func GetQuotaDatesByUser(c *gin.Context) {
 
 func GetUserQuotaDates(c *gin.Context) {
 	userId := c.GetInt("id")
-	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
-	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
-	// 判断时间跨度是否超过 1 个月
-	if endTimestamp-startTimestamp > 2592000 {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": "时间跨度不能超过 1 个月",
-		})
+	startTimestamp, endTimestamp, ok := parseQuotaDataTimeRange(c)
+	if !ok {
 		return
 	}
 	dates, err := model.GetQuotaDataByUserId(userId, startTimestamp, endTimestamp)
@@ -86,7 +84,7 @@ func GetUserQuotaDates(c *gin.Context) {
 }
 
 func GetAllFlowQuotaDates(c *gin.Context) {
-	startTimestamp, endTimestamp, ok := parseFlowQuotaTimeRange(c)
+	startTimestamp, endTimestamp, ok := parseQuotaDataTimeRange(c)
 	if !ok {
 		return
 	}
@@ -106,15 +104,8 @@ func GetAllFlowQuotaDates(c *gin.Context) {
 
 func GetUserFlowQuotaDates(c *gin.Context) {
 	userId := c.GetInt("id")
-	startTimestamp, endTimestamp, ok := parseFlowQuotaTimeRange(c)
+	startTimestamp, endTimestamp, ok := parseQuotaDataTimeRange(c)
 	if !ok {
-		return
-	}
-	if endTimestamp-startTimestamp > 2592000 {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": "时间跨度不能超过 1 个月",
-		})
 		return
 	}
 	dates, err := model.GetFlowQuotaData(startTimestamp, endTimestamp, "", userId, common.RoleCommonUser)

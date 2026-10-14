@@ -133,3 +133,63 @@ func TestGetUserFlowQuotaDatesRejectsInvalidTimeRange(t *testing.T) {
 	require.False(t, payload.Success)
 	require.Equal(t, "invalid start_timestamp", payload.Message)
 }
+
+type quotaDatesResponse struct {
+	Success bool              `json:"success"`
+	Message string            `json:"message"`
+	Data    []model.QuotaData `json:"data"`
+}
+
+// A calendar month reaches 31 days, which the removed 30-day ceiling rejected
+// before the query ran; the self endpoints now share the range validation of
+// the admin ones instead of capping the span.
+func TestSelfQuotaEndpointsAcceptMonthLongRange(t *testing.T) {
+	tests := []struct {
+		name    string
+		path    string
+		handler func(*gin.Context)
+	}{
+		{name: "quota dates", path: "/api/data/self", handler: GetUserQuotaDates},
+		{name: "flow quota dates", path: "/api/data/flow/self", handler: GetUserFlowQuotaDates},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			setupFlowControllerTestDB(t)
+
+			recorder := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(recorder)
+			ctx.Set("id", 1)
+			ctx.Request = httptest.NewRequest(
+				http.MethodGet,
+				tc.path+"?start_timestamp=1000&end_timestamp=2679400",
+				nil,
+			)
+
+			tc.handler(ctx)
+
+			require.Equal(t, http.StatusOK, recorder.Code)
+			var payload quotaDatesResponse
+			require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &payload))
+			require.True(t, payload.Success, payload.Message)
+			require.Len(t, payload.Data, 1)
+			require.Equal(t, "gpt-a", payload.Data[0].ModelName)
+		})
+	}
+}
+
+func TestGetUserQuotaDatesRejectsInvalidTimeRange(t *testing.T) {
+	setupFlowControllerTestDB(t)
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Set("id", 1)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/data/self?start_timestamp=bad&end_timestamp=2000", nil)
+
+	GetUserQuotaDates(ctx)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var payload quotaDatesResponse
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &payload))
+	require.False(t, payload.Success)
+	require.Equal(t, "invalid start_timestamp", payload.Message)
+}
