@@ -19,17 +19,24 @@ For commercial licensing, please contact support@quantumnous.com
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-type PricingCurrencyPreference = 'USD' | 'site'
+export type PricingCurrencyPreference = 'USD' | 'site'
 
 type PricingPreferences = {
   currency: PricingCurrencyPreference
   setCurrency: (currency: PricingCurrencyPreference) => void
 }
 
+/**
+ * Shared by every pricing surface (the model pricing editor and the tool price
+ * table). The default follows the site currency, because a site that configured
+ * CNY or a custom currency did so to think in it; a site without one resolves
+ * to USD through `resolvePricingCurrency`. An operator who explicitly picked a
+ * currency keeps it — the persisted value wins over this default.
+ */
 export const usePricingPreferencesStore = create<PricingPreferences>()(
   persist(
     (set) => ({
-      currency: 'USD',
+      currency: 'site',
       setCurrency: (currency) => set({ currency }),
     }),
     {

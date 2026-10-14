@@ -48,7 +48,7 @@ function renderToolPriceSettings(defaultValue: string) {
 describe('tool price validation', () => {
   beforeAll(() => {
     i18next.addResourceBundle('zhCN', 'translation', {
-      'Price ($/1K calls)': 'Price ($/1K calls)',
+      'Price ({{currency}}/1K calls)': 'Price ({{currency}}/1K calls)',
       'Please enter a valid number': 'Please enter a valid number',
       'Tool identifier': 'Tool identifier',
     })
@@ -57,7 +57,7 @@ describe('tool price validation', () => {
   test('blocks an empty price without converting it to an explicit zero', () => {
     const queryClient = renderToolPriceSettings('{"web_search":10}')
 
-    const priceInput = screen.getByRole('spinbutton', {
+    const priceInput = screen.getByRole('textbox', {
       name: 'Price ($/1K calls): web_search',
     })
     const saveButton = screen.getByRole('button', { name: 'Save tool prices' })
@@ -70,25 +70,23 @@ describe('tool price validation', () => {
 
     fireEvent.change(priceInput, { target: { value: '0' } })
 
-    expect(priceInput).toHaveAttribute('aria-invalid', 'false')
     expect(saveButton).toBeEnabled()
 
     fireEvent.change(priceInput, { target: { value: '0.04' } })
 
-    expect(priceInput).toHaveValue(0.04)
+    expect(priceInput).toHaveValue('0.04')
     expect(priceInput).toBeValid()
     expect(saveButton).toBeEnabled()
 
     fireEvent.change(priceInput, { target: { value: '0.0001' } })
     expect(priceInput).toBeValid()
 
-    fireEvent.change(priceInput, { target: { value: '0.00001' } })
-    expect((priceInput as HTMLInputElement).validity.stepMismatch).toBe(true)
-
+    // The amount input only accepts a non-negative decimal, so a minus sign
+    // never reaches the row and the draft keeps the last valid amount.
     fireEvent.change(priceInput, { target: { value: '-0.04' } })
 
-    expect(priceInput).toHaveAttribute('aria-invalid', 'true')
-    expect(saveButton).toBeDisabled()
+    expect(priceInput).toHaveValue('0.0001')
+    expect(saveButton).toBeEnabled()
 
     queryClient.clear()
   })

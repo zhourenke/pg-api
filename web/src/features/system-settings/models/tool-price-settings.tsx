@@ -34,6 +34,15 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Field, FieldError } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import {
+  getSitePricingCurrency,
+  resolvePricingCurrency,
+  USD_PRICING_CURRENCY,
+} from '@/features/model-pricing/currency'
+import { PricingAmountInput } from '@/features/model-pricing/pricing-amount-input'
+import { PricingCurrencySelector } from '@/features/model-pricing/pricing-currency-selector'
+import { usePricingPreferencesStore } from '@/stores/pricing-preferences-store'
+import { useSystemConfigStore } from '@/stores/system-config-store'
 
 import { useUpdateOption } from '../hooks/use-update-option'
 
@@ -128,6 +137,16 @@ export const ToolPriceSettings = memo(function ToolPriceSettings({
 }: ToolPriceSettingsProps) {
   const { t } = useTranslation()
   const updateOption = useUpdateOption()
+  const currencyConfig = useSystemConfigStore((state) => state.config.currency)
+  const preference = usePricingPreferencesStore((state) => state.currency)
+  const siteCurrency = useMemo(
+    () => getSitePricingCurrency(currencyConfig),
+    [currencyConfig]
+  )
+  const currency = resolvePricingCurrency(siteCurrency, preference)
+  const priceColumnLabel = t('Price ({{currency}}/1K calls)', {
+    currency: currency.symbol,
+  })
   const [editMode, setEditMode] = useState<'visual' | 'json'>('visual')
   const [rows, setRows] = useState<ToolPriceRow[]>([])
   const [jsonText, setJsonText] = useState('')
@@ -244,13 +263,23 @@ export const ToolPriceSettings = memo(function ToolPriceSettings({
 
   return (
     <div className='space-y-4'>
+      <PricingCurrencySelector siteCurrency={siteCurrency} />
+
       <Alert>
         <AlertDescription className='space-y-1 text-sm'>
           <div>
             {t(
-              'Configure per-tool unit prices ($/1K calls). Per-request models do not incur additional tool fees.'
+              'Configure per-tool unit prices ({{currency}}/1K calls). Per-request models do not incur additional tool fees.',
+              { currency: currency.symbol }
             )}
           </div>
+          {currency !== USD_PRICING_CURRENCY ? (
+            <div>
+              {t(
+                'Prices are saved and billed in USD. The site currency only converts the inputs and the previews; the JSON view shows USD.'
+              )}
+            </div>
+          ) : null}
           <div>
             <span className='font-medium'>{t('Format')}:</span>{' '}
             <ToolIdentifier>web_search_preview</ToolIdentifier>{' '}
@@ -340,22 +369,18 @@ export const ToolPriceSettings = memo(function ToolPriceSettings({
             },
             {
               id: 'price',
-              header: t('Price ($/1K calls)'),
+              header: priceColumnLabel,
               className: 'w-[200px]',
               cell: (row) => {
                 const isInvalid = invalidRowIds.has(row.id)
                 return (
                   <Field data-invalid={isInvalid}>
-                    <Input
-                      type='number'
-                      min={0}
-                      step={0.0001}
+                    <PricingAmountInput
+                      currency={currency}
                       value={row.price}
-                      aria-invalid={isInvalid}
-                      aria-label={`${t('Price ($/1K calls)')}: ${row.key || t('Tool identifier')}`}
-                      onChange={(e) =>
-                        updateRow(row.id, 'price', e.target.value)
-                      }
+                      aria-invalid={isInvalid || undefined}
+                      aria-label={`${priceColumnLabel}: ${row.key || t('Tool identifier')}`}
+                      onChange={(usd) => updateRow(row.id, 'price', usd)}
                     />
                     {isInvalid ? (
                       <FieldError>

@@ -150,7 +150,7 @@ it('shows the billing expression preview heading in Simplified Chinese', async (
   ).toBeVisible()
 })
 
-it('defaults to USD, remembers a currency choice and restores it when reopened', async () => {
+it('keeps the remembered USD choice, remembers a new one and restores it when reopened', async () => {
   const editor = renderEditor()
   expect(
     screen.getByRole('combobox', { name: 'Pricing currency' })
@@ -166,6 +166,14 @@ it('defaults to USD, remembers a currency choice and restores it when reopened',
   usePricingPreferencesStore.setState({ currency: 'USD' })
   localStorage.setItem('model-pricing-preferences', stored)
   await usePricingPreferencesStore.persist.rehydrate()
+  renderEditor()
+  expect(
+    screen.getByRole('combobox', { name: 'Pricing currency' })
+  ).toHaveTextContent('Site currency (CNY)')
+})
+
+it('opens in the site currency when the remembered preference is the site currency', () => {
+  usePricingPreferencesStore.setState({ currency: 'site' })
   renderEditor()
   expect(
     screen.getByRole('combobox', { name: 'Pricing currency' })

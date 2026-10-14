@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { formatPricingNumber } from '@/features/system-settings/models/pricing-format'
+import type { PricingCurrencyPreference } from '@/stores/pricing-preferences-store'
 import type { CurrencyConfig } from '@/stores/system-config-store'
 
 export type PricingCurrency = {
@@ -56,6 +57,22 @@ export function isValidPricingCurrency(
     Number.isFinite(currency.exchangeRate) &&
     currency.exchangeRate > 0
   )
+}
+
+/**
+ * Resolve the currency a pricing surface enters and previews amounts in. Both
+ * the model pricing editor and the tool price table read this one rule: the
+ * remembered preference wins when the site actually configured a usable
+ * currency, and an unusable or absent site currency falls back to USD.
+ */
+export function resolvePricingCurrency(
+  siteCurrency: PricingCurrency | null,
+  preference: PricingCurrencyPreference
+): PricingCurrency {
+  if (preference === 'site' && isValidPricingCurrency(siteCurrency)) {
+    return siteCurrency
+  }
+  return USD_PRICING_CURRENCY
 }
 
 export function formatPricingAmount(

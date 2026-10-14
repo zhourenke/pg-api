@@ -53,8 +53,7 @@ import {
 } from '@/components/ui/sheet'
 import {
   getSitePricingCurrency,
-  isValidPricingCurrency,
-  USD_PRICING_CURRENCY,
+  resolvePricingCurrency,
 } from '@/features/model-pricing/currency'
 import { PricingCurrencySelector } from '@/features/model-pricing/pricing-currency-selector'
 import { combineBillingExpr } from '@/features/pricing/lib/billing-expr'
@@ -152,10 +151,7 @@ export const ModelPricingEditorPanel = forwardRef<
     () => getSitePricingCurrency(currencyConfig),
     [currencyConfig]
   )
-  const currency =
-    preference === 'site' && isValidPricingCurrency(siteCurrency)
-      ? siteCurrency
-      : USD_PRICING_CURRENCY
+  const currency = resolvePricingCurrency(siteCurrency, preference)
   const [billingExpr, setBillingExpr] = useState(DEFAULT_TOKEN_BILLING_EXPR)
   const [requestRuleExpr, setRequestRuleExpr] = useState('')
   const [editorReloadToken, setEditorReloadToken] = useState(0)
