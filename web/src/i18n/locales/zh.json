@@ -998,7 +998,7 @@
     "Configure monitoring status page groups for the dashboard": "配置用于仪表板的监控状态页面分组",
     "Configure NODE_NAME": "配置 NODE_NAME",
     "Configure per-model ratio for image inputs or outputs.": "配置图像输入或输出的每模型比例。",
-    "Configure per-tool unit prices ({{currency}}/1K calls). Per-request models do not incur additional tool fees.": "为每个工具配置单价（{{currency}}/1K 次调用）。按请求计费的模型不额外收取工具费用。",
+    "Configure per-tool unit prices ({{currency}}/1K calls). Tool fees stack on top of the model charge, per-request models included.": "为每个工具配置单价（{{currency}}/1K 次调用）。工具调用费叠加在模型费用之上，按请求计费的模型同样收取。",
     "Configure rate limiting rules for a specific user group.": "配置特定用户分组的速率限制规则。",
     "Configure routes": "配置路由",
     "Configure the connection and models, then create the channel.": "配置连接和模型后创建渠道。",

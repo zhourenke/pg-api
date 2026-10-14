@@ -269,7 +269,7 @@ export const ToolPriceSettings = memo(function ToolPriceSettings({
         <AlertDescription className='space-y-1 text-sm'>
           <div>
             {t(
-              'Configure per-tool unit prices ({{currency}}/1K calls). Per-request models do not incur additional tool fees.',
+              'Configure per-tool unit prices ({{currency}}/1K calls). Tool fees stack on top of the model charge, per-request models included.',
               { currency: currency.symbol }
             )}
           </div>
