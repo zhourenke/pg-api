@@ -761,6 +761,7 @@
     "Changed / Total": "已变更 / 总数",
     "Changed Fields": "变更字段",
     "Changed fields: {{fields}}": "修改字段：{{fields}}",
+    "Changes apply as you edit them. Refresh re-pulls the logs.": "修改会即时生效；「刷新」只重新拉取日志。",
     "Changes declared endpoint types and custom paths shown to users.": "会修改向用户展示的端点类型和自定义路径。",
     "Changes visibility in the model square. Channel status and existing API access are unchanged.": "调整模型在模型广场中的展示，不影响渠道启用状态和已有调用权限。",
     "Changes which model names inherit this metadata. Prices are not inherited.": "会修改哪些模型名称继承此元信息，不会继承价格。",

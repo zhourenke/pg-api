@@ -271,7 +271,7 @@ it('uses the shared log toolbar and opens details in a keyboard-accessible dialo
   })
   renderViewer()
   expect(screen.getByRole('button', { name: 'Date Range' })).toBeVisible()
-  expect(screen.getByRole('button', { name: 'Search' })).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Refresh' })).toBeVisible()
   expect(
     await screen.findByRole('button', { name: 'Go to next page' })
   ).toBeDisabled()
@@ -710,7 +710,7 @@ it('mobile access history keeps pagination visible and puts result filters in a 
         params: expect.objectContaining({ success: 'false', p: 1 }),
       })
     )
-    await user.click(within(drawer).getByRole('button', { name: 'Search' }))
+    await user.click(within(drawer).getByRole('button', { name: 'Refresh' }))
     await waitFor(() =>
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     )

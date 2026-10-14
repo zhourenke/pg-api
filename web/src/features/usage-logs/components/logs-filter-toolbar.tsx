@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { Table } from '@tanstack/react-table'
-import { ChevronDown, Loader2 } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import { useState, type ComponentProps, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -172,14 +172,8 @@ export function LogsFilterToolbar<TData>(props: LogsFilterToolbarProps<TData>) {
                   )}
                 </Button>
               </DrawerTrigger>
-              <Button
-                type='button'
-                onClick={props.onSearch}
-                disabled={props.searchLoading}
-                aria-busy={props.searchLoading}
-              >
-                {props.searchLoading && <Loader2 className='animate-spin' />}
-                {t('Search')}
+              <Button type='button' onClick={props.onSearch}>
+                {t('Refresh')}
               </Button>
               <DataTableViewOptions table={props.table} />
             </>
@@ -205,7 +199,9 @@ export function LogsFilterToolbar<TData>(props: LogsFilterToolbarProps<TData>) {
             <DrawerHeader className='border-border/70 border-b px-4 py-3 text-left'>
               <DrawerTitle>{t('Filter')}</DrawerTitle>
               <DrawerDescription>
-                {t('Adjust filters, then search to refresh the logs.')}
+                {t(
+                  'Changes apply as you edit them. Refresh re-pulls the logs.'
+                )}
               </DrawerDescription>
             </DrawerHeader>
             <div className='flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-4 py-3'>
@@ -225,13 +221,8 @@ export function LogsFilterToolbar<TData>(props: LogsFilterToolbarProps<TData>) {
               >
                 {t('Reset')}
               </Button>
-              <Button
-                type='button'
-                onClick={handleMobileSearch}
-                disabled={props.searchLoading}
-              >
-                {props.searchLoading && <Loader2 className='animate-spin' />}
-                {t('Search')}
+              <Button type='button' onClick={handleMobileSearch}>
+                {t('Refresh')}
               </Button>
             </DrawerFooter>
           </div>
@@ -276,13 +267,8 @@ export function LogsFilterToolbar<TData>(props: LogsFilterToolbarProps<TData>) {
           >
             {t('Reset')}
           </Button>
-          <Button
-            type='button'
-            onClick={props.onSearch}
-            disabled={props.searchLoading}
-          >
-            {props.searchLoading && <Loader2 className='animate-spin' />}
-            {t('Search')}
+          <Button type='button' onClick={props.onSearch}>
+            {t('Refresh')}
           </Button>
           <DataTableViewOptions table={props.table} />
         </div>
