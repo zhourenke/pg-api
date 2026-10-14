@@ -21,4 +21,15 @@ import relativeTime from 'dayjs/plugin/relativeTime'
 
 dayjs.extend(relativeTime)
 
+// A week starts on Monday, the convention the Chinese interface implies; every
+// calendar week window is built through this instance so they all agree.
+dayjs.locale(
+  {
+    ...dayjs.Ls[dayjs.locale()],
+    weekStart: 1,
+  },
+  undefined,
+  true
+)
+
 export default dayjs
