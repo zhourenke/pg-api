@@ -131,13 +131,15 @@ function trendGroup(
 /**
  * 05:00 to 07:00 with a flat first-token latency and a climb in the other two,
  * each at its own rate, so a marker can only be right about all three if it
- * measures its own axis in pixels.
+ * measures its own axis in pixels. Both climbs accelerate: a straight ramp would
+ * give the same angle whether a marker read the hour on its right or the whole
+ * chord across its neighbours, and the test would prove nothing.
  */
 function climbingSeries(): PerformanceSeriesPoint[] {
   return [
     hourPoint(5, { avg_ttft_ms: 1000, avg_tps: 20, success_rate: 10 }),
     hourPoint(6, { avg_ttft_ms: 1000, avg_tps: 40, success_rate: 20 }),
-    hourPoint(7, { avg_ttft_ms: 1000, avg_tps: 60, success_rate: 30 }),
+    hourPoint(7, { avg_ttft_ms: 1000, avg_tps: 80, success_rate: 50 }),
   ]
 }
 
@@ -421,23 +423,24 @@ it('gives every metric its own point shape and dash', async () => {
   })
 })
 
-it('sizes each marker so the three shapes paint the same amount of ink', async () => {
+it('sizes each marker so the three shapes paint a comparable amount of ink', async () => {
   chart.mockClear()
   renderTrend([trendGroup({ series: [hourPoint(5)] })])
 
   const [spec] = await capturedSpecs()
   // `size` is a bounding-box edge, not an area: the square fills its box, the
   // circle paints pi/4 of it and the triangle half, and the 1.5px ring then eats
-  // inward from all sides. These three values are the measured equal-ink
-  // solution, so they move together - never change one of them alone.
+  // inward from all sides. These three are one measured set - the inks come out
+  // within 9% of each other - so they move together: never change one alone, and
+  // never scale one without the others.
   expect(byMetric(spec, (series) => series.point?.style?.size)).toEqual({
-    latency: 5.7,
-    speed: 6,
-    success: 8.5,
+    latency: 7.5,
+    speed: 7.9,
+    success: 11,
   })
 })
 
-it('gives the legend swatches equal ink instead of one shared box', async () => {
+it('keeps the legend swatches the same size instead of equalising their ink', async () => {
   chart.mockClear()
   renderTrend([trendGroup({ series: [hourPoint(5)] })])
 
@@ -448,19 +451,29 @@ it('gives the legend swatches equal ink instead of one shared box', async () => 
     if (!match) throw new Error(`no swatch size for ${metric}`)
     return Number(match[1])
   }
-  // A triangle fills half of its box and a circle pi/4 of it, so one box for all
-  // three would leave the triangle at half the square's ink - which is exactly
-  // what made it read as the smallest of the three.
-  const ink: Record<TrendMetricField, number> = {
-    latency: edgeOf('latency') ** 2,
-    speed: (Math.PI * edgeOf('speed') ** 2) / 4,
-    success: edgeOf('success') ** 2 / 2,
-  }
-  expect(Math.abs(ink.speed - ink.latency) / ink.latency).toBeLessThan(0.02)
-  expect(Math.abs(ink.success - ink.latency) / ink.latency).toBeLessThan(0.02)
+  // A legend row is read by outline, not by ink: sizing the three to equal area
+  // put the triangle's base 41% wider than the square and it read as the biggest
+  // of the three, so the triangle keeps one pixel over the shared box and no
+  // more.
+  expect(edgeOf('latency')).toBe(9)
+  expect(edgeOf('speed')).toBe(9)
+  expect(edgeOf('success')).toBe(10)
+  const edges = [edgeOf('latency'), edgeOf('speed'), edgeOf('success')]
+  expect(Math.max(...edges)).toBeLessThanOrEqual(Math.min(...edges) + 1)
 })
 
-it('turns every marker to the pixel slope of its own line', async () => {
+it('leaves the legend square unrounded so it cannot read as a circle', async () => {
+  chart.mockClear()
+  renderTrend([trendGroup({ series: [hourPoint(5)] })])
+
+  await capturedSpecs()
+  // A rounded square at nine pixels is a circle: the two shapes only differ by
+  // their corners, and the caption is where a reader learns which is which.
+  expect(swatchClass('latency')).toContain('rounded-none')
+  expect(swatchClass('speed')).toContain('rounded-full')
+})
+
+it('turns every marker towards the hour on its right', async () => {
   chart.mockClear()
   renderTrend([trendGroup({ series: climbingSeries() })])
 
@@ -474,15 +487,15 @@ it('turns every marker to the pixel slope of its own line', async () => {
   // converted here. Feeding it radians turns the marker by 1/57 of the line.
   const asDegrees = (radians: number) => (radians * 180) / Math.PI
 
-  // A flat line leaves the marker in the orientation it was designed in; the
-  // other two climb at their own rate, so their tilts differ too. Both chords
-  // span two hours: 40 t/s over 20px is steeper than 20 points of success.
+  // 06:00 leans the way its own line leaves it towards 07:00, one hour away:
+  // 40 t/s and 30 points of success over those 10px, and a flat first-token
+  // latency stays in the orientation it was designed in.
   expect(angleAt('latency')).toBe(0)
-  expect(angleAt('speed')).toBeCloseTo(asDegrees(Math.atan2(-400, 20)), 10)
-  expect(angleAt('success')).toBeCloseTo(asDegrees(Math.atan2(-200, 20)), 10)
+  expect(angleAt('speed')).toBeCloseTo(asDegrees(Math.atan2(-400, 10)), 10)
+  expect(angleAt('success')).toBeCloseTo(asDegrees(Math.atan2(-300, 10)), 10)
 })
 
-it('measures the tilt of a marker across an idle hour, not into it', async () => {
+it('leaves a marker upright when the hour on its right has no sample', async () => {
   chart.mockClear()
   renderTrend([
     trendGroup({
@@ -496,12 +509,11 @@ it('measures the tilt of a marker across an idle hour, not into it', async () =>
   const [spec] = await capturedSpecs()
   const ctx = pixelContext(spec.axes[0].domain ?? [])
   const style = byMetric(spec, (series) => series.point?.style).success
-  // 06:00 has no sample, so the chord runs from 05:00 to 07:00. Reading into the
-  // gap instead would leave this marker upright while the line around it climbs.
-  expect(style?.angle?.(datumAt(spec, 'success', 7), ctx)).toBeCloseTo(
-    (Math.atan2(-200, 20) * 180) / Math.PI,
-    10
-  )
+  // 06:00 has no usage, so 05:00 has nothing to its right to lean towards - and
+  // neither has 07:00. Reading the line through a gap, or back towards the point
+  // on the left, would tilt both of them across a segment that is not drawn.
+  expect(style?.angle?.(datumAt(spec, 'success', 5), ctx)).toBe(0)
+  expect(style?.angle?.(datumAt(spec, 'success', 7), ctx)).toBe(0)
 })
 
 it("puts the triangle's centre of area on the line and leaves the other markers centred", async () => {
@@ -542,7 +554,7 @@ it('keeps the markers upright when the series exposes no pixel converters', asyn
   // correction that needs no geometry at all.
   expect(styles.success?.angle?.(datum, {})).toBe(0)
   expect(styles.success?.dx?.(datum, {})).toBe(0)
-  expect(styles.success?.dy?.(datum, {})).toBeCloseTo(-8.5 / 6, 10)
+  expect(styles.success?.dy?.(datum, {})).toBeCloseTo(-11 / 6, 10)
 })
 
 it('draws speed last and success first so the blue line stays whole', async () => {

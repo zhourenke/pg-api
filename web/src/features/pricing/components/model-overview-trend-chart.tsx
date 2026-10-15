@@ -99,14 +99,18 @@ const METRIC_STYLES: Record<
      * circle pi/4 of its box, a square the whole box and this triangle half of
      * it - and the 1.5px ring is then cut inward out of that, which hurts the
      * thin triangle most. These three values were calibrated by rendering the
-     * chart, reading the ink each marker actually paints and equalising it, so
-     * every metric shows the same amount of colour. That is why the triangle
-     * needs a visibly wider box than the circle: at equal ink a pointed shape
-     * reads smaller, so this is the correction for it, not an accident. The
-     * relation is roughly `ink = k (size - ring)^2` per shape (k is largest for
-     * the square, smallest for the triangle); **re-measure all three after
-     * changing the ring width, the shapes or the theme's card colour**, and keep
-     * the circle as the reference - it is the one the others are matched to.
+     * chart and reading the ink each marker actually paints: with the lines
+     * hidden the three land within +-9% of the square (measured 829 / 759 / 896
+     * px for the square, the circle and the triangle). That is why the
+     * triangle needs a visibly wider box than the circle - at equal ink a pointed
+     * shape reads smaller, so this is the correction for it, not an accident.
+     * The whole set was then scaled up by about 1.32 (2026-10-15, owner: at the
+     * size they were, a square and a circle read as the same dot). The relation
+     * survives the scaling because what is fixed is the ring, not the size, and a
+     * bigger box hands the ring a smaller share; the trio was re-measured after
+     * the change. **Re-measure all three after changing the ring width, the
+     * shapes or the theme's card colour**, and keep the circle as the reference -
+     * it is the one the others are matched to.
      */
     size: number
     /**
@@ -124,13 +128,13 @@ const METRIC_STYLES: Record<
     /** Swatch shape behind the caption label. */
     swatch: string
     /**
-     * Legend swatch box edge. All three swatches paint the same amount of ink,
-     * the rule the chart markers follow too - one shared box would leave the
-     * triangle at half the square's area, which is what made it read smaller
-     * than the rest. The swatches carry no ring, so the relation is the plain
-     * one: for an area A the square needs a box of sqrt(A), the circle a
-     * diameter of 2*sqrt(A/pi) and the triangle a box of sqrt(2A), which from
-     * 64px2 is 8, 9.03 and 11.31.
+     * Legend swatch box edge. The row is read by outline, not by ink: three
+     * boxes of equal area put the triangle's base 41% wider than the square and
+     * it read as the biggest of the three, while one shared box left the
+     * triangle at half the square's ink and it read as the smallest. Those two
+     * complaints bracket the answer, so the square and the circle share one box
+     * and the triangle gets one pixel more - enough that a pointed shape does
+     * not look thin, little enough that no swatch stands a head above the rest.
      */
     swatchSize: string
   }
@@ -138,16 +142,16 @@ const METRIC_STYLES: Record<
   latency: {
     color: { light: '#ea580c', dark: '#ffb454' },
     symbolType: 'square',
-    size: 5.7,
+    size: 7.5,
     centroidShift: 0,
     dashed: false,
-    swatch: 'rounded-[1px]',
-    swatchSize: 'size-[8px]',
+    swatch: 'rounded-none',
+    swatchSize: 'size-[9px]',
   },
   speed: {
     color: { light: '#2563eb', dark: '#58a6ff' },
     symbolType: 'circle',
-    size: 6,
+    size: 7.9,
     centroidShift: 0,
     dashed: false,
     swatch: 'rounded-full',
@@ -156,11 +160,11 @@ const METRIC_STYLES: Record<
   success: {
     color: { light: '#059669', dark: '#34d399' },
     symbolType: 'triangle',
-    size: 8.5,
+    size: 11,
     centroidShift: 1 / 6,
     dashed: true,
     swatch: '[clip-path:polygon(50%_0%,100%_100%,0%_100%)]',
-    swatchSize: 'size-[11.3px]',
+    swatchSize: 'size-[10px]',
   },
 }
 
@@ -302,8 +306,9 @@ export function ModelOverviewTrendChart(props: ModelOverviewTrendChartProps) {
     const lineStyle = (field: TrendMetricField) => {
       const style = METRIC_STYLES[field]
       const color = metricColors[field]
-      // What the marker needs to follow its line: the axis value of every bucket
-      // (a gap is not a sample) and the window position of each of them.
+      // What the marker needs to follow its line: the window position of every
+      // bucket, and the axis value of each of them - a gap is not a sample, and
+      // a marker whose next bucket has none stays upright.
       const samples = props.slots.map((slot) => axisValue(field, slot[field]))
       const indexOfHour = new Map(
         props.slots.map((slot, index) => [slot.hour, index])
@@ -322,27 +327,28 @@ export function ModelOverviewTrendChart(props: ModelOverviewTrendChartProps) {
           | undefined
         let radians = 0
         const index = indexOfHour.get(datum.hour)
-        if (index !== undefined && toPixelX && toPixelY) {
-          // The slope of the chord between the two neighbouring samples, read in
-          // pixels: the three value axes carry different units, so a slope in
-          // data units would be a different angle for each line, and the
-          // monotone curve through the point runs along this chord over the two
-          // bands it spans. Idle hours are stepped over so a single gap does not
-          // flatten the marker next to it.
-          let before = index - 1
-          while (before >= 0 && !Number.isFinite(samples[before])) before -= 1
-          let after = index + 1
-          while (after < samples.length && !Number.isFinite(samples[after])) {
-            after += 1
-          }
-          const from = before >= 0 ? before : index
-          const to = after < samples.length ? after : index
-          if (from !== to) {
-            radians = Math.atan2(
-              toPixelY(samples[to], datum) - toPixelY(samples[from], datum),
-              toPixelX(props.slots[to].hour) - toPixelX(props.slots[from].hour)
-            )
-          }
+        // Only the hour to the right is consulted: a marker leans the way the
+        // line leaves it towards the next bucket, so it points along the segment
+        // that is actually drawn from it and never towards a neighbour it is not
+        // connected to. A marker whose next hour has no usage - the last sample
+        // of the window included - keeps the orientation it was designed in.
+        const next = index === undefined ? undefined : index + 1
+        if (
+          index !== undefined &&
+          next !== undefined &&
+          next < samples.length &&
+          Number.isFinite(samples[index]) &&
+          Number.isFinite(samples[next]) &&
+          toPixelX &&
+          toPixelY
+        ) {
+          // The slope is read in pixels: the three value axes carry different
+          // units (seconds, t/s, percent), so a slope in data units would be a
+          // different angle for each line.
+          radians = Math.atan2(
+            toPixelY(samples[next], datum) - toPixelY(samples[index], datum),
+            toPixelX(props.slots[next].hour) - toPixelX(props.slots[index].hour)
+          )
         }
         return {
           // A mark's `angle` is degrees as far as VChart is concerned - it
@@ -368,8 +374,6 @@ export function ModelOverviewTrendChart(props: ModelOverviewTrendChartProps) {
         },
         point: {
           visible: true,
-          // 6 instead of 5: a square and a triangle need the extra pixel to
-          // stay recognisable next to a circle.
           style: {
             size: style.size,
             fill: color,
