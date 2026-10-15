@@ -177,7 +177,16 @@ func InitOptionMap() {
 	loadOptionsFromDatabase()
 }
 
+// loadOptionsFromDatabase republishes the option table into common.OptionMap,
+// the Passkey domain setting and the request policy snapshot. The read runs
+// before the option mutexes are taken: it waits on the database, and on a busy
+// SQLite file that wait must not make an option write or a Passkey
+// login/registration wait for the periodic sync. InitChannelCache reads before
+// its lock for the same reason. A write that commits while this read is in
+// flight is therefore published after it and is overwritten from this older
+// snapshot until the next sync reads the table again.
 func loadOptionsFromDatabase() {
+	options, _ := AllOption()
 	requestPolicyOptionMutex.Lock()
 	defer requestPolicyOptionMutex.Unlock()
 	defer func() {
@@ -187,7 +196,6 @@ func loadOptionsFromDatabase() {
 	}()
 	passkeyOptionMutex.Lock()
 	defer passkeyOptionMutex.Unlock()
-	options, _ := AllOption()
 	passkeyOptions := make(map[string]string)
 	for _, option := range options {
 		if IsPasskeyDomainOption(option.Key) {
