@@ -16,7 +16,14 @@ import (
 	"github.com/bytedance/gopkg/util/gopool"
 )
 
-const systemInstanceReportInterval = 30 * time.Second
+// Every heartbeat rewrites the instance row (info, started_at, last_seen_at and
+// updated_at are all indexed), and on a slow disk each of those commits blocks
+// the periodic reads of the same database. A wider interval is the only lever
+// that reduces them: the resource percentages in the payload move on every tick,
+// so a payload comparison would skip almost no commit. Keep
+// model.SystemInstanceStaleAfterSeconds at least one whole interval wider than
+// this value, so a single missed heartbeat cannot make a live node stale.
+const systemInstanceReportInterval = 120 * time.Second
 
 var systemInstanceReporterOnce sync.Once
 

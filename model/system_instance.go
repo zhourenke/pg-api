@@ -11,7 +11,12 @@ const (
 	SystemInstanceStatusOnline = "online"
 	SystemInstanceStatusStale  = "stale"
 
-	SystemInstanceStaleAfterSeconds int64 = 90
+	// A node counts as stale only after it has missed several heartbeats. The
+	// reporter runs every 120 seconds (service/system_instance.go), and this
+	// window also gates the delete-stale-instance endpoints, so it must stay
+	// wide enough that one late or lost report does not make a live node
+	// deletable.
+	SystemInstanceStaleAfterSeconds int64 = 300
 )
 
 type SystemInstance struct {
