@@ -46,20 +46,15 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { getLobeIcon } from '@/lib/lobe-icon'
-import { cn } from '@/lib/utils'
-import { useSystemConfigStore } from '@/stores/system-config-store'
 
 import { DEFAULT_TOKEN_UNIT } from '../constants'
-import { useBillingTime } from '../hooks/use-billing-time'
 import { usePricingData } from '../hooks/use-pricing-data'
 import { formatBillingCondition } from '../lib/billing-expression/condition-display'
 import {
   getDynamicPriceEntries,
   getDynamicPriceUnitLabelKey,
-  getDynamicPricingSummary,
   getDynamicPricingTiers,
   isDynamicPricingModel,
-  type DynamicPriceEntry,
 } from '../lib/dynamic-price'
 import { parseTags } from '../lib/filters'
 import { getAvailableGroups, isTokenBasedModel } from '../lib/model-helpers'
@@ -84,11 +79,6 @@ function SectionTitle(props: { children: React.ReactNode }) {
       {props.children}
     </h2>
   )
-}
-
-function DynamicPriceEntryLabel(props: { entry: DynamicPriceEntry }) {
-  const { t } = useTranslation()
-  return t(props.entry.shortLabel)
 }
 
 const CAPABILITY_LABEL_KEYS: Record<ModelCapability, string> = {
@@ -472,30 +462,6 @@ function PriceSection(props: {
   const tokenUnitLabel = props.tokenUnit === 'K' ? '1K' : '1M'
   const baseGroupKey = '_base'
   const baseGroupRatioMap = { [baseGroupKey]: 1 }
-  const currency = useSystemConfigStore((state) => state.config.currency)
-  const billingTime = useBillingTime(props.model.billing_expr)
-  const dynamicSummary = useMemo(
-    () =>
-      getDynamicPricingSummary(props.model, {
-        now: billingTime === undefined ? undefined : new Date(billingTime),
-        tokenUnit: props.tokenUnit,
-        showRechargePrice: props.showRechargePrice,
-        priceRate: props.priceRate,
-        usdExchangeRate: props.usdExchangeRate,
-        groupRatioMultiplier: 1,
-      }),
-    // Currency is read indirectly by the price formatter.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      props.model,
-      props.tokenUnit,
-      props.showRechargePrice,
-      props.priceRate,
-      props.usdExchangeRate,
-      billingTime,
-      currency,
-    ]
-  )
 
   const primaryPriceTypes: { label: string; type: PriceType }[] = [
     { label: t('Input'), type: 'input' },
@@ -534,106 +500,6 @@ function PriceSection(props: {
         props.model.audio_completion_ratio != null,
     },
   ]
-
-  if (dynamicSummary) {
-    if (dynamicSummary.isSpecialExpression) {
-      return (
-        <section>
-          <SectionTitle>{t('Base Price')}</SectionTitle>
-          <div className='rounded-lg border border-amber-200/70 bg-amber-50/70 p-3 dark:border-amber-500/20 dark:bg-amber-500/10'>
-            <div className='text-sm font-medium text-amber-800 dark:text-amber-200'>
-              {t('Special billing expression')}
-            </div>
-            <p className='text-muted-foreground mt-1 text-xs'>
-              {t(
-                'This expression cannot be expanded into a price table. View the original expression below.'
-              )}
-            </p>
-            <div className='mt-3'>
-              <div className='text-muted-foreground mb-1 text-[10px] font-medium tracking-wider uppercase'>
-                {t('Raw expression')}
-              </div>
-              <code className='text-muted-foreground bg-background/80 block max-h-28 overflow-auto rounded-md border px-2 py-1.5 font-mono text-xs break-all'>
-                {dynamicSummary.rawExpression}
-              </code>
-            </div>
-          </div>
-        </section>
-      )
-    }
-
-    return (
-      <section>
-        <SectionTitle>{t('Base Price')}</SectionTitle>
-        {dynamicSummary.isMixedBilling && (
-          <p className='text-muted-foreground mb-2 text-xs'>
-            {t('Mixed billing')}
-          </p>
-        )}
-        {dynamicSummary.primaryEntries.length > 0 ? (
-          <div
-            className={cn(
-              'grid gap-2',
-              dynamicSummary.primaryEntries.length > 1 && 'grid-cols-2'
-            )}
-          >
-            {dynamicSummary.primaryEntries.map((entry) => {
-              const unitLabelKey = getDynamicPriceUnitLabelKey(entry)
-              const unitLabel = unitLabelKey ? t(unitLabelKey) : tokenUnitLabel
-              return (
-                <div
-                  key={entry.key}
-                  className='bg-muted/20 rounded-lg border p-3'
-                >
-                  <div className='text-muted-foreground text-xs'>
-                    <DynamicPriceEntryLabel entry={entry} />
-                  </div>
-                  <div className='text-foreground mt-1 font-mono text-base font-semibold tabular-nums'>
-                    {entry.formattedRange ?? entry.formatted}
-                    <span className='text-muted-foreground/40 ml-1 text-xs font-normal'>
-                      / {unitLabel}
-                    </span>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        ) : (
-          <p className='text-muted-foreground text-sm'>
-            {t('Dynamic Pricing')}
-          </p>
-        )}
-        {dynamicSummary.secondaryEntries.length > 0 && (
-          <div className='bg-muted/20 mt-3 rounded-lg border px-3 py-2.5'>
-            <div className='space-y-1.5'>
-              {dynamicSummary.secondaryEntries.map((entry) => {
-                const unitLabelKey = getDynamicPriceUnitLabelKey(entry)
-                const unitLabel = unitLabelKey
-                  ? t(unitLabelKey)
-                  : tokenUnitLabel
-                return (
-                  <div
-                    key={entry.key}
-                    className='flex items-baseline justify-between gap-4'
-                  >
-                    <span className='text-muted-foreground/70 text-sm'>
-                      <DynamicPriceEntryLabel entry={entry} />
-                    </span>
-                    <span className='text-muted-foreground font-mono text-sm tabular-nums'>
-                      {entry.formattedRange ?? entry.formatted}
-                      <span className='text-muted-foreground/40 ml-1 text-xs font-normal'>
-                        / {unitLabel}
-                      </span>
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-      </section>
-    )
-  }
 
   if (!isTokenBased) {
     return (

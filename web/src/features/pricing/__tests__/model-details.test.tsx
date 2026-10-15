@@ -122,4 +122,22 @@ describe('model details content', () => {
       expect(header.textContent).not.toMatch(/\/\s*(request|image)/)
     }
   })
+
+  it('keeps a mixed model to one price block in the drawer', () => {
+    renderDetails(
+      detailsModel({
+        billing_expr:
+          '(len < 1000) ? tier("request", fixed(0.02)) : tier("base", p * 0.05 + c * 0.2)',
+      })
+    )
+
+    const pricing = screen
+      .getByRole('heading', { name: 'Pricing' })
+      .closest('section') as HTMLElement
+    // 动态定价模型走「分档价格表」这一支；`PriceSection` 的摘要块
+    // （「基础价格」+ 混合说明 + 价目网格）与它互斥，否则同一批价格在抽屉里出现两次。
+    expect(within(pricing).getByText('Tiered price table')).toBeVisible()
+    expect(within(pricing).queryByText('Base Price')).toBeNull()
+    expect(within(pricing).queryByText('Mixed billing')).toBeNull()
+  })
 })
