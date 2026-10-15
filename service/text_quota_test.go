@@ -180,6 +180,10 @@ func runFixedPriceAccountingCases(t *testing.T, db, logDB *gorm.DB) {
 			// millisecond value.
 			info := &relaycommon.RelayInfo{UserId: user.Id, TokenId: token.Id, TokenKey: token.Key, ChannelMeta: &relaycommon.ChannelMeta{ChannelId: channel.Id}, OriginModelName: "fixed-test", UsingGroup: "default", UserGroup: "default", ForcePreConsume: true, StartTime: time.Now().Add(-1500 * time.Millisecond), IsStream: tc.stream, RelayFormat: types.RelayFormatOpenAI, PriceData: hosttypes.PriceData{GroupRatioInfo: hosttypes.GroupRatioInfo{GroupRatio: group}}, TieredBillingSnapshot: snapshot, BillingRequestInput: request}
 			info.SetEstimatePromptTokens(tc.estimate)
+			// The first-token wait and the duration must come from the same instant
+			// pair, so the usage log's generation window (duration minus frt) can
+			// never be negative.
+			info.FirstResponseTime = info.StartTime.Add(time.Second)
 			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
 			ctx.Request = httptest.NewRequest("POST", "/v1/chat/completions", nil)
 			if tc.expression == imageExpression {
@@ -255,6 +259,13 @@ func runFixedPriceAccountingCases(t *testing.T, db, logDB *gorm.DB) {
 					assert.Equal(t, 1, log.UseTime)
 					assert.GreaterOrEqual(t, useTimeMs, float64(1500))
 					assert.Less(t, useTimeMs, float64(60_000))
+					// The first-token wait is the other half of that window, so it is
+					// published in the same unit from the same instant pair and can
+					// never reach the duration it is part of.
+					frt, ok := other["frt"].(float64)
+					require.True(t, ok, "consume logs must carry the first-token wait")
+					assert.Equal(t, float64(1000), frt)
+					assert.LessOrEqual(t, frt, useTimeMs)
 					assert.Equal(t, string(tc.unit), other["billing_unit"])
 					if tc.requestedImages > 0 {
 						count := tc.actualImages

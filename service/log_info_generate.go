@@ -132,7 +132,14 @@ func GenerateTextOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, m
 	other.SetPublic("cache_ratio", cacheRatio)
 	other.SetPublic("model_price", modelPrice)
 	other.SetPublic("user_group_ratio", userGroupRatio)
-	other.SetPublic("frt", float64(relayInfo.FirstResponseTime.UnixMilli()-relayInfo.StartTime.UnixMilli()))
+	// frt is the first-token wait the usage log divides the generation window by
+	// (duration minus frt), so it must be read from the same clock as that
+	// duration: measuredUseTime takes the monotonic reading through time.Since, and
+	// Sub does the same, while a difference of UnixMilli readings follows the wall
+	// clock. Mixing the two let a log claim a first-token wait longer than its own
+	// request, and the speed derived from it then sat well above the one the model
+	// square computes for the very same requests.
+	other.SetPublic("frt", float64(relayInfo.FirstResponseTime.Sub(relayInfo.StartTime).Milliseconds()))
 	if relayInfo.ReasoningEffort != "" {
 		other.SetPublic("reasoning_effort", relayInfo.ReasoningEffort)
 	}
