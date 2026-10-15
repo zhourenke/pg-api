@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { expect, it, vi } from 'vitest'
 
 import { ThemeProvider } from '@/context/theme-provider'
@@ -72,6 +72,7 @@ type CapturedSpec = {
     label?: { visible?: boolean }
   }>
   crosshair?: {
+    followTooltip?: boolean
     xField?: { visible?: boolean; line?: { visible?: boolean; type?: string } }
   }
   tooltip: {
@@ -292,6 +293,43 @@ it('marks the hovered hour and keeps the tooltip out of the pointer path', async
   // An enterable panel becomes a hit target, so a fast cursor or a tap that
   // lands on it freezes the highlight instead of reporting the hour below.
   expect(spec.tooltip.enterable).toBe(false)
+})
+
+it('drives the highlight from the label so that a tap moves it too', async () => {
+  chart.mockClear()
+  renderTrend([trendGroup({ series: [hourPoint(5)] })])
+
+  const [spec] = await capturedSpecs()
+  // A crosshair of its own listens to hover, and the mode this chart runs in
+  // defines hover as `pointermove` - which a tap never emits, so the column sat
+  // still while the label followed every tap. Bound to the tooltip the two share
+  // one source of truth instead.
+  expect(spec.crosshair?.followTooltip).toBe(true)
+})
+
+it('keeps the hour a finger picked and still lets a mouse leave the plot', async () => {
+  chart.mockClear()
+  const { container } = renderTrend([trendGroup({ series: [hourPoint(5)] })])
+  await capturedSpecs()
+
+  // The stubbed VChart paints nothing, so the test supplies the element the real
+  // one puts inside the plot: what matters is that it sits below the box the
+  // component guards.
+  const plot = container.querySelector('.h-52')
+  expect(plot).not.toBeNull()
+  const canvas = document.createElement('div')
+  plot?.appendChild(canvas)
+  const reached: Array<string | undefined> = []
+  canvas.addEventListener('pointerleave', (event) => {
+    reached.push((event as PointerEvent).pointerType)
+  })
+
+  // A raised finger emits pointerleave right after pointerup; letting that
+  // through is what closed the tooltip the moment the user let go.
+  fireEvent.pointerLeave(canvas, { pointerType: 'touch' })
+  expect(reached).toEqual([])
+  fireEvent.pointerLeave(canvas, { pointerType: 'mouse' })
+  expect(reached).toEqual(['mouse'])
 })
 
 it('writes each range into the legend with the metric unit', async () => {

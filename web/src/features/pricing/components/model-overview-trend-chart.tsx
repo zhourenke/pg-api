@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { VChart } from '@visactor/react-vchart'
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -450,9 +450,16 @@ export function ModelOverviewTrendChart(props: ModelOverviewTrendChartProps) {
         valueAxis('success', successDomain, false),
       ],
       legends: { visible: false },
-      // The band axis marks the hovered hour, the same rect crosshair the
-      // previous latency chart showed.
+      // The band axis marks the hour being read, with the same rect crosshair the
+      // previous latency chart showed. It follows the tooltip instead of the
+      // pointer: a crosshair listens to hover on its own, and `desktop-browser`
+      // mode (what VChart is told this is, see VCHART_OPTION) defines hover as
+      // `pointermove` - which a stationary tap never emits, which is why tapping
+      // the chart moved the label but never the grey column. Bound this way the
+      // two cannot disagree: whatever shows the tooltip shows the column, on the
+      // same hour, for a tap, a drag and a mouse hover alike.
       crosshair: {
+        followTooltip: true,
         xField: {
           visible: true,
           line: { visible: true, type: 'rect' as const },
@@ -482,6 +489,28 @@ export function ModelOverviewTrendChart(props: ModelOverviewTrendChartProps) {
     }
   }, [backdrop, domains, isDark, labels, metricColors, props.slots])
 
+  // A finger lifting off a touchscreen still emits `pointerleave`: for a pointer
+  // that never hovers, the spec fires pointerout/pointerleave right after
+  // pointerup. VChart reads that as the pointer leaving the chart and hides both
+  // the tooltip and the crosshair, so the hour the user had just tapped vanished
+  // the moment they let go - and, on a phone that reports no such leave, tap to
+  // tap was the only way to read the chart. Only a mouse really leaving should end
+  // the highlight; the listener runs in the capture phase so it sits in front of
+  // the one VChart puts on the canvas. A tap outside the plot still dismisses it,
+  // because that arrives as a pointerup whose position VChart checks itself.
+  const chartHostRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const host = chartHostRef.current
+    if (!host) return
+    const holdTouchSelection = (event: PointerEvent) => {
+      if (event.pointerType === 'touch') event.stopPropagation()
+    }
+    host.addEventListener('pointerleave', holdTouchSelection, true)
+    return () => {
+      host.removeEventListener('pointerleave', holdTouchSelection, true)
+    }
+  }, [])
+
   return (
     <div className={cn('space-y-2', props.className)}>
       <div className='flex flex-wrap items-center gap-x-4 gap-y-1'>
@@ -504,7 +533,7 @@ export function ModelOverviewTrendChart(props: ModelOverviewTrendChartProps) {
           </span>
         ))}
       </div>
-      <div className='h-52 sm:h-64'>
+      <div ref={chartHostRef} className='h-52 sm:h-64'>
         {themeReady && (
           <VChart
             key={`trend-${resolvedTheme}`}
