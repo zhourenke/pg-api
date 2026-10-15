@@ -34,6 +34,24 @@ it('drops the per-token and per-request deprecated keys but keeps the Deprecated
   expect(STATIC_I18N_KEYS).not.toContain('Per-request (deprecated)')
 })
 
+it('documents the reasoning-effort exemption in the thinking-suffix blacklist copy', () => {
+  // 命中的模型名会在解析入口整体短路，思考别名与推理强度后缀都原样保留。文案只提
+  // -thinking / -nothinking 时，用户无从知道 gemini-3.8-flash-high 这类真实模型名
+  // 也能靠它免于被剥除后缀。
+  const key = Object.keys(keys).find((candidate) =>
+    candidate.startsWith(
+      'Models listed here skip all automatic reasoning-suffix handling'
+    )
+  )
+
+  expect(key).toBeDefined()
+
+  const copy = keys[key ?? '']
+  expect(copy).toContain('-thinking')
+  expect(copy).toContain('-high')
+  expect(copy).toContain('推理强度后缀')
+})
+
 it('keeps every static key resolvable in the shipped locale', () => {
   // `STATIC_I18N_KEYS` 存在的意义就是给不进 `t('...')` 字面量的键留一份登记，所以
   // 里面的每一条都必须在词条里有值；本次清理如果只删词条不删登记，这一条会红。

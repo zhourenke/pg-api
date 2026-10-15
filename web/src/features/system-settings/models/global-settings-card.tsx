@@ -230,7 +230,7 @@ export function GlobalSettingsCard({ defaultValues }: GlobalSettingsCardProps) {
                 </FormControl>
                 <FormDescription>
                   {t(
-                    'Models listed here skip automatic -thinking / -nothinking suffix handling. Matched names are also exempt from @-modifier parsing and 400 validation. Prefix an entry with re: to match the full model name as a Go regular expression, for example re:.*@sha256:.*'
+                    'Models listed here skip all automatic reasoning-suffix handling: thinking aliases such as -thinking / -nothinking are neither added nor removed, and effort tails (-max / -xhigh / -high / -medium / -low / -minimal / -none) are never stripped. Matched names are also exempt from @-modifier parsing and 400 validation. Prefix an entry with re: to match the full model name as a Go regular expression, for example re:.*@sha256:.*'
                   )}
                 </FormDescription>
                 <FormMessage />

@@ -2795,7 +2795,7 @@
     "Models exposed by this channel": "此渠道暴露的模型",
     "Models fetched successfully": "模型获取成功",
     "Models filled to form": "模型已填充到表单",
-    "Models listed here skip automatic -thinking / -nothinking suffix handling. Matched names are also exempt from @-modifier parsing and 400 validation. Prefix an entry with re: to match the full model name as a Go regular expression, for example re:.*@sha256:.*": "此处列出的模型不会自动添加或移除 -thinking / -nothinking 后缀。命中的模型同时豁免 @ 修饰符解析与 400 校验。以 re: 开头的条目会按 Go 正则匹配完整模型名，例如 re:.*@sha256:.*。",
+    "Models listed here skip all automatic reasoning-suffix handling: thinking aliases such as -thinking / -nothinking are neither added nor removed, and effort tails (-max / -xhigh / -high / -medium / -low / -minimal / -none) are never stripped. Matched names are also exempt from @-modifier parsing and 400 validation. Prefix an entry with re: to match the full model name as a Go regular expression, for example re:.*@sha256:.*": "此处列出的模型不会自动处理任何思考与推理强度后缀：既不会添加或移除 -thinking / -nothinking 这类思考别名，也不会剥除 -max / -xhigh / -high / -medium / -low / -minimal / -none 这类推理强度后缀。命中的模型同时豁免 @ 修饰符解析与 400 校验。以 re: 开头的条目会按 Go 正则匹配完整模型名，例如 re:.*@sha256:.*。",
     "Models losing positions": "排名下滑的模型",
     "Models not in list, may fail to invoke": "模型未加入列表，可能无法调用",
     "Models source": "模型来源",
