@@ -38,6 +38,12 @@ type TrendDatumLike = {
   text: string
 }
 
+/** A marker style is a callback: the chart computes it per data point. */
+type MarkerCallback = (
+  datum: TrendDatumLike,
+  ctx: Record<string, unknown>
+) => number
+
 type CapturedSpec = {
   color?: string[]
   data: Array<{ id: string; values: TrendDatumLike[] }>
@@ -51,6 +57,9 @@ type CapturedSpec = {
         stroke?: string
         size?: number
         symbolType?: string
+        angle?: MarkerCallback
+        dx?: MarkerCallback
+        dy?: MarkerCallback
       }
     }
   }>
@@ -116,6 +125,39 @@ function trendGroup(
     series: [],
     ...overrides,
   }
+}
+
+/**
+ * 05:00 to 07:00 with a flat first-token latency and a climb in the other two,
+ * each at its own rate, so a marker can only be right about all three if it
+ * measures its own axis in pixels.
+ */
+function climbingSeries(): PerformanceSeriesPoint[] {
+  return [
+    hourPoint(5, { avg_ttft_ms: 1000, avg_tps: 20, success_rate: 10 }),
+    hourPoint(6, { avg_ttft_ms: 1000, avg_tps: 40, success_rate: 20 }),
+    hourPoint(7, { avg_ttft_ms: 1000, avg_tps: 60, success_rate: 30 }),
+  ]
+}
+
+/** The mark context VChart builds for a cartesian series: 10px per hour and per unit, y down. */
+function pixelContext(hours: string[]) {
+  const indexOfHour = new Map(hours.map((hour, index) => [hour, index]))
+  return {
+    valueToX: (hour: string) => (indexOfHour.get(hour) ?? 0) * 10,
+    valueToY: (value: number) => 200 - value * 10,
+  }
+}
+
+/** The data point a marker callback is called with, at one hour of the window. */
+function datumAt(
+  spec: CapturedSpec,
+  metric: TrendMetricField,
+  index: number
+): TrendDatumLike {
+  const row = spec.data.find((entry) => entry.id === `trend-${metric}`)
+  if (!row) throw new Error(`no data row for ${metric}`)
+  return row.values[index]
 }
 
 function renderTrend(
@@ -355,6 +397,114 @@ it('sizes each marker so the three shapes paint the same amount of ink', async (
     speed: 6,
     success: 8.5,
   })
+})
+
+it('gives the legend swatches equal ink instead of one shared box', async () => {
+  chart.mockClear()
+  renderTrend([trendGroup({ series: [hourPoint(5)] })])
+
+  await capturedSpecs()
+  // The swatch is a span whose edge lives in its size class.
+  const edgeOf = (metric: TrendMetricField) => {
+    const match = swatchClass(metric).match(/size-\[([\d.]+)px\]/)
+    if (!match) throw new Error(`no swatch size for ${metric}`)
+    return Number(match[1])
+  }
+  // A triangle fills half of its box and a circle pi/4 of it, so one box for all
+  // three would leave the triangle at half the square's ink - which is exactly
+  // what made it read as the smallest of the three.
+  const ink: Record<TrendMetricField, number> = {
+    latency: edgeOf('latency') ** 2,
+    speed: (Math.PI * edgeOf('speed') ** 2) / 4,
+    success: edgeOf('success') ** 2 / 2,
+  }
+  expect(Math.abs(ink.speed - ink.latency) / ink.latency).toBeLessThan(0.02)
+  expect(Math.abs(ink.success - ink.latency) / ink.latency).toBeLessThan(0.02)
+})
+
+it('turns every marker to the pixel slope of its own line', async () => {
+  chart.mockClear()
+  renderTrend([trendGroup({ series: climbingSeries() })])
+
+  const [spec] = await capturedSpecs()
+  const ctx = pixelContext(spec.axes[0].domain ?? [])
+  const styles = byMetric(spec, (series) => series.point?.style)
+  const angleAt = (metric: TrendMetricField) =>
+    styles[metric]?.angle?.(datumAt(spec, metric, 6), ctx)
+  // A mark's `angle` travels through VChart as degrees and only becomes the
+  // radians vrender turns by on its way to the graphic, so a slope has to be
+  // converted here. Feeding it radians turns the marker by 1/57 of the line.
+  const asDegrees = (radians: number) => (radians * 180) / Math.PI
+
+  // A flat line leaves the marker in the orientation it was designed in; the
+  // other two climb at their own rate, so their tilts differ too. Both chords
+  // span two hours: 40 t/s over 20px is steeper than 20 points of success.
+  expect(angleAt('latency')).toBe(0)
+  expect(angleAt('speed')).toBeCloseTo(asDegrees(Math.atan2(-400, 20)), 10)
+  expect(angleAt('success')).toBeCloseTo(asDegrees(Math.atan2(-200, 20)), 10)
+})
+
+it('measures the tilt of a marker across an idle hour, not into it', async () => {
+  chart.mockClear()
+  renderTrend([
+    trendGroup({
+      series: [
+        hourPoint(5, { success_rate: 10 }),
+        hourPoint(7, { success_rate: 30 }),
+      ],
+    }),
+  ])
+
+  const [spec] = await capturedSpecs()
+  const ctx = pixelContext(spec.axes[0].domain ?? [])
+  const style = byMetric(spec, (series) => series.point?.style).success
+  // 06:00 has no sample, so the chord runs from 05:00 to 07:00. Reading into the
+  // gap instead would leave this marker upright while the line around it climbs.
+  expect(style?.angle?.(datumAt(spec, 'success', 7), ctx)).toBeCloseTo(
+    (Math.atan2(-200, 20) * 180) / Math.PI,
+    10
+  )
+})
+
+it("puts the triangle's centre of area on the line and leaves the other markers centred", async () => {
+  chart.mockClear()
+  renderTrend([trendGroup({ series: climbingSeries() })])
+
+  const [spec] = await capturedSpecs()
+  const ctx = pixelContext(spec.axes[0].domain ?? [])
+  const styles = byMetric(spec, (series) => series.point?.style)
+
+  for (const metric of ['latency', 'speed', 'success'] as TrendMetricField[]) {
+    const style = styles[metric]
+    const datum = datumAt(spec, metric, 6)
+    const angle = style?.angle?.(datum, ctx) ?? 0
+    const dx = style?.dx?.(datum, ctx) ?? 0
+    const dy = style?.dy?.(datum, ctx) ?? 0
+    // Where the shape's centre of area ends up relative to the data point: its
+    // offset inside the box, turned with the marker and moved by the shift. A
+    // triangle's centroid is a sixth of the box below the box centre, and a
+    // square's or a circle's is that centre. The turn is the radian angle
+    // VChart ends up rotating by, not the degree value it is handed.
+    const radians = (angle * Math.PI) / 180
+    const centroidShift = metric === 'success' ? (style?.size ?? 0) / 6 : 0
+    expect(dx - centroidShift * Math.sin(radians)).toBeCloseTo(0, 10)
+    expect(dy + centroidShift * Math.cos(radians)).toBeCloseTo(0, 10)
+  }
+})
+
+it('keeps the markers upright when the series exposes no pixel converters', async () => {
+  chart.mockClear()
+  renderTrend([trendGroup({ series: climbingSeries() })])
+
+  const [spec] = await capturedSpecs()
+  const styles = byMetric(spec, (series) => series.point?.style)
+  const datum = datumAt(spec, 'success', 6)
+  // A context without valueToX/valueToY is a degradation, not a crash: the
+  // marker stays in its designed orientation, and the triangle keeps the
+  // correction that needs no geometry at all.
+  expect(styles.success?.angle?.(datum, {})).toBe(0)
+  expect(styles.success?.dx?.(datum, {})).toBe(0)
+  expect(styles.success?.dy?.(datum, {})).toBeCloseTo(-8.5 / 6, 10)
 })
 
 it('draws speed last and success first so the blue line stays whole', async () => {

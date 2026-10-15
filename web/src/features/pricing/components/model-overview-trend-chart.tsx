@@ -109,31 +109,58 @@ const METRIC_STYLES: Record<
      * the circle as the reference - it is the one the others are matched to.
      */
     size: number
+    /**
+     * How far below the centre of the `size` box this shape's centre of area
+     * sits, as a fraction of `size`. A square and a circle are symmetric about
+     * their box centre; VChart's triangle puts its apex at the top of the box
+     * and its base along the bottom, so its centroid is a sixth of the box
+     * lower. The marker is pushed back up by exactly that much, which is what
+     * makes the line cross the triangle through its middle instead of clipping
+     * the tip, and the push is rotated with the marker so it always points at
+     * the apex.
+     */
+    centroidShift: number
     dashed: boolean
     /** Swatch shape behind the caption label. */
     swatch: string
+    /**
+     * Legend swatch box edge. All three swatches paint the same amount of ink,
+     * the rule the chart markers follow too - one shared box would leave the
+     * triangle at half the square's area, which is what made it read smaller
+     * than the rest. The swatches carry no ring, so the relation is the plain
+     * one: for an area A the square needs a box of sqrt(A), the circle a
+     * diameter of 2*sqrt(A/pi) and the triangle a box of sqrt(2A), which from
+     * 64px2 is 8, 9.03 and 11.31.
+     */
+    swatchSize: string
   }
 > = {
   latency: {
     color: { light: '#ea580c', dark: '#ffb454' },
     symbolType: 'square',
     size: 5.7,
+    centroidShift: 0,
     dashed: false,
     swatch: 'rounded-[1px]',
+    swatchSize: 'size-[8px]',
   },
   speed: {
     color: { light: '#2563eb', dark: '#58a6ff' },
     symbolType: 'circle',
     size: 6,
+    centroidShift: 0,
     dashed: false,
     swatch: 'rounded-full',
+    swatchSize: 'size-[9px]',
   },
   success: {
     color: { light: '#059669', dark: '#34d399' },
     symbolType: 'triangle',
     size: 8.5,
+    centroidShift: 1 / 6,
     dashed: true,
     swatch: '[clip-path:polygon(50%_0%,100%_100%,0%_100%)]',
+    swatchSize: 'size-[11.3px]',
   },
 }
 
@@ -275,6 +302,61 @@ export function ModelOverviewTrendChart(props: ModelOverviewTrendChartProps) {
     const lineStyle = (field: TrendMetricField) => {
       const style = METRIC_STYLES[field]
       const color = metricColors[field]
+      // What the marker needs to follow its line: the axis value of every bucket
+      // (a gap is not a sample) and the window position of each of them.
+      const samples = props.slots.map((slot) => axisValue(field, slot[field]))
+      const indexOfHour = new Map(
+        props.slots.map((slot, index) => [slot.hour, index])
+      )
+      const shift = style.centroidShift * style.size
+      const markerGeometry = (
+        datum: TrendDatum,
+        ctx: Record<string, unknown>
+      ): { angle: number; dx: number; dy: number } => {
+        // A cartesian series hands its own pixel converters to the mark
+        // callbacks, but not to their type, so they are read by name; without
+        // them the marker simply stays upright.
+        const toPixelX = ctx.valueToX as ((hour: string) => number) | undefined
+        const toPixelY = ctx.valueToY as
+          | ((value: number, datum: TrendDatum) => number)
+          | undefined
+        let radians = 0
+        const index = indexOfHour.get(datum.hour)
+        if (index !== undefined && toPixelX && toPixelY) {
+          // The slope of the chord between the two neighbouring samples, read in
+          // pixels: the three value axes carry different units, so a slope in
+          // data units would be a different angle for each line, and the
+          // monotone curve through the point runs along this chord over the two
+          // bands it spans. Idle hours are stepped over so a single gap does not
+          // flatten the marker next to it.
+          let before = index - 1
+          while (before >= 0 && !Number.isFinite(samples[before])) before -= 1
+          let after = index + 1
+          while (after < samples.length && !Number.isFinite(samples[after])) {
+            after += 1
+          }
+          const from = before >= 0 ? before : index
+          const to = after < samples.length ? after : index
+          if (from !== to) {
+            radians = Math.atan2(
+              toPixelY(samples[to], datum) - toPixelY(samples[from], datum),
+              toPixelX(props.slots[to].hour) - toPixelX(props.slots[from].hour)
+            )
+          }
+        }
+        return {
+          // A mark's `angle` is degrees as far as VChart is concerned - it
+          // converts it to the radians vrender turns by - so the pixel slope has
+          // to be converted here. `dx`/`dy` take no conversion, they are pixel
+          // lengths.
+          angle: (radians * 180) / Math.PI,
+          // The shift rides with the marker: a plain dy would push a tilted
+          // triangle sideways instead of towards its apex. A square and a circle
+          // have no shift, so this is zero for them at every angle.
+          dx: shift * Math.sin(radians),
+          dy: -shift * Math.cos(radians),
+        }
+      }
       return {
         line: {
           style: {
@@ -294,6 +376,15 @@ export function ModelOverviewTrendChart(props: ModelOverviewTrendChartProps) {
             stroke: backdrop,
             lineWidth: 1.5,
             symbolType: style.symbolType,
+            // VChart calls each of the three on its own, so the shared value is
+            // recomputed per call rather than cached across them - a cache here
+            // would hand back the angles of a stale card width after a resize.
+            angle: (datum: TrendDatum, ctx: Record<string, unknown>) =>
+              markerGeometry(datum, ctx).angle,
+            dx: (datum: TrendDatum, ctx: Record<string, unknown>) =>
+              markerGeometry(datum, ctx).dx,
+            dy: (datum: TrendDatum, ctx: Record<string, unknown>) =>
+              markerGeometry(datum, ctx).dy,
           },
         },
       }
@@ -399,7 +490,11 @@ export function ModelOverviewTrendChart(props: ModelOverviewTrendChartProps) {
             <span
               aria-hidden
               data-metric={field}
-              className={cn('size-2 shrink-0', METRIC_STYLES[field].swatch)}
+              className={cn(
+                'shrink-0',
+                METRIC_STYLES[field].swatchSize,
+                METRIC_STYLES[field].swatch
+              )}
               style={{ backgroundColor: metricColors[field] }}
             />
             <span className='text-muted-foreground'>{labels[field]}</span>
