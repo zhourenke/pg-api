@@ -44,7 +44,8 @@ type CapturedSpec = {
   series: Array<{
     id: string
     invalidType?: string
-    line?: { style?: { stroke?: string } }
+    line?: { style?: { stroke?: string; lineDash?: number[] } }
+    point?: { style?: { fill?: string; symbolType?: string } }
   }>
   axes: Array<{
     orient: string
@@ -152,10 +153,16 @@ async function capturedSpecs(): Promise<CapturedSpec[]> {
 
 /** The legend swatch of one metric, read back from its inline colour. */
 function swatchColor(metric: TrendMetricField): string {
-  const swatch = document.querySelector<HTMLElement>(
-    `[data-metric="${metric}"]`
-  )
-  return swatch?.style.backgroundColor ?? ''
+  return swatchOf(metric)?.style.backgroundColor ?? ''
+}
+
+/** The legend swatch's class list, which is where its shape lives. */
+function swatchClass(metric: TrendMetricField): string {
+  return swatchOf(metric)?.className ?? ''
+}
+
+function swatchOf(metric: TrendMetricField): HTMLElement | null {
+  return document.querySelector<HTMLElement>(`[data-metric="${metric}"]`)
 }
 
 /** jsdom serializes an inline colour as `rgb(...)`, so both sides normalize. */
@@ -243,8 +250,8 @@ it('writes each range into the legend with the metric unit', async () => {
 })
 
 it.each([
-  { theme: 'light' as const, colors: ['#f97316', '#2563eb', '#16a34a'] },
-  { theme: 'dark' as const, colors: ['#ffb454', '#58a6ff', '#3ddc97'] },
+  { theme: 'light' as const, colors: ['#ea580c', '#2563eb', '#059669'] },
+  { theme: 'dark' as const, colors: ['#ffb454', '#58a6ff', '#34d399'] },
 ])(
   'paints latency, speed and success with the $theme palette',
   async ({ theme, colors }) => {
@@ -261,8 +268,31 @@ it.each([
     // the colour of the series it names.
     const fields: TrendMetricField[] = ['latency', 'speed', 'success']
     expect(fields.map(swatchColor)).toEqual(colors.map(toCssColor))
+    // Hue is not the only channel: rendering the chart in greyscale, or losing
+    // the red-green axis, still has to leave three tellable lines.
+    const swatchClasses = fields.map(swatchClass)
+    expect(new Set(swatchClasses).size).toBe(fields.length)
   }
 )
+
+it('gives every metric its own point shape and dash', async () => {
+  chart.mockClear()
+  renderTrend([trendGroup({ series: [hourPoint(5)] })])
+
+  const [spec] = await capturedSpecs()
+  expect(spec.series.map((entry) => entry.point?.style?.symbolType)).toEqual([
+    'square',
+    'circle',
+    'triangle',
+  ])
+  // Only success is dashed, so the latency/success pair - the one that
+  // collapses under red-green colour blindness - differs twice over.
+  expect(spec.series.map((entry) => entry.line?.style?.lineDash)).toEqual([
+    undefined,
+    undefined,
+    [4, 3],
+  ])
+})
 
 it('keeps a usable range when a metric has no sample in the window', async () => {
   chart.mockClear()

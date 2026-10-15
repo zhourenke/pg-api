@@ -59,17 +59,42 @@ type AxisDomain = {
 const METRIC_ORDER: TrendMetricField[] = ['latency', 'speed', 'success']
 
 /**
- * One hue per metric, with a brighter variant for the dark theme: latency is
- * orange (waiting, needs attention), speed blue (throughput) and success green
- * (healthy). The caption swatches read the same entry as their series, so a
- * legend entry can never disagree with its line.
+ * One entry per metric: a hue for each theme, plus a non-colour channel (point
+ * shape and dash) so the three lines stay apart for colour-blind readers, in
+ * greyscale and on a small chart. Latency and success are the pair that
+ * collapses under red-green colour blindness, so those two differ in both
+ * channels while speed keeps the plain solid circle. The caption swatch repeats
+ * the same hue and shape, so a legend entry cannot disagree with its line.
  */
-const METRIC_COLORS: Record<TrendMetricField, { light: string; dark: string }> =
+const METRIC_STYLES: Record<
+  TrendMetricField,
   {
-    latency: { light: '#f97316', dark: '#ffb454' },
-    speed: { light: '#2563eb', dark: '#58a6ff' },
-    success: { light: '#16a34a', dark: '#3ddc97' },
+    color: { light: string; dark: string }
+    symbolType: 'circle' | 'square' | 'triangle'
+    dashed: boolean
+    /** Swatch shape behind the caption label. */
+    swatch: string
   }
+> = {
+  latency: {
+    color: { light: '#ea580c', dark: '#ffb454' },
+    symbolType: 'square',
+    dashed: false,
+    swatch: 'rounded-[1px]',
+  },
+  speed: {
+    color: { light: '#2563eb', dark: '#58a6ff' },
+    symbolType: 'circle',
+    dashed: false,
+    swatch: 'rounded-full',
+  },
+  success: {
+    color: { light: '#059669', dark: '#34d399' },
+    symbolType: 'triangle',
+    dashed: true,
+    swatch: '[clip-path:polygon(50%_0%,100%_100%,0%_100%)]',
+  },
+}
 
 const METRIC_FORMATTERS: Record<TrendMetricField, (value: number) => string> = {
   latency: formatLatency,
@@ -156,7 +181,7 @@ export function ModelOverviewTrendChart(props: ModelOverviewTrendChartProps) {
       Object.fromEntries(
         METRIC_ORDER.map((field) => [
           field,
-          METRIC_COLORS[field][isDark ? 'dark' : 'light'],
+          METRIC_STYLES[field].color[isDark ? 'dark' : 'light'],
         ])
       ) as Record<TrendMetricField, string>,
     [isDark]
@@ -204,13 +229,32 @@ export function ModelOverviewTrendChart(props: ModelOverviewTrendChartProps) {
           text: raw == null ? labels.noData : METRIC_FORMATTERS[field](raw),
         }
       })
-    const lineStyle = (color: string) => ({
-      line: { style: { lineWidth: 2, curveType: 'monotone', stroke: color } },
-      point: {
-        visible: true,
-        style: { size: 5, fill: color, stroke: '#ffffff', lineWidth: 1.5 },
-      },
-    })
+    const lineStyle = (field: TrendMetricField) => {
+      const style = METRIC_STYLES[field]
+      const color = metricColors[field]
+      return {
+        line: {
+          style: {
+            lineWidth: 2,
+            curveType: 'monotone',
+            stroke: color,
+            lineDash: style.dashed ? [4, 3] : undefined,
+          },
+        },
+        point: {
+          visible: true,
+          // 6 instead of 5: a square and a triangle need the extra pixel to
+          // stay recognisable next to a circle.
+          style: {
+            size: 6,
+            fill: color,
+            stroke: '#ffffff',
+            lineWidth: 1.5,
+            symbolType: style.symbolType,
+          },
+        },
+      }
+    }
     // The tick labels are gone, so each axis only keeps its bound and grid.
     const valueAxis = (
       field: TrendMetricField,
@@ -255,7 +299,7 @@ export function ModelOverviewTrendChart(props: ModelOverviewTrendChartProps) {
         xField: 'hour',
         yField: 'value',
         invalidType: 'break' as const,
-        ...lineStyle(metricColors[field]),
+        ...lineStyle(field),
       })),
       axes: [
         {
@@ -312,7 +356,7 @@ export function ModelOverviewTrendChart(props: ModelOverviewTrendChartProps) {
             <span
               aria-hidden
               data-metric={field}
-              className='size-2 shrink-0 rounded-full'
+              className={cn('size-2 shrink-0', METRIC_STYLES[field].swatch)}
               style={{ backgroundColor: metricColors[field] }}
             />
             <span className='text-muted-foreground'>{labels[field]}</span>
