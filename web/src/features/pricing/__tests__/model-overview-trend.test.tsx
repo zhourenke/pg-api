@@ -45,7 +45,7 @@ type CapturedSpec = {
     id: string
     invalidType?: string
     line?: { style?: { stroke?: string; lineDash?: number[] } }
-    point?: { style?: { fill?: string; symbolType?: string } }
+    point?: { style?: { fill?: string; stroke?: string; symbolType?: string } }
   }>
   axes: Array<{
     orient: string
@@ -165,6 +165,16 @@ function swatchOf(metric: TrendMetricField): HTMLElement | null {
   return document.querySelector<HTMLElement>(`[data-metric="${metric}"]`)
 }
 
+type CapturedSeries = CapturedSpec['series'][number]
+
+/** Series styles keyed by metric, so an assertion never depends on draw order. */
+function byMetric<T>(
+  spec: CapturedSpec,
+  pick: (series: CapturedSeries) => T
+): Record<string, T> {
+  return Object.fromEntries(spec.series.map((entry) => [entry.id, pick(entry)]))
+}
+
 /** jsdom serializes an inline colour as `rgb(...)`, so both sides normalize. */
 function toCssColor(value: string): string {
   const probe = document.createElement('span')
@@ -250,8 +260,14 @@ it('writes each range into the legend with the metric unit', async () => {
 })
 
 it.each([
-  { theme: 'light' as const, colors: ['#ea580c', '#2563eb', '#059669'] },
-  { theme: 'dark' as const, colors: ['#ffb454', '#58a6ff', '#34d399'] },
+  {
+    theme: 'light' as const,
+    colors: { latency: '#ea580c', speed: '#2563eb', success: '#059669' },
+  },
+  {
+    theme: 'dark' as const,
+    colors: { latency: '#ffb454', speed: '#58a6ff', success: '#34d399' },
+  },
 ])(
   'paints latency, speed and success with the $theme palette',
   async ({ theme, colors }) => {
@@ -260,18 +276,42 @@ it.each([
 
     const [spec] = await capturedSpecs()
     expect(spec.theme).toBe(theme)
-    expect(spec.color).toEqual(colors)
-    expect(spec.series.map((entry) => entry.line?.style?.stroke)).toEqual(
+    // By metric rather than by position: the drawing order is its own contract
+    // and is pinned separately below.
+    expect(byMetric(spec, (series) => series.line?.style?.stroke)).toEqual(
       colors
+    )
+    expect(spec.color).toEqual(
+      spec.series.map((entry) => colors[entry.id as TrendMetricField])
     )
     // A swatch is the only thing tying a line to its label, so it has to carry
     // the colour of the series it names.
     const fields: TrendMetricField[] = ['latency', 'speed', 'success']
-    expect(fields.map(swatchColor)).toEqual(colors.map(toCssColor))
+    expect(fields.map(swatchColor)).toEqual(
+      fields.map((field) => toCssColor(colors[field]))
+    )
     // Hue is not the only channel: rendering the chart in greyscale, or losing
     // the red-green axis, still has to leave three tellable lines.
     const swatchClasses = fields.map(swatchClass)
     expect(new Set(swatchClasses).size).toBe(fields.length)
+  }
+)
+
+it.each([
+  { theme: 'light' as const, ring: '#ffffff' },
+  { theme: 'dark' as const, ring: '#252525' },
+])(
+  'strokes every point with the $theme card colour, not white',
+  async ({ theme, ring }) => {
+    chart.mockClear()
+    renderTrend([trendGroup({ series: [hourPoint(5)] })], theme)
+
+    const [spec] = await capturedSpecs()
+    expect(byMetric(spec, (series) => series.point?.style?.stroke)).toEqual({
+      latency: ring,
+      speed: ring,
+      success: ring,
+    })
   }
 )
 
@@ -280,18 +320,41 @@ it('gives every metric its own point shape and dash', async () => {
   renderTrend([trendGroup({ series: [hourPoint(5)] })])
 
   const [spec] = await capturedSpecs()
-  expect(spec.series.map((entry) => entry.point?.style?.symbolType)).toEqual([
-    'square',
-    'circle',
-    'triangle',
-  ])
+  expect(byMetric(spec, (series) => series.point?.style?.symbolType)).toEqual({
+    latency: 'square',
+    speed: 'circle',
+    success: 'triangle',
+  })
   // Only success is dashed, so the latency/success pair - the one that
   // collapses under red-green colour blindness - differs twice over.
-  expect(spec.series.map((entry) => entry.line?.style?.lineDash)).toEqual([
-    undefined,
-    undefined,
-    [4, 3],
+  expect(byMetric(spec, (series) => series.line?.style?.lineDash)).toEqual({
+    latency: undefined,
+    speed: undefined,
+    success: [4, 3],
+  })
+})
+
+it('draws speed last and success first so the blue line stays whole', async () => {
+  chart.mockClear()
+  renderTrend([trendGroup({ series: [hourPoint(5)] })])
+
+  const [spec] = await capturedSpecs()
+  expect(spec.series.map((entry) => entry.id)).toEqual([
+    'success',
+    'latency',
+    'speed',
   ])
+  expect(spec.data.map((entry) => entry.id)).toEqual([
+    'trend-success',
+    'trend-latency',
+    'trend-speed',
+  ])
+  // The caption keeps the reading order of the axes, not the painting order.
+  expect(
+    [...document.querySelectorAll('[data-metric]')].map((node) =>
+      node.getAttribute('data-metric')
+    )
+  ).toEqual(['latency', 'speed', 'success'])
 })
 
 it('keeps a usable range when a metric has no sample in the window', async () => {
@@ -316,15 +379,18 @@ it('formats every tooltip row and reports the idle hours', async () => {
 
   const [spec] = await capturedSpecs()
   const content = spec.tooltip.dimension.content[0]
-  const latencyRow = spec.data[0].values[5]
-  const speedRow = spec.data[1].values[5]
-  const successRow = spec.data[2].values[5]
+  const rows = Object.fromEntries(
+    spec.data.map((entry) => [entry.id, entry.values])
+  )
+  const latencyRow = rows['trend-latency'][5]
+  const speedRow = rows['trend-speed'][5]
+  const successRow = rows['trend-success'][5]
 
   expect(content.key(latencyRow)).toBe('First token latency')
   expect(content.value(latencyRow)).toBe('1.20 s')
   expect(content.value(speedRow)).toBe('42.0 t/s')
   expect(content.value(successRow)).toBe('98.22%')
-  expect(content.value(spec.data[0].values[4])).toBe('No data for this hour')
+  expect(content.value(rows['trend-latency'][4])).toBe('No data for this hour')
   expect(spec.tooltip.dimension.title.value(latencyRow)).toBe(
     '2026-09-28 05:00'
   )

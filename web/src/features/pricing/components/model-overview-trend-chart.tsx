@@ -55,8 +55,31 @@ type AxisDomain = {
   text: string
 }
 
-// Palette order matches the series order; the caption swatches reuse it.
+// Caption order, not drawing order: the legend reads in the order the axes are
+// read, while the series are painted bottom-up (see METRIC_DRAW_ORDER).
 const METRIC_ORDER: TrendMetricField[] = ['latency', 'speed', 'success']
+
+/**
+ * Drawing order, first painted to last: success sits at the bottom because it is
+ * the least important of the three and a percentage line is usually flat near
+ * the ceiling anyway, latency in the middle, and speed on top so the line the
+ * eye follows most keeps its unbroken shape wherever the three cross.
+ */
+const METRIC_DRAW_ORDER: TrendMetricField[] = ['success', 'latency', 'speed']
+
+/**
+ * The point marker is stroked in the colour of the card behind it, not in white:
+ * the ring then reads as a gap cut in the lines (including the ones passing
+ * underneath) in both themes, and a bright white ring no longer stands out
+ * against the dark card. The values are the composited chart backdrop measured
+ * per theme - the card at 60% over the drawer, i.e. rgb(42,42,42) over
+ * rgb(30,30,30) = #252525 in the dark theme, white on white in the light one.
+ * A theme preset that repaints the card would need these re-measured.
+ */
+const BACKDROP_COLORS: Record<'light' | 'dark', string> = {
+  light: '#ffffff',
+  dark: '#252525',
+}
 
 /**
  * One entry per metric: a hue for each theme, plus a non-colour channel (point
@@ -175,7 +198,8 @@ export function ModelOverviewTrendChart(props: ModelOverviewTrendChartProps) {
   const isDark = resolvedTheme === 'dark'
 
   // The chart body and the caption swatches share one palette, so the theme
-  // picks its variant once per render.
+  // picks its variant once per render. The ring around every point is the card
+  // colour of the same theme, which is what cuts the lines underneath it.
   const metricColors = useMemo(
     () =>
       Object.fromEntries(
@@ -186,6 +210,7 @@ export function ModelOverviewTrendChart(props: ModelOverviewTrendChartProps) {
       ) as Record<TrendMetricField, string>,
     [isDark]
   )
+  const backdrop = BACKDROP_COLORS[isDark ? 'dark' : 'light']
 
   const labels = useMemo(
     () => ({
@@ -248,7 +273,7 @@ export function ModelOverviewTrendChart(props: ModelOverviewTrendChartProps) {
           style: {
             size: 6,
             fill: color,
-            stroke: '#ffffff',
+            stroke: backdrop,
             lineWidth: 1.5,
             symbolType: style.symbolType,
           },
@@ -286,12 +311,12 @@ export function ModelOverviewTrendChart(props: ModelOverviewTrendChartProps) {
 
     return {
       type: 'common' as const,
-      color: METRIC_ORDER.map((field) => metricColors[field]),
-      data: METRIC_ORDER.map((field) => ({
+      color: METRIC_DRAW_ORDER.map((field) => metricColors[field]),
+      data: METRIC_DRAW_ORDER.map((field) => ({
         id: `trend-${field}`,
         values: buildValues(field),
       })),
-      series: METRIC_ORDER.map((field) => ({
+      series: METRIC_DRAW_ORDER.map((field) => ({
         id: field,
         name: labels[field],
         type: 'line' as const,
@@ -346,7 +371,7 @@ export function ModelOverviewTrendChart(props: ModelOverviewTrendChartProps) {
       theme: isDark ? 'dark' : 'light',
       background: 'transparent',
     }
-  }, [domains, isDark, labels, metricColors, props.slots])
+  }, [backdrop, domains, isDark, labels, metricColors, props.slots])
 
   return (
     <div className={cn('space-y-2', props.className)}>
