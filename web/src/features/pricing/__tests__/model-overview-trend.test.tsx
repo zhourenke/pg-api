@@ -45,7 +45,14 @@ type CapturedSpec = {
     id: string
     invalidType?: string
     line?: { style?: { stroke?: string; lineDash?: number[] } }
-    point?: { style?: { fill?: string; stroke?: string; symbolType?: string } }
+    point?: {
+      style?: {
+        fill?: string
+        stroke?: string
+        size?: number
+        symbolType?: string
+      }
+    }
   }>
   axes: Array<{
     orient: string
@@ -331,6 +338,22 @@ it('gives every metric its own point shape and dash', async () => {
     latency: undefined,
     speed: undefined,
     success: [4, 3],
+  })
+})
+
+it('sizes each marker so the three shapes paint the same amount of ink', async () => {
+  chart.mockClear()
+  renderTrend([trendGroup({ series: [hourPoint(5)] })])
+
+  const [spec] = await capturedSpecs()
+  // `size` is a bounding-box edge, not an area: the square fills its box, the
+  // circle paints pi/4 of it and the triangle half, and the 1.5px ring then eats
+  // inward from all sides. These three values are the measured equal-ink
+  // solution, so they move together - never change one of them alone.
+  expect(byMetric(spec, (series) => series.point?.style?.size)).toEqual({
+    latency: 5.7,
+    speed: 6,
+    success: 8.5,
   })
 })
 

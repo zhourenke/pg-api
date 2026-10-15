@@ -94,6 +94,21 @@ const METRIC_STYLES: Record<
   {
     color: { light: string; dark: string }
     symbolType: 'circle' | 'square' | 'triangle'
+    /**
+     * VChart's `size` is a bounding-box edge, not an area, so one number gives a
+     * circle pi/4 of its box, a square the whole box and this triangle half of
+     * it - and the 1.5px ring is then cut inward out of that, which hurts the
+     * thin triangle most. These three values were calibrated by rendering the
+     * chart, reading the ink each marker actually paints and equalising it, so
+     * every metric shows the same amount of colour. That is why the triangle
+     * needs a visibly wider box than the circle: at equal ink a pointed shape
+     * reads smaller, so this is the correction for it, not an accident. The
+     * relation is roughly `ink = k (size - ring)^2` per shape (k is largest for
+     * the square, smallest for the triangle); **re-measure all three after
+     * changing the ring width, the shapes or the theme's card colour**, and keep
+     * the circle as the reference - it is the one the others are matched to.
+     */
+    size: number
     dashed: boolean
     /** Swatch shape behind the caption label. */
     swatch: string
@@ -102,18 +117,21 @@ const METRIC_STYLES: Record<
   latency: {
     color: { light: '#ea580c', dark: '#ffb454' },
     symbolType: 'square',
+    size: 5.7,
     dashed: false,
     swatch: 'rounded-[1px]',
   },
   speed: {
     color: { light: '#2563eb', dark: '#58a6ff' },
     symbolType: 'circle',
+    size: 6,
     dashed: false,
     swatch: 'rounded-full',
   },
   success: {
     color: { light: '#059669', dark: '#34d399' },
     symbolType: 'triangle',
+    size: 8.5,
     dashed: true,
     swatch: '[clip-path:polygon(50%_0%,100%_100%,0%_100%)]',
   },
@@ -271,7 +289,7 @@ export function ModelOverviewTrendChart(props: ModelOverviewTrendChartProps) {
           // 6 instead of 5: a square and a triangle need the extra pixel to
           // stay recognisable next to a circle.
           style: {
-            size: 6,
+            size: style.size,
             fill: color,
             stroke: backdrop,
             lineWidth: 1.5,
