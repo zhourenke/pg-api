@@ -1,3 +1,4 @@
+import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -14,6 +15,20 @@ export default defineConfig(({ envMode }) => {
     process.env.VITE_REACT_APP_SERVER_URL ||
     env.rawPublicVars.VITE_REACT_APP_SERVER_URL ||
     'http://localhost:3000'
+
+  const versionFromFile = (() => {
+    try {
+      return fs.readFileSync(path.resolve(__dirname, '../VERSION'), 'utf-8')
+    } catch {
+      return ''
+    }
+  })()
+  const appVersion = (
+    process.env.VITE_REACT_APP_VERSION ||
+    env.rawPublicVars.VITE_REACT_APP_VERSION ||
+    versionFromFile ||
+    ''
+  ).trim()
 
   const isProd = envMode === 'production'
   const devProxy = Object.fromEntries(
@@ -58,10 +73,11 @@ export default defineConfig(({ envMode }) => {
       },
       define: {
         // Rsbuild injects only PUBLIC_-prefixed vars into client code, so the
-        // VITE_ devtools switch has to be exposed explicitly.
+        // VITE_ devtools switch and app version have to be exposed explicitly.
         'import.meta.env.VITE_DEVTOOLS': JSON.stringify(
           env.rawPublicVars.VITE_DEVTOOLS ?? ''
         ),
+        'import.meta.env.VITE_REACT_APP_VERSION': JSON.stringify(appVersion),
       },
     },
     resolve: {

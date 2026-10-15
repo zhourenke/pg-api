@@ -21,6 +21,7 @@ For commercial licensing, please contact support@quantumnous.com
 // 由 rsbuild.config.ts 的 source.define 注入。开发模式下设为 off 可以隐藏 TanStack 调试浮标。
 interface ImportMetaEnv {
   readonly VITE_DEVTOOLS?: string
+  readonly VITE_REACT_APP_VERSION?: string
 }
 
 declare module '@visactor/react-vchart' {

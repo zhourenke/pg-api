@@ -43,10 +43,10 @@ For commercial licensing, please contact support@quantumnous.com
  * NOTE: keep in sync with the CI release slug. Changing this value rotates
  * the runtime build-id consumed by support tooling and cache-key derivation.
  */
-const BUILD_CHANNEL_TAG = '2k6e8r7p'
+export const BUILD_CHANNEL_TAG = '2k6e8r7p'
 
-const BUILD_REV_PREFIX = 'rv'
-const LS_REVISION_KEY = 'app:rev'
+export const BUILD_REV_PREFIX = 'rv'
+export const LS_REVISION_KEY = 'app:rev'
 
 interface BuildDescriptor {
   readonly rev: string
@@ -62,10 +62,7 @@ declare global {
 
 function readEnvRevision(): string | undefined {
   try {
-    const env = (
-      import.meta as unknown as { env?: Record<string, string | undefined> }
-    ).env
-    const raw = env?.VITE_REACT_APP_VERSION
+    const raw = import.meta.env.VITE_REACT_APP_VERSION
     if (typeof raw === 'string' && raw.length > 0) return raw
   } catch {
     // import.meta may be unavailable in some test environments.
@@ -73,8 +70,9 @@ function readEnvRevision(): string | undefined {
   return undefined
 }
 
-function computeBuildRevision(): string {
-  const envRev = readEnvRevision()
+export function computeBuildRevision(overrideVersion?: string): string {
+  const envRev =
+    overrideVersion !== undefined ? overrideVersion : readEnvRevision()
   const head = envRev && envRev.length > 0 ? envRev : '0000'
   return `${BUILD_REV_PREFIX}.${head}.${BUILD_CHANNEL_TAG}`
 }
@@ -165,3 +163,16 @@ export function installBuildMetadata(): void {
  * Return the canonical build revision string. Useful for support bundles
  * and for asserting the metadata layer is installed.
  */
+export function getBuildRevision(): string {
+  if (typeof window !== 'undefined' && window.__APP_BUILD__?.rev) {
+    return window.__APP_BUILD__.rev
+  }
+  return computeBuildRevision()
+}
+
+/**
+ * Internal helper for testing only to reset installed state.
+ */
+export function _resetInstalledForTesting(): void {
+  installed = false
+}
