@@ -20,12 +20,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor } from '@testing-library/react'
 import { expect, it, vi } from 'vitest'
 
+import { ThemeProvider } from '@/context/theme-provider'
 import type {
   PerformanceGroup,
   PerformanceSeriesPoint,
 } from '@/features/performance-metrics/types'
 
 import { ModelOverviewTrend } from '../components/model-overview-trend'
+
+type TrendMetricField = 'latency' | 'speed' | 'success'
 
 type TrendDatumLike = {
   hour: string
@@ -36,8 +39,13 @@ type TrendDatumLike = {
 }
 
 type CapturedSpec = {
+  color?: string[]
   data: Array<{ id: string; values: TrendDatumLike[] }>
-  series: Array<{ id: string; invalidType?: string }>
+  series: Array<{
+    id: string
+    invalidType?: string
+    line?: { style?: { stroke?: string } }
+  }>
   axes: Array<{
     orient: string
     domain?: string[]
@@ -59,6 +67,7 @@ type CapturedSpec = {
       }>
     }
   }
+  theme?: string
 }
 
 const chart = vi.hoisted(() => vi.fn((_props: { spec: CapturedSpec }) => null))
@@ -101,7 +110,10 @@ function trendGroup(
   }
 }
 
-function renderTrend(groups: PerformanceGroup[]) {
+function renderTrend(
+  groups: PerformanceGroup[],
+  theme: 'light' | 'dark' = 'light'
+) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   })
@@ -116,24 +128,41 @@ function renderTrend(groups: PerformanceGroup[]) {
   })
 
   return render(
-    <QueryClientProvider client={client}>
-      <ModelOverviewTrend
-        model={{
-          id: 1,
-          model_name: 'test-model',
-          quota_type: 0,
-          model_ratio: 1,
-          completion_ratio: 1,
-          enable_groups: ['default'],
-        }}
-      />
-    </QueryClientProvider>
+    <ThemeProvider defaultTheme={theme}>
+      <QueryClientProvider client={client}>
+        <ModelOverviewTrend
+          model={{
+            id: 1,
+            model_name: 'test-model',
+            quota_type: 0,
+            model_ratio: 1,
+            completion_ratio: 1,
+            enable_groups: ['default'],
+          }}
+        />
+      </QueryClientProvider>
+    </ThemeProvider>
   )
 }
 
 async function capturedSpecs(): Promise<CapturedSpec[]> {
   await waitFor(() => expect(chart).toHaveBeenCalled())
   return chart.mock.calls.map(([props]) => props.spec)
+}
+
+/** The legend swatch of one metric, read back from its inline colour. */
+function swatchColor(metric: TrendMetricField): string {
+  const swatch = document.querySelector<HTMLElement>(
+    `[data-metric="${metric}"]`
+  )
+  return swatch?.style.backgroundColor ?? ''
+}
+
+/** jsdom serializes an inline colour as `rgb(...)`, so both sides normalize. */
+function toCssColor(value: string): string {
+  const probe = document.createElement('span')
+  probe.style.backgroundColor = value
+  return probe.style.backgroundColor
 }
 
 it('keeps all 24 hours on the axis and breaks the line on idle hours', async () => {
@@ -212,6 +241,28 @@ it('writes each range into the legend with the metric unit', async () => {
   expect(screen.getByText('0-50 t/s')).toBeVisible()
   expect(screen.getByText('0-80%')).toBeVisible()
 })
+
+it.each([
+  { theme: 'light' as const, colors: ['#f97316', '#2563eb', '#16a34a'] },
+  { theme: 'dark' as const, colors: ['#ffb454', '#58a6ff', '#3ddc97'] },
+])(
+  'paints latency, speed and success with the $theme palette',
+  async ({ theme, colors }) => {
+    chart.mockClear()
+    renderTrend([trendGroup({ series: [hourPoint(5)] })], theme)
+
+    const [spec] = await capturedSpecs()
+    expect(spec.theme).toBe(theme)
+    expect(spec.color).toEqual(colors)
+    expect(spec.series.map((entry) => entry.line?.style?.stroke)).toEqual(
+      colors
+    )
+    // A swatch is the only thing tying a line to its label, so it has to carry
+    // the colour of the series it names.
+    const fields: TrendMetricField[] = ['latency', 'speed', 'success']
+    expect(fields.map(swatchColor)).toEqual(colors.map(toCssColor))
+  }
+)
 
 it('keeps a usable range when a metric has no sample in the window', async () => {
   chart.mockClear()

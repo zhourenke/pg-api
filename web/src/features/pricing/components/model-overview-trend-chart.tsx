@@ -58,11 +58,18 @@ type AxisDomain = {
 // Palette order matches the series order; the caption swatches reuse it.
 const METRIC_ORDER: TrendMetricField[] = ['latency', 'speed', 'success']
 
-const METRIC_COLORS: Record<TrendMetricField, string> = {
-  latency: '#3b82f6',
-  speed: '#a855f7',
-  success: '#10b981',
-}
+/**
+ * One hue per metric, with a brighter variant for the dark theme: latency is
+ * orange (waiting, needs attention), speed blue (throughput) and success green
+ * (healthy). The caption swatches read the same entry as their series, so a
+ * legend entry can never disagree with its line.
+ */
+const METRIC_COLORS: Record<TrendMetricField, { light: string; dark: string }> =
+  {
+    latency: { light: '#f97316', dark: '#ffb454' },
+    speed: { light: '#2563eb', dark: '#58a6ff' },
+    success: { light: '#16a34a', dark: '#3ddc97' },
+  }
 
 const METRIC_FORMATTERS: Record<TrendMetricField, (value: number) => string> = {
   latency: formatLatency,
@@ -140,6 +147,20 @@ export interface ModelOverviewTrendChartProps {
 export function ModelOverviewTrendChart(props: ModelOverviewTrendChartProps) {
   const { t } = useTranslation()
   const { resolvedTheme, themeReady } = useChartTheme()
+  const isDark = resolvedTheme === 'dark'
+
+  // The chart body and the caption swatches share one palette, so the theme
+  // picks its variant once per render.
+  const metricColors = useMemo(
+    () =>
+      Object.fromEntries(
+        METRIC_ORDER.map((field) => [
+          field,
+          METRIC_COLORS[field][isDark ? 'dark' : 'light'],
+        ])
+      ) as Record<TrendMetricField, string>,
+    [isDark]
+  )
 
   const labels = useMemo(
     () => ({
@@ -164,7 +185,6 @@ export function ModelOverviewTrendChart(props: ModelOverviewTrendChartProps) {
   }, [props.slots])
 
   const spec = useMemo(() => {
-    const isDark = resolvedTheme === 'dark'
     // VChart themes cover the chart body; the hour labels keep the same muted
     // tone the previous charts used so both themes stay legible.
     const labelStyle = {
@@ -222,7 +242,7 @@ export function ModelOverviewTrendChart(props: ModelOverviewTrendChartProps) {
 
     return {
       type: 'common' as const,
-      color: METRIC_ORDER.map((field) => METRIC_COLORS[field]),
+      color: METRIC_ORDER.map((field) => metricColors[field]),
       data: METRIC_ORDER.map((field) => ({
         id: `trend-${field}`,
         values: buildValues(field),
@@ -235,7 +255,7 @@ export function ModelOverviewTrendChart(props: ModelOverviewTrendChartProps) {
         xField: 'hour',
         yField: 'value',
         invalidType: 'break' as const,
-        ...lineStyle(METRIC_COLORS[field]),
+        ...lineStyle(metricColors[field]),
       })),
       axes: [
         {
@@ -279,10 +299,10 @@ export function ModelOverviewTrendChart(props: ModelOverviewTrendChartProps) {
           ],
         },
       },
-      theme: resolvedTheme === 'dark' ? 'dark' : 'light',
+      theme: isDark ? 'dark' : 'light',
       background: 'transparent',
     }
-  }, [domains, labels, props.slots, resolvedTheme])
+  }, [domains, isDark, labels, metricColors, props.slots])
 
   return (
     <div className={cn('space-y-2', props.className)}>
@@ -291,8 +311,9 @@ export function ModelOverviewTrendChart(props: ModelOverviewTrendChartProps) {
           <span key={field} className='flex items-center gap-1.5 text-[11px]'>
             <span
               aria-hidden
+              data-metric={field}
               className='size-2 shrink-0 rounded-full'
-              style={{ backgroundColor: METRIC_COLORS[field] }}
+              style={{ backgroundColor: metricColors[field] }}
             />
             <span className='text-muted-foreground'>{labels[field]}</span>
             <span className='text-foreground/75 font-mono tabular-nums'>
