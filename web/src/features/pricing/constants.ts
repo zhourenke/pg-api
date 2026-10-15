@@ -84,7 +84,7 @@ export function getQuotaTypeLabels(
     [QUOTA_TYPES.ALL]: t('All Models'),
     [QUOTA_TYPES.TOKEN]: t('Token-based'),
     [QUOTA_TYPES.REQUEST]: t('Per Request'),
-    [QUOTA_TYPES.MIXED]: t('Token or per-call pricing'),
+    [QUOTA_TYPES.MIXED]: t('Mixed billing'),
   }
 }
 

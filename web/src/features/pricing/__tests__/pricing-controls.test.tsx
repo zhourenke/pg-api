@@ -122,7 +122,7 @@ describe('pricing controls', () => {
       screen.getByRole('button', { name: /^Per Request\s*2$/ })
     ).toBeVisible()
     expect(
-      screen.getByRole('button', { name: /^Token or per-call pricing\s*0$/ })
+      screen.getByRole('button', { name: /^Mixed billing\s*0$/ })
     ).toBeVisible()
 
     rerender(<PricingSidebar {...sidebarProps} models={[models[1]]} />)
@@ -140,7 +140,7 @@ describe('pricing controls', () => {
       screen.getByRole('button', { name: /^Per Request\s*1$/ })
     ).toBeVisible()
     expect(
-      screen.getByRole('button', { name: /^Token or per-call pricing\s*0$/ })
+      screen.getByRole('button', { name: /^Mixed billing\s*0$/ })
     ).toBeVisible()
   })
 
@@ -187,7 +187,7 @@ describe('pricing controls', () => {
       screen.getByRole('button', { name: /^Per Request\s*2$/ })
     ).toBeVisible()
     expect(
-      screen.getByRole('button', { name: /^Token or per-call pricing\s*1$/ })
+      screen.getByRole('button', { name: /^Mixed billing\s*1$/ })
     ).toBeVisible()
   })
 

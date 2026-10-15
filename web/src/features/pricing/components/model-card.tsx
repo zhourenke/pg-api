@@ -169,7 +169,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
           )}
           {dynamicSummary.isMixedBilling && (
             <span className='text-muted-foreground col-span-full text-xs'>
-              {t('Token or per-call pricing')}
+              {t('Mixed billing')}
             </span>
           )}
         </>

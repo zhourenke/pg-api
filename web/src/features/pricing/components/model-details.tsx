@@ -567,7 +567,7 @@ function PriceSection(props: {
         <SectionTitle>{t('Base Price')}</SectionTitle>
         {dynamicSummary.isMixedBilling && (
           <p className='text-muted-foreground mb-2 text-xs'>
-            {t('Token or per-call pricing')}
+            {t('Mixed billing')}
           </p>
         )}
         {dynamicSummary.primaryEntries.length > 0 ? (
