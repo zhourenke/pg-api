@@ -586,6 +586,12 @@ func migrateLogDurationsAndFrt() error {
 	if LOG_DB == nil || common.UsingLogDatabase(common.DatabaseTypeClickHouse) {
 		return nil
 	}
+	if DB != nil {
+		var opt Option
+		if err := DB.Where(commonKeyCol+" = ?", "migrated_log_duration_frt").First(&opt).Error; err == nil && opt.Value == "true" {
+			return nil
+		}
+	}
 	// Prefer exact millisecond duration from other for unmigrated rows (use_time < 1000)
 	switch {
 	case common.UsingLogDatabase(common.DatabaseTypePostgreSQL):
@@ -597,6 +603,10 @@ func migrateLogDurationsAndFrt() error {
 	}
 	// Fall back to use_time * 1000 for any older logs without use_time_ms
 	_ = LOG_DB.Exec("UPDATE logs SET use_time = use_time * 1000 WHERE use_time > 0 AND use_time < 1000").Error
+
+	if DB != nil {
+		_ = DB.FirstOrCreate(&Option{Key: "migrated_log_duration_frt", Value: "true"}, Option{Key: "migrated_log_duration_frt"}).Error
+	}
 	return nil
 }
 
