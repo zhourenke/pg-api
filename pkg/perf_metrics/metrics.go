@@ -30,6 +30,13 @@ func Init() {
 
 // RecordRelayResult samples one finished relay exactly once, at the request
 // boundary, regardless of how many channel attempts it took.
+//
+// The windows are measured from ResponseEndTime, the instant the relay stopped
+// serving the request, which settlement records together with the consume log's
+// use_time_ms. Sampling the wall clock here instead would charge every request
+// with the settlement that runs in between — on a device whose database commits
+// take hundreds of milliseconds this dominated the card's speed and made it
+// disagree with the same request's usage-log row.
 func RecordRelayResult(ctx context.Context, info *relaycommon.RelayInfo, apiErr *types.NewAPIError) {
 	if info == nil {
 		return
@@ -38,7 +45,10 @@ func RecordRelayResult(ctx context.Context, info *relaycommon.RelayInfo, apiErr 
 	if outcome == OutcomeIgnored {
 		return
 	}
-	now := time.Now()
+	now := info.ResponseEndTime
+	if now.IsZero() {
+		now = time.Now()
+	}
 	hasTtft := info.IsStream && info.HasSendResponse()
 	ttftMs := int64(0)
 	if hasTtft {

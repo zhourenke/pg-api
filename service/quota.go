@@ -157,7 +157,7 @@ func PostWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, mod
 		tieredResult = tieredRes
 	}
 
-	useTimeSeconds, useTimeMs := measuredUseTime(relayInfo.StartTime)
+	useTimeSeconds, useTimeMs := measuredUseTime(relayInfo)
 	textInputTokens := usage.InputTokenDetails.TextTokens
 	textOutTokens := usage.OutputTokenDetails.TextTokens
 
@@ -290,7 +290,7 @@ func PostAudioConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, u
 	}
 	fixedPriceBilling := tieredOk && isFixedPriceSettlement(relayInfo, tieredRes)
 
-	useTimeSeconds, useTimeMs := measuredUseTime(relayInfo.StartTime)
+	useTimeSeconds, useTimeMs := measuredUseTime(relayInfo)
 	textInputTokens := usage.PromptTokensDetails.TextTokens
 	textOutTokens := usage.CompletionTokenDetails.TextTokens
 

@@ -260,6 +260,35 @@ func TestPerformanceAggregationAndFlush(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, stored, 1)
 			assert.Equal(t, int64(2), stored[0].RequestCount, "partial flushes upsert onto the same current-hour row")
+
+			// The sample must end where settlement recorded the end of the
+			// response, not where sampling happens to run: on a device whose
+			// database commits take hundreds of milliseconds, sampling the wall
+			// clock here charged that settlement to the model and made the card
+			// disagree with the same request's usage-log row.
+			settledAt := time.Now().Add(-1500 * time.Millisecond)
+			endInfo := &relaycommon.RelayInfo{
+				OriginModelName:         "end-model",
+				UsingGroup:              "b",
+				StartTime:               settledAt.Add(-5 * time.Second),
+				FirstResponseTime:       settledAt.Add(-3 * time.Second),
+				IsStream:                true,
+				ResponseEndTime:         settledAt,
+				PerformanceOutputTokens: 100,
+			}
+			RecordRelayResult(context.Background(), endInfo, nil)
+			value, ok := hotBuckets.Load(bucketKey{
+				model:    "end-model",
+				group:    "b",
+				bucketTs: bucketStart(settledAt.Unix()),
+			})
+			require.True(t, ok, "the sample must land in the recorded instant's bucket")
+			endCounters := value.(*atomicBucket).snapshot()
+			assert.Equal(t, int64(5000), endCounters.totalLatencyMs)
+			assert.Equal(t, int64(2000), endCounters.ttftSumMs)
+			assert.Equal(t, int64(1), endCounters.ttftCount)
+			assert.Equal(t, int64(100), endCounters.outputTokens)
+			assert.Equal(t, int64(3000), endCounters.generationMs)
 		})
 	}
 }

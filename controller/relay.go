@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/constant"
@@ -153,6 +154,10 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		relayInfo.StreamStatus = nil
 		relayInfo.PerformanceBusinessRejection = false
 		relayInfo.PerformanceOutputTokens = 0
+		// A failed attempt settles too, and settlement records when the relay
+		// stopped serving (ResponseEndTime). The sample describes the request
+		// as a whole, so the last attempt must be able to set that instant.
+		relayInfo.ResponseEndTime = time.Time{}
 		relayInfo.RetryIndex = retryParam.GetRetry()
 		channel, channelErr := getChannel(c, relayInfo, retryParam)
 		if channelErr != nil {

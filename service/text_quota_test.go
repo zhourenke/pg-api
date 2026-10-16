@@ -259,6 +259,11 @@ func runFixedPriceAccountingCases(t *testing.T, db, logDB *gorm.DB) {
 					assert.Equal(t, 1, log.UseTime)
 					assert.GreaterOrEqual(t, useTimeMs, float64(1500))
 					assert.Less(t, useTimeMs, float64(60_000))
+					// The perf sample measures its windows from the instant this
+					// reading recorded, so the two screens cannot disagree by the
+					// settlement that runs after it.
+					require.False(t, info.ResponseEndTime.IsZero(), "settlement must record the end of the response")
+					assert.Equal(t, useTimeMs, float64(info.ResponseEndTime.Sub(info.StartTime).Milliseconds()))
 					// The first-token wait is the other half of that window, so it is
 					// published in the same unit from the same instant pair and can
 					// never reach the duration it is part of.

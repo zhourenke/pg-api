@@ -65,8 +65,19 @@ func attachToolPriceDivergenceToOther(other *model.LogOther, divergences []strin
 // throughput from. One reading keeps the two consistent, and truncating the
 // measured duration is more accurate than the difference of two Unix-second
 // timestamps, which could sit up to a second away from the true duration.
-func measuredUseTime(startTime time.Time) (seconds int64, milliseconds int64) {
-	milliseconds = time.Since(startTime).Milliseconds()
+//
+// The reading's instant is also recorded on the relay info: settlement (quota
+// updates and the consume-log write) runs after it, so the perf sample must
+// measure its windows from this instant rather than from the wall clock at
+// sampling time, or the two screens would disagree by the whole settlement cost.
+func measuredUseTime(info *relaycommon.RelayInfo) (seconds int64, milliseconds int64) {
+	end := time.Now()
+	if info.ResponseEndTime.IsZero() {
+		// The first settlement is the one closest to the end of the response;
+		// a later one (a violation fee, for example) must not push it forward.
+		info.ResponseEndTime = end
+	}
+	milliseconds = end.Sub(info.StartTime).Milliseconds()
 	return milliseconds / 1000, milliseconds
 }
 

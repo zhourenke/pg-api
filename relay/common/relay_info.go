@@ -100,6 +100,13 @@ type RelayInfo struct {
 	StartTime         time.Time
 	FirstResponseTime time.Time
 	isFirstResponse   bool
+	// ResponseEndTime is the instant the relay stopped serving this request,
+	// recorded once with the settlement reading that the consume log's
+	// use_time_ms comes from. The perf sample measures its latency and
+	// generation windows from this instant instead of from the wall clock at
+	// sampling time, because settlement (quota updates and the consume-log
+	// write) runs between the two and would otherwise be charged to the model.
+	ResponseEndTime time.Time
 	//SendLastReasoningResponse bool
 	IsStream               bool
 	IsGeminiBatchEmbedding bool
