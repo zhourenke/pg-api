@@ -171,12 +171,11 @@ export function AmountDiscountVisualEditor({
                 header: t('Discount'),
                 cell: (discount) => (
                   <StatusBadge
+                    label={`${formatPercentage(discount.discountRate)} ${t('off')}`}
                     variant={discount.discountRate < 1 ? 'info' : 'neutral'}
                     className='font-mono'
                     copyable={false}
-                  >
-                    {formatPercentage(discount.discountRate)} {t('off')}
-                  </StatusBadge>
+                  />
                 ),
               },
               {

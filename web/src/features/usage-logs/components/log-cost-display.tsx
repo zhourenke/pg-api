@@ -86,7 +86,7 @@ export function LogCostDisplay(props: LogCostDisplayProps) {
           copyable={false}
           className='border-border/80 bg-muted/60 text-foreground min-w-0 rounded-md border font-semibold tabular-nums'
         >
-          <span className='min-w-0 truncate whitespace-nowrap'>
+          <span className='min-w-0 truncate leading-normal whitespace-nowrap'>
             {formatLogQuota(props.quota)}
           </span>
         </StatusBadge>

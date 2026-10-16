@@ -427,3 +427,13 @@ it.each([
     ).not.toBeInTheDocument()
   }
 )
+
+it('applies leading-normal so descenders in model names are not truncated by line-height', () => {
+  render(<ModelBadge modelName='gemini-3.8-flash' />)
+  const textEl = screen.getByText('gemini-3.8-flash')
+  expect(textEl).toHaveClass('leading-normal')
+  expect(textEl).not.toHaveClass('leading-none')
+  const badgeEl = textEl.closest('[data-slot="status-badge"]')
+  expect(badgeEl).not.toHaveClass('leading-none')
+  expect(badgeEl).toHaveClass('leading-normal')
+})

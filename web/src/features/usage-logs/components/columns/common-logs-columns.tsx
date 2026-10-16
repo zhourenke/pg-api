@@ -582,14 +582,14 @@ export function useCommonLogsColumns(
               </Tooltip>
             </TooltipProvider>
             {(group || groupRatio != null) && (
-              <span className='block max-w-full truncate text-xs leading-none'>
+              <span className='block max-w-full truncate text-xs leading-normal'>
                 {group ? (
                   <GroupBadge
                     group={group}
                     label={sensitiveVisible ? undefined : '••••'}
                     type='text'
                     size='sm'
-                    className='inline align-baseline text-xs leading-none [&>span]:leading-none'
+                    className='inline align-baseline text-xs leading-normal [&>span]:leading-normal'
                   />
                 ) : null}
                 {group && groupRatio != null ? ' ' : null}

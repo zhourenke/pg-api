@@ -208,9 +208,11 @@ function GroupSection(props: GroupSectionProps) {
                 {t('Not in pricing table')}
               </StatusBadge>
             )}
-            <StatusBadge variant='neutral' copyable={false}>
-              {props.items.length} {t('rules')}
-            </StatusBadge>
+            <StatusBadge
+              label={`${props.items.length} ${t('rules')}`}
+              variant='neutral'
+              copyable={false}
+            />
           </CollapsibleTrigger>
           <div className='flex shrink-0 items-center gap-1'>
             <Button

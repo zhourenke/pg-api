@@ -75,7 +75,7 @@ function ModelBadgeContent(props: ModelBadgeProps & { copyable: boolean }) {
           className={
             props.wrapText
               ? 'line-clamp-2 leading-5 [overflow-wrap:anywhere]'
-              : 'min-w-0 truncate whitespace-nowrap'
+              : 'min-w-0 truncate leading-normal whitespace-nowrap'
           }
         >
           {props.modelName}

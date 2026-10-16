@@ -1484,11 +1484,10 @@ function GroupDetailSheet(props: GroupDetailSheetProps) {
                             })}
                       </span>
                       <StatusBadge
+                        label={rule.visible ? t('Visible') : t('Hidden')}
                         variant={rule.visible ? 'info' : 'danger'}
                         copyable={false}
-                      >
-                        {rule.visible ? t('Visible') : t('Hidden')}
-                      </StatusBadge>
+                      />
                     </li>
                   ))}
                 </ul>
