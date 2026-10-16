@@ -653,7 +653,25 @@ func migrateTokenModelLimitsToText() error {
 	return nil
 }
 
+func checkpointSQLite(db *gorm.DB) {
+	if db == nil || db.Dialector == nil || db.Dialector.Name() != "sqlite" {
+		return
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		return
+	}
+	var busy, log, checkpointed int
+	row := sqlDB.QueryRow("PRAGMA wal_checkpoint(TRUNCATE);")
+	if err := row.Scan(&busy, &log, &checkpointed); err != nil {
+		common.SysLog(fmt.Sprintf("SQLite wal_checkpoint failed: %v", err))
+	} else if common.DebugEnabled || log > 0 {
+		common.SysLog(fmt.Sprintf("SQLite wal_checkpoint(TRUNCATE): busy=%d, log=%d, checkpointed=%d", busy, log, checkpointed))
+	}
+}
+
 func closeDB(db *gorm.DB) error {
+	checkpointSQLite(db)
 	sqlDB, err := db.DB()
 	if err != nil {
 		return err
