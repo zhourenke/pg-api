@@ -112,21 +112,21 @@ function renderAggregatePriorityCell(
   )
 }
 
-function renderAggregateStatusCell(status: number) {
+function renderAggregateStatusCell(
+  childrenStatuses: number[] = [1, 1],
+  rowStatus: number = 1
+) {
   const tagRow = {
     id: 'tag:Command',
     name: 'Command',
     tag: 'Command',
-    status,
+    status: rowStatus,
     used_quota: 12.3456,
-    children: [
-      { id: 1, status: 1 },
-      { id: 2, status },
-    ],
+    children: childrenStatuses.map((s, index) => ({ id: index + 1, status: s })),
   } as unknown as Channel
   const row = {
     original: tagRow,
-    getValue: (key: string) => (key === 'status' ? status : undefined),
+    getValue: (key: string) => (key === 'status' ? rowStatus : undefined),
   } as unknown as Row<Channel>
 
   const { result } = renderHook(() => useChannelsColumns())
@@ -217,11 +217,16 @@ describe('channel aggregate row', () => {
     expect(name.container).toHaveTextContent('2 个渠道')
     expect(name.container.textContent).not.toContain('channels')
 
-    const active = renderAggregateStatusCell(1)
-    expect(active.container).toHaveTextContent('生效（2）')
+    const active = renderAggregateStatusCell([1, 1], 1)
+    expect(active.container).toHaveTextContent('生效')
+    expect(active.container.textContent).not.toContain('（')
 
-    const inactive = renderAggregateStatusCell(0)
-    expect(inactive.container).toHaveTextContent('未生效（2）')
+    const partial = renderAggregateStatusCell([1, 2], 1)
+    expect(partial.container).toHaveTextContent('部分生效（1/2）')
+
+    const inactive = renderAggregateStatusCell([2, 2], 2)
+    expect(inactive.container).toHaveTextContent('未生效')
+    expect(inactive.container.textContent).not.toContain('（')
   })
 
   it('names the group of channels that carry no tag', async () => {

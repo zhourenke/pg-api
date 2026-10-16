@@ -59,6 +59,7 @@ import { truncateText } from '@/lib/utils'
 
 import { getCodexUsage, updateChannelBalance } from '../api'
 import {
+  CHANNEL_STATUS,
   CHANNEL_STATUS_CONFIG,
   CHANNEL_TYPE_VLLM,
   CHANNEL_TYPE_SGLANG,
@@ -1037,30 +1038,48 @@ export function useChannelsColumns(
 
           // Tag row: show aggregated status
           if (isTagRow) {
-            const childrenCount = (row.original as TagRow).children?.length || 0
-            const hasEnabled = status === 1
+            const children = (row.original as TagRow).children || []
+            const totalCount = children.length
+            const enabledCount = children.filter(
+              (child) => child.status === CHANNEL_STATUS.ENABLED
+            ).length
 
-            if (hasEnabled) {
+            if (totalCount > 0 && enabledCount === totalCount) {
               return (
                 <StatusBadge
-                  label={t('Active ({{count}})', { count: childrenCount })}
+                  label={t('Active')}
                   variant='success'
                   size='sm'
                   copyable={false}
                   className='-ml-1.5'
                 />
               )
-            } else {
+            }
+
+            if (enabledCount > 0) {
               return (
                 <StatusBadge
-                  label={t('Inactive ({{count}})', { count: childrenCount })}
-                  variant='neutral'
+                  label={t('Partially active ({{enabled}}/{{total}})', {
+                    enabled: enabledCount,
+                    total: totalCount,
+                  })}
+                  variant='warning'
                   size='sm'
                   copyable={false}
                   className='-ml-1.5'
                 />
               )
             }
+
+            return (
+              <StatusBadge
+                label={t('Inactive')}
+                variant='neutral'
+                size='sm'
+                copyable={false}
+                className='-ml-1.5'
+              />
+            )
           }
 
           // Regular channel row
