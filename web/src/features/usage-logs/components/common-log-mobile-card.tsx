@@ -76,7 +76,7 @@ export function CommonLogMobileCard<TData>(props: {
   const timing = isTimingLogType(log.type)
   const model = formatModelName(log)
   const config = getLogTypeConfig(log.type)
-  const group = log.group || other?.group || ''
+  const group = log.group || ''
   const groupRatio =
     other?.user_group_ratio != null && other.user_group_ratio !== -1
       ? other.user_group_ratio
@@ -206,7 +206,7 @@ export function CommonLogMobileCard<TData>(props: {
                 <TimingMetricsCell
                   durationMs={getLogDurationMs(log, other)}
                   completionTokens={log.completion_tokens}
-                  frtMs={other?.frt}
+                  frtMs={log.frt != null && log.frt > 0 ? log.frt : other?.frt}
                   isStream={log.is_stream}
                   indicator='dot'
                   compact

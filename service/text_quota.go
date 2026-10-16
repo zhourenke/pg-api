@@ -555,11 +555,23 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 	}
 	if tieredBillingApplied {
 		InjectTieredBillingInfo(other, relayInfo, tieredResult)
+	}
 
+	if usage != nil {
+		if reasoningTokens := usage.CompletionTokenDetails.ReasoningTokens; reasoningTokens > 0 {
+			other.SetPublic("reasoning_tokens", reasoningTokens)
+		} else if usage.OutputTokensDetails != nil && usage.OutputTokensDetails.ReasoningTokens > 0 {
+			other.SetPublic("reasoning_tokens", usage.OutputTokensDetails.ReasoningTokens)
+		}
 	}
 
 	attachToolPriceDivergenceToOther(other, summary.ToolPriceDivergences)
 	attachQuotaSaturation(ctx, relayInfo, other)
+
+	var frtMs int64
+	if !relayInfo.FirstResponseTime.IsZero() {
+		frtMs = relayInfo.FirstResponseTime.Sub(relayInfo.StartTime).Milliseconds()
+	}
 
 	model.RecordConsumeLog(ctx, relayInfo.UserId, model.RecordConsumeLogParams{
 		ChannelId:        relayInfo.ChannelId,
@@ -572,6 +584,7 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 		TokenId:          relayInfo.TokenId,
 		UseTimeSeconds:   int(summary.UseTimeSeconds),
 		UseTimeMs:        summary.UseTimeMs,
+		FrtMs:            frtMs,
 		IsStream:         relayInfo.IsStream,
 		Group:            relayInfo.UsingGroup,
 		Other:            other,

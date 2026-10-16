@@ -330,33 +330,7 @@ func UpdateOptionsBulk(values map[string]string) error {
 	return nil
 }
 
-// retiredOptionKeys are option keys whose rows stay in the database but are
-// never published. retiredThemeOptionKey belongs to the removed dashboard
-// frontend; the other four belong to the removed task/video feature and the
-// removed chat preset list. Removing administrator data is not a migration's
-// job, so the rows are filtered out of common.OptionMap and the administrator
-// option API instead.
-var retiredOptionKeys = map[string]struct{}{
-	retiredThemeOptionKey:                 {},
-	"TaskPublicAddress":                   {},
-	"TaskPluginEnabled":                   {},
-	"billing_setting.plugin_billing_expr": {},
-	"Chats":                               {},
-}
-
-// IsRetiredOptionKey reports whether key configures a feature this fork removed.
-func IsRetiredOptionKey(key string) bool {
-	_, retired := retiredOptionKeys[key]
-	return retired
-}
-
 func updateOptionMap(key string, value string) (err error) {
-	if IsRetiredOptionKey(key) {
-		common.OptionMapRWMutex.Lock()
-		delete(common.OptionMap, key)
-		common.OptionMapRWMutex.Unlock()
-		return nil
-	}
 	common.OptionMapRWMutex.Lock()
 	defer common.OptionMapRWMutex.Unlock()
 	common.OptionMap[key] = value
@@ -635,10 +609,6 @@ func updateOptionMap(key string, value string) (err error) {
 		err = ratio_setting.UpdateAudioCompletionRatioByJSONString(value)
 	case "TopUpLink":
 		common.TopUpLink = value
-	//case "ChatLink":
-	//	common.ChatLink = value
-	//case "ChatLink2":
-	//	common.ChatLink2 = value
 	case "ChannelDisableThreshold":
 		common.ChannelDisableThreshold, _ = strconv.ParseFloat(value, 64)
 	case "QuotaPerUnit":

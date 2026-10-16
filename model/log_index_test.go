@@ -59,9 +59,11 @@ func TestLogPerUserTimeWindowIndex(t *testing.T) {
 			assert.True(t, db.Migrator().HasIndex(&Log{}, "idx_logs_user_created_type"),
 				"the per-user time-window index must exist after migration")
 			// The older indexes stay: the admin page and the per-token page read them.
-			for _, kept := range []string{"idx_user_id_id", "idx_created_at_id", "idx_created_at_type", "idx_logs_user_id"} {
+			// The redundant idx_logs_user_id is dropped in favor of idx_logs_user_created_type.
+			for _, kept := range []string{"idx_user_id_id", "idx_created_at_id", "idx_created_at_type"} {
 				assert.True(t, db.Migrator().HasIndex(&Log{}, kept), "%s must survive the migration", kept)
 			}
+			assert.False(t, db.Migrator().HasIndex(&Log{}, "idx_logs_user_id"), "redundant idx_logs_user_id must not be created")
 
 			// Migrating again must neither fail nor drop what the first run built.
 			require.NoError(t, db.AutoMigrate(&Log{}))
@@ -95,7 +97,7 @@ func TestLogPerUserTimeWindowIndex(t *testing.T) {
 			case "postgres":
 				require.NoError(t, db.Raw(`SELECT a.attname FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY (i.indkey) WHERE c.relname = 'idx_logs_user_created_type' AND a.attnum > 0 ORDER BY array_position(i.indkey, a.attnum)`).Scan(&columns).Error)
 			}
-			assert.Equal(t, []string{"user_id", "created_at", "type"}, columns)
+			assert.Equal(t, []string{"user_id", "created_at", "type", "quota"}, columns)
 		})
 	}
 }

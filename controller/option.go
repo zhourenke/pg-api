@@ -39,7 +39,7 @@ func GetOptions(c *gin.Context) {
 	var options []*model.Option
 	common.OptionMapRWMutex.Lock()
 	for k, v := range common.OptionMap {
-		if model.IsRetiredOptionKey(k) || k == "billing_setting.billing_mode" || k == "billing_setting.billing_expr" {
+		if k == "billing_setting.billing_mode" || k == "billing_setting.billing_expr" {
 			continue
 		}
 		value := common.Interface2String(v)

@@ -43,7 +43,6 @@ func requireOptionMissing(t *testing.T, db *gorm.DB, key string) {
 func TestMigrateRetiredFrontendOptionsMigratesValidValuesIdempotently(t *testing.T) {
 	db := useFrontendOptionMigrationDB(t)
 	legacy := []Option{
-		{Key: retiredThemeOptionKey, Value: "classic"},
 		{Key: "ApiInfo", Value: `[{"url":"https://api.example.com","route":"primary","description":"API","color":"blue"}]`},
 		{Key: "Announcements", Value: `[{"content":"maintenance","publishDate":"2026-07-20T00:00:00Z","type":"warning"}]`},
 		{Key: "FAQ", Value: `[{"title":"Question","content":"Answer"}]`},
@@ -53,9 +52,8 @@ func TestMigrateRetiredFrontendOptionsMigratesValidValuesIdempotently(t *testing
 	require.NoError(t, db.Create(&legacy).Error)
 
 	require.NoError(t, MigrateRetiredFrontendOptions())
-	assert.Equal(t, "default", requireOptionValue(t, db, retiredThemeOptionKey))
-	assert.JSONEq(t, legacy[1].Value, requireOptionValue(t, db, "console_setting.api_info"))
-	assert.Equal(t, legacy[2].Value, requireOptionValue(t, db, "console_setting.announcements"))
+	assert.JSONEq(t, legacy[0].Value, requireOptionValue(t, db, "console_setting.api_info"))
+	assert.Equal(t, legacy[1].Value, requireOptionValue(t, db, "console_setting.announcements"))
 	assert.JSONEq(t, `[{"question":"Question","answer":"Answer"}]`, requireOptionValue(t, db, "console_setting.faq"))
 	assert.JSONEq(t, `[{
 		"id":1,"categoryName":"old","url":"https://status.example.com","slug":"status","description":""
@@ -167,35 +165,22 @@ func TestMigrateRetiredFrontendOptionsKeepsEmptyAuthoritativeTargets(t *testing.
 	}
 }
 
-func TestRetiredOptionsArePersistedButNotPublished(t *testing.T) {
+func TestRetiredOptionsAreCleanedUp(t *testing.T) {
 	db := useFrontendOptionMigrationDB(t)
-	previousMap := common.OptionMap
-	t.Cleanup(func() { common.OptionMap = previousMap })
-	common.OptionMap = map[string]string{}
-
 	retiredKeys := []string{
-		retiredThemeOptionKey,
+		"theme.frontend",
 		"TaskPublicAddress",
 		"TaskPluginEnabled",
 		"billing_setting.plugin_billing_expr",
 		"Chats",
 	}
 	for _, key := range retiredKeys {
-		assert.Truef(t, IsRetiredOptionKey(key), "%s must be reported as retired", key)
-		require.NoError(t, UpdateOption(key, "default"))
-		assert.Equal(t, "default", requireOptionValue(t, db, key))
-		_, published := common.OptionMap[key]
-		assert.Falsef(t, published, "%s must not be published by a write", key)
+		require.NoError(t, db.Create(&Option{Key: key, Value: "legacy"}).Error)
 	}
 
-	// A database upgraded from a build that still used these keys keeps the rows
-	// but must not publish them when the options are loaded again.
-	require.NoError(t, UpdateOption("Notice", "keep"))
-	common.OptionMap = map[string]string{}
-	loadOptionsFromDatabase()
-	assert.Equal(t, "keep", common.OptionMap["Notice"])
+	require.NoError(t, MigrateRetiredFrontendOptions())
+
 	for _, key := range retiredKeys {
-		_, published := common.OptionMap[key]
-		assert.Falsef(t, published, "%s must not be published on load", key)
+		requireOptionMissing(t, db, key)
 	}
 }

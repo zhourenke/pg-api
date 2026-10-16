@@ -556,8 +556,7 @@ export function useCommonLogsColumns(
 
         const other = parseLogOther(log.other)
         const displayName = sensitiveVisible ? tokenName : '••••'
-        let group = log.group
-        if (!group) group = other?.group || ''
+        const group = log.group || ''
         const groupRatio = getGroupRatio(other)
 
         return (
@@ -719,7 +718,7 @@ export function useCommonLogsColumns(
             <TimingMetricsCell
               durationMs={getLogDurationMs(log, other)}
               completionTokens={log.completion_tokens}
-              frtMs={other?.frt}
+              frtMs={log.frt != null && log.frt > 0 ? log.frt : other?.frt}
               isStream={log.is_stream}
             />
           )

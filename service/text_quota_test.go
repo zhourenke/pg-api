@@ -256,7 +256,8 @@ func runFixedPriceAccountingCases(t *testing.T, db, logDB *gorm.DB) {
 					// use_time keeps its whole-second contract.
 					useTimeMs, ok := other["use_time_ms"].(float64)
 					require.True(t, ok, "consume logs must carry the millisecond duration")
-					assert.Equal(t, 1, log.UseTime)
+					assert.GreaterOrEqual(t, log.UseTime, 1500)
+					assert.Equal(t, 1000, log.Frt)
 					assert.GreaterOrEqual(t, useTimeMs, float64(1500))
 					assert.Less(t, useTimeMs, float64(60_000))
 					// The perf sample measures its windows from the instant this

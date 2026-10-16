@@ -224,27 +224,55 @@ function getThroughputColor(
  * token, and dividing the output tokens by the whole duration charges the model
  * for that wait and reports a rate below its real generation speed, so the rate
  * is computed over the output duration (`getOutputDurationMs`).
+ *
+ * For burst deliveries where the upstream dumps buffered tokens in < 250ms or
+ * exceeds physical GPU streaming limits, it falls back to the total duration.
  */
 export function getTokensPerSecond(
-  log: UsageLog,
+  log: Pick<UsageLog, 'completion_tokens' | 'use_time' | 'is_stream'> & {
+    frt?: number
+  },
   other?: LogOtherData | null
 ): number | null {
   if (log.completion_tokens <= 0) return null
-  const outputMs = getOutputDurationMs(
-    getLogDurationMs(log, other),
-    other?.frt,
-    log.is_stream
-  )
-  if (outputMs <= 0) return null
-  return (log.completion_tokens * 1000) / outputMs
+
+  const durationMs = getLogDurationMs(log, other)
+  if (durationMs <= 0) return null
+
+  const frtMs = log.frt && log.frt > 0 ? log.frt : other?.frt
+
+  if (!log.is_stream || frtMs == null || frtMs <= 0 || frtMs >= durationMs) {
+    return (log.completion_tokens * 1000) / durationMs
+  }
+
+  const outputMs = durationMs - frtMs
+  if (outputMs < 250) {
+    return (log.completion_tokens * 1000) / durationMs
+  }
+
+  let tokens = log.completion_tokens
+  const reasoningTokens = other?.reasoning_tokens
+  if (typeof reasoningTokens === 'number' && reasoningTokens > 0) {
+    const contentTokens = tokens - reasoningTokens
+    if (contentTokens > 0) {
+      tokens = contentTokens
+    } else {
+      return (tokens * 1000) / durationMs
+    }
+  }
+
+  const tps = (tokens * 1000) / outputMs
+  if (tps > 350) {
+    return (log.completion_tokens * 1000) / durationMs
+  }
+
+  return tps
 }
 
 /**
  * Total request duration in milliseconds.
  *
- * Prefers the exact `use_time_ms` the backend records and falls back to the
- * whole-second `use_time` column, so logs written before that field existed
- * keep reporting their duration.
+ * Prefers the millisecond use_time column and falls back to use_time_ms in other.
  */
 export function getLogDurationMs(
   log: Pick<UsageLog, 'use_time'>,
@@ -253,7 +281,10 @@ export function getLogDurationMs(
   if (other?.use_time_ms != null && other.use_time_ms > 0) {
     return other.use_time_ms
   }
-  return log.use_time * 1000
+  if (log.use_time > 0) {
+    return log.use_time >= 1000 ? log.use_time : log.use_time * 1000
+  }
+  return 0
 }
 
 /**

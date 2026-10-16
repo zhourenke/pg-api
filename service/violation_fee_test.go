@@ -73,7 +73,7 @@ func TestChargeViolationFeeRecordsMillisecondUseTime(t *testing.T) {
 
 	var log model.Log
 	require.NoError(t, model.LOG_DB.Where("user_id = ?", 1).Take(&log).Error)
-	assert.Equal(t, 1, log.UseTime, "use_time keeps its whole-second contract")
+	assert.GreaterOrEqual(t, log.UseTime, 1500, "use_time stores exact milliseconds")
 	var other map[string]any
 	require.NoError(t, common.UnmarshalJsonStr(log.Other, &other))
 	useTimeMs, ok := other["use_time_ms"].(float64)

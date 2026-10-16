@@ -103,4 +103,23 @@ describe('generation throughput', () => {
       getTokensPerSecond(log({ completion_tokens: 500, use_time: 0 }), null)
     ).toBeNull()
   })
+
+  test('burst delivery with tiny output window falls back to total duration', () => {
+    // 130 tokens over 62ms burst window falls back to total duration (5448ms) -> ~23.86 t/s
+    expect(
+      getTokensPerSecond(
+        log({ is_stream: true, completion_tokens: 130, use_time: 5448, frt: 5386 })
+      )
+    ).toBeCloseTo(23.86, 2)
+  })
+
+  test('subtracts reasoning tokens from completion tokens during output window', () => {
+    // 500 total completion tokens, 300 reasoning tokens -> 200 content tokens over 5s -> 40 t/s
+    expect(
+      getTokensPerSecond(
+        log({ is_stream: true, completion_tokens: 500, use_time: 10_000, frt: 5000 }),
+        { reasoning_tokens: 300 }
+      )
+    ).toBe(40)
+  })
 })

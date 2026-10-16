@@ -233,7 +233,7 @@ func InitLogDB() (err error) {
 		common.SetLogDatabaseType(common.MainDatabaseType())
 		initCol()
 		if common.IsMasterNode {
-			return MigrateAuditLogs()
+			return migrateLOGDB()
 		}
 		return
 	}
@@ -374,6 +374,12 @@ func migrateDB() error {
 	if err := dropTaskTables(); err != nil {
 		return err
 	}
+	if err := dropPrefillGroupTable(); err != nil {
+		return err
+	}
+	if err := cleanupRetiredOptions(DB); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -384,7 +390,13 @@ func migrateLOGDB() error {
 	if common.UsingLogDatabase(common.DatabaseTypeClickHouse) {
 		return migrateClickHouseLogDB()
 	}
-	return LOG_DB.AutoMigrate(&Log{})
+	if err := dropRedundantLogIndex(); err != nil {
+		return err
+	}
+	if err := LOG_DB.AutoMigrate(&Log{}); err != nil {
+		return err
+	}
+	return migrateLogDurationsAndFrt()
 }
 
 func migrateClickHouseLogDB() error {
@@ -433,6 +445,7 @@ CREATE TABLE IF NOT EXISTS logs (
 	prompt_tokens Int32 DEFAULT 0,
 	completion_tokens Int32 DEFAULT 0,
 	use_time Int32 DEFAULT 0,
+	frt Int32 DEFAULT 0,
 	is_stream UInt8 DEFAULT 0,
 	channel_id Int32 DEFAULT 0,
 	token_id Int32 DEFAULT 0,
@@ -524,6 +537,66 @@ func dropTaskTables() error {
 	if dropped {
 		common.SysLog("task and task-plugin tables removed: video and drawing tasks are no longer served")
 	}
+	return nil
+}
+
+// dropPrefillGroupTable drops the retired prefill_groups table if present.
+func dropPrefillGroupTable() error {
+	if !DB.Migrator().HasTable("prefill_groups") {
+		return nil
+	}
+	if err := DB.Migrator().DropTable("prefill_groups"); err != nil {
+		return fmt.Errorf("drop retired table prefill_groups: %w", err)
+	}
+	common.SysLog("dropped retired prefill_groups table")
+	return nil
+}
+
+// cleanupRetiredOptions permanently removes dead and retired options from the database.
+func cleanupRetiredOptions(db *gorm.DB) error {
+	if db == nil {
+		return nil
+	}
+	retiredKeys := []string{
+		"theme.frontend",
+		"TaskPublicAddress",
+		"TaskPluginEnabled",
+		"billing_setting.plugin_billing_expr",
+		"Chats",
+	}
+	return db.Where(commonKeyCol+" IN ?", retiredKeys).Delete(&Option{}).Error
+}
+
+// dropRedundantLogIndex drops the redundant single-column index on user_id if present.
+func dropRedundantLogIndex() error {
+	if LOG_DB == nil {
+		return nil
+	}
+	migrator := LOG_DB.Migrator()
+	if migrator.HasIndex(&Log{}, "idx_logs_user_id") {
+		_ = migrator.DropIndex(&Log{}, "idx_logs_user_id")
+		common.SysLog("dropped redundant idx_logs_user_id index")
+	}
+	_ = LOG_DB.Exec("DROP INDEX IF EXISTS idx_logs_user_id").Error
+	return nil
+}
+
+// migrateLogDurationsAndFrt migrates legacy whole-second use_time to milliseconds and backfills frt.
+func migrateLogDurationsAndFrt() error {
+	if LOG_DB == nil || common.UsingLogDatabase(common.DatabaseTypeClickHouse) {
+		return nil
+	}
+	// Prefer exact millisecond duration from other for unmigrated rows (use_time < 1000)
+	switch {
+	case common.UsingLogDatabase(common.DatabaseTypePostgreSQL):
+		_ = LOG_DB.Exec("UPDATE logs SET use_time = CAST(other::json->>'use_time_ms' AS INTEGER) WHERE use_time > 0 AND use_time < 1000 AND other LIKE '%\"use_time_ms\":%'").Error
+		_ = LOG_DB.Exec("UPDATE logs SET frt = CAST(other::json->>'frt' AS INTEGER) WHERE frt = 0 AND other LIKE '%\"frt\":%'").Error
+	default:
+		_ = LOG_DB.Exec("UPDATE logs SET use_time = CAST(json_extract(other, '$.use_time_ms') AS INTEGER) WHERE use_time > 0 AND use_time < 1000 AND other LIKE '%\"use_time_ms\":%'").Error
+		_ = LOG_DB.Exec("UPDATE logs SET frt = CAST(json_extract(other, '$.frt') AS INTEGER) WHERE frt = 0 AND other LIKE '%\"frt\":%'").Error
+	}
+	// Fall back to use_time * 1000 for any older logs without use_time_ms
+	_ = LOG_DB.Exec("UPDATE logs SET use_time = use_time * 1000 WHERE use_time > 0 AND use_time < 1000").Error
 	return nil
 }
 
