@@ -342,6 +342,22 @@ it('omits unused token and throughput placeholders for non-streaming calls', () 
   expect(within(timing as HTMLElement).queryByText('—')).not.toBeInTheDocument()
 })
 
+it('displays Burst label when streamed output is delivered in a burst', () => {
+  renderLogs({
+    logs: [
+      {
+        ...log,
+        is_stream: true,
+        use_time: 6919,
+        completion_tokens: 84,
+        other: JSON.stringify({ frt: 6883 }),
+      },
+    ],
+  })
+  expect(screen.getByText('Burst')).toBeVisible()
+  expect(screen.getByText('<0.1 s')).toBeVisible()
+})
+
 it('shows mapped model names in full when inspecting a mobile model badge', async () => {
   const user = userEvent.setup()
   renderLogs({

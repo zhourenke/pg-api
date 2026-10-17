@@ -69,4 +69,10 @@ describe('formatUseTime', () => {
     expect(formatUseTime(90.4)).toBe('90.4 s')
     expect(formatUseTime(187.34)).toBe('187.3 s')
   })
+
+  test('formats durations less than 0.1s as <0.1 s', () => {
+    expect(formatUseTime(0.036)).toBe('<0.1 s')
+    expect(formatUseTime(0.099)).toBe('<0.1 s')
+    expect(formatUseTime(0.1)).toBe('0.1 s')
+  })
 })

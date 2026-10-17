@@ -217,16 +217,77 @@ function getThroughputColor(
   return 'danger'
 }
 
+export interface ThroughputResult {
+  tokensPerSecond: number | null
+  isBurst: boolean
+  outputMs?: number
+  overallTokensPerSecond?: number | null
+}
+
 /**
- * Generation throughput in output tokens per second.
+ * Generation throughput and burst delivery detection.
  *
  * A streamed reply spends part of its wall-clock time waiting for the first
  * token, and dividing the output tokens by the whole duration charges the model
  * for that wait and reports a rate below its real generation speed, so the rate
  * is computed over the output duration (`getOutputDurationMs`).
  *
+ * All generated completion tokens (including reasoning tokens, which are streamed
+ * out during the output phase) contribute to throughput.
+ *
  * For burst deliveries where the upstream dumps buffered tokens in < 250ms or
- * exceeds physical GPU streaming limits, it falls back to the total duration.
+ * exceeds physical GPU streaming limits (> 350 t/s), it is recognized as a burst
+ * rather than steady-state streaming.
+ */
+export function getThroughput(
+  log: Pick<UsageLog, 'completion_tokens' | 'use_time' | 'is_stream'> & {
+    frt?: number
+  },
+  other?: LogOtherData | null
+): ThroughputResult {
+  if (log.completion_tokens <= 0) {
+    return { tokensPerSecond: null, isBurst: false }
+  }
+
+  const durationMs = getLogDurationMs(log, other)
+  if (durationMs <= 0) {
+    return { tokensPerSecond: null, isBurst: false }
+  }
+
+  const frtMs = log.frt && log.frt > 0 ? log.frt : other?.frt
+
+  if (!log.is_stream || frtMs == null || frtMs <= 0 || frtMs >= durationMs) {
+    const overallTps = (log.completion_tokens * 1000) / durationMs
+    return {
+      tokensPerSecond: overallTps,
+      isBurst: false,
+      overallTokensPerSecond: overallTps,
+    }
+  }
+
+  const outputMs = durationMs - frtMs
+  const overallTps = (log.completion_tokens * 1000) / durationMs
+  const streamTps = (log.completion_tokens * 1000) / outputMs
+
+  if (outputMs < 250 || streamTps > 350) {
+    return {
+      tokensPerSecond: null,
+      isBurst: true,
+      outputMs,
+      overallTokensPerSecond: overallTps,
+    }
+  }
+
+  return {
+    tokensPerSecond: streamTps,
+    isBurst: false,
+    outputMs,
+    overallTokensPerSecond: overallTps,
+  }
+}
+
+/**
+ * Generation throughput in output tokens per second.
  */
 export function getTokensPerSecond(
   log: Pick<UsageLog, 'completion_tokens' | 'use_time' | 'is_stream'> & {
@@ -234,39 +295,7 @@ export function getTokensPerSecond(
   },
   other?: LogOtherData | null
 ): number | null {
-  if (log.completion_tokens <= 0) return null
-
-  const durationMs = getLogDurationMs(log, other)
-  if (durationMs <= 0) return null
-
-  const frtMs = log.frt && log.frt > 0 ? log.frt : other?.frt
-
-  if (!log.is_stream || frtMs == null || frtMs <= 0 || frtMs >= durationMs) {
-    return (log.completion_tokens * 1000) / durationMs
-  }
-
-  const outputMs = durationMs - frtMs
-  if (outputMs < 250) {
-    return (log.completion_tokens * 1000) / durationMs
-  }
-
-  let tokens = log.completion_tokens
-  const reasoningTokens = other?.reasoning_tokens
-  if (typeof reasoningTokens === 'number' && reasoningTokens > 0) {
-    const contentTokens = tokens - reasoningTokens
-    if (contentTokens > 0) {
-      tokens = contentTokens
-    } else {
-      return (tokens * 1000) / durationMs
-    }
-  }
-
-  const tps = (tokens * 1000) / outputMs
-  if (tps > 350) {
-    return (log.completion_tokens * 1000) / durationMs
-  }
-
-  return tps
+  return getThroughput(log, other).tokensPerSecond
 }
 
 /**

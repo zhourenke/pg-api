@@ -37,6 +37,7 @@ import {
   getFirstResponseTimeColor,
   getOutputDurationMs,
   getResponseTimeColor,
+  type ThroughputResult,
 } from '../lib/format'
 import type { LogOtherData } from '../types'
 
@@ -185,6 +186,7 @@ interface StreamTpsCellProps {
   isStream: boolean
   compact?: boolean
   tokensPerSecond?: number | null
+  throughput?: ThroughputResult | null
   streamStatus?: LogOtherData['stream_status']
   className?: string
 }
@@ -193,10 +195,16 @@ export function StreamTpsCell(props: StreamTpsCellProps) {
   const { t } = useTranslation()
   const showStreamError =
     props.isStream && props.streamStatus && props.streamStatus.status !== 'ok'
+
+  const isBurst = props.throughput?.isBurst ?? false
+  const outputMs = props.throughput?.outputMs
+  const overallTps = props.throughput?.overallTokensPerSecond
+  const effectiveTps = props.throughput
+    ? props.throughput.tokensPerSecond
+    : props.tokensPerSecond
+
   const tpsLabel =
-    props.tokensPerSecond != null
-      ? `${Math.round(props.tokensPerSecond)} t/s`
-      : '—'
+    effectiveTps != null ? `${Math.round(effectiveTps)} t/s` : '—'
   const streamLabel = props.isStream ? t('Stream') : t('Non-stream')
 
   return (
@@ -239,11 +247,43 @@ export function StreamTpsCell(props: StreamTpsCellProps) {
           </TooltipProvider>
         )}
       </span>
-      {(!props.compact ||
-        (props.isStream && props.tokensPerSecond != null)) && (
-        <span className='text-muted-foreground/60 min-w-0 truncate px-0.5 tabular-nums'>
-          {tpsLabel}
-        </span>
+      {isBurst ? (
+        <TooltipProvider delay={200}>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <span className='text-amber-600 dark:text-amber-400 cursor-help font-medium min-w-0 truncate px-0.5 underline decoration-dotted underline-offset-2 tabular-nums'>
+                  {t('Burst')}
+                </span>
+              }
+            />
+            <TooltipContent side='top' className='max-w-xs space-y-1 text-xs'>
+              <p className='font-semibold'>{t('Burst Delivery')}</p>
+              <p className='text-muted-foreground'>
+                {outputMs != null
+                  ? t(
+                      'Upstream delivered tokens in an aggregated burst ({{ms}} ms).',
+                      { ms: outputMs }
+                    )
+                  : t('Upstream delivered tokens in a high-speed burst.')}
+              </p>
+              {overallTps != null && (
+                <p className='text-muted-foreground/80 border-border/50 border-t pt-1'>
+                  {t('Overall lifecycle throughput: {{tps}} t/s', {
+                    tps: Math.round(overallTps),
+                  })}
+                </p>
+              )}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      ) : (
+        (!props.compact ||
+          (props.isStream && effectiveTps != null)) && (
+          <span className='text-muted-foreground/60 min-w-0 truncate px-0.5 tabular-nums'>
+            {tpsLabel}
+          </span>
+        )
       )}
     </div>
   )

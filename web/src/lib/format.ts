@@ -237,6 +237,9 @@ export function formatTokens(tokens: number): string {
  * the other durations in the same column at a glance.
  */
 export function formatUseTime(seconds: number): string {
+  if (seconds > 0 && seconds < 0.1) {
+    return '<0.1 s'
+  }
   return `${seconds.toFixed(1)} s`
 }
 

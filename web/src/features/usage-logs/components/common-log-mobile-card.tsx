@@ -35,7 +35,7 @@ import type { UsageLog } from '../data/schema'
 import {
   formatModelName,
   getLogDurationMs,
-  getTokensPerSecond,
+  getThroughput,
   parseLogOther,
 } from '../lib/format'
 import {
@@ -198,7 +198,7 @@ export function CommonLogMobileCard<TData>(props: {
                   compact
                   className='min-h-5 max-w-full min-w-0 justify-end'
                   isStream={log.is_stream}
-                  tokensPerSecond={getTokensPerSecond(log, other)}
+                  throughput={getThroughput(log, other)}
                   streamStatus={other?.stream_status}
                 />
               )}

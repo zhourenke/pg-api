@@ -47,7 +47,7 @@ import {
   formatModelName,
   getTieredBillingSummary,
   getLogDurationMs,
-  getTokensPerSecond,
+  getThroughput,
   hasAnyCacheTokens,
   parseLogOther,
   isViolationFeeLog,
@@ -633,12 +633,12 @@ export function useCommonLogsColumns(
           if (!isTimingLogType(log.type)) return null
 
           const other = parseLogOther(log.other)
-          const tokensPerSecond = getTokensPerSecond(log, other)
+          const throughput = getThroughput(log, other)
 
           return (
             <StreamTpsCell
               isStream={log.is_stream}
-              tokensPerSecond={tokensPerSecond}
+              throughput={throughput}
               streamStatus={other?.stream_status}
             />
           )

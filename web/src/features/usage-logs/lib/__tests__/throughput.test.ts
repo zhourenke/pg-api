@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { describe, expect, test } from 'vitest'
 
 import { usageLogSchema, type UsageLog } from '../../data/schema'
-import { getTokensPerSecond } from '../format'
+import { getTokensPerSecond, getThroughput } from '../format'
 
 function log(overrides: Partial<UsageLog> = {}): UsageLog {
   return usageLogSchema.parse({
@@ -104,22 +104,40 @@ describe('generation throughput', () => {
     ).toBeNull()
   })
 
-  test('burst delivery with tiny output window falls back to total duration', () => {
-    // 130 tokens over 62ms burst window falls back to total duration (5448ms) -> ~23.86 t/s
+  test('burst delivery with tiny output window is recognized as burst', () => {
+    // 130 tokens over 62ms burst window is marked as burst delivery
+    const result = getThroughput(
+      log({ is_stream: true, completion_tokens: 130, use_time: 5448, frt: 5386 })
+    )
+    expect(result.isBurst).toBe(true)
+    expect(result.outputMs).toBe(62)
+    expect(result.tokensPerSecond).toBeNull()
+    expect(result.overallTokensPerSecond).toBeCloseTo(23.86, 2)
     expect(
       getTokensPerSecond(
         log({ is_stream: true, completion_tokens: 130, use_time: 5448, frt: 5386 })
       )
-    ).toBeCloseTo(23.86, 2)
+    ).toBeNull()
   })
 
-  test('subtracts reasoning tokens from completion tokens during output window', () => {
-    // 500 total completion tokens, 300 reasoning tokens -> 200 content tokens over 5s -> 40 t/s
+  test('includes all completion tokens including reasoning tokens during output window', () => {
+    // 500 total completion tokens generated over 5s -> 100 t/s (reasoning tokens are part of the streamed generation)
     expect(
       getTokensPerSecond(
         log({ is_stream: true, completion_tokens: 500, use_time: 10_000, frt: 5000 }),
         { reasoning_tokens: 300 }
       )
-    ).toBe(40)
+    ).toBe(100)
+  })
+
+  test('exceedingly high throughput (> 350 t/s) is marked as burst delivery', () => {
+    // 456 tokens over 227ms (2008 t/s)
+    const result = getThroughput(
+      log({ is_stream: true, completion_tokens: 456, use_time: 7203, frt: 6976 })
+    )
+    expect(result.isBurst).toBe(true)
+    expect(result.outputMs).toBe(227)
+    expect(result.tokensPerSecond).toBeNull()
+    expect(result.overallTokensPerSecond).toBeCloseTo(63.31, 2)
   })
 })
