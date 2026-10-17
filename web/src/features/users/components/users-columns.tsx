@@ -110,7 +110,7 @@ export function useUsersColumns(): ColumnDef<User>[] {
                         />
                       }
                     >
-                      <LongText className='max-w-[80px] min-w-0'>
+                      <LongText className='max-w-full min-w-0'>
                         {remark}
                       </LongText>
                     </TooltipTrigger>

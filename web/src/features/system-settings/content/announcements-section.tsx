@@ -378,7 +378,6 @@ export function AnnouncementsSection({
             {
               id: 'content',
               header: t('Content'),
-              cellClassName: 'max-w-xs truncate',
               cell: (announcement) => announcement.content,
             },
             {
@@ -417,7 +416,7 @@ export function AnnouncementsSection({
             {
               id: 'extra',
               header: t('Extra'),
-              cellClassName: 'text-muted-foreground max-w-xs truncate',
+              cellClassName: 'text-muted-foreground',
               cell: (announcement) => announcement.extra || '-',
             },
             {

@@ -55,7 +55,6 @@ import {
 import { formatTimestampToDate } from '@/lib/format'
 import { handleServerError } from '@/lib/handle-server-error'
 import { createServerError } from '@/lib/server-error-message'
-import { truncateText } from '@/lib/utils'
 
 import { getCodexUsage, updateChannelBalance } from '../api'
 import {
@@ -875,10 +874,10 @@ export function useChannelsColumns(
                     <Tooltip>
                       <TooltipTrigger
                         render={
-                          <span className='text-muted-foreground text-xs' />
+                          <span className='text-muted-foreground max-w-full min-w-0 truncate text-xs' />
                         }
                       >
-                        {truncateText(channel.remark, 40)}
+                        {channel.remark}
                       </TooltipTrigger>
                       <TooltipContent side='bottom' className='max-w-xs'>
                         {channel.remark}

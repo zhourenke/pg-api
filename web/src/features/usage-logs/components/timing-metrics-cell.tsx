@@ -252,7 +252,7 @@ export function StreamTpsCell(props: StreamTpsCellProps) {
           <Tooltip>
             <TooltipTrigger
               render={
-                <span className='text-amber-600 dark:text-amber-400 cursor-help font-medium min-w-0 truncate px-0.5 underline decoration-dotted underline-offset-2 tabular-nums'>
+                <span className='min-w-0 cursor-help truncate px-0.5 font-medium text-amber-600 tabular-nums underline decoration-dotted underline-offset-2 dark:text-amber-400'>
                   {t('Burst')}
                 </span>
               }
@@ -278,8 +278,7 @@ export function StreamTpsCell(props: StreamTpsCellProps) {
           </Tooltip>
         </TooltipProvider>
       ) : (
-        (!props.compact ||
-          (props.isStream && effectiveTps != null)) && (
+        (!props.compact || (props.isStream && effectiveTps != null)) && (
           <span className='text-muted-foreground/60 min-w-0 truncate px-0.5 tabular-nums'>
             {tpsLabel}
           </span>

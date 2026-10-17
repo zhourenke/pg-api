@@ -41,11 +41,12 @@ export function DescriptionCell({
   }
 
   return (
-    <div className='max-w-[150px]'>
+    <div className='max-w-full min-w-0'>
       <Button
         variant='link'
         onClick={handleClick}
-        className='text-muted-foreground hover:text-foreground block h-auto w-full cursor-pointer overflow-hidden p-0 text-left text-sm text-ellipsis whitespace-nowrap no-underline'
+        title={description}
+        className='text-muted-foreground hover:text-foreground block h-auto w-full max-w-full min-w-0 cursor-pointer overflow-hidden p-0 text-left text-sm text-ellipsis whitespace-nowrap no-underline'
       >
         {description}
       </Button>

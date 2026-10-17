@@ -407,7 +407,7 @@ export function MultiKeyManageDialog({
                     id: 'reason',
                     header: t('Disabled Reason'),
                     className: 'min-w-[200px]',
-                    cellClassName: 'max-w-xs truncate text-sm',
+                    cellClassName: 'text-sm',
                     cell: (key) => key.reason || '-',
                   },
                   {

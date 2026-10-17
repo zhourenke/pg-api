@@ -311,7 +311,7 @@ export function UptimeKumaSection({ enabled, data }: UptimeKumaSectionProps) {
             {
               id: 'url',
               header: t('Uptime Kuma URL'),
-              cellClassName: 'text-primary max-w-xs truncate font-mono text-sm',
+              cellClassName: 'text-primary font-mono text-sm',
               cell: (group) => group.url,
             },
             {

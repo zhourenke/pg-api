@@ -112,8 +112,7 @@ export function ProviderTable(props: ProviderTableProps) {
           {
             id: 'client-id',
             header: t('Client ID'),
-            cellClassName:
-              'text-muted-foreground max-w-[120px] truncate font-mono',
+            cellClassName: 'text-muted-foreground font-mono',
             cell: (provider) => provider.client_id,
           },
           {

@@ -101,11 +101,11 @@ export function VendorLinkedModels({
       cell: ({ row }) => (
         <Button
           variant='link'
-          className='text-foreground h-auto max-w-72 min-w-0 justify-start p-0 font-mono'
+          className='text-foreground h-auto max-w-full min-w-0 justify-start p-0 font-mono'
           title={row.original.model_name}
           onClick={() => setModel(row.original)}
         >
-          <span className='truncate'>{row.original.model_name}</span>
+          <span className='min-w-0 truncate'>{row.original.model_name}</span>
         </Button>
       ),
     },

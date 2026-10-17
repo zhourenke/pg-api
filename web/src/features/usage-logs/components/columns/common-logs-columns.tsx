@@ -361,7 +361,7 @@ export function useCommonLogsColumns(
                 <Tooltip>
                   <TooltipTrigger
                     render={
-                      <div className='flex max-w-[160px] flex-col gap-0.5' />
+                      <div className='flex max-w-full min-w-0 flex-col gap-0.5' />
                     }
                   >
                     <div className='relative inline-flex w-fit items-center gap-1'>
@@ -438,7 +438,7 @@ export function useCommonLogsColumns(
                       )}
                     </div>
                     {log.channel_name && (
-                      <span className='text-muted-foreground/70 truncate [font-family:var(--font-body)] !text-xs'>
+                      <span className='text-muted-foreground/70 max-w-full min-w-0 truncate [font-family:var(--font-body)] !text-xs'>
                         {channelName}
                       </span>
                     )}

@@ -107,7 +107,12 @@ describe('generation throughput', () => {
   test('burst delivery with tiny output window is recognized as burst', () => {
     // 130 tokens over 62ms burst window is marked as burst delivery
     const result = getThroughput(
-      log({ is_stream: true, completion_tokens: 130, use_time: 5448, frt: 5386 })
+      log({
+        is_stream: true,
+        completion_tokens: 130,
+        use_time: 5448,
+        frt: 5386,
+      })
     )
     expect(result.isBurst).toBe(true)
     expect(result.outputMs).toBe(62)
@@ -115,7 +120,12 @@ describe('generation throughput', () => {
     expect(result.overallTokensPerSecond).toBeCloseTo(23.86, 2)
     expect(
       getTokensPerSecond(
-        log({ is_stream: true, completion_tokens: 130, use_time: 5448, frt: 5386 })
+        log({
+          is_stream: true,
+          completion_tokens: 130,
+          use_time: 5448,
+          frt: 5386,
+        })
       )
     ).toBeNull()
   })
@@ -124,7 +134,12 @@ describe('generation throughput', () => {
     // 500 total completion tokens generated over 5s -> 100 t/s (reasoning tokens are part of the streamed generation)
     expect(
       getTokensPerSecond(
-        log({ is_stream: true, completion_tokens: 500, use_time: 10_000, frt: 5000 }),
+        log({
+          is_stream: true,
+          completion_tokens: 500,
+          use_time: 10_000,
+          frt: 5000,
+        }),
         { reasoning_tokens: 300 }
       )
     ).toBe(100)
@@ -133,7 +148,12 @@ describe('generation throughput', () => {
   test('exceedingly high throughput (> 350 t/s) is marked as burst delivery', () => {
     // 456 tokens over 227ms (2008 t/s)
     const result = getThroughput(
-      log({ is_stream: true, completion_tokens: 456, use_time: 7203, frt: 6976 })
+      log({
+        is_stream: true,
+        completion_tokens: 456,
+        use_time: 7203,
+        frt: 6976,
+      })
     )
     expect(result.isBurst).toBe(true)
     expect(result.outputMs).toBe(227)

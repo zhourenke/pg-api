@@ -29,7 +29,7 @@ interface TruncatedTextProps {
 export function TruncatedText({
   text,
   className,
-  maxWidth = 'max-w-[200px]',
+  maxWidth = 'max-w-full',
   side = 'top',
 }: TruncatedTextProps) {
   return (

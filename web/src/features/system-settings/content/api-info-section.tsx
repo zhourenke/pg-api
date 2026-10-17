@@ -329,7 +329,7 @@ export function ApiInfoSection({ enabled, data }: ApiInfoSectionProps) {
             {
               id: 'url',
               header: t('URL'),
-              cellClassName: 'max-w-xs truncate font-mono text-sm',
+              cellClassName: 'font-mono text-sm',
               cell: (apiInfo) => (
                 <BadgeCell>
                   <StatusBadge
@@ -356,7 +356,6 @@ export function ApiInfoSection({ enabled, data }: ApiInfoSectionProps) {
             {
               id: 'description',
               header: t('Description'),
-              cellClassName: 'max-w-xs truncate',
               cell: (apiInfo) => apiInfo.description,
             },
             {

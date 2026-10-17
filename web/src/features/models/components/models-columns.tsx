@@ -253,15 +253,11 @@ export function useModelsColumns(
       },
       {
         accessorKey: 'sync_official',
-        header: () => (
-          <TruncatedCell className='max-w-[120px]'>
-            {t('Sync policy')}
-          </TruncatedCell>
-        ),
+        header: () => <TruncatedCell>{t('Sync policy')}</TruncatedCell>,
         enableSorting: false,
         meta: { mobileHidden: true, label: t('Sync policy') },
         cell: ({ row }) => (
-          <TruncatedCell className='text-muted-foreground max-w-[120px] text-sm'>
+          <TruncatedCell className='text-muted-foreground text-sm'>
             {row.original.id > 0 &&
               (row.original.sync_official
                 ? t('Allow updates')

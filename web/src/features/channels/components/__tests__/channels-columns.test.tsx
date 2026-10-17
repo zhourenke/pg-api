@@ -122,7 +122,10 @@ function renderAggregateStatusCell(
     tag: 'Command',
     status: rowStatus,
     used_quota: 12.3456,
-    children: childrenStatuses.map((s, index) => ({ id: index + 1, status: s })),
+    children: childrenStatuses.map((s, index) => ({
+      id: index + 1,
+      status: s,
+    })),
   } as unknown as Channel
   const row = {
     original: tagRow,

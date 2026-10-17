@@ -1008,9 +1008,9 @@ function GroupOverrideRules({
                                 header: t('Billing group'),
                                 cellClassName: 'font-medium',
                                 cell: (override) => (
-                                  <span className='inline-flex max-w-48 items-center gap-1.5'>
+                                  <span className='inline-flex max-w-full min-w-0 items-center gap-1.5'>
                                     <span
-                                      className='truncate'
+                                      className='min-w-0 truncate'
                                       title={override.targetGroup}
                                     >
                                       {override.targetGroup}
