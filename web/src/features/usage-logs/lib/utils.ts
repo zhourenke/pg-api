@@ -19,7 +19,12 @@ For commercial licensing, please contact support@quantumnous.com
 /**
  * Utility functions for usage logs feature
  */
-import { DEFAULT_TIME_WINDOW_ID, resolveTimeWindow } from '@/lib/time-window'
+import {
+  DEFAULT_TIME_WINDOW_ID,
+  resolveTimeWindow,
+  TIME_WINDOW_IDS,
+  type TimeWindowId,
+} from '@/lib/time-window'
 
 import {
   LOG_TYPES,
@@ -61,18 +66,6 @@ export function isPerCallBilling(modelPrice?: number): boolean {
 }
 
 /**
- * Default window for callers that reach the API without time parameters, so
- * they end up on the same range the filter bar opens with.
- */
-function getDefaultTimeRange(): { start: Date; end: Date } {
-  const window = resolveTimeWindow(DEFAULT_TIME_WINDOW_ID)
-  return {
-    start: new Date(window.start * 1000),
-    end: new Date(window.end * 1000),
-  }
-}
-
-/**
  * Convert milliseconds timestamp to seconds for API
  */
 function timestampToSeconds(ms: number): number {
@@ -86,20 +79,32 @@ function buildTimeRangeParams(searchParams: Record<string, unknown>): {
   start_timestamp?: number
   end_timestamp?: number
 } {
-  const hasTimeParams = searchParams.startTime ?? searchParams.endTime
-  const defaultTimeRange = !hasTimeParams ? getDefaultTimeRange() : null
+  const hasTimeParams =
+    searchParams.startTime !== undefined || searchParams.endTime !== undefined
+  const preset =
+    typeof searchParams.preset === 'string' &&
+    (TIME_WINDOW_IDS as readonly string[]).includes(searchParams.preset)
+      ? (searchParams.preset as TimeWindowId)
+      : undefined
 
-  const getTimestamp = (paramTime?: unknown, defaultTime?: Date) => {
-    const time = (paramTime as number) || defaultTime?.getTime()
-    return time ? timestampToSeconds(time) : undefined
+  if (!hasTimeParams) {
+    const window = resolveTimeWindow(preset ?? DEFAULT_TIME_WINDOW_ID)
+    return {
+      start_timestamp: window.start,
+      end_timestamp: window.end,
+    }
+  }
+
+  const getTimestamp = (paramTime?: unknown) => {
+    const time = Number(paramTime)
+    return Number.isFinite(time) && time > 0
+      ? timestampToSeconds(time)
+      : undefined
   }
 
   return {
-    start_timestamp: getTimestamp(
-      searchParams.startTime,
-      defaultTimeRange?.start
-    ),
-    end_timestamp: getTimestamp(searchParams.endTime, defaultTimeRange?.end),
+    start_timestamp: getTimestamp(searchParams.startTime),
+    end_timestamp: getTimestamp(searchParams.endTime),
   }
 }
 

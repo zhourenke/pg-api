@@ -141,3 +141,74 @@ it('commits draft filter and refreshes when clicking Refresh button', async () =
     queryKey: ['usage-logs-stats'],
   })
 })
+
+it('preserves default 24h preset and stays as 24 Hours when clicking Refresh button', async () => {
+  const { router } = await renderFilter()
+  const user = userEvent.setup()
+
+  expect(screen.getByRole('button', { name: '24 Hours' })).toBeVisible()
+
+  const refreshButton = screen.getByRole('button', { name: 'Refresh' })
+  await user.click(refreshButton)
+
+  await waitFor(() => {
+    expect(router.state.location.search).toMatchObject({
+      preset: '24h',
+    })
+  })
+  expect(screen.getByRole('button', { name: '24 Hours' })).toBeVisible()
+})
+
+it('preserves default 24h preset when submitting search with Enter in input', async () => {
+  const { router } = await renderFilter()
+  const input = screen.getByPlaceholderText('Model Name')
+
+  fireEvent.change(input, { target: { value: 'gpt-4o' } })
+  fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' })
+
+  await waitFor(() => {
+    expect(router.state.location.search).toMatchObject({
+      model: 'gpt-4o',
+      preset: '24h',
+    })
+  })
+  expect(screen.getByRole('button', { name: '24 Hours' })).toBeVisible()
+})
+
+it('preserves chosen preset and advances timestamp on subsequent refresh', async () => {
+  const { router } = await renderFilter('/usage-logs/common?preset=7d')
+  const user = userEvent.setup()
+
+  expect(screen.getByRole('button', { name: '7 Days' })).toBeVisible()
+
+  const refreshButton = screen.getByRole('button', { name: 'Refresh' })
+  await user.click(refreshButton)
+
+  await waitFor(() => {
+    expect(router.state.location.search).toMatchObject({
+      preset: '7d',
+    })
+  })
+  expect(screen.getByRole('button', { name: '7 Days' })).toBeVisible()
+})
+
+it('preserves custom time range on refresh without reverting to preset', async () => {
+  // A hand-picked timestamp range without preset
+  const customStart = 1700000000000
+  const customEnd = 1700086400000
+  const { router } = await renderFilter(
+    `/usage-logs/common?startTime=${customStart}&endTime=${customEnd}`
+  )
+  const user = userEvent.setup()
+
+  const refreshButton = screen.getByRole('button', { name: 'Refresh' })
+  await user.click(refreshButton)
+
+  await waitFor(() => {
+    expect(router.state.location.search).toMatchObject({
+      startTime: customStart,
+      endTime: customEnd,
+    })
+    expect(router.state.location.search).not.toHaveProperty('preset')
+  })
+})

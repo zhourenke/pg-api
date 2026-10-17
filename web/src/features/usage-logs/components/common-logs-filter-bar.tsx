@@ -85,19 +85,6 @@ function isLogTypeValue(value: string): value is LogTypeValue {
   return logTypeValueSet.has(value)
 }
 
-/**
- * The window a log page opens on: the trailing 24 hours from resolveTimeWindow
- * rather than "today 00:00 until now", which kept returning yesterday's rows
- * until the page was reloaded after midnight.
- */
-function defaultWindow(): { start: Date; end: Date } {
-  const window = resolveTimeWindow(DEFAULT_TIME_WINDOW_ID)
-  return {
-    start: new Date(window.start * 1000),
-    end: new Date(window.end * 1000),
-  }
-}
-
 function getLogTypeValue(value: unknown): LogTypeValue {
   return Array.isArray(value) &&
     value.length === 1 &&
@@ -171,11 +158,20 @@ function CommonLogsFilterBarInner<TData>(
   }, [isAdmin, adminGroups, userGroups])
 
   const searchState = useMemo<CommonLogDraft>(() => {
-    const defaultRange = defaultWindow()
+    const hasExplicitTime =
+      searchParams.startTime !== undefined || searchParams.endTime !== undefined
+    const activePreset =
+      searchParams.preset ??
+      (hasExplicitTime ? undefined : DEFAULT_TIME_WINDOW_ID)
+
+    const window = activePreset ? resolveTimeWindow(activePreset) : null
+    const defaultStart = window ? new Date(window.start * 1000) : undefined
+    const defaultEnd = window ? new Date(window.end * 1000) : undefined
+
     const sourceValues = {
       startTime: searchParams.startTime,
       endTime: searchParams.endTime,
-      preset: searchParams.preset,
+      preset: activePreset,
       channel: searchParams.channel,
       model: searchParams.model,
       token: searchParams.token,
@@ -186,13 +182,15 @@ function CommonLogsFilterBarInner<TData>(
       type: searchParams.type,
     }
     const filters: CommonLogFilters = {
-      startTime: searchParams.startTime
-        ? new Date(searchParams.startTime)
-        : defaultRange.start,
-      endTime: searchParams.endTime
-        ? new Date(searchParams.endTime)
-        : defaultRange.end,
-      preset: searchParams.preset,
+      startTime:
+        searchParams.startTime !== undefined
+          ? new Date(searchParams.startTime)
+          : defaultStart,
+      endTime:
+        searchParams.endTime !== undefined
+          ? new Date(searchParams.endTime)
+          : defaultEnd,
+      preset: activePreset,
       channel: searchParams.channel || undefined,
       model: searchParams.model || undefined,
       token: searchParams.token || undefined,
@@ -296,6 +294,12 @@ function CommonLogsFilterBarInner<TData>(
 
     const currentPreset = filters.preset
     if (!currentPreset) return
+    if (
+      searchParams.startTime === undefined &&
+      searchParams.endTime === undefined
+    ) {
+      return
+    }
 
     const window = {
       start: Math.floor((filters.startTime?.getTime() ?? 0) / 1000),
@@ -319,13 +323,13 @@ function CommonLogsFilterBarInner<TData>(
         replace: true,
       })
     })
-  }, [filters, logType, navigate])
+  }, [filters, logType, navigate, searchParams.startTime, searchParams.endTime])
 
   const handleReset = useCallback(() => {
-    const { start, end } = defaultWindow()
+    const window = resolveTimeWindow(DEFAULT_TIME_WINDOW_ID)
     const resetFilters: CommonLogFilters = {
-      startTime: start,
-      endTime: end,
+      startTime: new Date(window.start * 1000),
+      endTime: new Date(window.end * 1000),
       preset: DEFAULT_TIME_WINDOW_ID,
       channel: undefined,
       model: undefined,
