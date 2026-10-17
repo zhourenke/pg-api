@@ -18,7 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
 import { getRouteApi } from '@tanstack/react-router'
-import type { ColumnDef } from '@tanstack/react-table'
+import type { ColumnDef, Row } from '@tanstack/react-table'
+import { useCallback, useDeferredValue } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -125,7 +126,6 @@ export function UsageLogsTable() {
       pagination.pageSize,
       columnFilters,
       searchParams,
-      t,
     ],
     queryFn: async () => {
       const params = buildApiParams({
@@ -154,11 +154,12 @@ export function UsageLogsTable() {
   })
 
   const logs = data?.items || []
+  const deferredLogs = useDeferredValue(logs)
   const columns = useCommonLogsColumns(isAdmin, isRoot)
   const isLoadingData = isLoading || (isFetching && !data)
 
   const { table } = useDataTable({
-    data: logs as Record<string, unknown>[],
+    data: deferredLogs as Record<string, unknown>[],
     columns: columns as ColumnDef<Record<string, unknown>>[],
     columnFilters,
     columnVisibilityStorageKey: getColumnVisibilityStorageKey(viewAccess),
@@ -171,6 +172,33 @@ export function UsageLogsTable() {
     totalCount: data?.total || 0,
     ensurePageInRange,
   })
+
+  const renderRow = useCallback(
+    (row: Row<Record<string, unknown>>) => {
+      const logType = (row.original as Record<string, unknown>).type as
+        | number
+        | undefined
+      let tintClass = logType != null ? (logTypeRowTint[logType] ?? '') : ''
+      if (isAdmin) {
+        const other = parseLogOther(
+          ((row.original as Record<string, unknown>).other as string) ?? ''
+        )
+        if (other?.admin_info?.quota_saturation) {
+          tintClass = quotaSaturationRowTint
+        }
+      }
+
+      return (
+        <DataTableRow
+          key={row.id}
+          row={row}
+          className={cn('transition-colors', tintClass)}
+          cellRenderColumns={table.options.columns}
+        />
+      )
+    },
+    [isAdmin, table.options.columns]
+  )
 
   return (
     <DataTablePage
@@ -189,29 +217,7 @@ export function UsageLogsTable() {
       )}
       mobile={<UsageLogsMobileList table={table} isLoading={isLoadingData} />}
       toolbar={<CommonLogsFilterBar table={table} />}
-      renderRow={(row) => {
-        const logType = (row.original as Record<string, unknown>).type as
-          | number
-          | undefined
-        let tintClass = logType != null ? (logTypeRowTint[logType] ?? '') : ''
-        if (isAdmin) {
-          const other = parseLogOther(
-            ((row.original as Record<string, unknown>).other as string) ?? ''
-          )
-          if (other?.admin_info?.quota_saturation) {
-            tintClass = quotaSaturationRowTint
-          }
-        }
-
-        return (
-          <DataTableRow
-            key={row.id}
-            row={row}
-            className={cn('transition-colors', tintClass)}
-            cellRenderColumns={table.options.columns}
-          />
-        )
-      }}
+      renderRow={renderRow}
     />
   )
 }

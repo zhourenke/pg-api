@@ -165,4 +165,64 @@ describe('channel numeric spinner', () => {
     // is a value the user chose and it has to reach the caller.
     expect(changes).toEqual([0])
   })
+
+  it('prevents the control from collapsing when showing a placeholder in table and card modes', () => {
+    const parts = (container: HTMLElement) => {
+      const wrapper = container.firstElementChild as HTMLElement
+      const control = wrapper.firstElementChild as HTMLElement
+      return { wrapper, control, value: control.querySelectorAll('button')[1] }
+    }
+
+    const table = parts(
+      render(
+        <ChannelRowActionsLayoutContext.Provider value='table'>
+          <NumericSpinnerInput
+            value={null}
+            placeholder='—'
+            placeholderDescription='the channels disagree'
+            onChange={() => {}}
+          />
+        </ChannelRowActionsLayoutContext.Provider>
+      ).container
+    )
+    const card = parts(
+      render(
+        <ChannelRowActionsLayoutContext.Provider value='card'>
+          <NumericSpinnerInput
+            value={null}
+            placeholder='—'
+            placeholderDescription='the channels disagree'
+            onChange={() => {}}
+          />
+        </ChannelRowActionsLayoutContext.Provider>
+      ).container
+    )
+
+    // When the +/- buttons are taken out of the layout for a valueless placeholder,
+    // the control must keep a floor so it does not collapse into a small square/circle.
+    expect(classesOf(table.control)).toContain('min-w-[4.75rem]')
+    expect(classesOf(table.control)).toContain('justify-center')
+    expect(classesOf(table.value as HTMLElement)).toContain('max-w-full')
+
+    // In card mode, min-w-fit must not override the min-w floor when showing a dash.
+    expect(classesOf(card.control)).toContain('min-w-[4.75rem]')
+    expect(classesOf(card.control)).not.toContain('min-w-fit')
+    expect(classesOf(card.control)).toContain('max-w-[5.5rem]')
+  })
+
+  it('gives the input full width when editing a placeholder so it does not jump', async () => {
+    const user = userEvent.setup()
+    render(
+      <NumericSpinnerInput
+        value={null}
+        placeholder='—'
+        placeholderDescription='the channels disagree'
+        onChange={() => {}}
+      />
+    )
+
+    await user.click(screen.getByLabelText('the channels disagree'))
+    const input = screen.getByRole('textbox')
+    expect(classesOf(input)).toContain('w-full')
+  })
 })

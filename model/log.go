@@ -27,7 +27,11 @@ func applyExplicitLogTextFilter(tx *gorm.DB, column string, value string) (*gorm
 		}
 		return tx.Where(condition, pattern), nil
 	}
-	return tx.Where(column+" = ?", value), nil
+	condition, pattern, err := buildLogLikeCondition(column, "%"+value+"%")
+	if err != nil {
+		return nil, err
+	}
+	return tx.Where(condition, pattern), nil
 }
 
 func buildLogLikeCondition(column string, value string) (string, string, error) {

@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { CircleAlert } from 'lucide-react'
+import { CircleAlert, Zap } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -257,22 +257,38 @@ export function StreamTpsCell(props: StreamTpsCellProps) {
                 </span>
               }
             />
-            <TooltipContent side='top' className='max-w-xs space-y-1 text-xs'>
-              <p className='font-semibold'>{t('Burst Delivery')}</p>
-              <p className='text-muted-foreground'>
-                {outputMs != null
-                  ? t(
-                      'Upstream delivered tokens in an aggregated burst ({{ms}} ms).',
-                      { ms: outputMs }
-                    )
-                  : t('Upstream delivered tokens in a high-speed burst.')}
+            <TooltipContent
+              side='top'
+              className='flex w-60 flex-col items-stretch gap-2 p-2.5 text-xs shadow-md'
+            >
+              <div className='text-background flex items-center gap-1.5 font-semibold'>
+                <Zap className='size-3.5 shrink-0 text-amber-400' />
+                <span>{t('Burst Streaming')}</span>
+              </div>
+              <p className='text-background/80 leading-normal'>
+                {t(
+                  'Upstream delivered tokens in an instant burst instead of a steady stream.'
+                )}
               </p>
-              {overallTps != null && (
-                <p className='text-muted-foreground/80 border-border/50 border-t pt-1'>
-                  {t('Overall lifecycle throughput: {{tps}} t/s', {
-                    tps: Math.round(overallTps),
-                  })}
-                </p>
+              {(outputMs != null || overallTps != null) && (
+                <div className='border-background/15 text-background/70 flex flex-col gap-1 border-t pt-1.5 text-[11px]'>
+                  {outputMs != null && (
+                    <div className='flex items-center justify-between gap-3'>
+                      <span>{t('Generation duration')}</span>
+                      <span className='text-background font-mono font-medium tabular-nums'>
+                        {outputMs} ms
+                      </span>
+                    </div>
+                  )}
+                  {overallTps != null && (
+                    <div className='flex items-center justify-between gap-3'>
+                      <span>{t('Overall rate')}</span>
+                      <span className='text-background font-mono font-medium tabular-nums'>
+                        {Math.round(overallTps)} t/s
+                      </span>
+                    </div>
+                  )}
+                </div>
               )}
             </TooltipContent>
           </Tooltip>

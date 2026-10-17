@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
 import { getRouteApi } from '@tanstack/react-router'
+import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Skeleton } from '@/components/ui/skeleton'
@@ -48,7 +49,7 @@ function StatBadge(props: {
   )
 }
 
-export function CommonLogsStats() {
+export const CommonLogsStats = memo(function CommonLogsStats() {
   const { t } = useTranslation()
   const { isAdminView: isAdmin } = useLogsViewScope()
   const searchParams = route.useSearch()
@@ -105,4 +106,4 @@ export function CommonLogsStats() {
       />
     </div>
   )
-}
+})

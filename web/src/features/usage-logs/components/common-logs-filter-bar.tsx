@@ -20,7 +20,15 @@ import { useQueryClient, useIsFetching, useQuery } from '@tanstack/react-query'
 import { useNavigate, getRouteApi } from '@tanstack/react-router'
 import type { Table } from '@tanstack/react-table'
 import { Eye, EyeOff } from 'lucide-react'
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
+import {
+  useState,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  startTransition,
+  memo,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
@@ -40,14 +48,12 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { getGroups } from '@/features/users/api'
-import { useDebouncedFilterChange } from '@/hooks/use-debounced-filter-change'
 import { getUserGroups } from '@/lib/api'
 import { requireServerSuccess } from '@/lib/server-error-message'
 import {
   DEFAULT_TIME_WINDOW_ID,
   isTimeWindowStale,
   resolveTimeWindow,
-  type TimeWindowId,
 } from '@/lib/time-window'
 
 import { LOG_TYPE_ALL_VALUE, LOG_TYPE_FILTERS } from '../constants'
@@ -135,7 +141,7 @@ interface CommonLogsFilterBarProps<TData> {
   table: Table<TData>
 }
 
-export function CommonLogsFilterBar<TData>(
+function CommonLogsFilterBarInner<TData>(
   props: CommonLogsFilterBarProps<TData>
 ) {
   const { t } = useTranslation()
@@ -214,15 +220,14 @@ export function CommonLogsFilterBar<TData>(
     searchParams.type,
   ])
   const [draft, setDraft] = useState<CommonLogDraft>(() => searchState)
-  const activeDraft =
-    draft.sourceKey === searchState.sourceKey ? draft : searchState
-  const filters = activeDraft.filters
-  const logType = activeDraft.logType
 
-  // The commit path is shared by every control and by the debounced text
-  // fields, so it reads the current filters through refs instead of closing
-  // over them: that keeps it stable, which the debounce hook requires, and it
-  // still sees an edit that landed after the callback was created.
+  useEffect(() => {
+    setDraft(searchState)
+  }, [searchState])
+
+  const filters = draft.filters
+  const logType = draft.logType
+
   const filtersRef = useRef(filters)
   filtersRef.current = filters
   const logTypeRef = useRef(logType)
@@ -230,114 +235,134 @@ export function CommonLogsFilterBar<TData>(
   const searchStateRef = useRef(searchState.sourceKey)
   searchStateRef.current = searchState.sourceKey
 
-  /** Writes the filters to the URL, which is what makes the table refetch. */
-  const commit = useCallback(
-    (patch: Partial<CommonLogFilters>, nextLogType: LogTypeValue) => {
-      const next = { ...filtersRef.current, ...patch }
+  /**
+   * Commits current filters and search params to the URL and invalidates
+   * query caches.
+   */
+  const commitAndSearch = useCallback(
+    (patch?: Partial<CommonLogFilters>, nextLogType?: LogTypeValue) => {
+      const current = filtersRef.current
+      const type = nextLogType ?? logTypeRef.current
+      let nextFilters = { ...current, ...patch }
+
+      // When refreshing/searching with an active preset, advance start/end up to the current second
+      if (nextFilters.preset) {
+        const fresh = resolveTimeWindow(nextFilters.preset)
+        nextFilters = {
+          ...nextFilters,
+          startTime: new Date(fresh.start * 1000),
+          endTime: new Date(fresh.end * 1000),
+        }
+      }
+
       setDraft({
         sourceKey: searchStateRef.current,
-        filters: next,
-        logType: nextLogType,
+        filters: nextFilters,
+        logType: type,
       })
-      navigate({
-        to: '/usage-logs/$section',
-        params: { section: 'common' },
-        search: {
-          ...buildSearchParams(next),
-          type: [nextLogType],
-          page: 1,
-        },
+
+      startTransition(() => {
+        navigate({
+          to: '/usage-logs/$section',
+          params: { section: 'common' },
+          search: {
+            ...buildSearchParams(nextFilters),
+            type: [type],
+            page: 1,
+          },
+        })
       })
+
+      queryClient.invalidateQueries({ queryKey: ['logs'] })
+      queryClient.invalidateQueries({ queryKey: ['usage-logs-stats'] })
     },
-    [navigate]
+    [navigate, queryClient]
   )
 
-  /** Re-pulls the current filters without touching them. */
-  const handleSearch = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['logs'] })
-    queryClient.invalidateQueries({ queryKey: ['usage-logs-stats'] })
-  }, [queryClient])
-
-  const handleChange = useCallback(
-    (
-      field: keyof CommonLogFilters,
-      value: Date | string | TimeWindowId | undefined
-    ) => {
-      commit({ [field]: value }, logTypeRef.current)
+  const handleInputChange = useCallback(
+    (field: keyof CommonLogFilters, value: string) => {
+      setDraft((prev) => ({
+        ...prev,
+        filters: { ...prev.filters, [field]: value },
+      }))
     },
-    [commit]
+    []
   )
 
-  const handleLogTypeChange = useCallback(
-    (value: LogTypeValue) => {
-      commit({}, value)
-    },
-    [commit]
-  )
-
-  // Typed text cannot apply on every keystroke, so those fields settle first
-  // and then go through the same commit path as every other control.
-  const {
-    change: changeText,
-    isPending: textPending,
-    flush: flushText,
-  } = useDebouncedFilterChange<Partial<CommonLogFilters>>((patch) => {
-    commit(patch, logTypeRef.current)
-  })
-
-  // A calendar window such as "this week" is fixed in the URL until it is
-  // rewritten, so a page opened yesterday would keep asking for yesterday's
-  // week. Refresh it once per mount; `filters` changes again after that, but
-  // the stored bounds then match and the effect stops.
+  const checkedStaleRef = useRef(false)
   useEffect(() => {
+    if (checkedStaleRef.current) return
+    checkedStaleRef.current = true
+
+    const currentPreset = filters.preset
+    if (!currentPreset) return
+
     const window = {
       start: Math.floor((filters.startTime?.getTime() ?? 0) / 1000),
       end: Math.floor((filters.endTime?.getTime() ?? 0) / 1000),
     }
-    if (!filters.preset || !isTimeWindowStale(filters.preset, window)) return
+    if (!isTimeWindowStale(currentPreset, window)) return
 
-    const fresh = resolveTimeWindow(filters.preset)
-    navigate({
-      to: '/usage-logs/$section',
-      params: { section: 'common' },
-      search: {
-        ...buildSearchParams(filters),
-        type: [logType],
-        startTime: fresh.start * 1000,
-        endTime: fresh.end * 1000,
-        preset: filters.preset,
-        page: 1,
-      },
-      replace: true,
+    const fresh = resolveTimeWindow(currentPreset)
+    startTransition(() => {
+      navigate({
+        to: '/usage-logs/$section',
+        params: { section: 'common' },
+        search: {
+          ...buildSearchParams(filters),
+          type: [logType],
+          startTime: fresh.start * 1000,
+          endTime: fresh.end * 1000,
+          preset: currentPreset,
+          page: 1,
+        },
+        replace: true,
+      })
     })
   }, [filters, logType, navigate])
 
   const handleReset = useCallback(() => {
     const { start, end } = defaultWindow()
-    commit(
-      {
-        startTime: start,
-        endTime: end,
-        preset: DEFAULT_TIME_WINDOW_ID,
-        channel: undefined,
-        model: undefined,
-        token: undefined,
-        group: undefined,
-        username: undefined,
-        requestId: undefined,
-        upstreamRequestId: undefined,
-      },
-      LOG_TYPE_ALL_VALUE
-    )
-  }, [commit])
+    const resetFilters: CommonLogFilters = {
+      startTime: start,
+      endTime: end,
+      preset: DEFAULT_TIME_WINDOW_ID,
+      channel: undefined,
+      model: undefined,
+      token: undefined,
+      group: undefined,
+      username: undefined,
+      requestId: undefined,
+      upstreamRequestId: undefined,
+    }
+    setDraft({
+      sourceKey: '',
+      filters: resetFilters,
+      logType: LOG_TYPE_ALL_VALUE,
+    })
+    startTransition(() => {
+      navigate({
+        to: '/usage-logs/$section',
+        params: { section: 'common' },
+        search: {
+          ...buildSearchParams(resetFilters),
+          type: [LOG_TYPE_ALL_VALUE],
+          page: 1,
+        },
+      })
+    })
+    queryClient.invalidateQueries({ queryKey: ['logs'] })
+    queryClient.invalidateQueries({ queryKey: ['usage-logs-stats'] })
+  }, [navigate, queryClient])
 
-  // Enter commits the typed text right away instead of making the user wait
-  // out the debounce.
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter') flushText()
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        commitAndSearch()
+      }
     },
-    [flushText]
+    [commitAndSearch]
   )
 
   const hasExpandedFilters =
@@ -404,10 +429,11 @@ export function CommonLogsFilterBar<TData>(
         end={filters.endTime}
         preset={filters.preset}
         onChange={({ start, end, preset: nextPreset }) => {
-          commit(
-            { startTime: start, endTime: end, preset: nextPreset },
-            logTypeRef.current
-          )
+          commitAndSearch({
+            startTime: start,
+            endTime: end,
+            preset: nextPreset,
+          })
         }}
       />
     </LogsFilterField>
@@ -417,7 +443,7 @@ export function CommonLogsFilterBar<TData>(
       <LogsFilterInput
         placeholder={t('Model Name')}
         value={filters.model || ''}
-        onChange={(e) => changeText({ model: e.target.value })}
+        onChange={(e) => handleInputChange('model', e.target.value)}
         onKeyDown={handleKeyDown}
       />
     </LogsFilterField>
@@ -434,15 +460,13 @@ export function CommonLogsFilterBar<TData>(
           className='h-8 min-w-0 text-sm leading-5'
           popupClassName={sensitiveInputClass}
           value={filters.group || ''}
-          onValueChange={(value) => handleChange('group', value ?? '')}
+          onValueChange={(value) => {
+            const nextGroup = value ?? ''
+            handleInputChange('group', nextGroup)
+            commitAndSearch({ group: nextGroup })
+          }}
           onKeyDown={handleKeyDown}
         />
-        {textPending && (
-          <span
-            aria-hidden='true'
-            className='bg-primary pointer-events-none absolute top-1/2 right-2 size-1.5 -translate-y-1/2 rounded-full'
-          />
-        )}
       </div>
     </LogsFilterField>
   )
@@ -452,7 +476,8 @@ export function CommonLogsFilterBar<TData>(
         items={logTypeItems}
         value={logType}
         onValueChange={(value) => {
-          handleLogTypeChange(
+          commitAndSearch(
+            {},
             value !== null && isLogTypeValue(value) ? value : LOG_TYPE_ALL_VALUE
           )
         }}
@@ -516,7 +541,7 @@ export function CommonLogsFilterBar<TData>(
           placeholder={t('Token Name')}
           className={sensitiveInputClass}
           value={filters.token || ''}
-          onChange={(e) => changeText({ token: e.target.value })}
+          onChange={(e) => handleInputChange('token', e.target.value)}
           onKeyDown={handleKeyDown}
         />
       </LogsFilterField>
@@ -526,7 +551,7 @@ export function CommonLogsFilterBar<TData>(
             placeholder={t('Username')}
             className={sensitiveInputClass}
             value={filters.username || ''}
-            onChange={(e) => changeText({ username: e.target.value })}
+            onChange={(e) => handleInputChange('username', e.target.value)}
             onKeyDown={handleKeyDown}
           />
         </LogsFilterField>
@@ -536,7 +561,7 @@ export function CommonLogsFilterBar<TData>(
           <LogsFilterInput
             placeholder={t('Channel ID')}
             value={filters.channel || ''}
-            onChange={(e) => changeText({ channel: e.target.value })}
+            onChange={(e) => handleInputChange('channel', e.target.value)}
             onKeyDown={handleKeyDown}
           />
         </LogsFilterField>
@@ -545,7 +570,7 @@ export function CommonLogsFilterBar<TData>(
         <LogsFilterInput
           placeholder={t('Request ID')}
           value={filters.requestId || ''}
-          onChange={(e) => changeText({ requestId: e.target.value })}
+          onChange={(e) => handleInputChange('requestId', e.target.value)}
           onKeyDown={handleKeyDown}
         />
       </LogsFilterField>
@@ -553,7 +578,9 @@ export function CommonLogsFilterBar<TData>(
         <LogsFilterInput
           placeholder={t('Upstream Request ID')}
           value={filters.upstreamRequestId || ''}
-          onChange={(e) => changeText({ upstreamRequestId: e.target.value })}
+          onChange={(e) =>
+            handleInputChange('upstreamRequestId', e.target.value)
+          }
           onKeyDown={handleKeyDown}
         />
       </LogsFilterField>
@@ -591,9 +618,14 @@ export function CommonLogsFilterBar<TData>(
       hasAdvancedActiveFilters={hasExpandedFilters}
       advancedFilterCount={expandedFilterCount}
       hasActiveFilters={hasAdditionalFilters}
-      onSearch={handleSearch}
+      onSearch={() => commitAndSearch()}
       searchLoading={fetchingLogs > 0}
       onReset={handleReset}
     />
   )
 }
+
+export const CommonLogsFilterBar = memo(
+  CommonLogsFilterBarInner,
+  (prev, next) => prev.table.options.columns === next.table.options.columns
+) as typeof CommonLogsFilterBarInner

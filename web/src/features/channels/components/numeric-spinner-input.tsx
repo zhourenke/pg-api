@@ -192,8 +192,9 @@ export function NumericSpinnerInput({
       <div
         onBlur={handleControlBlur}
         className={cn(
-          'group/spinner border-input inline-flex h-7 max-w-full min-w-0 items-center gap-0 rounded-md border transition-colors',
-          fillsColumn && 'min-w-fit max-w-[5.5rem]',
+          'group/spinner border-input inline-flex h-7 min-w-[4.75rem] max-w-full items-center justify-center gap-0 rounded-md border transition-colors',
+          fillsColumn && !hasNoValue && 'min-w-fit max-w-[5.5rem]',
+          fillsColumn && hasNoValue && 'max-w-[5.5rem]',
           'hover:bg-muted/60',
           editing && 'bg-muted/60 ring-primary/30 ring-1'
         )}
@@ -227,7 +228,10 @@ export function NumericSpinnerInput({
             onChange={handleInputChange}
             onBlur={commitValue}
             onKeyDown={handleKeyDown}
-            className='h-7 w-10 min-w-0 bg-transparent text-center font-mono text-sm outline-none'
+            className={cn(
+              'h-7 min-w-0 bg-transparent text-center font-mono text-sm outline-none',
+              hasNoValue ? 'w-full' : 'w-10'
+            )}
             autoFocus
           />
         ) : (
@@ -242,7 +246,7 @@ export function NumericSpinnerInput({
             }
             className={cn(
               'h-7 min-w-0 max-w-16 flex-1 cursor-text truncate px-1 text-center font-mono text-sm tabular-nums',
-              hasNoValue && 'text-muted-foreground'
+              hasNoValue && 'max-w-full text-muted-foreground'
             )}
           >
             {displayText}

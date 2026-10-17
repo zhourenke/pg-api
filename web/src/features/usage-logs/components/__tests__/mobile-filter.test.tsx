@@ -158,7 +158,28 @@ it('applies the selected mobile date range directly and resets pagination while 
   )
 })
 
-it('applies a typed drawer filter after it settles, without a Search press', async () => {
+it('does not apply a typed drawer filter automatically, applies on Enter or Refresh', async () => {
+  const router = await renderMobileFilter()
+  const user = userEvent.setup()
+  await user.click(screen.getByRole('button', { name: 'Filter' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Filter' })
+  const input = within(dialog).getByPlaceholderText('Model Name')
+  fireEvent.change(input, {
+    target: { value: 'gemini-3.7-flash' },
+  })
+  expect(router.state.location.search).not.toHaveProperty('model')
+
+  // Typed text does not apply automatically without an Enter or Refresh press
+  fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' })
+  await waitFor(() =>
+    expect(router.state.location.search).toMatchObject({
+      page: 1,
+      model: 'gemini-3.7-flash',
+    })
+  )
+})
+
+it('closes the drawer and applies filters when Refresh is pressed', async () => {
   const router = await renderMobileFilter()
   const user = userEvent.setup()
   await user.click(screen.getByRole('button', { name: 'Filter' }))
@@ -166,27 +187,6 @@ it('applies a typed drawer filter after it settles, without a Search press', asy
   fireEvent.change(within(dialog).getByPlaceholderText('Model Name'), {
     target: { value: 'gemini-3.7-flash' },
   })
-  expect(router.state.location.search).not.toHaveProperty('model')
-
-  // Typed text waits for the shared 1000ms debounce, then applies on its own.
-  await waitFor(
-    () =>
-      expect(router.state.location.search).toMatchObject({
-        page: 1,
-        model: 'gemini-3.7-flash',
-      }),
-    { timeout: 3000 }
-  )
-  // Applying does not close the drawer: only Refresh does.
-  expect(screen.getByRole('dialog', { name: 'Filter' })).toBeVisible()
-})
-
-it('closes the drawer and re-pulls the logs when Refresh is pressed', async () => {
-  const router = await renderMobileFilter()
-  const user = userEvent.setup()
-  const before = router.state.location.search
-  await user.click(screen.getByRole('button', { name: 'Filter' }))
-  const dialog = await screen.findByRole('dialog', { name: 'Filter' })
   await user.click(within(dialog).getByRole('button', { name: 'Refresh' }))
 
   await waitFor(() =>
@@ -194,8 +194,12 @@ it('closes the drawer and re-pulls the logs when Refresh is pressed', async () =
       screen.queryByRole('dialog', { name: 'Filter' })
     ).not.toBeInTheDocument()
   )
-  // Refreshing re-pulls the same filters instead of changing them.
-  expect(router.state.location.search).toEqual(before)
+  expect(router.state.location.search).toMatchObject({
+    page: 1,
+    model: 'gemini-3.7-flash',
+    group: 'default',
+    type: ['2'],
+  })
 })
 
 it('keeps all quick actions visible without opening a menu', async () => {

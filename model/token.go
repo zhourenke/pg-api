@@ -143,11 +143,11 @@ func validateLikePattern(input string) error {
 		return errors.New("搜索模式中最多允许包含 2 个 % 通配符")
 	}
 
-	// 3. 含 % 时，去掉 % 后关键词长度必须 >= 2
+	// 3. 含 % 时，去掉 % 后关键词长度必须 >= 1
 	if count > 0 {
 		stripped := strings.ReplaceAll(input, "%", "")
-		if len(stripped) < 2 {
-			return errors.New("使用模糊搜索时，关键词长度至少为 2 个字符")
+		if len(stripped) < 1 {
+			return errors.New("使用模糊搜索时，关键词长度至少为 1 个字符")
 		}
 	}
 

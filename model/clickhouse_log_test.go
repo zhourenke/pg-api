@@ -115,6 +115,26 @@ func TestBuildLogLikeConditionUsesStandardEscape(t *testing.T) {
 	assert.Equal(t, "gpt!_4%", pattern)
 }
 
+func TestApplyExplicitLogTextFilterFuzzy(t *testing.T) {
+	originalLogDatabaseType := common.LogDatabaseType()
+	t.Cleanup(func() {
+		common.SetLogDatabaseType(originalLogDatabaseType)
+	})
+	common.SetLogDatabaseType(common.DatabaseTypeSQLite)
+
+	// Partial search keyword like "gem" should wrap into "%gem%" for substring match
+	condition, pattern, err := buildLogLikeCondition("logs.model_name", "%gem%")
+	require.NoError(t, err)
+	assert.Equal(t, "logs.model_name LIKE ? ESCAPE '!'", condition)
+	assert.Equal(t, "%gem%", pattern)
+
+	// Single character search like "4" should also be allowed
+	condition, pattern, err = buildLogLikeCondition("logs.model_name", "%4%")
+	require.NoError(t, err)
+	assert.Equal(t, "logs.model_name LIKE ? ESCAPE '!'", condition)
+	assert.Equal(t, "%4%", pattern)
+}
+
 func TestBuildLogLikeConditionUsesClickHouseEscaping(t *testing.T) {
 	originalLogDatabaseType := common.LogDatabaseType()
 	t.Cleanup(func() {
