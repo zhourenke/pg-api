@@ -258,6 +258,14 @@ export function getThroughput(
 
   if (!log.is_stream || frtMs == null || frtMs <= 0 || frtMs >= durationMs) {
     const overallTps = (log.completion_tokens * 1000) / durationMs
+    if (log.is_stream && (durationMs < 250 || overallTps > 350)) {
+      return {
+        tokensPerSecond: null,
+        isBurst: true,
+        outputMs: Math.max(0, durationMs - (frtMs ?? 0)),
+        overallTokensPerSecond: overallTps,
+      }
+    }
     return {
       tokensPerSecond: overallTps,
       isBurst: false,

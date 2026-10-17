@@ -62,6 +62,22 @@ func RecordRelayResult(ctx context.Context, info *relaycommon.RelayInfo, apiErr 
 	if generationMs <= 0 {
 		generationMs = latencyMs
 	}
+	outputTokens := info.PerformanceOutputTokens
+	// Burst delivery detection matching the usage logs:
+	// When an upstream dumps buffered tokens in < 250ms or generation throughput
+	// exceeds physical GPU streaming limits (> 350 t/s), it is recognized as a burst
+	// rather than steady-state streaming. We exclude burst tokens and generation
+	// duration from the throughput pool so they do not inflate model square TPS.
+	if info.IsStream && outputTokens > 0 {
+		outputMs := generationMs
+		if hasTtft {
+			outputMs = now.Sub(info.FirstResponseTime).Milliseconds()
+		}
+		if outputMs < 250 || (outputMs > 0 && (outputTokens*1000)/outputMs > 350) || (latencyMs > 0 && (outputTokens*1000)/latencyMs > 350) {
+			outputTokens = 0
+			generationMs = 0
+		}
+	}
 	Record(Sample{
 		Model:        info.OriginModelName,
 		Group:        info.UsingGroup,
@@ -69,7 +85,7 @@ func RecordRelayResult(ctx context.Context, info *relaycommon.RelayInfo, apiErr 
 		TtftMs:       ttftMs,
 		HasTtft:      hasTtft,
 		Success:      outcome == OutcomeSuccess,
-		OutputTokens: info.PerformanceOutputTokens,
+		OutputTokens: outputTokens,
 		GenerationMs: generationMs,
 	})
 }

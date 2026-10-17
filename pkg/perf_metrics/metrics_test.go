@@ -289,6 +289,33 @@ func TestPerformanceAggregationAndFlush(t *testing.T) {
 			assert.Equal(t, int64(1), endCounters.ttftCount)
 			assert.Equal(t, int64(100), endCounters.outputTokens)
 			assert.Equal(t, int64(3000), endCounters.generationMs)
+
+			// A burst delivery (< 250ms or > 350 t/s) preserves request count,
+			// latency and TTFT, but excludes tokens and generation time from the throughput pool.
+			burstInfo := &relaycommon.RelayInfo{
+				OriginModelName:         "burst-model",
+				UsingGroup:              "b",
+				StartTime:               settledAt.Add(-1000 * time.Millisecond),
+				FirstResponseTime:       settledAt.Add(-50 * time.Millisecond),
+				IsStream:                true,
+				ResponseEndTime:         settledAt,
+				PerformanceOutputTokens: 200,
+			}
+			RecordRelayResult(context.Background(), burstInfo, nil)
+			bValue, bOk := hotBuckets.Load(bucketKey{
+				model:    "burst-model",
+				group:    "b",
+				bucketTs: bucketStart(settledAt.Unix()),
+			})
+			require.True(t, bOk)
+			burstCounters := bValue.(*atomicBucket).snapshot()
+			assert.Equal(t, int64(1), burstCounters.requestCount)
+			assert.Equal(t, int64(1), burstCounters.successCount)
+			assert.Equal(t, int64(1000), burstCounters.totalLatencyMs)
+			assert.Equal(t, int64(950), burstCounters.ttftSumMs)
+			assert.Equal(t, int64(1), burstCounters.ttftCount)
+			assert.Equal(t, int64(0), burstCounters.outputTokens, "burst delivery tokens must not be pooled")
+			assert.Equal(t, int64(0), burstCounters.generationMs, "burst delivery duration must not be pooled")
 		})
 	}
 }

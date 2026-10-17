@@ -160,4 +160,21 @@ describe('generation throughput', () => {
     expect(result.tokensPerSecond).toBeNull()
     expect(result.overallTokensPerSecond).toBeCloseTo(63.31, 2)
   })
+
+  test('pseudo-stream burst where first token covers entire duration is marked as burst', () => {
+    // 200 tokens dumped in 50ms (frt equals use_time)
+    const result = getThroughput(
+      log({
+        is_stream: true,
+        completion_tokens: 200,
+      }),
+      {
+        frt: 50,
+        use_time_ms: 50,
+      }
+    )
+    expect(result.isBurst).toBe(true)
+    expect(result.tokensPerSecond).toBeNull()
+    expect(result.overallTokensPerSecond).toBe(4000)
+  })
 })
