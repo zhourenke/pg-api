@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/glebarez/sqlite"
+	"github.com/stretchr/testify/require"
 	"github.com/zhourenke/pg-api/common"
 	"gorm.io/gorm"
 )
@@ -79,4 +80,18 @@ func truncateTables(t *testing.T) {
 		DB.Exec("DELETE FROM system_task_locks")
 		DB.Exec("DELETE FROM system_tasks")
 	})
+}
+
+func TestCloseDBNilSafe(t *testing.T) {
+	require.NoError(t, closeDB(nil))
+
+	origDB, origLogDB := DB, LOG_DB
+	defer func() {
+		DB = origDB
+		LOG_DB = origLogDB
+	}()
+
+	DB = nil
+	LOG_DB = nil
+	require.NoError(t, CloseDB())
 }

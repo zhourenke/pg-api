@@ -681,6 +681,9 @@ func checkpointSQLite(db *gorm.DB) {
 }
 
 func closeDB(db *gorm.DB) error {
+	if db == nil {
+		return nil
+	}
 	checkpointSQLite(db)
 	sqlDB, err := db.DB()
 	if err != nil {

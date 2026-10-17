@@ -50,10 +50,28 @@ func main() {
 	})
 	kitutil.SetSystemErrorLogging(common.SysError)
 
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	defer func() {
+		err := model.CloseDB()
+		if err != nil {
+			common.FatalLog("failed to close database: " + err.Error())
+		}
+	}()
+
 	err := InitResources()
 	if err != nil {
 		common.FatalLog("failed to initialize resources: " + err.Error())
 		return
+	}
+
+	// Check if a shutdown signal was received during initialization
+	select {
+	case sig := <-quit:
+		common.SysLog(fmt.Sprintf("received signal: %v during startup, shutting down...", sig))
+		return
+	default:
 	}
 
 	common.SysLog("pg-api " + common.Version + " started")
@@ -65,13 +83,6 @@ func main() {
 	}
 
 	kitutil.Debug.Store(common.DebugEnabled)
-
-	defer func() {
-		err := model.CloseDB()
-		if err != nil {
-			common.FatalLog("failed to close database: " + err.Error())
-		}
-	}()
 
 	if common.RedisEnabled {
 		// for compatibility with old versions
@@ -202,9 +213,8 @@ func main() {
 
 	common.LogStartupSuccess(startTime, port)
 
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-quit
+	signal.Stop(quit)
 	common.SysLog(fmt.Sprintf("received signal: %v, shutting down...", sig))
 
 	// SSE streams may run for minutes; give them time to finish before forced exit
