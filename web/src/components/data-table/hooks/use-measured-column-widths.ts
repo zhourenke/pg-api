@@ -109,10 +109,16 @@ export function useMeasuredColumnWidths<TData>(
 
       const sizing = table.getState().columnSizing
       const applied = appliedRef.current
+      const activeColumns = getMeasuredColumns(table)
 
       if (
         applied &&
-        Object.keys(applied).some((id) => sizing[id] !== applied[id])
+        activeColumns.some(
+          (col) =>
+            applied[col.id] !== undefined &&
+            sizing[col.id] !== undefined &&
+            sizing[col.id] !== applied[col.id]
+        )
       ) {
         frozenRef.current = true
 
@@ -166,6 +172,21 @@ export function useMeasuredColumnWidths<TData>(
   const measuredColumnIds = getMeasuredColumns(table).map((column) => column.id)
   const measuredColumnKey = measuredColumnIds.join(',')
   const hasMeasuredColumns = measuredColumnIds.length > 0
+  const activeColumnIds = React.useMemo(
+    () => new Set(measuredColumnIds),
+    [measuredColumnIds]
+  )
+
+  React.useLayoutEffect(() => {
+    for (const id of measuredIdsRef.current) {
+      if (!activeColumnIds.has(id)) {
+        measuredIdsRef.current.delete(id)
+        if (appliedRef.current) {
+          delete appliedRef.current[id]
+        }
+      }
+    }
+  }, [activeColumnIds])
 
   React.useLayoutEffect(() => {
     if (!enabled || !hasMeasuredColumns || !tableElementRef.current) {

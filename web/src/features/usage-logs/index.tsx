@@ -42,7 +42,8 @@ function UsageLogsContent() {
     affinityDialogOpen,
     setAffinityDialogOpen,
   } = useUsageLogsContext()
-  const { canManageScope, viewScope, setViewScope } = useLogsViewScope()
+  const { canManageScope, viewScope, setViewScope, viewAccess } =
+    useLogsViewScope()
 
   const handleViewScopeChange = useCallback(
     (scope: string) => {
@@ -70,7 +71,7 @@ function UsageLogsContent() {
         <SectionPageLayout.Content>
           <div className='flex h-full min-h-0 flex-col gap-4'>
             <div className='min-h-0 flex-1'>
-              <UsageLogsTable />
+              <UsageLogsTable key={viewAccess} />
             </div>
           </div>
         </SectionPageLayout.Content>

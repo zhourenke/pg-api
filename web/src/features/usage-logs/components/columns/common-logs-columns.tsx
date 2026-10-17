@@ -324,6 +324,7 @@ export function useCommonLogsColumns(
         {
           id: 'channel',
           header: t('Channel'),
+          size: 140,
           accessorFn: (row) => row.channel,
           cell: function ChannelCell({ row }) {
             const {
@@ -484,6 +485,7 @@ export function useCommonLogsColumns(
         {
           id: 'user',
           header: t('User'),
+          size: 120,
           accessorFn: (row) => row.username,
           cell: function UserCell({ row }) {
             const {
