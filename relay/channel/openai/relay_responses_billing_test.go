@@ -354,3 +354,106 @@ func TestOaiResponsesStreamHandlerKeepsNonSGLangCreatedAt(t *testing.T) {
 	require.Nil(t, apiErr)
 	assert.Contains(t, w.Body.String(), `1786588600.0`)
 }
+
+type partialReadCloser struct {
+	data   []byte
+	offset int
+	err    error
+}
+
+func (r *partialReadCloser) Read(p []byte) (int, error) {
+	if r.offset < len(r.data) {
+		n := copy(p, r.data[r.offset:])
+		r.offset += n
+		return n, nil
+	}
+	return 0, r.err
+}
+
+func (r *partialReadCloser) Close() error {
+	return nil
+}
+
+func TestOaiResponsesStreamHandlerRetriesWhenStreamEndsBeforeContent(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	oldTimeout := constant.StreamingTimeout
+	constant.StreamingTimeout = 30
+	t.Cleanup(func() {
+		constant.StreamingTimeout = oldTimeout
+	})
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	c.Set(common.RequestIdKey, "retry-before-content-test")
+
+	info := &relaycommon.RelayInfo{
+		DisablePing: true,
+		ChannelMeta: &relaycommon.ChannelMeta{ChannelType: constant.ChannelTypeOpenAI, UpstreamModelName: "gemini-3.8-flash"},
+	}
+	// Upstream sends response.created and response.in_progress, then unexpected EOF before any content
+	body := &partialReadCloser{
+		data: []byte(
+			"data: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_1\",\"object\":\"response\",\"status\":\"in_progress\",\"model\":\"gemini-3.8-flash\"}}\n\n" +
+				"data: {\"type\":\"response.in_progress\",\"response\":{\"id\":\"resp_1\",\"object\":\"response\",\"status\":\"in_progress\"}}\n\n",
+		),
+		err: io.ErrUnexpectedEOF,
+	}
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       body,
+		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+	}
+
+	usage, apiErr := OaiResponsesStreamHandler(c, info, resp)
+	// Must return an API error so Relay can failover to retry the next channel
+	require.NotNil(t, apiErr, "expected non-nil apiErr to trigger relay retry")
+	assert.Nil(t, usage)
+	// Nothing must have been written to the client
+	assert.Empty(t, w.Body.String(), "expected no data written to client when failing before content")
+}
+
+func TestOaiResponsesStreamHandlerEmitsTerminalFailureWhenStreamEndsAfterContent(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	oldTimeout := constant.StreamingTimeout
+	constant.StreamingTimeout = 30
+	t.Cleanup(func() {
+		constant.StreamingTimeout = oldTimeout
+	})
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	c.Set(common.RequestIdKey, "fail-after-content-test")
+
+	info := &relaycommon.RelayInfo{
+		DisablePing: true,
+		ChannelMeta: &relaycommon.ChannelMeta{ChannelType: constant.ChannelTypeOpenAI, UpstreamModelName: "gemini-3.8-flash"},
+	}
+	// Upstream sends created, in_progress, output_item.added, then unexpected EOF
+	body := &partialReadCloser{
+		data: []byte(
+			"data: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_1\",\"object\":\"response\",\"status\":\"in_progress\",\"model\":\"gemini-3.8-flash\"}}\n\n" +
+				"data: {\"type\":\"response.in_progress\",\"response\":{\"id\":\"resp_1\",\"object\":\"response\",\"status\":\"in_progress\"}}\n\n" +
+				"data: {\"type\":\"response.output_item.added\",\"output_index\":0,\"item\":{\"id\":\"msg_1\",\"type\":\"message\"}}\n\n",
+		),
+		err: io.ErrUnexpectedEOF,
+	}
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       body,
+		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+	}
+
+	_, apiErr := OaiResponsesStreamHandler(c, info, resp)
+	require.Nil(t, apiErr, "cannot retry after content has been written")
+
+	got := w.Body.String()
+	// Must contain the buffered created event, output_item.added, and terminal events
+	assert.Contains(t, got, `event: response.created`)
+	assert.Contains(t, got, `event: response.output_item.added`)
+	assert.Contains(t, got, `event: error`)
+	assert.Contains(t, got, `event: response.failed`)
+	assert.Contains(t, got, `"status":"failed"`)
+}
+

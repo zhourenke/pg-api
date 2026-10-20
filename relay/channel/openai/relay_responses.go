@@ -1,6 +1,7 @@
 package openai
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -69,6 +70,11 @@ func OaiResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 	return usage, nil
 }
 
+type pendingResponsesStreamEvent struct {
+	streamResponse dto.ResponsesStreamResponse
+	data           string
+}
+
 func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
 	if resp == nil || resp.Body == nil {
 		logger.LogError(c, "invalid response or response body")
@@ -78,10 +84,21 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 	defer service.CloseResponseBodyGracefully(resp)
 
 	accumulator := service.NewResponsesUsageAccumulator(info)
+	var pendingEvents []pendingResponsesStreamEvent
+	flushedContent := false
+
+	flushPending := func() {
+		if flushedContent {
+			return
+		}
+		flushedContent = true
+		for _, p := range pendingEvents {
+			sendResponsesStreamData(c, p.streamResponse, p.data)
+		}
+		pendingEvents = nil
+	}
 
 	helper.StreamScannerHandler(c, resp, info, func(data string, sr *helper.StreamResult) {
-
-		// 检查当前数据是否包含 completed 状态和 usage 信息
 		var streamResponse dto.ResponsesStreamResponse
 		if err := common.UnmarshalJsonStr(data, &streamResponse); err != nil {
 			logger.LogError(c, "failed to unmarshal stream response: "+err.Error())
@@ -91,13 +108,81 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 		if streamResponse.Response != nil {
 			data = string(rewriteSGLangResponsesCreatedAt(info, []byte(data), "response.created_at", streamResponse.Response.CreatedAt))
 		}
-		sendResponsesStreamData(c, streamResponse, data)
+
+		isInitialLifecycle := streamResponse.Type == "response.created" || streamResponse.Type == "response.in_progress"
+		if !flushedContent && isInitialLifecycle {
+			pendingEvents = append(pendingEvents, pendingResponsesStreamEvent{
+				streamResponse: streamResponse,
+				data:           data,
+			})
+		} else {
+			flushPending()
+			sendResponsesStreamData(c, streamResponse, data)
+		}
 		accumulator.Observe(&streamResponse)
 	})
 
 	common.SetContextKey(c, constant.ContextKeyResponseStreamStatus, info.StreamStatus)
 	info.StreamStatus.RequireTerminal()
+
+	// If the stream ended unexpectedly:
+	if info.StreamStatus != nil && (!info.StreamStatus.IsNormalEnd() || info.StreamStatus.ResponseOutcome() == "") {
+		// If nothing was written to the client yet (e.g. only initial lifecycle events were buffered),
+		// return an API error so the relay layer can failover to retry the next available channel.
+		if !flushedContent || !c.Writer.Written() {
+			return nil, types.NewOpenAIError(
+				fmt.Errorf("upstream responses stream ended unexpectedly before content: %s", info.StreamStatus.Summary()),
+				types.ErrorCodeBadResponseBody,
+				http.StatusInternalServerError,
+			)
+		}
+		// If content was already written to the client, we cannot failover anymore.
+		// Emit terminal error and response.failed events so the client does not hang.
+		if info.StreamStatus.EndReason != relaycommon.StreamEndReasonClientGone {
+			sendResponsesStreamFailure(c, info, fmt.Errorf("upstream responses stream ended unexpectedly: %s", info.StreamStatus.Summary()))
+		}
+	}
+
 	return accumulator.Finish(), nil
+}
+
+func sendResponsesStreamFailure(c *gin.Context, info *relaycommon.RelayInfo, err error) {
+	if c == nil || err == nil || (c.Request != nil && c.Request.Context().Err() != nil) {
+		return
+	}
+	responseID := helper.GetResponseID(c)
+	errMsg := err.Error()
+
+	// 1. Send error event
+	errResp := dto.ResponsesStreamResponse{
+		Type:    "error",
+		Code:    "server_error",
+		Message: errMsg,
+	}
+	if errData, marshalErr := common.Marshal(errResp); marshalErr == nil {
+		_ = helper.ResponseChunkData(c, errResp, string(errData))
+	}
+
+	// 2. Send response.failed event
+	failedResp := dto.ResponsesStreamResponse{
+		Type: "response.failed",
+		Response: &dto.OpenAIResponsesResponse{
+			ID:     responseID,
+			Object: "response",
+			Status: json.RawMessage(`"failed"`),
+			Error: map[string]any{
+				"code":    "server_error",
+				"message": errMsg,
+			},
+			Model: info.UpstreamModelName,
+		},
+	}
+	if failedData, marshalErr := common.Marshal(failedResp); marshalErr == nil {
+		_ = helper.ResponseChunkData(c, failedResp, string(failedData))
+	}
+	if info != nil && info.StreamStatus != nil {
+		info.StreamStatus.MarkFailed("server_error", "upstream_error", http.StatusInternalServerError)
+	}
 }
 
 func rewriteSGLangResponsesCreatedAt(info *relaycommon.RelayInfo, payload []byte, path string, createdAt dto.IntValue) []byte {
