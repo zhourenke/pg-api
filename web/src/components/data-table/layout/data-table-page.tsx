@@ -283,6 +283,12 @@ export type DataTablePageProps<TData> = {
    * Responsive grid className override for the card view.
    */
   cardGridClassName?: string
+
+  /**
+   * Key that identifies the table content layout/mode (e.g. tag mode vs normal mode).
+   * When this key changes, column widths adapt to the new content structure.
+   */
+  measurementKey?: unknown
 }
 
 /**
@@ -497,6 +503,7 @@ function renderDesktop<TData>(
   return (
     <DataTableView
       table={props.table}
+      measurementKey={props.measurementKey}
       isLoading={props.isLoading}
       emptyTitle={props.emptyTitle}
       emptyDescription={props.emptyDescription}

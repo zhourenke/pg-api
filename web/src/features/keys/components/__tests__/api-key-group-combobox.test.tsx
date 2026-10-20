@@ -128,7 +128,8 @@ describe('API key group combobox Auto effect', () => {
       'overflow-visible',
       'rounded-md',
       'h-5',
-      'min-w-12'
+      'min-w-0',
+      'shrink'
     )
     expect(
       triggerRatio?.querySelector('[data-auto-group-flow-border]')
@@ -164,7 +165,8 @@ describe('API key group combobox Auto effect', () => {
       .closest('[data-slot="badge"]')
     expect(defaultRatio).toHaveClass(
       'h-5',
-      'min-w-12',
+      'min-w-0',
+      'shrink',
       'rounded-full',
       'tabular-nums',
       'border-muted-foreground/30'

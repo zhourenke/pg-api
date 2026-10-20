@@ -21,6 +21,9 @@ import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
 import { DataTableView, useDataTable } from '@/components/data-table'
+import { BadgeListCell } from '@/components/data-table/core/badge-list-cell'
+import { StatusBadge } from '@/components/status-badge'
+import { Badge } from '@/components/ui/badge'
 
 type Row = { id: number; name: string }
 
@@ -45,6 +48,37 @@ const columns: ColumnDef<Row>[] = [
     header: 'Component',
     size: 180,
     cell: () => <NameWithIcon />,
+  },
+  {
+    id: 'badge',
+    header: 'Badge',
+    size: 180,
+    cell: () => (
+      <Badge variant='outline'>
+        <span>Multi-Group Ratio 1.5x</span>
+      </Badge>
+    ),
+  },
+  {
+    id: 'status',
+    header: 'Status',
+    size: 180,
+    cell: () => (
+      <StatusBadge variant='success' label='Listing hidden from model square' />
+    ),
+  },
+  {
+    id: 'tags',
+    header: 'Tags',
+    size: 180,
+    cell: () => (
+      <BadgeListCell
+        items={[
+          <StatusBadge key='1' label='fast-preview' />,
+          <StatusBadge key='2' label='multimodal' />,
+        ]}
+      />
+    ),
   },
 ]
 
@@ -89,5 +123,50 @@ describe('table cell overflow', () => {
     for (const cell of headerCells) {
       expect(cell.className).toContain('overflow-hidden')
     }
+  })
+
+  it('renders badges with max-w-full, min-w-0, shrink and truncatable spans so the box shrinks before clipping', () => {
+    render(<Harness />)
+
+    const badgeCell = bodyCells()[2]
+    const badge = badgeCell.querySelector('[data-slot="badge"]') as HTMLElement
+    expect(badge).not.toBeNull()
+    expect(badge.className).toContain('max-w-full')
+    expect(badge.className).toContain('min-w-0')
+    expect(badge.className).toContain('shrink')
+
+    const badgeText = badge.querySelector('span') as HTMLElement
+    expect(badgeText).not.toBeNull()
+  })
+
+  it('renders status badges with shrinkable containers and truncated text content', () => {
+    render(<Harness />)
+
+    const statusCell = bodyCells()[3]
+    const statusBadge = statusCell.querySelector(
+      '[data-slot="status-badge"]'
+    ) as HTMLElement
+    expect(statusBadge).not.toBeNull()
+    expect(statusBadge.className).toContain('max-w-full')
+    expect(statusBadge.className).toContain('min-w-0')
+    expect(statusBadge.className).toContain('shrink')
+
+    const statusText = statusBadge.querySelector('span') as HTMLElement
+    expect(statusText).not.toBeNull()
+    expect(statusText.className).toContain('truncate')
+    expect(statusText.className).toContain('min-w-0')
+  })
+
+  it('renders badge list cells with max-w-full min-w-0 overflow-hidden wrapper', () => {
+    render(<Harness />)
+
+    const tagsCell = bodyCells()[4]
+    const badgeListWrapper = tagsCell.querySelector(
+      '[data-slot="tooltip-trigger"]'
+    ) as HTMLElement
+    expect(badgeListWrapper).not.toBeNull()
+    expect(badgeListWrapper.className).toContain('max-w-full')
+    expect(badgeListWrapper.className).toContain('min-w-0')
+    expect(badgeListWrapper.className).toContain('overflow-hidden')
   })
 })

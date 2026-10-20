@@ -37,6 +37,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 /* eslint-disable react-refresh/only-export-components */
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { stringToColor } from '@/lib/colors'
@@ -151,6 +152,7 @@ export function StatusBadge({
   onClick,
   ...props
 }: StatusBadgeProps) {
+  const { t } = useTranslation()
   const { copyToClipboard } = useCopyToClipboard()
   const contextType = React.useContext(StatusBadgeTypeContext)
   const type = typeProp ?? contextType
@@ -168,15 +170,20 @@ export function StatusBadge({
   }
 
   const content =
-    children ??
-    (label ? (
-      <span className='min-w-0 truncate leading-normal'>{label}</span>
-    ) : null)
+    typeof children === 'string' || typeof children === 'number' ? (
+      <span className='min-w-0 truncate leading-normal'>{children}</span>
+    ) : (
+      (children ??
+      (label ? (
+        <span className='min-w-0 truncate leading-normal'>{label}</span>
+      ) : null))
+    )
 
   const isBadge = type === 'badge'
-  const title = copyable
-    ? `Click to copy: ${copyText || label || ''}`
-    : label || undefined
+  let title = props.title
+  if (title === undefined && copyable) {
+    title = t('Click to copy')
+  }
 
   return (
     <span
@@ -192,7 +199,7 @@ export function StatusBadge({
         textColorMap[computedVariant],
         pulse && 'animate-pulse',
         copyable &&
-          'cursor-copy hover:brightness-95 active:scale-95 dark:hover:brightness-110',
+          'cursor-pointer hover:brightness-95 active:scale-95 dark:hover:brightness-110',
         className
       )}
       onClick={handleClick}

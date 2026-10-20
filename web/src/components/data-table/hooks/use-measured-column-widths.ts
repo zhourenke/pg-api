@@ -76,11 +76,27 @@ function getMeasuredColumns<TData>(table: TanstackTable<TData>) {
  * has dragged a separator the widths are theirs: a double click on that
  * separator, or the arrow keys on it, asks for the content width again.
  */
+type KeyMeasurementContext = {
+  started: boolean
+  applied: ColumnSizingState | null
+  measuredIds: Set<string>
+  frozen: boolean
+  sizing: ColumnSizingState
+}
+
 export function useMeasuredColumnWidths<TData>(
   table: TanstackTable<TData>,
   tableElementRef: React.RefObject<HTMLTableElement | null>,
-  enabled: boolean
+  enabled: boolean,
+  measurementKey?: unknown
 ) {
+  const currentKey =
+    measurementKey ?? table.options.meta?.measurementKey ?? null
+  const lastKeyRef = React.useRef(currentKey)
+  const contextsRef = React.useRef<Map<unknown, KeyMeasurementContext>>(
+    new Map()
+  )
+
   const startedRef = React.useRef(false)
   const appliedRef = React.useRef<ColumnSizingState | null>(null)
   const measuredIdsRef = React.useRef(new Set<string>())
@@ -189,6 +205,52 @@ export function useMeasuredColumnWidths<TData>(
   }, [activeColumnIds])
 
   React.useLayoutEffect(() => {
+    if (lastKeyRef.current !== currentKey) {
+      const prevKey = lastKeyRef.current
+      contextsRef.current.set(prevKey, {
+        started: startedRef.current,
+        applied: appliedRef.current ? { ...appliedRef.current } : null,
+        measuredIds: new Set(measuredIdsRef.current),
+        frozen: frozenRef.current,
+        sizing: { ...table.getState().columnSizing },
+      })
+
+      lastKeyRef.current = currentKey
+      const saved = contextsRef.current.get(currentKey)
+      if (saved) {
+        startedRef.current = saved.started
+        appliedRef.current = saved.applied ? { ...saved.applied } : null
+        measuredIdsRef.current = new Set(saved.measuredIds)
+        frozenRef.current = saved.frozen
+
+        table.setColumnSizing(() => ({ ...saved.sizing }))
+
+        if (!saved.frozen) {
+          measuredIdsRef.current.clear()
+          appliedRef.current = null
+        } else if (saved.applied) {
+          const sizing = saved.sizing
+          const applied = saved.applied
+          for (const id of saved.measuredIds) {
+            if (
+              sizing[id] === undefined ||
+              applied[id] === undefined ||
+              sizing[id] === applied[id]
+            ) {
+              measuredIdsRef.current.delete(id)
+              delete applied[id]
+            }
+          }
+        }
+      } else {
+        startedRef.current = false
+        appliedRef.current = null
+        measuredIdsRef.current = new Set()
+        frozenRef.current = false
+        table.setColumnSizing({})
+      }
+    }
+
     if (!enabled || !hasMeasuredColumns || !tableElementRef.current) {
       return
     }
@@ -196,6 +258,7 @@ export function useMeasuredColumnWidths<TData>(
     startedRef.current = true
     measureColumns({ unmeasuredOnly: true })
   }, [
+    currentKey,
     enabled,
     hasMeasuredColumns,
     measureColumns,
@@ -237,5 +300,5 @@ export function useMeasuredColumnWidths<TData>(
       window.clearInterval(followUp)
       window.clearTimeout(settleTimer)
     }
-  }, [enabled, measureColumns])
+  }, [currentKey, enabled, measureColumns])
 }

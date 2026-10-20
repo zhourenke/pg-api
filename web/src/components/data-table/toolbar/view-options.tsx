@@ -30,6 +30,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
+import { FILLER_COLUMN_ID } from '../core/content-sized-columns'
+
 type DataTableViewOptionsProps<TData> = {
   table: Table<TData>
 }
@@ -39,16 +41,22 @@ export function DataTableViewOptions<TData>({
 }: DataTableViewOptionsProps<TData>) {
   const { t } = useTranslation()
 
+  // Track table column visibility so DataTableViewOptions re-renders
+  // whenever visibility changes.
+  const columnVisibility = table.getState().columnVisibility
+  void columnVisibility
+
   const hideableColumns = React.useMemo(
     () =>
       table
         .getAllColumns()
         .filter(
-          (column) =>
-            typeof column.accessorFn !== 'undefined' && column.getCanHide()
+          (column) => column.id !== FILLER_COLUMN_ID && column.getCanHide()
         ),
     [table]
   )
+
+  const [, forceUpdate] = React.useReducer((x: number) => x + 1, 0)
 
   return (
     <DropdownMenu modal={false}>
@@ -63,7 +71,7 @@ export function DataTableViewOptions<TData>({
       >
         {t('View')}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align='end' className='w-[150px]'>
+      <DropdownMenuContent align='end' className='w-auto min-w-[150px]'>
         <DropdownMenuGroup>
           <DropdownMenuLabel>{t('Toggle columns')}</DropdownMenuLabel>
           {hideableColumns.map((column) => {
@@ -72,7 +80,10 @@ export function DataTableViewOptions<TData>({
                 key={column.id}
                 className='capitalize'
                 checked={column.getIsVisible()}
-                onCheckedChange={(value) => column.toggleVisibility(!!value)}
+                onCheckedChange={(value) => {
+                  column.toggleVisibility(!!value)
+                  forceUpdate()
+                }}
               >
                 {typeof column.columnDef.header === 'string'
                   ? column.columnDef.header

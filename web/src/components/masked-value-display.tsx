@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { ComponentProps } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { CopyButton } from '@/components/copy-button'
 import { Button } from '@/components/ui/button'
@@ -28,13 +29,15 @@ import {
 import { cn } from '@/lib/utils'
 
 export function MaskedValueTrigger(props: ComponentProps<typeof Button>) {
+  const { t } = useTranslation()
   return (
     <Button
       variant='ghost'
       size='sm'
+      title={props.title ?? t('Click to view full details')}
       {...props}
       className={cn(
-        'text-muted-foreground h-7 max-w-full min-w-0 shrink justify-start truncate px-0 font-mono text-xs hover:bg-transparent aria-expanded:bg-transparent',
+        'text-muted-foreground h-7 max-w-full min-w-0 shrink justify-start border-0 px-0 gap-0 font-mono !text-xs cursor-pointer hover:bg-transparent aria-expanded:bg-transparent',
         props.className
       )}
     />

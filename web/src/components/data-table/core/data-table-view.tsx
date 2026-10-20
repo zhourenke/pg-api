@@ -110,11 +110,17 @@ function UnifiedTableView<TData>({
   useMeasuredColumnWidths(
     props.table,
     tableElementRef,
-    canMeasureRows(props, rows)
+    canMeasureRows(props, rows),
+    props.measurementKey
   )
 
   return (
-    <div className={props.tableContainerClassName}>
+    <div
+      className={props.tableContainerClassName}
+      data-measurement-key={
+        props.measurementKey != null ? String(props.measurementKey) : undefined
+      }
+    >
       <Table
         className={props.tableClassName}
         style={tableSizing.style}
@@ -153,7 +159,8 @@ function SplitHeaderTableView<TData>({
   useMeasuredColumnWidths(
     props.table,
     tableElementRef,
-    canMeasureRows(props, rows)
+    canMeasureRows(props, rows),
+    props.measurementKey
   )
 
   return (
@@ -162,6 +169,9 @@ function SplitHeaderTableView<TData>({
         'flex h-full min-h-0 flex-col',
         props.tableContainerClassName
       )}
+      data-measurement-key={
+        props.measurementKey != null ? String(props.measurementKey) : undefined
+      }
     >
       <div
         className={cn(

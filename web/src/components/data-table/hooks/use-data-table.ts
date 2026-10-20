@@ -58,6 +58,7 @@ type DataTableFeatureOptions<TData> = Pick<
   | 'manualSorting'
   | 'enableSorting'
   | 'enableColumnResizing'
+  | 'meta'
 >
 
 type DataTableStateOptions = {
@@ -271,6 +272,7 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>) {
     },
     enableRowSelection: options.enableRowSelection,
     enableSorting: resolvedEnableSorting,
+    meta: options.meta,
     getRowId: options.getRowId,
     getSubRows: options.getSubRows,
     globalFilterFn: options.globalFilterFn,

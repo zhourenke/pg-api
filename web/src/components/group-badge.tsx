@@ -42,14 +42,16 @@ export function GroupMultiplierBadge(props: {
     <Badge
       variant='outline'
       className={cn(
-        'relative h-5 min-w-12 rounded-full px-1.5 py-0 text-sm leading-normal font-medium shadow-none',
+        'relative h-5 min-w-0 shrink rounded-full px-1.5 py-0 text-sm leading-normal font-medium shadow-none',
         !props.label && 'tabular-nums',
         colorClassName,
         props.className
       )}
     >
       {props.children}
-      <span>{props.label ?? `${props.ratio}x`}</span>
+      <span className='min-w-0 truncate'>
+        {props.label ?? `${props.ratio}x`}
+      </span>
     </Badge>
   )
 }

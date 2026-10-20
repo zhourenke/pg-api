@@ -16,13 +16,20 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import {
+  type ColumnDef,
+  getCoreRowModel,
+  useReactTable,
+} from '@tanstack/react-table'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import * as React from 'react'
 import { describe, expect, it } from 'vitest'
 
 import { DataTableToolbar } from '../toolbar'
+import { DataTableViewOptions } from '../view-options'
 
-const rows = [{ name: 'Channel' }]
+const rows = [{ name: 'Channel', displayOnly: 'Custom' }]
 
 function Fixture(props: { hideViewOptions?: boolean }) {
   const table = useReactTable({
@@ -40,6 +47,49 @@ function Fixture(props: { hideViewOptions?: boolean }) {
   )
 }
 
+function MultiColumnFixture() {
+  const [columnVisibility, setColumnVisibility] = React.useState({})
+  const columns: ColumnDef<(typeof rows)[0]>[] = [
+    { accessorKey: 'name', header: 'Channel Name' },
+    { id: 'displayOnly', header: 'Display Column', cell: () => 'Custom' },
+    { id: 'actions', header: 'Actions', enableHiding: false },
+  ]
+  const table = useReactTable({
+    data: rows,
+    columns,
+    state: { columnVisibility },
+    onColumnVisibilityChange: setColumnVisibility,
+    getCoreRowModel: getCoreRowModel(),
+  })
+
+  return <DataTableViewOptions table={table} />
+}
+
+const MemoizedContainer = React.memo(
+  function MemoizedContainer(props: {
+    table: ReturnType<typeof useReactTable<(typeof rows)[0]>>
+  }) {
+    return <DataTableViewOptions table={props.table} />
+  },
+  () => true
+)
+
+function MemoizedParentFixture() {
+  const [columnVisibility, setColumnVisibility] = React.useState({})
+  const columns: ColumnDef<(typeof rows)[0]>[] = [
+    { accessorKey: 'name', header: 'Channel Name' },
+  ]
+  const table = useReactTable({
+    data: rows,
+    columns,
+    state: { columnVisibility },
+    onColumnVisibilityChange: setColumnVisibility,
+    getCoreRowModel: getCoreRowModel(),
+  })
+
+  return <MemoizedContainer table={table} />
+}
+
 describe('view options', () => {
   it('offers the column visibility dropdown by default', () => {
     render(<Fixture />)
@@ -51,5 +101,47 @@ describe('view options', () => {
     render(<Fixture hideViewOptions />)
 
     expect(screen.queryByRole('button', { name: 'View' })).toBeNull()
+  })
+
+  it('includes display columns without accessorFn in the view options list', async () => {
+    const user = userEvent.setup()
+    render(<MultiColumnFixture />)
+
+    await user.click(screen.getByRole('button', { name: 'View' }))
+
+    expect(
+      await screen.findByRole('menuitemcheckbox', { name: 'Channel Name' })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('menuitemcheckbox', { name: 'Display Column' })
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('menuitemcheckbox', { name: 'Actions' })
+    ).toBeNull()
+  })
+
+  it('toggles column visibility and checkbox state back and forth on repeated clicks inside memoized parent', async () => {
+    const user = userEvent.setup()
+    render(<MemoizedParentFixture />)
+
+    await user.click(screen.getByRole('button', { name: 'View' }))
+    const item = await screen.findByRole('menuitemcheckbox', {
+      name: 'Channel Name',
+    })
+
+    // Initially checked
+    expect(item).toHaveAttribute('aria-checked', 'true')
+
+    // 1st click: should uncheck and hide column
+    await user.click(item)
+    expect(item).toHaveAttribute('aria-checked', 'false')
+
+    // 2nd click: should re-check and show column
+    await user.click(item)
+    expect(item).toHaveAttribute('aria-checked', 'true')
+
+    // 3rd click: should uncheck and hide column again
+    await user.click(item)
+    expect(item).toHaveAttribute('aria-checked', 'false')
   })
 })

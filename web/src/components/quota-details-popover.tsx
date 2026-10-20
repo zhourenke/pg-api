@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { Fragment, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -39,6 +40,7 @@ type QuotaDetailsPopoverProps = {
 }
 
 export function QuotaDetailsPopover(props: QuotaDetailsPopoverProps) {
+  const { t } = useTranslation()
   return (
     <Popover>
       <div className={cn('w-full min-w-0', props.className)}>
@@ -47,8 +49,9 @@ export function QuotaDetailsPopover(props: QuotaDetailsPopoverProps) {
             <Button
               variant='ghost'
               aria-label={props.triggerLabel}
+              title={t('Click to view full details')}
               className={cn(
-                'h-auto w-full min-w-0 justify-start px-0 py-0.5 text-left font-normal hover:bg-transparent aria-expanded:bg-transparent',
+                'h-auto w-full min-w-0 justify-start px-0 py-0.5 text-left font-normal cursor-pointer hover:bg-transparent aria-expanded:bg-transparent',
                 props.triggerClassName
               )}
             />

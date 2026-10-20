@@ -103,7 +103,7 @@ export function ActivityTimeCell(props: {
     <div
       data-table-text='secondary'
       className={cn(
-        'grid min-w-0 gap-y-1 text-xs font-normal',
+        'grid max-w-full min-w-0 gap-y-1 text-xs font-normal',
         props.layout === 'columns'
           ? 'grid-flow-col grid-cols-2 grid-rows-[auto_1fr] items-start gap-x-3'
           : 'grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2'

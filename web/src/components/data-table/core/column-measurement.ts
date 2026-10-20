@@ -128,7 +128,15 @@ function measureCells(
     }
 
     for (const { clone } of clones) {
-      measuredWidth = Math.max(measuredWidth, clone.scrollWidth)
+      const scrollWidth = clone.scrollWidth
+      const offsetWidth = clone.offsetWidth
+      const boundingWidth = Math.ceil(clone.getBoundingClientRect().width)
+      measuredWidth = Math.max(
+        measuredWidth,
+        scrollWidth,
+        offsetWidth,
+        boundingWidth
+      )
     }
   } finally {
     for (const { holder } of clones) {

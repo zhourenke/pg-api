@@ -32,6 +32,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { cn } from '@/lib/utils'
 
 interface BadgeListCellProps {
   items: React.ReactNode[]
@@ -62,7 +63,7 @@ export function BadgeListCell({
 
   if (expandable && showTooltip) {
     return (
-      <div className='flex min-w-0 items-center gap-1'>
+      <div className='flex max-w-full min-w-0 items-center gap-1 overflow-hidden'>
         <StatusBadgeList
           items={items.slice(0, max)}
           max={max}
@@ -92,7 +93,11 @@ export function BadgeListCell({
   return (
     <TooltipProvider>
       <Tooltip>
-        <TooltipTrigger render={<div className='-ml-1.5 max-w-full' />}>
+        <TooltipTrigger
+          render={
+            <div className='-ml-1.5 flex max-w-full min-w-0 items-center overflow-hidden' />
+          }
+        >
           <StatusBadgeList
             items={items}
             max={max}
@@ -102,10 +107,10 @@ export function BadgeListCell({
         {showTooltip && (
           <TooltipContent
             side='top'
-            className={
-              tooltipClassName ??
-              'border-border bg-popover max-h-48 max-w-[320px] overflow-y-auto p-2'
-            }
+            className={cn(
+              'max-h-48 max-w-[320px] overflow-y-auto p-2',
+              tooltipClassName
+            )}
           >
             <div className='flex flex-wrap gap-1'>{items}</div>
           </TooltipContent>

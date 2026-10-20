@@ -71,7 +71,7 @@ describe('API key group table cell', () => {
       .getByText('Auto')
       .closest<HTMLElement>('[data-slot="badge"]')
     expect(group).toBeInTheDocument()
-    expect(multiplier).toHaveClass('h-5', 'min-w-12', 'rounded-md')
+    expect(multiplier).toHaveClass('h-5', 'min-w-0', 'shrink', 'rounded-md')
     expect(multiplier).not.toHaveTextContent('Ratio')
     expect(container).not.toHaveTextContent('自动')
     expect(container.querySelector('[data-auto-group-frame]')).toBeNull()
@@ -115,7 +115,8 @@ describe('API key group table cell', () => {
         'rounded-full',
         'tabular-nums',
         'h-5',
-        'min-w-12'
+        'min-w-0',
+        'shrink'
       )
       expect(
         container.querySelector('[data-auto-group-flow-border]')

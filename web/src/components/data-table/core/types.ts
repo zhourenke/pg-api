@@ -38,6 +38,7 @@ export type DataTableRenderRowHelpers = {
 
 export type DataTableViewProps<TData> = {
   table: TanstackTable<TData>
+  measurementKey?: unknown
   isLoading?: boolean
   rows?: Row<TData>[]
   emptyTitle?: string

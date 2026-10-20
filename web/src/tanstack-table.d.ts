@@ -19,6 +19,14 @@ For commercial licensing, please contact support@quantumnous.com
 import '@tanstack/react-table'
 
 declare module '@tanstack/react-table' {
+  interface TableMeta<_TData> {
+    /**
+     * Key that identifies the table content layout/mode (e.g. tag mode vs normal mode).
+     * When this key changes, column widths adapt to the new content structure.
+     */
+    measurementKey?: unknown
+  }
+
   interface ColumnMeta<_TData, _TValue> {
     label?: string
     description?: string

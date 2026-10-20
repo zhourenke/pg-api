@@ -113,11 +113,13 @@ function Harness({
   tableColumns = columns,
   isLoading,
   hiddenColumnIds = [],
+  measurementKey,
 }: {
   names?: string[]
   tableColumns?: ColumnDef<Row>[]
   isLoading?: boolean
   hiddenColumnIds?: string[]
+  measurementKey?: unknown
 }) {
   const { table } = useDataTable({
     data: names.map((name, index) => ({ id: index + 1, name })),
@@ -138,7 +140,11 @@ function Harness({
           {`Show ${columnId}`}
         </button>
       ))}
-      <DataTableView table={table} isLoading={isLoading} />
+      <DataTableView
+        table={table}
+        isLoading={isLoading}
+        measurementKey={measurementKey}
+      />
     </>
   )
 }
@@ -486,6 +492,86 @@ describe('column resizing', () => {
     await act(async () => {})
 
     expect(getColumnWidths()).toEqual(['56px', '', '72px'])
+  })
+
+  it('adaptively re-measures column widths when measurementKey changes and columns have not been stretched', async () => {
+    vi.useFakeTimers()
+    stubScrollingWidth()
+    const view = render(<Harness names={['alpha']} measurementKey='normal' />)
+    expect(getColumnWidths()[0]).toBe('56px')
+
+    act(() => {
+      vi.advanceTimersByTime(3000)
+    })
+
+    // Settle completed. Now switch to tag mode with longer content:
+    view.rerender(
+      <Harness
+        names={['a-much-longer-tag-name-that-needs-more-width']}
+        measurementKey='tag'
+      />
+    )
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+
+    // With measurementKey changed, it should adapt to the new content (368px), not stay at 56px!
+    expect(getColumnWidths()[0]).toBe('368px')
+
+    act(() => {
+      vi.advanceTimersByTime(3000)
+    })
+
+    // Switch back to normal mode with short content:
+    view.rerender(<Harness names={['alpha']} measurementKey='normal' />)
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+
+    // Should adapt back to 56px!
+    expect(getColumnWidths()[0]).toBe('56px')
+  })
+
+  it('preserves user-stretched column widths across measurementKey changes while allowing un-stretched columns to adapt', async () => {
+    vi.useFakeTimers()
+    stubScrollingWidth()
+    const view = render(<Harness names={['alpha']} measurementKey='normal' />)
+    expect(getColumnWidths()[0]).toBe('56px')
+
+    // User drags separator to resize column 0:
+    await dragSeparator(screen.getByRole('separator'), 200, 260)
+    expect(getColumnWidths()[0]).toBe('116px')
+
+    act(() => {
+      vi.advanceTimersByTime(3000)
+    })
+
+    // Switch to tag mode with longer content:
+    view.rerender(
+      <Harness
+        names={['a-much-longer-tag-name-that-needs-more-width']}
+        measurementKey='tag'
+      />
+    )
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+
+    // Tag mode was not stretched, so it should adapt to tag mode's content (368px):
+    expect(getColumnWidths()[0]).toBe('368px')
+
+    act(() => {
+      vi.advanceTimersByTime(3000)
+    })
+
+    // Switch back to normal mode:
+    view.rerender(<Harness names={['alpha']} measurementKey='normal' />)
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+
+    // Normal mode should remember user-dragged width (116px), not overwrite it with 56px!
+    expect(getColumnWidths()[0]).toBe('116px')
   })
 
   it('tracks the pointer while dragging and stops at the header width', async () => {
