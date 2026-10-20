@@ -725,9 +725,6 @@ func AppendChannelAffinityAdminInfo(c *gin.Context, other *model.LogOther) {
 }
 
 func RecordChannelAffinity(c *gin.Context, channelID int) {
-	if channelID <= 0 {
-		return
-	}
 	setting := operation_setting.GetChannelAffinitySetting()
 	if RequestPolicy(c).SessionMode == "off" {
 		return
@@ -739,6 +736,9 @@ func RecordChannelAffinity(c *gin.Context, channelID int) {
 		if successChannelID := c.GetInt("channel_id"); successChannelID > 0 {
 			channelID = successChannelID
 		}
+	}
+	if channelID <= 0 {
+		return
 	}
 	cacheKey, ttlSeconds, ok := getChannelAffinityContext(c)
 	if !ok {

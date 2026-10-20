@@ -422,3 +422,92 @@ func TestSessionRulesInheritOrOverrideGlobalDefault(t *testing.T) {
 		}
 	}
 }
+
+func TestRecordChannelAffinitySwitchOnSuccessUpdatesBinding(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	setting := operation_setting.GetChannelAffinitySetting()
+	previous := *setting
+	t.Cleanup(func() { *setting = previous })
+	setting.Enabled = true
+	setting.SessionMode = "prefer"
+
+	rule := operation_setting.ChannelAffinityRule{
+		Name:              "test-switch",
+		ModelRegex:        []string{".*"},
+		KeySources:        []operation_setting.ChannelAffinityKeySource{{Type: "request_header", Key: "X-Session"}},
+		SessionMode:       "inherit",
+		IncludeUsingGroup: true,
+		IncludeRuleName:   true,
+	}
+	sessionKey := "switch-test-" + t.Name()
+	cacheKeySuffix := buildChannelAffinityCacheKeySuffix(rule, "test-model", "default", sessionKey)
+	cacheKeyFull := channelAffinityCacheNamespace + ":" + cacheKeySuffix
+
+	cache := getChannelAffinityCache()
+	require.NoError(t, cache.SetWithTTL(cacheKeySuffix, 1, time.Minute))
+	t.Cleanup(func() {
+		_, _ = cache.DeleteMany([]string{cacheKeySuffix})
+	})
+
+	ctx := buildChannelAffinityTemplateContextForTest(channelAffinityMeta{
+		CacheKey:   cacheKeyFull,
+		TTLSeconds: 60,
+		RuleName:   rule.Name,
+	})
+
+	// When SwitchOnSuccess is true and channel 2 succeeded on retry (c.Set("channel_id", 2)):
+	setting.SwitchOnSuccess = true
+	ctx.Set("channel_id", 2)
+	RecordChannelAffinity(ctx, 1)
+
+	cachedID, found, err := cache.Get(cacheKeySuffix)
+	require.NoError(t, err)
+	require.True(t, found)
+	assert.Equal(t, 2, cachedID, "SwitchOnSuccess must update session binding from channel 1 to channel 2")
+
+	// When SwitchOnSuccess is false:
+	setting.SwitchOnSuccess = false
+	ctx.Set("channel_id", 3)
+	RecordChannelAffinity(ctx, 2)
+
+	cachedID, found, err = cache.Get(cacheKeySuffix)
+	require.NoError(t, err)
+	require.True(t, found)
+	assert.Equal(t, 2, cachedID, "When SwitchOnSuccess is false, session binding remains with the original channel")
+}
+
+func TestAffinityTerminalFailureEvictsBrokenBindingInPreferMode(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	sessionKey := "evict-test-" + t.Name()
+	cacheKeySuffix := "test-evict:default:" + sessionKey
+	cacheKeyFull := channelAffinityCacheNamespace + ":" + cacheKeySuffix
+
+	cache := getChannelAffinityCache()
+	require.NoError(t, cache.SetWithTTL(cacheKeySuffix, 101, time.Minute))
+	t.Cleanup(func() {
+		_, _ = cache.DeleteMany([]string{cacheKeySuffix})
+	})
+
+	ctx := buildChannelAffinityTemplateContextForTest(channelAffinityMeta{
+		CacheKey:   cacheKeyFull,
+		TTLSeconds: 60,
+		RuleName:   "test-evict",
+	})
+	RequestPolicy(ctx).SessionMode = "prefer"
+
+	// Verify it's cached initially
+	cachedID, found, err := cache.Get(cacheKeySuffix)
+	require.NoError(t, err)
+	require.True(t, found)
+	assert.Equal(t, 101, cachedID)
+
+	// Simulate terminal failure eviction
+	cleared := ClearCurrentChannelAffinityCache(ctx)
+	assert.True(t, cleared)
+
+	_, found, err = cache.Get(cacheKeySuffix)
+	require.NoError(t, err)
+	assert.False(t, found, "terminal failure on prefer mode must evict the failing channel from affinity cache")
+}

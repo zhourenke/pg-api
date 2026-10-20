@@ -84,6 +84,9 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	defer func() {
 		if newAPIError != nil {
 			service.RecordRequestPolicyTermination(c, newAPIError)
+			if service.RequestPolicy(c).SessionMode == "prefer" && !service.ShouldKeepChannelAffinityOnChannelDisabled() {
+				service.ClearCurrentChannelAffinityCache(c)
+			}
 			logger.LogError(c, fmt.Sprintf("relay error: %s", common.LocalLogPreview(newAPIError.Error())))
 			newAPIError.SetMessage(common.MessageWithRequestId(newAPIError.Error(), requestId))
 			switch relayFormat {

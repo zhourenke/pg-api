@@ -245,6 +245,9 @@ func (s *responsesWSSession) runCall(c *gin.Context, state *responsesWSCallState
 		if info != nil && billingPrepared {
 			apiErr = RefundFailedRequestBilling(c, info, apiErr)
 		}
+		if apiErr != nil && service.RequestPolicy(c).SessionMode == "prefer" && !service.ShouldKeepChannelAffinityOnChannelDisabled() {
+			service.ClearCurrentChannelAffinityCache(c)
+		}
 	}()
 	if modelName == "" {
 		return newResponsesWSInvalidRequestError(errors.New("model is required"))
