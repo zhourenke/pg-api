@@ -28,6 +28,7 @@ import { getUserQuotaDates } from '@/features/dashboard/api'
 import { useSummaryCardsConfig } from '@/features/dashboard/hooks/use-dashboard-config'
 import { useDashboardWindow } from '@/features/dashboard/hooks/use-dashboard-window'
 import type { QuotaDataItem } from '@/features/dashboard/types'
+import { getLogStats, getUserLogStats } from '@/features/usage-logs/api'
 import { useStatus } from '@/hooks/use-status'
 import { getCurrencyLabel, isCurrencyDisplayEnabled } from '@/lib/currency'
 import { formatNumber, formatQuota } from '@/lib/format'
@@ -137,10 +138,11 @@ const HEALTH_CONFIG: Record<
   },
 }
 
-export function SummaryCards() {
+export function SummaryCards(props: { viewScope?: 'all' | 'self' }) {
   const { t } = useTranslation()
   const user = useAuthStore((state) => state.auth.user)
   const { status, loading } = useStatus()
+  const isAllScope = props.viewScope === 'all'
 
   // The overview sparklines always cover the default window; no filter reaches
   // this panel, so the shared preset is resolved without any selection.
@@ -154,17 +156,64 @@ export function SummaryCards() {
       'dashboard',
       'overview',
       'summary-sparklines',
+      isAllScope,
       summaryWindow.start,
       summaryWindow.end,
     ],
     queryFn: async () =>
       requireServerSuccess(
-        await getUserQuotaDates({
+        await getUserQuotaDates(
+          {
+            start_timestamp: summaryWindow.start,
+            end_timestamp: summaryWindow.end,
+            default_time: 'hour',
+          },
+          isAllScope
+        )
+      ),
+    staleTime: 60 * 1000,
+  })
+
+  const logStatsQuery = useQuery({
+    queryKey: [
+      'dashboard',
+      'overview',
+      '24h-log-stats',
+      isAllScope,
+      summaryWindow.start,
+      summaryWindow.end,
+    ],
+    queryFn: async () => {
+      const params = {
+        start_timestamp: summaryWindow.start,
+        end_timestamp: summaryWindow.end,
+      }
+      const result = isAllScope
+        ? requireServerSuccess(await getLogStats(params))
+        : requireServerSuccess(await getUserLogStats(params))
+      return result.success ? result.data : null
+    },
+    staleTime: 60 * 1000,
+  })
+
+  const personalLogStatsQuery = useQuery({
+    queryKey: [
+      'dashboard',
+      'overview',
+      '24h-personal-log-stats',
+      summaryWindow.start,
+      summaryWindow.end,
+    ],
+    queryFn: async () => {
+      const result = requireServerSuccess(
+        await getUserLogStats({
           start_timestamp: summaryWindow.start,
           end_timestamp: summaryWindow.end,
-          default_time: 'hour',
         })
-      ),
+      )
+      return result.success ? result.data : null
+    },
+    enabled: isAllScope,
     staleTime: 60 * 1000,
   })
 
@@ -202,7 +251,7 @@ export function SummaryCards() {
     ]
   )
 
-  const recentUsage = useMemo(
+  const fallbackRecentUsage = useMemo(
     () =>
       (usageTrendQuery.data?.data ?? []).reduce(
         (total, item) => total + (Number(item.quota) || 0),
@@ -211,9 +260,14 @@ export function SummaryCards() {
     [usageTrendQuery.data?.data]
   )
 
-  const healthLevel = getHealthLevel(remainQuota, recentUsage)
+  const recentUsage = logStatsQuery.data?.quota ?? fallbackRecentUsage
+  const personalRecentUsage = isAllScope
+    ? (personalLogStatsQuery.data?.quota ?? fallbackRecentUsage)
+    : recentUsage
+
+  const healthLevel = getHealthLevel(remainQuota, personalRecentUsage)
   const healthCfg = HEALTH_CONFIG[healthLevel]
-  const runwayDays = getRunwayDays(remainQuota, recentUsage)
+  const runwayDays = getRunwayDays(remainQuota, personalRecentUsage)
 
   const todayUsageDisplay = formatQuota(recentUsage)
   let runwayDisplay: string
@@ -236,6 +290,7 @@ export function SummaryCards() {
     todayUsageDisplay,
     currencyEnabled,
     currencyLabel,
+    isAllScope,
   }).map((config, index) => {
     const tones = ['accent-1', 'accent-2', 'accent-3'] as const
 
@@ -294,7 +349,7 @@ export function SummaryCards() {
           <div className='flex flex-col gap-2 sm:gap-3'>
             <div className='flex items-center justify-between'>
               <span className='text-muted-foreground text-xs font-medium'>
-                {t('Credit remaining')}
+                {isAllScope ? t('My balance') : t('Credit remaining')}
               </span>
               <span className='flex items-center gap-1.5'>
                 <span
@@ -315,10 +370,12 @@ export function SummaryCards() {
               <div className='bg-background/60 rounded-lg px-2.5 py-2'>
                 <div className='text-muted-foreground flex items-center gap-1 text-[11px] leading-none font-medium'>
                   <Flame className='size-3 shrink-0' aria-hidden='true' />
-                  <span className='truncate'>{t('Last 24h usage')}</span>
+                  <span className='truncate'>
+                    {isAllScope ? t('My 24h usage') : t('Last 24h usage')}
+                  </span>
                 </div>
                 <div className='text-foreground mt-1.5 truncate text-xs font-semibold tabular-nums'>
-                  {formatQuota(recentUsage)}
+                  {formatQuota(personalRecentUsage)}
                 </div>
               </div>
               <div className='bg-background/60 rounded-lg px-2.5 py-2'>

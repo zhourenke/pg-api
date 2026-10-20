@@ -48,6 +48,7 @@ import {
 } from '@/components/page-transition'
 import { Button } from '@/components/ui/button'
 import { IconBadge, type IconBadgeTone } from '@/components/ui/icon-badge'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { fetchTokenKey, getApiKeys } from '@/features/keys/api'
 import type { ApiKey } from '@/features/keys/types'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
@@ -474,6 +475,7 @@ export function OverviewDashboard() {
   const [manualSetupGuideExpanded, setManualSetupGuideExpanded] = useState<
     boolean | null
   >(() => getSavedSetupGuideExpanded())
+  const [viewScope, setViewScope] = useState<'all' | 'self'>('all')
 
   const requestCount = Number(user?.request_count ?? 0)
   const remainQuota = Number(user?.quota ?? 0)
@@ -630,6 +632,17 @@ export function OverviewDashboard() {
     <SectionPageLayout>
       <SectionPageLayout.Title>{t('Overview')}</SectionPageLayout.Title>
       <SectionPageLayout.Actions>
+        {isAdmin && (
+          <Tabs
+            value={viewScope}
+            onValueChange={(val) => setViewScope(val as 'all' | 'self')}
+          >
+            <TabsList>
+              <TabsTrigger value='all'>{t('All')}</TabsTrigger>
+              <TabsTrigger value='self'>{t('Only Mine')}</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        )}
         {setupStatusReady && setupComplete && (
           <Button
             ref={setupGuideToggleRef}
@@ -786,7 +799,7 @@ export function OverviewDashboard() {
             </CardStaggerContainer>
           )}
 
-          <SummaryCards />
+          <SummaryCards viewScope={isAdmin ? viewScope : 'self'} />
 
           {showContentPanels && (
             <CardStaggerContainer
