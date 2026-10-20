@@ -240,7 +240,11 @@ const ModelRatioVisualEditorComponent = forwardRef<
     const modelNames =
       filterMode === 'unset'
         ? new Set(candidateModelNames ?? [])
-        : new Set([...savedByName.keys(), ...draftByName.keys()])
+        : new Set([
+            ...savedByName.keys(),
+            ...draftByName.keys(),
+            ...(candidateModelNames ?? []),
+          ])
 
     return [...modelNames]
       .map((name) => {
@@ -261,8 +265,17 @@ const ModelRatioVisualEditorComponent = forwardRef<
         }
       })
       .filter((row) => !row.isDraftDeleted)
-      .filter((row) => filterMode !== 'unset' || isBasePricingUnset(row.saved))
-      .sort((a, b) => a.name.localeCompare(b.name))
+      .filter(
+        (row) =>
+          filterMode !== 'unset' ||
+          isBasePricingUnset(row.saved ?? row.draft ?? row)
+      )
+      .sort((a, b) => {
+        const unsetA = isBasePricingUnset(a.draft ?? a.saved ?? a)
+        const unsetB = isBasePricingUnset(b.draft ?? b.saved ?? b)
+        if (unsetA !== unsetB) return unsetA ? -1 : 1
+        return a.name.localeCompare(b.name)
+      })
   }, [
     candidateModelNames,
     filterMode,
@@ -466,6 +479,7 @@ const ModelRatioVisualEditorComponent = forwardRef<
   const { table } = useDataTable({
     data: models,
     columns,
+    meta: { measurementKey: filterMode },
     getRowId: (row) => row.name,
     ensurePageInRange,
     sorting,
@@ -614,6 +628,7 @@ const ModelRatioVisualEditorComponent = forwardRef<
           ) : (
             <ResponsiveDataTableView
               table={table}
+              measurementKey={filterMode}
               renderCard={(row) => (
                 <ModelRatioCard
                   model={row.original}

@@ -201,14 +201,12 @@ export const ModelRatioForm = memo(function ModelRatioForm({
   const enabledModelsQuery = useQuery({
     queryKey: ['enabled-models'],
     queryFn: async () => requireServerSuccess(await getEnabledModels()),
-    enabled: isUnsetVariant,
+    enabled: true,
   })
 
-  const enabledModelsError = isUnsetVariant
-    ? enabledModelsQuery.isError ||
-      (enabledModelsQuery.data !== undefined &&
-        !enabledModelsQuery.data.success)
-    : false
+  const enabledModelsError =
+    enabledModelsQuery.isError ||
+    (enabledModelsQuery.data !== undefined && !enabledModelsQuery.data.success)
   const enabledModelsErrorMessage = enabledModelsQuery.data?.message
 
   useEffect(() => {
@@ -351,12 +349,8 @@ export const ModelRatioForm = memo(function ModelRatioForm({
               audioCompletionRatio={form.watch('AudioCompletionRatio')}
               billingMode={form.watch('BillingMode')}
               billingExpr={form.watch('BillingExpr')}
-              candidateModelNames={
-                isUnsetVariant ? enabledModelsQuery.data?.data : undefined
-              }
-              candidateModelsLoading={
-                isUnsetVariant && enabledModelsQuery.isLoading
-              }
+              candidateModelNames={enabledModelsQuery.data?.data}
+              candidateModelsLoading={enabledModelsQuery.isLoading}
               filterMode={isUnsetVariant ? 'unset' : 'all'}
               onSave={handleSave}
               onPersist={onPersist}

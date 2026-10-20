@@ -23,7 +23,11 @@ import { StaticRowActions } from '@/components/data-table/static/static-row-acti
 import { Checkbox } from '@/components/ui/checkbox'
 import { ModelPriceCell } from '@/features/pricing/components/model-price-cell'
 
-import { toPriceCellModel, type ModelRow } from './model-pricing-snapshots'
+import {
+  isBasePricingUnset,
+  toPriceCellModel,
+  type ModelRow,
+} from './model-pricing-snapshots'
 import { ModelIdentity } from './model-ratio-card'
 
 type BuildModelRatioColumnsOptions = {
@@ -90,13 +94,18 @@ export function buildModelRatioColumns({
       id: 'actions',
       header: () => <div>{t('Actions')}</div>,
       // 编辑不再是按钮：整行内容本身就可以点击编辑。
-      cell: ({ row }) => (
-        <StaticRowActions
-          deleteLabel={t('Delete')}
-          onDelete={() => onDelete(row.original.name)}
-          deleteDisabled={deleteDisabled}
-        />
-      ),
+      cell: ({ row }) => {
+        const isUnset = isBasePricingUnset(
+          row.original.draft ?? row.original.saved ?? row.original
+        )
+        return (
+          <StaticRowActions
+            deleteLabel={t('Delete')}
+            onDelete={() => onDelete(row.original.name)}
+            deleteDisabled={deleteDisabled || isUnset}
+          />
+        )
+      },
       enableHiding: false,
     },
   ]

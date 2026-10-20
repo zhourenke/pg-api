@@ -22,7 +22,11 @@ import { StaticRowActions } from '@/components/data-table/static/static-row-acti
 import { StatusBadge } from '@/components/status-badge'
 import { ModelPriceCell } from '@/features/pricing/components/model-price-cell'
 
-import { toPriceCellModel, type ModelRow } from './model-pricing-snapshots'
+import {
+  isBasePricingUnset,
+  toPriceCellModel,
+  type ModelRow,
+} from './model-pricing-snapshots'
 
 /**
  * 一行价格的身份：模型名与冲突标记。表格的名称列与卡片的标题行共用这一块，
@@ -32,7 +36,7 @@ export function ModelIdentity(props: { model: ModelRow }) {
   const { t } = useTranslation()
 
   return (
-    <div className='flex min-w-0 items-center gap-2 font-medium'>
+    <div className='flex max-w-full min-w-0 items-center gap-2 font-medium'>
       <span className='min-w-0 truncate'>{props.model.name}</span>
       {props.model.hasConflict && (
         <StatusBadge
@@ -93,6 +97,9 @@ export function ModelRatioCard(props: {
           <StaticRowActions
             deleteLabel={t('Delete')}
             onDelete={() => props.onDelete(props.model.name)}
+            deleteDisabled={isBasePricingUnset(
+              props.model.draft ?? props.model.saved ?? props.model
+            )}
           />
         </div>
       )}

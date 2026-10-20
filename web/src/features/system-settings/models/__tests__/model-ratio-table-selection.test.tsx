@@ -39,7 +39,7 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-async function renderEditor() {
+async function renderEditor(options?: { candidateModelNames?: string[] }) {
   vi.spyOn(api, 'get').mockImplementation(async (url) => {
     if (url === '/api/pricing') {
       return { data: { success: true, data: [], vendors: [] } }
@@ -77,6 +77,7 @@ async function renderEditor() {
         imageRatio='{}'
         audioRatio='{}'
         audioCompletionRatio='{}'
+        candidateModelNames={options?.candidateModelNames}
         billingMode='{}'
         billingExpr='{}'
         onChange={onChange}
@@ -173,4 +174,44 @@ it('deletes one model price from its row only after the confirmation is accepted
     'claude-sonnet': 1.5,
   })
   expect(JSON.parse(onChange.mock.calls[0][1] as string)).toEqual({})
+})
+
+it('displays all models in the unified view with unset price models placed at the very top', async () => {
+  await renderEditor({
+    candidateModelNames: ['z-unset-model', 'a-unset-model'],
+  })
+
+  // All 4 models should be rendered in the table
+  const rows = await screen.findAllByRole('row')
+  // Header row + 4 data rows
+  expect(rows.length).toBe(5)
+
+  // Unset models should be placed at the very top, sorted alphabetically among themselves,
+  // followed by configured models sorted alphabetically among themselves.
+  const dataRowNames = rows.slice(1).map((row) => {
+    const text = within(row).getByRole('cell', { name: /^[a-z0-9.-]+$/i })
+    return text.textContent
+  })
+  expect(dataRowNames).toEqual([
+    'a-unset-model',
+    'z-unset-model',
+    'claude-sonnet',
+    'gpt-4.1-mini',
+  ])
+
+  // Unset model rows should display "Unset price" and their Delete action should be disabled
+  const unsetRow = await screen.findByRole('row', { name: /a-unset-model/ })
+  expect(within(unsetRow).getByText('Unset price')).toBeInTheDocument()
+  expect(
+    within(unsetRow).getByRole('button', { name: 'Delete' })
+  ).toBeDisabled()
+
+  // Configured model row should display price segments and have enabled Delete action
+  const configuredRow = await screen.findByRole('row', {
+    name: /claude-sonnet/,
+  })
+  expect(within(configuredRow).getByText('Input')).toBeInTheDocument()
+  expect(
+    within(configuredRow).getByRole('button', { name: 'Delete' })
+  ).toBeEnabled()
 })

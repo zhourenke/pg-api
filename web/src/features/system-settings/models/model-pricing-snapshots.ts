@@ -65,33 +65,36 @@ const asNumber = (value?: string) => {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
-/**
- * 一个价格行在价格单元格里的形状。表格的价格摘要列与窄屏卡片共用，两处的报价
- * 必须一致。
- */
-export function toPriceCellModel(model: ModelRow): PricingModel {
-  return {
-    id: 0,
-    model_name: model.name,
-    quota_type: model.billingMode === 'per-request' ? 1 : 0,
-    model_ratio: asNumber(model.ratio),
-    completion_ratio: asNumber(model.completionRatio),
-    cache_ratio: model.cacheRatio ? asNumber(model.cacheRatio) : null,
-    create_cache_ratio: model.createCacheRatio
-      ? asNumber(model.createCacheRatio)
-      : null,
-    model_price: model.price ? asNumber(model.price) : undefined,
-    billing_mode: model.billingMode,
-    billing_expr: model.billingExpr,
-    enable_groups: [],
-  }
-}
-
 export const isBasePricingUnset = (snapshot?: ModelPricingSnapshot) =>
   !snapshot ||
   (snapshot.billingMode !== 'tiered_expr' &&
     !hasPricingValue(snapshot.price) &&
     !hasPricingValue(snapshot.ratio))
+
+/**
+ * 一个价格行在价格单元格里的形状。表格的价格摘要列与窄屏卡片共用，两处的报价
+ * 必须一致。
+ */
+export function toPriceCellModel(model: ModelRow): PricingModel {
+  const isUnset = isBasePricingUnset(model.draft ?? model.saved ?? model)
+  const quotaType = isUnset || model.billingMode === 'per-request' ? 1 : 0
+  return {
+    id: 0,
+    model_name: model.name,
+    quota_type: quotaType,
+    model_ratio: isUnset ? 0 : asNumber(model.ratio),
+    completion_ratio: isUnset ? 0 : asNumber(model.completionRatio),
+    cache_ratio: model.cacheRatio ? asNumber(model.cacheRatio) : null,
+    create_cache_ratio: model.createCacheRatio
+      ? asNumber(model.createCacheRatio)
+      : null,
+    image_ratio: model.imageRatio ? asNumber(model.imageRatio) : null,
+    model_price: isUnset || !model.price ? undefined : asNumber(model.price),
+    billing_mode: model.billingMode,
+    billing_expr: model.billingExpr,
+    enable_groups: [],
+  }
+}
 
 export const buildModelSnapshots = ({
   modelPrice,
