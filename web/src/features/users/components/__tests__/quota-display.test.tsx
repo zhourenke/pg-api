@@ -435,3 +435,55 @@ it('labels raw quota mode as tokens without introducing a currency symbol', () =
     within(screen.getAllByRole('cell')[0]).getByText('200')
   ).toBeInTheDocument()
 })
+
+it('truncates user role inside TruncatedCell with tooltip', () => {
+  function UserRoleTable() {
+    const columns = useUsersColumns().filter(
+      (column) =>
+        (column.id ?? ('accessorKey' in column ? String(column.accessorKey) : '')) === 'role'
+    )
+    const table = useReactTable({
+      columns,
+      data: [
+        {
+          id: 1,
+          username: 'test',
+          display_name: '',
+          role: 1,
+          status: 1,
+          quota: 100,
+          used_quota: 0,
+          request_count: 0,
+          group: 'default',
+        } as User,
+      ],
+      getCoreRowModel: getCoreRowModel(),
+    })
+    return (
+      <table>
+        <tbody>
+          {table.getRowModel().rows.map((row) => (
+            <tr key={row.id}>
+              {row.getVisibleCells().map((cell) => (
+                <td key={cell.id}>
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )
+  }
+
+  render(
+    <I18nextProvider i18n={i18n}>
+      <UserRoleTable />
+    </I18nextProvider>
+  )
+  const roleText = screen.getByText('User')
+  expect(roleText).toBeVisible()
+  const truncatedContainer = roleText.closest('.min-w-0')
+  expect(truncatedContainer).not.toBeNull()
+  expect(truncatedContainer?.className).toContain('truncate')
+})

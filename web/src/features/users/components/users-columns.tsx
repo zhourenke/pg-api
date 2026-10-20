@@ -21,7 +21,7 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ActivityTimeCell } from '@/components/activity-time-cell'
-import { BadgeCell } from '@/components/data-table'
+import { BadgeCell, TruncatedCell } from '@/components/data-table'
 import { GroupBadge } from '@/components/group-badge'
 import { LongText } from '@/components/long-text'
 import { StatusBadge } from '@/components/status-badge'
@@ -32,8 +32,9 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { toIntlLocale } from '@/i18n/languages'
 import { getCurrencyDisplay } from '@/lib/currency'
-import { formatQuota } from '@/lib/format'
+import { formatNumber, formatQuota } from '@/lib/format'
 import { useSystemConfigStore } from '@/stores/system-config-store'
 
 import {
@@ -47,7 +48,8 @@ import { DataTableRowActions } from './data-table-row-actions'
 import { UserQuotaCell } from './user-quota-cell'
 
 export function useUsersColumns(): ColumnDef<User>[] {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toIntlLocale(i18n.language)
   const currencyConfig = useSystemConfigStore((state) => state.config.currency)
   const { meta: currency } = getCurrencyDisplay()
   const quotaUnit = currency.kind === 'tokens' ? t('Tokens') : currency.symbol
@@ -106,7 +108,7 @@ export function useUsersColumns(): ColumnDef<User>[] {
                         <StatusBadge
                           variant='success'
                           copyable={false}
-                          className='shrink-0 font-normal'
+                          className='max-w-full min-w-0 shrink font-normal'
                         />
                       }
                     >
@@ -152,7 +154,7 @@ export function useUsersColumns(): ColumnDef<User>[] {
           return (
             <Tooltip>
               <TooltipTrigger
-                render={<div className='-ml-1.5 min-w-0 cursor-help' />}
+                render={<div className='-ml-1.5 max-w-full min-w-0 cursor-help' />}
               >
                 <StatusBadge
                   label={t(statusConfig.labelKey)}
@@ -165,7 +167,12 @@ export function useUsersColumns(): ColumnDef<User>[] {
               </TooltipTrigger>
               <TooltipContent>
                 <p className='text-xs'>
-                  {t('Requests:')} {requestCount.toLocaleString()}
+                  <span className='text-muted-foreground'>
+                    {t('Requests:')}
+                  </span>{' '}
+                  <span className='text-foreground font-mono font-medium'>
+                    {formatNumber(requestCount, locale)}
+                  </span>
                 </p>
               </TooltipContent>
             </Tooltip>
@@ -218,7 +225,11 @@ export function useUsersColumns(): ColumnDef<User>[] {
             return null
           }
 
-          return <span className='text-sm'>{t(roleConfig.labelKey)}</span>
+          return (
+            <TruncatedCell className='text-sm'>
+              {t(roleConfig.labelKey)}
+            </TruncatedCell>
+          )
         },
         filterFn: (row, id, value) => {
           return value.includes(String(row.getValue(id)))
@@ -242,7 +253,7 @@ export function useUsersColumns(): ColumnDef<User>[] {
           return (
             <div
               data-table-text='secondary'
-              className='min-w-0 space-y-1 text-xs font-normal'
+              className='max-w-full min-w-0 space-y-1 text-xs font-normal'
             >
               {(affCount > 0 || affHistoryQuota !== 0) && (
                 <LongText>

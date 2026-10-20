@@ -182,6 +182,7 @@ function ApiKeyRestrictionCell(props: {
   emptyLabel: string
   detailsTrigger?: 'hover' | 'click'
 }) {
+  const { t } = useTranslation()
   if (!props.items.length) {
     if (props.detailsTrigger === 'click') {
       return (
@@ -220,7 +221,8 @@ function ApiKeyRestrictionCell(props: {
               variant='ghost'
               size='sm'
               aria-label={`${props.title}: ${props.label}`}
-              className='h-7 max-w-full justify-start px-0 text-xs font-normal underline decoration-dotted underline-offset-4'
+              title={t('Click to view full details')}
+              className='h-7 max-w-full min-w-0 cursor-pointer justify-start truncate px-0 text-xs font-normal no-underline hover:underline hover:decoration-dotted hover:underline-offset-4'
             />
           }
         >
@@ -239,7 +241,13 @@ function ApiKeyRestrictionCell(props: {
       <TooltipTrigger render={<BadgeCell />}>
         <StatusBadge label={props.label} variant='neutral' copyable={false} />
       </TooltipTrigger>
-      <TooltipContent side='top' className='max-w-xs'>
+      <TooltipContent
+        side='top'
+        className='max-w-xs flex-col items-stretch p-2.5'
+      >
+        <div className='text-muted-foreground mb-1 text-[11px] font-medium'>
+          {props.title} ({props.items.length})
+        </div>
         {details}
       </TooltipContent>
     </Tooltip>

@@ -527,3 +527,21 @@ it('keeps mobile quota readable and opens complete model and IP restrictions by 
   expect(within(details).getByText('192.0.2.1')).toBeVisible()
   expect(within(details).getByText('2001:db8::1')).toBeVisible()
 })
+
+it('renders token name with Click to copy title, cursor-pointer, and allows copying name', async () => {
+  await renderKeysPage(1, {
+    name: 'test-token-name-for-copy',
+    group: 'default',
+  })
+  const nameButton = screen.getByRole('button', {
+    name: 'test-token-name-for-copy',
+  })
+  expect(nameButton).toBeInTheDocument()
+  expect(nameButton).toHaveAttribute('title', 'Click to copy')
+  expect(nameButton).toHaveClass('cursor-pointer')
+
+  // Group badge in the table should not have a title attribute
+  const groupText = screen.getByText('default')
+  const groupBadge = groupText.closest('[data-slot="status-badge"]')
+  expect(groupBadge).not.toHaveAttribute('title')
+})

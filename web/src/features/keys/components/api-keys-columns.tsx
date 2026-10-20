@@ -21,10 +21,10 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { TruncatedCell } from '@/components/data-table'
 import { StatusBadge } from '@/components/status-badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useMediaQuery } from '@/hooks'
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { toIntlLocale } from '@/i18n/languages'
 import { getUserGroups } from '@/lib/api'
 import { getCurrencyDisplay } from '@/lib/currency'
@@ -106,11 +106,23 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
       {
         accessorKey: 'name',
         header: t('Name'),
-        cell: ({ row }) => (
-          <TruncatedCell className='font-medium'>
-            {row.getValue('name')}
-          </TruncatedCell>
-        ),
+        cell: function ApiKeyNameCell({ row }) {
+          const { copyToClipboard } = useCopyToClipboard()
+          const name = row.getValue('name') as string
+          return (
+            <button
+              type='button'
+              className='block max-w-full min-w-0 cursor-pointer truncate text-left font-medium hover:underline'
+              title={t('Click to copy')}
+              onClick={(e) => {
+                e.stopPropagation()
+                copyToClipboard(name)
+              }}
+            >
+              {name}
+            </button>
+          )
+        },
         meta: { mobileTitle: true },
       },
       {

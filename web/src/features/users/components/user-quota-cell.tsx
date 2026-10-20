@@ -57,9 +57,10 @@ export function UserQuotaCell(props: UserQuotaCellProps) {
       ]}
     >
       {hasQuota ? (
-        <span className='grid min-w-0 grid-cols-1 gap-y-1 text-sm tabular-nums'>
+        <span className='grid max-w-full min-w-0 grid-cols-1 gap-y-1 text-sm tabular-nums'>
           <span
             className={cn(
+              'min-w-0 truncate',
               props.remaining < 0 && 'text-destructive',
               props.remaining === 0 && 'text-muted-foreground'
             )}
@@ -68,10 +69,10 @@ export function UserQuotaCell(props: UserQuotaCellProps) {
           </span>
           <span
             data-table-text='secondary'
-            className='text-muted-foreground flex items-baseline gap-1 text-xs font-normal'
+            className='text-muted-foreground flex min-w-0 items-baseline gap-1 text-xs font-normal'
           >
-            <span>{t('Used amount')}</span>
-            <span>{formattedUsed}</span>
+            <span className='shrink-0'>{t('Used amount')}</span>
+            <span className='min-w-0 truncate'>{formattedUsed}</span>
           </span>
         </span>
       ) : (
