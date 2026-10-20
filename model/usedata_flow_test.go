@@ -191,3 +191,35 @@ func TestLogQuotaDataSplitsRowsByUseGroupTokenChannelAndNode(t *testing.T) {
 	require.Equal(t, "default", rows[1].UseGroup)
 	require.Equal(t, 25, rows[1].Quota)
 }
+
+func TestQuotaDataHourlyBoundaryAlignment(t *testing.T) {
+	truncateTables(t)
+
+	// Seed an hourly bucket at 3600 (01:00:00)
+	seedFlowQuotaData(t, QuotaData{
+		UserID:    1,
+		Username:  "alice",
+		NodeName:  "node-a",
+		TokenID:   11,
+		UseGroup:  "default",
+		ModelName: "gpt-4",
+		ChannelID: 1,
+		CreatedAt: 3600,
+		Count:     5,
+		Quota:     500,
+		TokenUsed: 200,
+	})
+
+	// Query with startTime = 4500 (01:15:00), which is > 3600.
+	// Previously, created_at >= 4500 would drop the 3600 bucket entirely.
+	// With hourly alignment, 4500 aligns to 3600, so the bucket is retrieved.
+	dates, err := GetQuotaDataByUserId(1, 4500, 7200)
+	require.NoError(t, err)
+	require.Len(t, dates, 1)
+	require.Equal(t, 500, dates[0].Quota)
+
+	allDates, err := GetAllQuotaDates(4500, 7200, "")
+	require.NoError(t, err)
+	require.Len(t, allDates, 1)
+	require.Equal(t, 500, allDates[0].Quota)
+}

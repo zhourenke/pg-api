@@ -138,7 +138,15 @@ func increaseQuotaData(quotaData *QuotaData) {
 	}
 }
 
+func alignQuotaStartTime(startTime int64) int64 {
+	if startTime <= 0 {
+		return 0
+	}
+	return startTime - (startTime % 3600)
+}
+
 func GetQuotaDataByUsername(username string, startTime int64, endTime int64) (quotaData []*QuotaData, err error) {
+	startTime = alignQuotaStartTime(startTime)
 	var quotaDatas []*QuotaData
 	// 从quota_data表中查询数据
 	err = DB.Table("quota_data").
@@ -150,6 +158,7 @@ func GetQuotaDataByUsername(username string, startTime int64, endTime int64) (qu
 }
 
 func GetQuotaDataByUserId(userId int, startTime int64, endTime int64) (quotaData []*QuotaData, err error) {
+	startTime = alignQuotaStartTime(startTime)
 	var quotaDatas []*QuotaData
 	// 从quota_data表中查询数据
 	err = DB.Table("quota_data").
@@ -161,6 +170,7 @@ func GetQuotaDataByUserId(userId int, startTime int64, endTime int64) (quotaData
 }
 
 func GetQuotaDataGroupByUser(startTime int64, endTime int64) (quotaData []*QuotaData, err error) {
+	startTime = alignQuotaStartTime(startTime)
 	var quotaDatas []*QuotaData
 	err = DB.Table("quota_data").
 		Select("username, created_at, sum(count) as count, sum(quota) as quota, sum(token_used) as token_used").
@@ -174,6 +184,7 @@ func GetAllQuotaDates(startTime int64, endTime int64, username string) (quotaDat
 	if username != "" {
 		return GetQuotaDataByUsername(username, startTime, endTime)
 	}
+	startTime = alignQuotaStartTime(startTime)
 	var quotaDatas []*QuotaData
 	// 从quota_data表中查询数据
 	// only select model_name, sum(count) as count, sum(quota) as quota, model_name, created_at from quota_data group by model_name, created_at;
