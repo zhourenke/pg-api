@@ -192,7 +192,8 @@ export function NumericSpinnerInput({
       <div
         onBlur={handleControlBlur}
         className={cn(
-          'group/spinner border-input inline-flex h-7 min-w-[4.75rem] max-w-full items-center justify-center gap-0 rounded-md border transition-colors',
+          'group/spinner border-input inline-flex h-7 w-[4.75rem] max-w-full min-w-0 items-center justify-center gap-0 rounded-md border transition-colors',
+          !hasNoValue && 'w-auto max-w-full',
           fillsColumn && !hasNoValue && 'min-w-fit max-w-[5.5rem]',
           fillsColumn && hasNoValue && 'max-w-[5.5rem]',
           'hover:bg-muted/60',

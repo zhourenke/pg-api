@@ -44,7 +44,6 @@ type DialogType =
   | 'inference-status'
   | 'multi-key-manage'
   | 'tag-batch-edit'
-  | 'edit-tag'
   | 'copy-channel'
   | null
 

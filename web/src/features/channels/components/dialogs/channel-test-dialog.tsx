@@ -840,8 +840,8 @@ function ChannelTestDialogContent({
           const isDefault = defaultTestModel === model
 
           return (
-            <div className='flex w-max items-center gap-2 whitespace-nowrap'>
-              <span className='font-medium whitespace-nowrap' title={model}>
+            <div className='flex max-w-full min-w-0 items-center gap-2 whitespace-nowrap'>
+              <span className='min-w-0 truncate font-medium' title={model}>
                 {model}
               </span>
               {isDefault && (
@@ -850,6 +850,7 @@ function ChannelTestDialogContent({
                   variant='info'
                   size='sm'
                   copyable={false}
+                  className='shrink-0'
                 />
               )}
             </div>

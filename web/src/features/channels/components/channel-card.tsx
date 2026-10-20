@@ -27,7 +27,6 @@ import { CHANNEL_STATUS } from '../constants'
 import { isTagAggregateRow, parseGroupsList } from '../lib'
 import type { Channel } from '../types'
 import { ChannelRowActionsLayoutContext } from './channel-row-actions-context'
-import { BalanceCell } from './channels-columns'
 import { useChannels } from './channels-provider'
 
 const SENSITIVE_MASK = '••••'
@@ -73,12 +72,8 @@ function ChannelCardComponent({
   const weightCell = renderCell('weight')
   const responseCell = renderCell('response_time')
   const testCell = renderCell('test_time')
-  // A tag row aggregates several channels and has no single remaining figure, so
-  // the card shows a dash there.
-  const usedBalanceCell = <BalanceCell channel={row.original} part='used' />
-  const remainingBalanceCell = isTagRow ? null : (
-    <BalanceCell channel={row.original} part='remaining' />
-  )
+  const usedBalanceCell = renderCell('used_quota')
+  const remainingBalanceCell = renderCell('balance')
 
   const labelClass = 'text-muted-foreground text-[11px] font-medium select-none'
 

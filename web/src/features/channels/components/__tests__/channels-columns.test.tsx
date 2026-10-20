@@ -27,9 +27,17 @@ import zhCN from '@/i18n/locales/zh.json'
 import type { Channel } from '../../types'
 import { ChannelRowActionsLayoutContext } from '../channel-row-actions-context'
 import { BalanceCell, useChannelsColumns } from '../channels-columns'
+import { DataTableTagRowActions } from '../data-table-tag-row-actions'
+
+const mockSetOpen = vi.fn()
+const mockSetCurrentTag = vi.fn()
 
 vi.mock('../channels-provider', () => ({
-  useChannels: () => ({ sensitiveVisible: true }),
+  useChannels: () => ({
+    sensitiveVisible: true,
+    setOpen: mockSetOpen,
+    setCurrentTag: mockSetCurrentTag,
+  }),
 }))
 
 /**
@@ -296,43 +304,58 @@ describe('channel balance cell', () => {
     expect(both).toBe(`${used}${remaining}`)
   })
 
-  it('shows only the used figure for a tag row, unnamed where the card labels it', () => {
-    expect(renderBalanceCell(tagChannel).container.textContent).toContain(
-      'Used:'
-    )
-    expect(
-      renderBalanceCell(tagChannel, { part: 'remaining' }).container.textContent
-    ).toBe('')
+  it('shows only the used figure for a tag row, and a dash for remaining', () => {
+    // The table and card now both have their own "Used" and "Remaining" column headers,
+    // so the used figure renders cleanly without prepending "Used:".
+    const used = renderBalanceCell(tagChannel, { part: 'used' })
+    expect(used.container.textContent).not.toContain('Used:')
+    expect((used.container.textContent ?? '').trim().length).toBeGreaterThan(0)
 
-    // The card's own "Used" label names the figure, so the badge does not repeat
-    // the word there; the table's column header names both figures, which is why
-    // the badge says which one it is.
-    const card = renderBalanceCell(tagChannel, { layout: 'card' })
-    expect(card.container.textContent).not.toContain('Used:')
-    expect((card.container.textContent ?? '').trim().length).toBeGreaterThan(0)
+    // For the remaining column, a tag row has no single remaining figure, so it
+    // renders a dash ("-") instead of 0 or blank, mirroring the card layout.
+    const remaining = renderBalanceCell(tagChannel, { part: 'remaining' })
+    expect(remaining.container.textContent?.trim()).toBe('-')
   })
 
-  it('pushes the two figures to the two ends of the cell in the table', () => {
-    // jsdom lays nothing out, so what can be pinned here is the contract that
-    // makes the browser do it: a row that spreads its two figures apart and hangs
-    // each one out by its own badge padding, so the *text* — not the badge box —
-    // meets the cell edge and the decimals line up down the column.
-    const row = (container: HTMLElement) =>
-      container.querySelector('div[class*="flex"]') as HTMLElement
-
-    const table = row(renderBalanceCell(plainChannel).container)
-    expect(table.className.split(/\s+/)).toContain('justify-between')
-    expect(table.className).toContain('[&>*:first-child]:-ml-1.5')
-    expect(table.className).toContain('[&>*:last-child]:-mr-1.5')
-
-    // The card consumes the same cell one half at a time under a label of its
-    // own, where spreading the pair apart would break the centring; if a card
-    // ever renders both halves in one row, they must keep sitting next to the
-    // left edge instead.
-    const card = row(
-      renderBalanceCell(plainChannel, { layout: 'card' }).container
+  it('splits used quota and remaining balance into two distinct table columns', () => {
+    const { result } = renderHook(() => useChannelsColumns())
+    const usedCol = result.current.find(
+      (c) => 'accessorKey' in c && c.accessorKey === 'used_quota'
     )
-    expect(card.className.split(/\s+/)).not.toContain('justify-between')
-    expect(card.className.split(/\s+/)).toContain('-ml-1.5')
+    const remainingCol = result.current.find(
+      (c) => 'accessorKey' in c && c.accessorKey === 'balance'
+    )
+
+    expect(usedCol).toBeDefined()
+    expect(remainingCol).toBeDefined()
+    expect(usedCol?.header).toBe('Used')
+    expect(remainingCol?.header).toBe('Remaining')
+  })
+
+  it('renders a single edit action for a tag row that opens tag-batch-edit', () => {
+    mockSetOpen.mockClear()
+    mockSetCurrentTag.mockClear()
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    const row = {
+      original: { tag: 'Command' },
+    } as unknown as Row<Channel & { tag?: string }>
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ChannelRowActionsLayoutContext.Provider value='table'>
+          <DataTableTagRowActions row={row} />
+        </ChannelRowActionsLayoutContext.Provider>
+      </QueryClientProvider>
+    )
+
+    const editBtn = screen.getByRole('button', { name: 'Edit Tag Channels' })
+    expect(editBtn).toBeInTheDocument()
+
+    editBtn.click()
+    expect(mockSetCurrentTag).toHaveBeenCalledWith('Command')
+    expect(mockSetOpen).toHaveBeenCalledWith('tag-batch-edit')
   })
 })

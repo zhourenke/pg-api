@@ -18,7 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useQueryClient } from '@tanstack/react-query'
 import type { Row } from '@tanstack/react-table'
-import { Power, PowerOff, Pencil, Edit } from 'lucide-react'
+import { Power, PowerOff, Pencil } from 'lucide-react'
+import { useContext } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { DataTableRowActionMenu } from '@/components/data-table/core/row-action-menu'
@@ -36,6 +37,7 @@ import {
 
 import { handleEnableTagChannels, handleDisableTagChannels } from '../lib'
 import type { Channel } from '../types'
+import { ChannelRowActionsLayoutContext } from './channel-row-actions-context'
 import { useChannels } from './channels-provider'
 
 interface DataTableTagRowActionsProps {
@@ -44,6 +46,7 @@ interface DataTableTagRowActionsProps {
 
 export function DataTableTagRowActions({ row }: DataTableTagRowActionsProps) {
   const { t } = useTranslation()
+  const layout = useContext(ChannelRowActionsLayoutContext)
   const tag = row.original.tag
   const { setOpen, setCurrentTag } = useChannels()
   const queryClient = useQueryClient()
@@ -58,44 +61,43 @@ export function DataTableTagRowActions({ row }: DataTableTagRowActionsProps) {
     handleDisableTagChannels(tag, queryClient)
   }
 
-  const handleBatchEdit = () => {
+  const handleEditTagChannels = () => {
     setCurrentTag(tag)
     setOpen('tag-batch-edit')
   }
 
-  const handleEditTag = () => {
-    setCurrentTag(tag)
-    setOpen('edit-tag')
-  }
-
   return (
     <div className='-ml-1.5 flex items-center gap-1'>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button
-              variant='ghost'
-              size='icon-sm'
-              onClick={handleEditTag}
-              aria-label={t('Edit Tag')}
-            />
-          }
-        >
-          <Edit />
-        </TooltipTrigger>
-        <TooltipContent>{t('Edit Tag')}</TooltipContent>
-      </Tooltip>
+      {layout !== 'card' && (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant='ghost'
+                size='icon-sm'
+                onClick={handleEditTagChannels}
+                aria-label={t('Edit Tag Channels')}
+              />
+            }
+          >
+            <Pencil className='size-4' />
+          </TooltipTrigger>
+          <TooltipContent>{t('Edit Tag Channels')}</TooltipContent>
+        </Tooltip>
+      )}
 
       <DataTableRowActionMenu ariaLabel={t('Open menu')}>
-        {/* Batch Edit */}
-        <DropdownMenuItem onClick={handleBatchEdit}>
-          {t('Batch Edit')}
-          <DropdownMenuShortcut>
-            <Pencil size={16} />
-          </DropdownMenuShortcut>
-        </DropdownMenuItem>
-
-        <DropdownMenuSeparator />
+        {layout === 'card' && (
+          <>
+            <DropdownMenuItem onClick={handleEditTagChannels}>
+              {t('Edit Tag Channels')}
+              <DropdownMenuShortcut>
+                <Pencil size={16} />
+              </DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
 
         {/* Enable All */}
         <DropdownMenuItem onClick={handleEnableAll}>

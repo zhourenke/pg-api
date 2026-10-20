@@ -199,13 +199,16 @@ describe('channel numeric spinner', () => {
     )
 
     // When the +/- buttons are taken out of the layout for a valueless placeholder,
-    // the control must keep a floor so it does not collapse into a small square/circle.
-    expect(classesOf(table.control)).toContain('min-w-[4.75rem]')
+    // the control maintains width so it does not collapse into a small square/circle,
+    // while min-w-0 max-w-full ensures it can compress instead of clipping when squeezed.
+    expect(classesOf(table.control)).toContain('w-[4.75rem]')
+    expect(classesOf(table.control)).toContain('min-w-0')
+    expect(classesOf(table.control)).toContain('max-w-full')
     expect(classesOf(table.control)).toContain('justify-center')
     expect(classesOf(table.value as HTMLElement)).toContain('max-w-full')
 
-    // In card mode, min-w-fit must not override the min-w floor when showing a dash.
-    expect(classesOf(card.control)).toContain('min-w-[4.75rem]')
+    // In card mode, min-w-fit must not override when showing a dash.
+    expect(classesOf(card.control)).toContain('w-[4.75rem]')
     expect(classesOf(card.control)).not.toContain('min-w-fit')
     expect(classesOf(card.control)).toContain('max-w-[5.5rem]')
   })

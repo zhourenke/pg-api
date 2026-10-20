@@ -21,7 +21,6 @@ import { useChannels } from './channels-provider'
 import { BalanceQueryDialog } from './dialogs/balance-query-dialog'
 import { ChannelTestDialog } from './dialogs/channel-test-dialog'
 import { CopyChannelDialog } from './dialogs/copy-channel-dialog'
-import { EditTagDialog } from './dialogs/edit-tag-dialog'
 import { FetchModelsDialog } from './dialogs/fetch-models-dialog'
 import { InferenceStatusDialog } from './dialogs/inference-status-dialog'
 import { MultiKeyManageDialog } from './dialogs/multi-key-manage-dialog'
@@ -96,12 +95,6 @@ export function ChannelsDialogs() {
       {/* Tag Batch Edit Dialog */}
       <TagBatchEditDialog
         open={open === 'tag-batch-edit'}
-        onOpenChange={(v) => !v && setOpen(null)}
-      />
-
-      {/* Edit Tag Dialog */}
-      <EditTagDialog
-        open={open === 'edit-tag'}
         onOpenChange={(v) => !v && setOpen(null)}
       />
 

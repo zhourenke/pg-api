@@ -316,6 +316,9 @@ export function ChannelsTable() {
     columns,
     totalCount,
     sorting,
+    meta: {
+      measurementKey: enableTagMode ? 'tag' : 'normal',
+    },
     initialColumnVisibility: {
       models: false,
       tag: false,
@@ -408,6 +411,7 @@ export function ChannelsTable() {
   return (
     <DataTablePage
       table={table}
+      measurementKey={enableTagMode ? 'tag' : 'normal'}
       columns={columns}
       isLoading={isLoading}
       isFetching={isFetching}

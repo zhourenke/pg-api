@@ -187,13 +187,10 @@ export function TagBatchEditDialog({
     <Dialog
       open={open}
       onOpenChange={handleClose}
-      title={t('Batch Edit by Tag')}
-      description={
-        <>
-          {t('Edit all channels with tag:')}
-          <strong>{currentTag}</strong>
-        </>
-      }
+      title={t('Edit Tag Channels: {{tag}}', { tag: currentTag })}
+      description={t(
+        'Batch edit all channels with this tag. Leave fields empty to keep current values.'
+      )}
       contentClassName='max-w-2xl'
       contentHeight='auto'
       bodyClassName='space-y-4'

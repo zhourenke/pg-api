@@ -458,17 +458,9 @@ export function BalanceCell({ channel, part }: BalanceCellProps) {
   // Tag row: only show cumulative used quota
   if (isTagRow) {
     if (part === 'remaining') {
-      return null
+      return <span className='text-muted-foreground text-xs'>-</span>
     }
-    // In the card this badge sits under a "Used" label of its own, so it does not
-    // name the figure again; the table's column header names both figures, which
-    // is why the badge says which one it is there.
-    let tagBadgeLabel = sensitiveVisible ? usedDisplay : SENSITIVE_MASK
-    if (layout !== 'card') {
-      tagBadgeLabel = sensitiveVisible
-        ? `${t('Used:')} ${usedDisplay}`
-        : maskedUsedLabel
-    }
+    const tagBadgeLabel = sensitiveVisible ? usedDisplay : SENSITIVE_MASK
     return (
       <TooltipProvider>
         <Tooltip>
@@ -582,7 +574,7 @@ export function BalanceCell({ channel, part }: BalanceCellProps) {
       size='sm'
       copyable={false}
       showDot={false}
-      className='min-w-0 cursor-pointer'
+      className='-ml-1.5 cursor-pointer'
       onClick={isInferenceChannel ? undefined : handleClickUpdate}
     />
   )
@@ -597,7 +589,7 @@ export function BalanceCell({ channel, part }: BalanceCellProps) {
             size='sm'
             copyable={false}
             showDot={false}
-            className='min-w-0 cursor-help'
+            className='-ml-1.5 cursor-help'
           />
         }
       />
@@ -615,8 +607,9 @@ export function BalanceCell({ channel, part }: BalanceCellProps) {
             <Button
               variant='ghost'
               size='sm'
-              className='h-auto rounded-full p-0'
+              className='h-auto max-w-full min-w-0 cursor-pointer rounded-full p-0'
               aria-haspopup='dialog'
+              title={t('Click to view full details')}
               onClick={handleClickUpdate}
             >
               {remainingBadge}
@@ -627,10 +620,14 @@ export function BalanceCell({ channel, part }: BalanceCellProps) {
         }
       />
       <TooltipContent>
-        <p>{remainingTooltipLabel}</p>
-        {channel.type !== 57 && !isInferenceChannel && (
-          <p>{t('Click to update balance')}</p>
-        )}
+        <div className='space-y-0.5 text-xs'>
+          <p className='text-foreground font-medium'>{remainingTooltipLabel}</p>
+          {channel.type !== 57 && !isInferenceChannel && (
+            <p className='text-muted-foreground text-[11px]'>
+              {t('Click to update balance')}
+            </p>
+          )}
+        </div>
       </TooltipContent>
     </Tooltip>
   )
@@ -639,23 +636,7 @@ export function BalanceCell({ channel, part }: BalanceCellProps) {
     <>
       <TooltipProvider>
         {part === undefined && (
-          <div
-            className={
-              // The table prints both figures in one cell. Owner wants them at the
-              // two ends of it — used against the left edge, remaining against the
-              // right, with the slack between them — so the figure with decimals
-              // lines up down the column. Each badge hangs out by its own 6px of
-              // horizontal padding (`-ml-1.5` / `-mr-1.5`, the same offset the
-              // single-figure rows already use), which puts the *text* on the cell's
-              // content edge while the badge box stays inside the cell's padding.
-              // The card never takes this branch: it asks for one half at a time
-              // (`part` below) under its own label, where hanging both ends out
-              // would break the centring, so the branch keeps the plain row there.
-              layout === 'card'
-                ? '-ml-1.5 flex max-w-full min-w-0 items-center gap-1'
-                : 'flex max-w-full min-w-0 items-center justify-between gap-1 [&>*:first-child]:-ml-1.5 [&>*:last-child]:-mr-1.5'
-            }
-          >
+          <div className='flex max-w-full min-w-0 items-center gap-1.5'>
             {usedBadgeNode}
             {remainingBadgeNode}
           </div>
@@ -790,11 +771,11 @@ export function useChannelsColumns(
             const tagLabel = tag ? `${t('Tag:')}${tag}` : t('Untagged')
 
             return (
-              <div className='flex items-center gap-2'>
+              <div className='flex max-w-full min-w-0 items-center gap-2'>
                 <Button
                   variant='ghost'
                   size='sm'
-                  className='h-6 w-6 p-0'
+                  className='h-6 w-6 shrink-0 p-0'
                   onClick={row.getToggleExpandedHandler()}
                 >
                   {row.getIsExpanded() ? (
@@ -810,13 +791,16 @@ export function useChannelsColumns(
                   two, so the badge truncates its own text (an unreadable
                   "1 cha…") and the row overflows the cell. The table's name
                   column is wide enough that nothing wraps there. */}
-                <div className='flex flex-wrap items-center gap-1.5'>
-                  <span className='font-semibold'>{tagLabel}</span>
+                <div className='flex max-w-full min-w-0 flex-wrap items-center gap-1.5'>
+                  <span className='min-w-0 truncate font-semibold'>
+                    {tagLabel}
+                  </span>
                   <StatusBadge
                     label={t('{{count}} channels', { count: childrenCount })}
                     variant='blue'
                     size='sm'
                     copyable={false}
+                    className='shrink-0'
                   />
                 </div>
               </div>
@@ -874,7 +858,7 @@ export function useChannelsColumns(
                     <Tooltip>
                       <TooltipTrigger
                         render={
-                          <span className='text-muted-foreground max-w-full min-w-0 truncate text-xs' />
+                          <span className='text-muted-foreground block max-w-full min-w-0 truncate text-xs' />
                         }
                       >
                         {channel.remark}
@@ -938,7 +922,7 @@ export function useChannelsColumns(
                   <Tooltip>
                     <TooltipTrigger
                       render={
-                        <span className='border-border bg-muted text-primary inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border' />
+                        <span className='border-border dark:bg-muted text-primary inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border bg-white' />
                       }
                     >
                       <MultiKeyModeIcon className='h-3 w-3' />
@@ -992,20 +976,23 @@ export function useChannelsColumns(
                         variant='purple'
                         size='sm'
                         copyable={false}
-                        className='cursor-pointer'
+                        className='shrink-0 cursor-pointer'
                       />
                     </TooltipTrigger>
                     <TooltipContent side='top'>
-                      <div className='max-w-xs space-y-1'>
-                        <div className='text-xs'>
+                      <div className='max-w-xs space-y-1 text-xs'>
+                        <div className='text-foreground font-medium'>
                           {t('From IO.NET deployment')}
                         </div>
                         {deploymentId && (
-                          <div className='text-muted-foreground font-mono text-xs'>
-                            {t('Deployment ID')}: {deploymentId}
+                          <div className='text-muted-foreground font-mono text-[11px]'>
+                            <span>{t('Deployment ID')}:</span>{' '}
+                            <span className='text-foreground font-medium'>
+                              {deploymentId}
+                            </span>
                           </div>
                         )}
-                        <div className='text-muted-foreground text-xs'>
+                        <div className='text-muted-foreground text-[11px]'>
                           {t('Click to open deployment')}
                         </div>
                       </div>
@@ -1120,24 +1107,31 @@ export function useChannelsColumns(
               return (
                 <TooltipProvider delay={100}>
                   <Tooltip>
-                    <TooltipTrigger render={<span />}>
-                      <StatusBadge
-                        label={label}
-                        variant={config.variant}
-                        size='sm'
-                        copyable={false}
-                      />
-                    </TooltipTrigger>
+                    <TooltipTrigger
+                      render={
+                        <StatusBadge
+                          label={label}
+                          variant={config.variant}
+                          size='sm'
+                          copyable={false}
+                        />
+                      }
+                    />
                     <TooltipContent side='top' className='max-w-xs'>
                       <div className='space-y-1 text-xs'>
                         {statusReason && (
                           <div>
-                            {t('Reason:')} {statusReason}
+                            <span className='text-muted-foreground'>
+                              {t('Reason:')}
+                            </span>{' '}
+                            <span className='text-foreground font-medium'>
+                              {statusReason}
+                            </span>
                           </div>
                         )}
                         {statusTime && (
-                          <div>
-                            {t('Time:')} {statusTime}
+                          <div className='text-muted-foreground font-mono text-[11px]'>
+                            <span>{t('Time:')}</span> {statusTime}
                           </div>
                         )}
                       </div>
@@ -1270,11 +1264,22 @@ export function useChannelsColumns(
         enableSorting: false,
       },
 
-      // Balance column (Used/Remaining)
+      // Used Quota column
+      {
+        accessorKey: 'used_quota',
+        header: t('Used'),
+        meta: { mobileHidden: true },
+        cell: ({ row }) => <BalanceCell channel={row.original} part='used' />,
+        enableSorting: false,
+      },
+
+      // Balance column (Remaining)
       {
         accessorKey: 'balance',
-        header: t('Used / Remaining'),
-        cell: ({ row }) => <BalanceCell channel={row.original} />,
+        header: t('Remaining'),
+        cell: ({ row }) => (
+          <BalanceCell channel={row.original} part='remaining' />
+        ),
       },
 
       // Response Time column

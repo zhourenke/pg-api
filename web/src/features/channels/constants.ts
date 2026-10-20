@@ -374,10 +374,10 @@ export const DEFAULT_PAGE_SIZE = 20
 // ============================================================================
 
 export const RESPONSE_TIME_THRESHOLDS = {
-  EXCELLENT: 500,
-  GOOD: 1000,
-  FAIR: 2000,
-  POOR: 5000,
+  EXCELLENT: 10000,
+  GOOD: 10000,
+  FAIR: 30000,
+  POOR: 30000,
 } as const
 
 export const RESPONSE_TIME_CONFIG = {
