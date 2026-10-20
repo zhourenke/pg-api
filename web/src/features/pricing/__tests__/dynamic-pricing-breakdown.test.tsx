@@ -43,4 +43,24 @@ describe('dynamic pricing breakdown', () => {
     expect(row).toHaveTextContent('$0.04')
     expect(row.textContent).not.toMatch(/\/\s*image/)
   })
+
+  it('orders column headers as Input -> Image In -> Image Out -> Cache Read -> Image Cache for image models', () => {
+    render(
+      <DynamicPricingBreakdown billingExpr='tier("base", p * 0.714285714286 + img_cr * 0.285714285714 + img * 1.142857142857 + img_o * 4.285714285714 + cr * 0.178571428571)' />
+    )
+
+    const headers = screen
+      .getAllByRole('columnheader')
+      .map((th) => th.textContent?.trim())
+
+    // 表头包含：Tier 以及按照【输入 → 图像输入 → 图像输出 → 缓存读取 → 图片缓存】排列的列
+    expect(headers).toEqual([
+      'Tier',
+      'Input',
+      'Image In',
+      'Image Out',
+      'Cache Read',
+      'Image Cache',
+    ])
+  })
 })

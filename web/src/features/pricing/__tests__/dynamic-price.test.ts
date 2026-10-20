@@ -183,4 +183,73 @@ describe('expression price summaries', () => {
     ])
     expect(summary?.secondaryEntries).toEqual([])
   })
+
+  test('classifies image models by image output and orders fields as input -> image in -> image out -> cache -> image cache', () => {
+    // 1. 模型同时有图像输入和图像输出（如 gpt-image-2.5-sunburst）
+    const sunburst = getDynamicPricingSummary(
+      pricingModel({
+        billing_mode: 'tiered_expr',
+        billing_expr:
+          'tier("base", p * 0.714285714286 + img_cr * 0.285714285714 + img * 1.142857142857 + img_o * 4.285714285714 + cr * 0.178571428571)',
+      }),
+      { tokenUnit: 'M' }
+    )
+    expect(sunburst?.isImageModel).toBe(true)
+    expect(sunburst?.hasImageInput).toBe(true)
+    expect(sunburst?.hasImageOutput).toBe(true)
+    // 价格摘要主要属性为【输入、图像输入、图像输出】
+    expect(sunburst?.primaryEntries.map((entry) => entry.field)).toEqual([
+      'inputPrice',
+      'imagePrice',
+      'imageOutputPrice',
+    ])
+    // 全量字段顺序为：输入 → 图像输入 → 图像输出 → 缓存读取 → 图片缓存
+    expect(sunburst?.entries.map((entry) => entry.field)).toEqual([
+      'inputPrice',
+      'imagePrice',
+      'imageOutputPrice',
+      'cacheReadPrice',
+      'imageCachePrice',
+    ])
+
+    // 2. 只有图像输出，没有图像输入（如纯文生图）
+    const t2i = getDynamicPricingSummary(
+      pricingModel({
+        billing_mode: 'tiered_expr',
+        billing_expr: 'tier("base", p * 1.5 + img_o * 6 + cr * 0.2)',
+      }),
+      { tokenUnit: 'M' }
+    )
+    expect(t2i?.isImageModel).toBe(true)
+    expect(t2i?.hasImageInput).toBe(false)
+    expect(t2i?.hasImageOutput).toBe(true)
+    // 价格摘要主要属性为【输入、图像输出】
+    expect(t2i?.primaryEntries.map((entry) => entry.field)).toEqual([
+      'inputPrice',
+      'imageOutputPrice',
+    ])
+    expect(t2i?.entries.map((entry) => entry.field)).toEqual([
+      'inputPrice',
+      'imageOutputPrice',
+      'cacheReadPrice',
+    ])
+
+    // 3. 只有图像输入，没有图像输出（如视觉文本大模型 GPT-4o / Claude 3.5 Sonnet）
+    const visionText = getDynamicPricingSummary(
+      pricingModel({
+        billing_mode: 'tiered_expr',
+        billing_expr: 'tier("base", p * 2.5 + c * 10 + img * 2.5 + cr * 1.25)',
+      }),
+      { tokenUnit: 'M' }
+    )
+    // 无图像输出说明该模型为文本模型，无需做特殊处理
+    expect(visionText?.isImageModel).toBe(false)
+    expect(visionText?.hasImageInput).toBe(true)
+    expect(visionText?.hasImageOutput).toBe(false)
+    // 依然维持文本模型主要属性【输入、补全】
+    expect(visionText?.primaryEntries.map((entry) => entry.field)).toEqual([
+      'inputPrice',
+      'outputPrice',
+    ])
+  })
 })

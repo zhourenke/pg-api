@@ -146,6 +146,49 @@ describe('model cards', () => {
     expect(screen.queryByText('Cache Write')).not.toBeInTheDocument()
   })
 
+  it('shows 【Input, Image In, Image Out】 on card for models with both image input and output', () => {
+    render(
+      <ModelCard
+        model={pricingModel({
+          billing_mode: 'tiered_expr',
+          billing_expr:
+            'tier("base", p * 0.714285714286 + img * 1.142857142857 + img_o * 4.285714285714 + cr * 0.178571428571)',
+        })}
+        onClick={vi.fn()}
+        tokenUnit='M'
+      />
+    )
+    const pricing = screen.getByRole('group', { name: 'Pricing' })
+    expect(
+      within(pricing)
+        .getAllByText(/^(Input|Image In|Image Out)$/)
+        .map((label) => label.textContent)
+    ).toEqual(['Input', 'Image In', 'Image Out'])
+    // 图像模型的卡片主要属性完整展示，不将缓存混入卡片主栅格
+    expect(within(pricing).queryByText('Cache Read')).toBeNull()
+  })
+
+  it('shows 【Input, Image Out】 on card when model has image output but no image input', () => {
+    render(
+      <ModelCard
+        model={pricingModel({
+          billing_mode: 'tiered_expr',
+          billing_expr: 'tier("base", p * 1.5 + img_o * 6.0 + cr * 0.2)',
+        })}
+        onClick={vi.fn()}
+        tokenUnit='M'
+      />
+    )
+    const pricing = screen.getByRole('group', { name: 'Pricing' })
+    expect(
+      within(pricing)
+        .getAllByText(/^(Input|Image Out)$/)
+        .map((label) => label.textContent)
+    ).toEqual(['Input', 'Image Out'])
+    expect(within(pricing).queryByText('Image In')).toBeNull()
+    expect(within(pricing).queryByText('Cache Read')).toBeNull()
+  })
+
   it('centres each price label and its figure on one another', () => {
     const classTokens = (element: HTMLElement) => element.className.split(/\s+/)
     const groupOf = (label: string) =>

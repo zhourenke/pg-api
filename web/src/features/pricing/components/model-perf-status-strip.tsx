@@ -276,7 +276,7 @@ export function ModelPerfStatusStrip(props: ModelPerfStatusStripProps) {
         <div
           role='tooltip'
           className={cn(
-            'bg-foreground text-background absolute bottom-full z-20 mb-1 rounded-md px-2 py-1 text-[11px] font-medium whitespace-nowrap shadow-md',
+            'bg-popover text-popover-foreground border-border absolute bottom-full z-20 mb-1.5 rounded-md border px-2.5 py-1 text-[11px] font-medium whitespace-nowrap shadow-md',
             activeSlot != null && activeSlot < SLOT_COUNT / 2
               ? 'left-0'
               : 'right-0'

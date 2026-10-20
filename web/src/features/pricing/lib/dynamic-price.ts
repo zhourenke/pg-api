@@ -45,6 +45,7 @@ export type DynamicPriceOptions = {
   usdExchangeRate?: number
   groupRatioMultiplier?: number
   now?: Date
+  isImageModel?: boolean
 }
 
 export type DynamicPriceLabelKind = 'i18n'
@@ -78,6 +79,9 @@ export type DynamicPricingSummary = {
   secondaryEntries: DynamicPriceEntry[]
   isTimePricing?: boolean
   isMixedBilling?: boolean
+  isImageModel?: boolean
+  hasImageInput?: boolean
+  hasImageOutput?: boolean
 }
 
 export function getDynamicPriceUnitLabelKey(
@@ -207,6 +211,52 @@ function hasDynamicRequestRules(model: PricingModel): boolean {
   return compiled.status === 'ready' && compiled.requestRules.length > 0
 }
 
+export function hasTierImageOutput(tier: DynamicPricingTier | null): boolean {
+  if (!tier) return false
+  if (tier.billingUnit === 'request') {
+    return Boolean(tier.imageCount)
+  }
+  const parsed = tier as ParsedTier
+  return (
+    typeof parsed.imageOutputPrice === 'number' && parsed.imageOutputPrice > 0
+  )
+}
+
+export function hasTierImageInput(tier: DynamicPricingTier | null): boolean {
+  if (!tier) return false
+  const parsed = tier as ParsedTier
+  return typeof parsed.imagePrice === 'number' && parsed.imagePrice > 0
+}
+
+/**
+ * 图像模型价格展示顺序：输入 → 图像输入 → 图像输出 → 缓存读取 → 图片缓存
+ */
+export const IMAGE_FIELD_ORDER: Record<string, number> = {
+  inputPrice: 1,
+  imagePrice: 2,
+  imageOutputPrice: 3,
+  fixedPrice: 3,
+  cacheReadPrice: 4,
+  imageCachePrice: 5,
+  cacheCreatePrice: 6,
+  cacheCreate1hPrice: 7,
+}
+
+/**
+ * 文本模型价格展示顺序：输入 → 补全 → 缓存读取 → 缓存写入 → 图片缓存 → 1小时缓存写入
+ */
+export const TEXT_FIELD_ORDER: Record<string, number> = {
+  inputPrice: 1,
+  outputPrice: 2,
+  fixedPrice: 2,
+  cacheReadPrice: 3,
+  cacheCreatePrice: 4,
+  imageCachePrice: 5,
+  cacheCreate1hPrice: 6,
+  imagePrice: 7,
+  imageOutputPrice: 8,
+}
+
 export function getDynamicPriceEntries(
   tier: DynamicPricingTier | null,
   options: DynamicPriceOptions
@@ -226,6 +276,9 @@ export function getDynamicPriceEntries(
       },
     ]
   }
+
+  const isImageTier = options.isImageModel ?? hasTierImageOutput(tier)
+  const fieldOrder = isImageTier ? IMAGE_FIELD_ORDER : TEXT_FIELD_ORDER
 
   return BILLING_PRICING_VARS.flatMap((variable) => {
     if (!variable.field) return []
@@ -264,9 +317,9 @@ export function getDynamicPriceEntries(
       },
     ]
   }).sort((a, b) => {
-    const aPrimary = PRIMARY_DYNAMIC_FIELDS.has(a.field)
-    const bPrimary = PRIMARY_DYNAMIC_FIELDS.has(b.field)
-    if (aPrimary !== bPrimary) return aPrimary ? -1 : 1
+    const orderA = fieldOrder[a.field] ?? 99
+    const orderB = fieldOrder[b.field] ?? 99
+    if (orderA !== orderB) return orderA - orderB
     return 0
   })
 }
@@ -287,7 +340,16 @@ export function getDynamicPricingSummary(
   )
   const summaryTiers = timeTiers ?? tiers
   const tier = summaryTiers[0] ?? null
-  let entries = getDynamicPriceEntries(tier, options)
+
+  const hasImageOutput = summaryTiers.some((t) => hasTierImageOutput(t))
+  const hasImageInput = summaryTiers.some((t) => hasTierImageInput(t))
+  const isImageModel = hasImageOutput
+
+  const tierOptions: DynamicPriceOptions = {
+    ...options,
+    isImageModel,
+  }
+  let entries = getDynamicPriceEntries(tier, tierOptions)
   let isMixedBilling = false
   const tokenTier = summaryTiers.find((item) => item.billingUnit !== 'request')
   const requestTier = summaryTiers.find(
@@ -296,11 +358,52 @@ export function getDynamicPricingSummary(
   if (tokenTier && requestTier) {
     isMixedBilling = true
     entries = [
-      ...getDynamicPriceEntries(tokenTier, options),
-      ...getDynamicPriceEntries(requestTier, options),
+      ...getDynamicPriceEntries(tokenTier, tierOptions),
+      ...getDynamicPriceEntries(requestTier, tierOptions),
     ]
+    const fieldOrder = isImageModel ? IMAGE_FIELD_ORDER : TEXT_FIELD_ORDER
+    entries.sort((a, b) => {
+      const orderA = fieldOrder[a.field] ?? 99
+      const orderB = fieldOrder[b.field] ?? 99
+      if (orderA !== orderB) return orderA - orderB
+      return 0
+    })
   }
   const rawExpression = model.billing_expr || ''
+
+  let primaryEntries: DynamicPriceEntry[]
+  let secondaryEntries: DynamicPriceEntry[]
+
+  if (isImageModel) {
+    // 图像模型主要属性：
+    // 当有图像输入时显示【输入、图像输入、图像输出】；
+    // 当只有图像输出没有图像输入时显示【输入、图像输出】。
+    const imagePrimaryFields = new Set(
+      hasImageInput
+        ? ['inputPrice', 'imagePrice', 'imageOutputPrice', 'fixedPrice']
+        : ['inputPrice', 'imageOutputPrice', 'fixedPrice']
+    )
+    primaryEntries = entries.filter((entry) =>
+      imagePrimaryFields.has(entry.field)
+    )
+    secondaryEntries = entries.filter(
+      (entry) => !imagePrimaryFields.has(entry.field)
+    )
+  } else {
+    // 文本模型（有图像输入无图像输出仍按文本模型处理，无需做特殊处理）
+    primaryEntries = entries.filter(
+      (entry) =>
+        entry.unit === 'request' ||
+        entry.unit === 'image' ||
+        PRIMARY_DYNAMIC_FIELDS.has(entry.field)
+    )
+    secondaryEntries = entries.filter(
+      (entry) =>
+        entry.unit !== 'request' &&
+        entry.unit !== 'image' &&
+        !PRIMARY_DYNAMIC_FIELDS.has(entry.field)
+    )
+  }
 
   return {
     tiers,
@@ -310,19 +413,12 @@ export function getDynamicPricingSummary(
     isSpecialExpression: rawExpression.trim().length > 0 && tiers.length === 0,
     rawExpression,
     entries,
-    primaryEntries: entries.filter(
-      (entry) =>
-        entry.unit === 'request' ||
-        entry.unit === 'image' ||
-        PRIMARY_DYNAMIC_FIELDS.has(entry.field)
-    ),
-    secondaryEntries: entries.filter(
-      (entry) =>
-        entry.unit !== 'request' &&
-        entry.unit !== 'image' &&
-        !PRIMARY_DYNAMIC_FIELDS.has(entry.field)
-    ),
+    primaryEntries,
+    secondaryEntries,
     isTimePricing: timeTiers !== null,
+    isImageModel,
+    hasImageInput,
+    hasImageOutput,
     ...(isMixedBilling ? { isMixedBilling } : {}),
   }
 }

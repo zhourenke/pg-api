@@ -49,6 +49,9 @@ import { compileBillingExpression } from '../lib/billing-expression/parser'
 import { isBreakdownTierMatched } from '../lib/breakdown-tier-match'
 import {
   formatUnitPrice,
+  hasTierImageOutput,
+  IMAGE_FIELD_ORDER,
+  TEXT_FIELD_ORDER,
   type DynamicPriceLabelKind,
   type DynamicPriceOptions,
 } from '../lib/dynamic-price'
@@ -360,7 +363,17 @@ export function DynamicPricingBreakdown({
           tier.billingUnit === 'request' ? Number(tier.fixedPrice) : Number.NaN,
       })
     }
-    return fields
+    const isImageModelBreakdown = tiers.some((tier) => hasTierImageOutput(tier))
+    const fieldOrder = isImageModelBreakdown
+      ? IMAGE_FIELD_ORDER
+      : TEXT_FIELD_ORDER
+
+    return fields.sort((a, b) => {
+      const orderA = fieldOrder[a.id] ?? 99
+      const orderB = fieldOrder[b.id] ?? 99
+      if (orderA !== orderB) return orderA - orderB
+      return 0
+    })
   })()
   const mobileTierKeyOccurrences = new Map<string, number>()
   const requestRuleKeyOccurrences = new Map<string, number>()

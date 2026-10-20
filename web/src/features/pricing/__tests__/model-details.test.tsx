@@ -140,4 +140,31 @@ describe('model details content', () => {
     expect(within(pricing).queryByText('Base Price')).toBeNull()
     expect(within(pricing).queryByText('Mixed billing')).toBeNull()
   })
+
+  it('heads group pricing columns as Input -> Image In -> Image Out -> Cache Read -> Image Cache for image models', () => {
+    renderDetails(
+      detailsModel({
+        model_name: 'gpt-image-2.5-sunburst',
+        billing_expr:
+          'tier("base", p * 0.714285714286 + img_cr * 0.285714285714 + img * 1.142857142857 + img_o * 4.285714285714 + cr * 0.178571428571)',
+      }),
+      { default: { desc: '', ratio: 1 } }
+    )
+
+    const groupPricing = screen
+      .getByRole('heading', { name: 'Pricing by Group' })
+      .closest('section') as HTMLElement
+    const headers = within(groupPricing)
+      .getAllByRole('columnheader')
+      .map((header) => header.textContent?.trim())
+
+    expect(headers).toEqual([
+      'Tier',
+      'Input',
+      'Image In',
+      'Image Out',
+      'Cache Read',
+      'Image Cache',
+    ])
+  })
 })

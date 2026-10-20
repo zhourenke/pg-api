@@ -122,6 +122,43 @@ export function ModelPriceInlineCell(props: {
         }
       }
 
+      if (dynamic.isImageModel) {
+        if (dynamic.primaryEntries.length === 0) {
+          return {
+            segments: [
+              {
+                key: 'dynamic',
+                label: t('Dynamic Pricing'),
+                value: '',
+                unit: '',
+              },
+            ],
+            perToken: false,
+          }
+        }
+        const hasBothImageInputAndOutput =
+          dynamic.hasImageInput && dynamic.hasImageOutput
+        const segments: PriceSegment[] = dynamic.primaryEntries.map(
+          (entry) => ({
+            key: entry.key,
+            label: t(entry.shortLabel),
+            value: entry.formattedRange ?? entry.formatted,
+            unit: '',
+            line:
+              hasBothImageInputAndOutput && entry.field === 'imageOutputPrice'
+                ? 1
+                : 0,
+          })
+        )
+        const hasTokenEntries = dynamic.primaryEntries.some(
+          (entry) => entry.unit === 'token'
+        )
+        return {
+          segments,
+          perToken: hasTokenEntries,
+        }
+      }
+
       const requestEntry = dynamic.entries.find(
         (entry) => entry.unit === 'request' || entry.unit === 'image'
       )

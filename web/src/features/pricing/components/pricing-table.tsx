@@ -68,9 +68,12 @@ export function PricingTable(props: PricingTableProps) {
     selectedGroup,
   })
 
+  const measurementKey = `${tokenUnit}-${showRechargePrice ? 'recharge' : 'std'}-${selectedGroup ?? 'all'}`
+
   const { table } = useDataTable({
     data: models,
     columns,
+    meta: { measurementKey },
     pageCount: Math.ceil(models.length / pagination.pageSize),
     pagination,
     onPaginationChange: setPagination,
@@ -91,6 +94,7 @@ export function PricingTable(props: PricingTableProps) {
     <div className='space-y-4'>
       <ResponsiveDataTableView
         table={table}
+        measurementKey={measurementKey}
         isLoading={isLoading}
         emptyTitle={t('No Models Found')}
         emptyDescription={t('No models match your current filters.')}

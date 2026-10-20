@@ -232,4 +232,71 @@ describe('inline price cell', () => {
     expect(screen.getByText('$0.001')).toBeVisible()
     expect(screen.queryByText(/\/ 1[KM]/)).toBeNull()
   })
+
+  it('shows 【Input, Image In】 on line 0 and 【Image Out】 on line 1 for image models with both', () => {
+    render(
+      <ModelPriceInlineCell
+        model={pricingModel({
+          billing_mode: 'tiered_expr',
+          billing_expr:
+            'tier("base", p * 0.714285714286 + img * 1.142857142857 + img_o * 4.285714285714 + cr * 0.178571428571)',
+        })}
+        options={{ tokenUnit: 'M' }}
+      />
+    )
+
+    const input = screen.getByText('Input')
+    const imgIn = screen.getByText('Image In')
+    const imgOut = screen.getByText('Image Out')
+
+    // 输入、图像输入在第一行展示
+    expect(input.parentElement?.parentElement).toBe(
+      imgIn.parentElement?.parentElement
+    )
+    // 图像输出在第二行展示
+    expect(imgOut.parentElement?.parentElement).not.toBe(
+      input.parentElement?.parentElement
+    )
+    // 图像模型不展示缓存读取
+    expect(screen.queryByText('Cache Read')).toBeNull()
+
+    expect(screen.getByText('$0.714286')).toBeVisible()
+    expect(screen.getByText('$1.1429')).toBeVisible()
+    expect(screen.getByText('$4.2857')).toBeVisible()
+  })
+
+  it('captions the token unit on line 1 for image models when requested', () => {
+    render(
+      <ModelPriceInlineCell
+        model={pricingModel({
+          billing_mode: 'tiered_expr',
+          billing_expr:
+            'tier("base", p * 0.714285714286 + img * 1.142857142857 + img_o * 4.285714285714 + cr * 0.178571428571)',
+        })}
+        options={{ tokenUnit: 'M' }}
+        showTokenUnitCaption
+      />
+    )
+
+    expect(screen.getByText('/ 1M')).toBeVisible()
+    expect(screen.queryByText('Cache Read')).toBeNull()
+  })
+
+  it('shows 【Input, Image Out】 on line 0 for image models without image input', () => {
+    render(
+      <ModelPriceInlineCell
+        model={pricingModel({
+          billing_mode: 'tiered_expr',
+          billing_expr: 'tier("base", p * 1.5 + img_o * 6.0)',
+        })}
+        options={{ tokenUnit: 'M' }}
+      />
+    )
+
+    expect(screen.getByText('Input')).toBeVisible()
+    expect(screen.getByText('Image Out')).toBeVisible()
+    expect(screen.queryByText('Image In')).toBeNull()
+    expect(screen.getByText('$1.5')).toBeVisible()
+    expect(screen.getByText('$6')).toBeVisible()
+  })
 })

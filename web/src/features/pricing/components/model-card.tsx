@@ -118,6 +118,12 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
   // cache writes; the details dialog still lists every cache dimension.
   const cardPriceEntries = useMemo(() => {
     if (!dynamicSummary) return []
+    if (dynamicSummary.isImageModel) {
+      // 图像模型按用户规则展示核心属性：
+      // 当有图像输入有图像输出时为【输入、图像输入、图像输出】；
+      // 当只有图像输出没有图像输入时为【输入、图像输出】。
+      return dynamicSummary.primaryEntries
+    }
     const cacheEntry = dynamicSummary.entries.find((entry) =>
       CARD_CACHE_FIELDS.has(entry.field)
     )

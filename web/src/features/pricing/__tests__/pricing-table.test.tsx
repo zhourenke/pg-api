@@ -156,4 +156,27 @@ describe('pricing table', () => {
     expect(screen.getByText('$1')).toBeVisible()
     expect(screen.queryByText('$2')).toBeNull()
   })
+
+  it('updates measurementKey when token unit or recharge display mode changes', () => {
+    const props = {
+      models: [pricingModel()],
+      tokenUnit: 'M' as const,
+      priceRate: 3,
+      usdExchangeRate: 6,
+    }
+    const { rerender } = render(<PricingTable {...props} />)
+    const tableContainer = screen
+      .getByRole('table')
+      .closest('[data-measurement-key]')
+    expect(tableContainer).toHaveAttribute('data-measurement-key', 'M-std-all')
+
+    rerender(<PricingTable {...props} showRechargePrice />)
+    expect(tableContainer).toHaveAttribute(
+      'data-measurement-key',
+      'M-recharge-all'
+    )
+
+    rerender(<PricingTable {...props} tokenUnit='K' />)
+    expect(tableContainer).toHaveAttribute('data-measurement-key', 'K-std-all')
+  })
 })

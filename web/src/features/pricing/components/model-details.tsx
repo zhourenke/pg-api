@@ -54,6 +54,7 @@ import {
   getDynamicPriceEntries,
   getDynamicPriceUnitLabelKey,
   getDynamicPricingTiers,
+  hasTierImageOutput,
   isDynamicPricingModel,
 } from '../lib/dynamic-price'
 import { parseTags } from '../lib/filters'
@@ -748,12 +749,14 @@ function GroupPricingSection(
       )
     }
 
+    const hasImageOutput = dynamicTiers.some((tier) => hasTierImageOutput(tier))
     const priceFields = getDynamicPriceFields(dynamicTiers, {
       tokenUnit: props.tokenUnit,
       showRechargePrice,
       priceRate: props.priceRate,
       usdExchangeRate: props.usdExchangeRate,
       groupRatioMultiplier: 1,
+      isImageModel: hasImageOutput,
     })
     const formattedPricesByGroup = new Map(
       availableGroups.map((group) => {
@@ -766,6 +769,7 @@ function GroupPricingSection(
             priceRate: props.priceRate,
             usdExchangeRate: props.usdExchangeRate,
             groupRatioMultiplier: ratio,
+            isImageModel: hasImageOutput,
           }),
         ] as const
       })
