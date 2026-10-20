@@ -120,6 +120,8 @@ beforeEach(() => {
     ...defaultRequestPolicySettings,
     RetryTimes: 2,
     AutomaticRetryStatusCodes: '429,500-503',
+    FirstTokenTimeoutSeconds: 18,
+    FirstContentTimeoutSeconds: 12,
     AutomaticDisableChannelEnabled: true,
     AutomaticEnableChannelEnabled: true,
     'monitor_setting.auto_test_channel_enabled': true,
@@ -212,6 +214,20 @@ describe('request policy settings', () => {
       'monitor_setting.channel_test_concurrency',
       4,
     ],
+    [
+      'retry',
+      'First token timeout (seconds)',
+      '45',
+      'FirstTokenTimeoutSeconds',
+      45,
+    ],
+    [
+      'retry',
+      'First content timeout (seconds)',
+      '0',
+      'FirstContentTimeoutSeconds',
+      0,
+    ],
   ])(
     'saving a changed %s field writes only that original option key',
     async (section, label, input, key, value) => {
@@ -230,6 +246,21 @@ describe('request policy settings', () => {
       )
     }
   )
+
+  it('the retry budget shows both stream budgets it loaded', async () => {
+    await renderPolicies('/system-settings/request-policies/retry')
+    expect(
+      await screen.findByRole('spinbutton', {
+        name: 'First token timeout (seconds)',
+      })
+    ).toHaveValue(18)
+    expect(
+      screen.getByRole('spinbutton', {
+        name: 'First content timeout (seconds)',
+      })
+    ).toHaveValue(12)
+    expect(api.put).not.toHaveBeenCalled()
+  })
 
   it('turning filtering off preserves the prompt switch and keyword list', async () => {
     await renderPolicies('/system-settings/request-policies/filtering')

@@ -67,6 +67,8 @@ const options = {
     },
   ]),
   AutomaticRetryStatusCodes: '429,500-503',
+  FirstTokenTimeoutSeconds: '30',
+  FirstContentTimeoutSeconds: '30',
 }
 let currentOptions: Record<string, string>
 let client: QueryClient

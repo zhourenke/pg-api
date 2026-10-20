@@ -80,6 +80,56 @@ export function RetrySection() {
             </FormItem>
           )}
         />
+        <div className='grid gap-4 sm:grid-cols-2'>
+          <FormField
+            control={form.control}
+            name='FirstTokenTimeoutSeconds'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('First token timeout (seconds)')}</FormLabel>
+                <FormControl>
+                  <Input
+                    type='number'
+                    min={0}
+                    max={3600}
+                    step={1}
+                    {...safeNumberFieldProps(field)}
+                  />
+                </FormControl>
+                <FormDescription>
+                  {t(
+                    'Aborts the attempt and retries when the first token takes longer than this from the attempt start. 0 disables it.'
+                  )}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name='FirstContentTimeoutSeconds'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('First content timeout (seconds)')}</FormLabel>
+                <FormControl>
+                  <Input
+                    type='number'
+                    min={0}
+                    max={3600}
+                    step={1}
+                    {...safeNumberFieldProps(field)}
+                  />
+                </FormControl>
+                <FormDescription>
+                  {t(
+                    'Aborts the attempt and retries when the stream stays open without content for this long. 0 disables it.'
+                  )}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
       </div>
     </SettingsCard>
   )
