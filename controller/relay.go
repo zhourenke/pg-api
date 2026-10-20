@@ -159,6 +159,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		// as a whole, so the last attempt must be able to set that instant.
 		relayInfo.ResponseEndTime = time.Time{}
 		relayInfo.RetryIndex = retryParam.GetRetry()
+		relayInfo.AttemptStartTime = time.Now()
 		channel, channelErr := getChannel(c, relayInfo, retryParam)
 		if channelErr != nil {
 			logger.LogError(c, channelErr.Error())

@@ -81,6 +81,11 @@ func GeminiResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *h
 func GeminiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
 	responseID := helper.GetResponseID(c)
 	created := common.GetTimestamp()
+	// Nothing has been written to the client before the first content event, so
+	// an attempt that never gets one stays retryable. The guard enforces that
+	// wait instead of inheriting whatever the upstream does with the stream.
+	guard := helper.GuardFirstContent(c, info, resp)
+	defer guard.Stop()
 	state, err := relayconvert.NewResponseStreamState(types.RelayFormatGemini, types.RelayFormatOpenAIResponses, relayconvert.ResponseStreamOptions{
 		ID:                 responseID,
 		Model:              info.UpstreamModelName,
@@ -132,6 +137,7 @@ func GeminiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, r
 			return true
 		}
 		flushedContent = true
+		guard.MarkContent()
 		for _, p := range pendingEvents {
 			if !sendEvent(p) {
 				return false
@@ -175,6 +181,9 @@ func GeminiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, r
 		hostedBridge.Observe(geminiResponse)
 		return sendChunk(geminiResponse)
 	})
+	if guard.Aborted() {
+		return nil, types.NewOpenAIError(guard.TimeoutError(), types.ErrorCodeBadResponse, http.StatusInternalServerError)
+	}
 	if streamAPIError != nil {
 		if !flushedContent || !c.Writer.Written() {
 			return nil, streamAPIError
@@ -186,9 +195,13 @@ func GeminiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, r
 	}
 	if info.StreamStatus != nil && (!info.StreamStatus.IsNormalEnd() || info.StreamStatus.ResponseOutcome() == "") {
 		if !flushedContent || !c.Writer.Written() {
+			// Nothing reached the client, so the relay may still fail over. The
+			// code must not be one of the always-skip-retry codes, otherwise the
+			// retry decision stops at system_retry_exclusion and the attempt is
+			// reported as a plain failure.
 			return nil, types.NewOpenAIError(
 				fmt.Errorf("gemini stream ended unexpectedly before content: %s", info.StreamStatus.Summary()),
-				types.ErrorCodeBadResponseBody,
+				types.ErrorCodeBadResponse,
 				http.StatusInternalServerError,
 			)
 		}

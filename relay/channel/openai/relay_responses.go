@@ -83,6 +83,12 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 
 	defer service.CloseResponseBodyGracefully(resp)
 
+	// Nothing has been written to the client before the first content event, so
+	// an attempt that never gets one stays retryable. The guard enforces that
+	// wait instead of inheriting whatever the upstream does with the stream.
+	guard := helper.GuardFirstContent(c, info, resp)
+	defer guard.Stop()
+
 	accumulator := service.NewResponsesUsageAccumulator(info)
 	var pendingEvents []pendingResponsesStreamEvent
 	flushedContent := false
@@ -92,6 +98,7 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 			return
 		}
 		flushedContent = true
+		guard.MarkContent()
 		for _, p := range pendingEvents {
 			sendResponsesStreamData(c, p.streamResponse, p.data)
 		}
@@ -125,14 +132,20 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 	common.SetContextKey(c, constant.ContextKeyResponseStreamStatus, info.StreamStatus)
 	info.StreamStatus.RequireTerminal()
 
+	if guard.Aborted() {
+		return nil, types.NewOpenAIError(guard.TimeoutError(), types.ErrorCodeBadResponse, http.StatusInternalServerError)
+	}
+
 	// If the stream ended unexpectedly:
 	if info.StreamStatus != nil && (!info.StreamStatus.IsNormalEnd() || info.StreamStatus.ResponseOutcome() == "") {
 		// If nothing was written to the client yet (e.g. only initial lifecycle events were buffered),
 		// return an API error so the relay layer can failover to retry the next available channel.
+		// The code must not be one of the always-skip-retry codes, otherwise the retry decision
+		// stops at system_retry_exclusion and the attempt is reported as a plain failure.
 		if !flushedContent || !c.Writer.Written() {
 			return nil, types.NewOpenAIError(
 				fmt.Errorf("upstream responses stream ended unexpectedly before content: %s", info.StreamStatus.Summary()),
-				types.ErrorCodeBadResponseBody,
+				types.ErrorCodeBadResponse,
 				http.StatusInternalServerError,
 			)
 		}

@@ -100,6 +100,10 @@ type RelayInfo struct {
 	StartTime         time.Time
 	FirstResponseTime time.Time
 	isFirstResponse   bool
+	// AttemptStartTime is when the current upstream attempt began, so a budget
+	// that bounds one attempt (the wait for its first content) restarts on a
+	// retry instead of inheriting the time the previous attempt already spent.
+	AttemptStartTime time.Time
 	// ResponseEndTime is the instant the relay stopped serving this request,
 	// recorded once with the settlement reading that the consume log's
 	// use_time_ms comes from. The perf sample measures its latency and

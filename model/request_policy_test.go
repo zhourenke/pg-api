@@ -81,6 +81,13 @@ func TestRequestPolicyDatabaseMatrix(t *testing.T) {
 			require.NoError(t, UpdateOption("AutomaticRetryStatusCodes", "429,500-503"))
 			assert.Equal(t, "429,500-503", CurrentRequestPolicy().Options["AutomaticRetryStatusCodes"])
 			assert.Equal(t, "429,500-503", operation_setting.AutomaticRetryStatusCodesToString())
+			require.NoError(t, UpdateRequestPolicyOptions(map[string]string{"FirstTokenTimeoutSeconds": "45", "FirstContentTimeoutSeconds": "0"}))
+			assert.Equal(t, 45, operation_setting.FirstTokenTimeoutSeconds, "the runtime budget follows the write")
+			assert.Equal(t, 0, operation_setting.FirstContentTimeoutSeconds, "zero keeps the budget disabled")
+			assert.Equal(t, "45", CurrentRequestPolicy().Options["FirstTokenTimeoutSeconds"])
+			for _, value := range []string{"-1", "1.5", "bad", "3601"} {
+				assert.Error(t, UpdateRequestPolicyOptions(map[string]string{"FirstContentTimeoutSeconds": value}))
+			}
 			assert.Error(t, UpdateRequestPolicyOptions(map[string]string{"request_policy_setting.mode": "off"}), "the removed mode switch is not a policy option")
 			assert.False(t, CurrentRequestPolicy().Affinity.Rules[0].SkipRetryOnFailure)
 			assert.Equal(t, rules, CurrentRequestPolicy().Options["channel_affinity_setting.rules"])

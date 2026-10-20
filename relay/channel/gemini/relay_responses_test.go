@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -18,6 +20,8 @@ import (
 	relayconstant "github.com/zhourenke/pg-api/relay/constant"
 	"github.com/zhourenke/pg-api/relaykit/dto"
 	"github.com/zhourenke/pg-api/relaykit/types"
+	"github.com/zhourenke/pg-api/service"
+	"github.com/zhourenke/pg-api/setting/operation_setting"
 )
 
 func TestGeminiResponsesHandlerReturnsOpenAIResponsesJSON(t *testing.T) {
@@ -248,6 +252,64 @@ func TestGeminiResponsesStreamHandlerOnUnexpectedEOFBeforeContent(t *testing.T) 
 	require.NotNil(t, newAPIError, "expected non-nil newAPIError so Relay can failover")
 	assert.Nil(t, usage)
 	assert.Empty(t, recorder.Body.String(), "expected no data written to client when failing before content")
+	assert.Equal(t, "retry", service.DecideRelayRetry(c, newAPIError, 1).Action,
+		"a drop before the first content event must stay retryable, otherwise the failover never runs")
+}
+
+// silentReadCloser answers like an upstream that accepted the stream and then
+// said nothing: Read blocks until Close, which is what an aborted attempt does.
+type silentReadCloser struct {
+	closed chan struct{}
+	once   sync.Once
+}
+
+func (r *silentReadCloser) Read([]byte) (int, error) {
+	<-r.closed
+	return 0, errors.New("read on closed body")
+}
+
+func (r *silentReadCloser) Close() error {
+	r.once.Do(func() { close(r.closed) })
+	return nil
+}
+
+func TestGeminiResponsesStreamHandlerAbortsAttemptThatNeverStartsAnswering(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	c.Set(common.RequestIdKey, "gemini-responses-first-token-timeout-test")
+
+	previousToken, previousContent := operation_setting.FirstTokenTimeoutSeconds, operation_setting.FirstContentTimeoutSeconds
+	operation_setting.FirstTokenTimeoutSeconds = 1
+	operation_setting.FirstContentTimeoutSeconds = 0
+	previousStreamingTimeout := constant.StreamingTimeout
+	constant.StreamingTimeout = 300
+	t.Cleanup(func() {
+		operation_setting.FirstTokenTimeoutSeconds = previousToken
+		operation_setting.FirstContentTimeoutSeconds = previousContent
+		constant.StreamingTimeout = previousStreamingTimeout
+	})
+
+	info := newGeminiResponsesRelayInfo(true)
+	body := &silentReadCloser{closed: make(chan struct{})}
+	streamed := make(chan *types.NewAPIError, 1)
+	go func() {
+		_, apiErr := GeminiResponsesStreamHandler(c, info, &http.Response{Body: body})
+		streamed <- apiErr
+	}()
+
+	select {
+	case apiErr := <-streamed:
+		require.NotNil(t, apiErr)
+		assert.Contains(t, apiErr.Error(), "first token timeout")
+		assert.Equal(t, "retry", service.DecideRelayRetry(c, apiErr, 1).Action)
+		assert.Empty(t, recorder.Body.String(), "an aborted attempt must not write anything to the client")
+	case <-time.After(10 * time.Second):
+		t.Fatal("the first-token budget never aborted the attempt")
+	}
+	assert.Equal(t, relaycommon.StreamEndReasonTimeout, info.StreamStatus.EndReason,
+		"the stream status must report the budget, not a transport error")
 }
 
 func TestGeminiResponsesStreamHandlerOnUnexpectedEOFAfterContent(t *testing.T) {
@@ -295,5 +357,3 @@ func TestGeminiResponsesStreamHandlerOnUnexpectedEOFAfterContent(t *testing.T) {
 	assert.Contains(t, got, `event: error`)
 	assert.Contains(t, got, `event: response.failed`)
 }
-
-

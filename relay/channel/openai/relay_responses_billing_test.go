@@ -15,6 +15,7 @@ import (
 	"github.com/zhourenke/pg-api/constant"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	"github.com/zhourenke/pg-api/relaykit/dto"
+	"github.com/zhourenke/pg-api/service"
 	"github.com/zhourenke/pg-api/setting/operation_setting"
 )
 
@@ -411,6 +412,8 @@ func TestOaiResponsesStreamHandlerRetriesWhenStreamEndsBeforeContent(t *testing.
 	assert.Nil(t, usage)
 	// Nothing must have been written to the client
 	assert.Empty(t, w.Body.String(), "expected no data written to client when failing before content")
+	assert.Equal(t, "retry", service.DecideRelayRetry(c, apiErr, 1).Action,
+		"a drop before the first content event must stay retryable, otherwise the failover never runs")
 }
 
 func TestOaiResponsesStreamHandlerEmitsTerminalFailureWhenStreamEndsAfterContent(t *testing.T) {
@@ -456,4 +459,3 @@ func TestOaiResponsesStreamHandlerEmitsTerminalFailureWhenStreamEndsAfterContent
 	assert.Contains(t, got, `event: response.failed`)
 	assert.Contains(t, got, `"status":"failed"`)
 }
-

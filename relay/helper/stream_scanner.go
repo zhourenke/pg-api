@@ -3,6 +3,7 @@ package helper
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -141,6 +142,11 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 			}
 
 			wg.Wait()
+			// The caller still has to write the failure response after this
+			// returns. A deadline set before the last chunk would already have
+			// expired on a stream that then went silent, and the error body
+			// would be lost to a write timeout instead of reaching the client.
+			ExtendWriteDeadline(c)
 		})
 	}
 	// Ensure gin.Context is not returned to Gin's pool while any stream goroutine can still use it.
@@ -287,7 +293,13 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 		}
 
 		if err := scanner.Err(); err != nil {
-			if err != io.EOF {
+			switch {
+			case errors.Is(err, io.EOF):
+			case errors.Is(err, ErrFirstContentTimeout):
+				// The guard closed the body: the attempt ended on its own budget,
+				// not on a transport or decode failure.
+				info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonTimeout, err)
+			default:
 				logger.LogError(c, "scanner error: "+err.Error())
 				info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonScannerErr, err)
 			}
