@@ -99,18 +99,15 @@ export function ModelsFilter(props: ModelsFilterProps) {
     date: Date | undefined
   ) => {
     if (!date) return
+    const ts = Math.floor(date.getTime() / 1000)
+    const newStart = field === 'start_timestamp' ? ts : window.start
+    const newEnd = field === 'end_timestamp' ? ts : window.end
     // A hand-picked bound makes the range custom, so the preset goes away and
     // both bounds are stored explicitly.
     apply({
       preset: undefined,
-      start_timestamp:
-        field === 'start_timestamp'
-          ? Math.floor(date.getTime() / 1000)
-          : window.start,
-      end_timestamp:
-        field === 'end_timestamp'
-          ? Math.floor(date.getTime() / 1000)
-          : window.end,
+      start_timestamp: Math.min(newStart, newEnd),
+      end_timestamp: Math.max(newStart, newEnd),
     })
   }
 
@@ -151,7 +148,7 @@ export function ModelsFilter(props: ModelsFilterProps) {
               <Calendar className='h-4 w-4' />
               {t('Quick Range')}
             </Label>
-            <div className='flex flex-wrap gap-2'>
+            <div className='grid grid-cols-3 gap-2'>
               {TIME_WINDOW_PRESETS.map((preset) => {
                 const active = props.currentFilters.preset === preset.id
 
@@ -165,7 +162,7 @@ export function ModelsFilter(props: ModelsFilterProps) {
                     data-preset={preset.id}
                     onClick={() => handlePreset(preset.id)}
                     className={cn(
-                      'flex-1',
+                      'w-full',
                       active && 'ring-ring ring-2 ring-offset-2'
                     )}
                   >

@@ -209,7 +209,9 @@ export function resolveDashboardWindow(
   filters?: DashboardFilters,
   now: Date = new Date()
 ): TimeWindow {
-  if (filters?.preset) return resolveTimeWindow(filters.preset, now)
+  if (filters?.preset && isTimeWindowId(filters.preset)) {
+    return resolveTimeWindow(filters.preset, now)
+  }
   if (filters?.start_timestamp && filters?.end_timestamp) {
     return { start: filters.start_timestamp, end: filters.end_timestamp }
   }

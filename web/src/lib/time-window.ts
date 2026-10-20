@@ -43,15 +43,15 @@ import dayjs from '@/lib/dayjs'
  * editing a zod enum in every route that reads one.
  */
 export const TIME_WINDOW_IDS = [
-  '24h',
-  '7d',
-  '30d',
   'today',
   'yesterday',
+  '24h',
   'this-week',
   'last-week',
+  '7d',
   'this-month',
   'last-month',
+  '30d',
 ] as const satisfies readonly string[]
 
 export type TimeWindowId = (typeof TIME_WINDOW_IDS)[number]
@@ -73,9 +73,6 @@ export interface TimeWindowPreset {
 }
 
 export const TIME_WINDOW_PRESETS: readonly TimeWindowPreset[] = [
-  { id: '24h', labelKey: '24 Hours', kind: 'rolling', hours: 24 },
-  { id: '7d', labelKey: '7 Days', kind: 'rolling', hours: 7 * 24 },
-  { id: '30d', labelKey: '30 Days', kind: 'rolling', hours: 30 * 24 },
   {
     id: 'today',
     labelKey: 'Today',
@@ -90,6 +87,7 @@ export const TIME_WINDOW_PRESETS: readonly TimeWindowPreset[] = [
     unit: 'day',
     offset: 1,
   },
+  { id: '24h', labelKey: '24 Hours', kind: 'rolling', hours: 24 },
   {
     id: 'this-week',
     labelKey: 'This week',
@@ -104,6 +102,7 @@ export const TIME_WINDOW_PRESETS: readonly TimeWindowPreset[] = [
     unit: 'week',
     offset: 1,
   },
+  { id: '7d', labelKey: '7 Days', kind: 'rolling', hours: 7 * 24 },
   {
     id: 'this-month',
     labelKey: 'This month',
@@ -118,10 +117,11 @@ export const TIME_WINDOW_PRESETS: readonly TimeWindowPreset[] = [
     unit: 'month',
     offset: 1,
   },
+  { id: '30d', labelKey: '30 Days', kind: 'rolling', hours: 30 * 24 },
 ]
 
-/** The window a page starts on: the trailing 24 hours, ending now. */
-export const DEFAULT_TIME_WINDOW_ID: TimeWindowId = '24h'
+/** The window a page starts on: today. */
+export const DEFAULT_TIME_WINDOW_ID: TimeWindowId = 'today'
 
 export interface TimeWindow {
   /** Inclusive first second of the window. */

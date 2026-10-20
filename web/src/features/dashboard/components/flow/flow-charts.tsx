@@ -465,7 +465,13 @@ export function FlowCharts(props: FlowChartsProps) {
     selectedUsers.join(','),
     visibleStages.join(','),
     maskSensitive ? 'masked' : 'plain',
+    flowQueryParams.start_timestamp,
+    flowQueryParams.end_timestamp,
+    flowQueryParams.username ?? '',
     flowRows?.length ?? 0,
+    flowData.summary.quota,
+    flowData.summary.requests,
+    flowData.summary.tokens,
     resolvedTheme,
   ].join('-')
   const displayState = flowDisplayState({

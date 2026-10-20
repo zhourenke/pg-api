@@ -18,8 +18,10 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import i18next from 'i18next'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import zh from '@/i18n/locales/zh.json'
 import {
   resolveTimeWindow,
   TIME_WINDOW_PRESETS,
@@ -167,9 +169,7 @@ describe('time window presets in the range picker', () => {
     )
     await openPicker()
 
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Custom Time Range' })
-    )
+    await userEvent.click(screen.getByRole('button', { name: 'Custom' }))
     fireEvent.change(screen.getByLabelText('Start Time'), {
       target: { value: '2026-08-05T08:00' },
     })
@@ -180,5 +180,30 @@ describe('time window presets in the range picker', () => {
       end: new Date(2026, 7, 4, 11, 15),
       preset: undefined,
     })
+  })
+
+  it('renders all 9 presets and custom range in the exact requested order and copy in Simplified Chinese', async () => {
+    i18next.addResourceBundle('zhCN', 'translation', zh.translation, true, true)
+    await i18next.changeLanguage('zhCN')
+
+    render(<CompactDateTimeRangePicker onChange={vi.fn()} />)
+    await openPicker()
+
+    const group = screen.getByRole('group', { name: '时间范围' })
+    const buttons = [...group.querySelectorAll('button')]
+    const buttonTexts = buttons.map((b) => b.textContent?.trim())
+
+    expect(buttonTexts).toEqual([
+      '今天',
+      '昨天',
+      '24 小时',
+      '本周',
+      '上周',
+      '7 天',
+      '本月',
+      '上月',
+      '30 天',
+      '自定义',
+    ])
   })
 })

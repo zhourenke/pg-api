@@ -20,6 +20,7 @@ import { describe, expect, it } from 'vitest'
 
 import dayjs from '@/lib/dayjs'
 import {
+  DEFAULT_TIME_WINDOW_ID,
   matchTimeWindowPreset,
   resolveTimeWindow,
   TIME_WINDOW_IDS,
@@ -45,16 +46,17 @@ describe('time window presets', () => {
     const labelKeys = TIME_WINDOW_PRESETS.map((preset) => preset.labelKey)
 
     expect(ids).toEqual([
-      '24h',
-      '7d',
-      '30d',
       'today',
       'yesterday',
+      '24h',
       'this-week',
       'last-week',
+      '7d',
       'this-month',
       'last-month',
+      '30d',
     ])
+    expect(DEFAULT_TIME_WINDOW_ID).toBe('today')
     expect(new Set(ids).size).toBe(ids.length)
     expect(new Set(labelKeys).size).toBe(labelKeys.length)
   })

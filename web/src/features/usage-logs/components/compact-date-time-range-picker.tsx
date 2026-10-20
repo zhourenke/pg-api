@@ -180,13 +180,13 @@ export function CompactDateTimeRangePicker({
       </PopoverTrigger>
       <PopoverContent
         align='start'
-        className='w-[min(520px,calc(100vw-2rem))] p-3'
+        className='w-[min(420px,calc(100vw-2rem))] p-3'
       >
         <div className='space-y-3'>
           <div
             role='group'
             aria-label={t('Time range')}
-            className='grid grid-cols-2 gap-1.5 sm:grid-cols-4'
+            className='grid grid-cols-3 gap-1.5'
           >
             {TIME_WINDOW_PRESETS.map((item) => (
               <Button
@@ -207,10 +207,10 @@ export function CompactDateTimeRangePicker({
               variant={customRange ? 'default' : 'outline'}
               size='sm'
               aria-pressed={customRange}
-              className='h-7 w-auto px-2 text-xs whitespace-nowrap'
+              className='col-span-3 h-7 w-auto px-2 text-xs whitespace-nowrap'
               onClick={openCustomRange}
             >
-              {t('Custom Time Range')}
+              {t('Custom')}
             </Button>
           </div>
 

@@ -112,8 +112,11 @@ export function ModelCharts(props: ModelChartsProps) {
   const chartKey = [
     activeTab,
     specType,
+    timeGranularity,
     props.loading ? 'loading' : 'ready',
     props.data.length,
+    props.data.at(0)?.created_at ?? 0,
+    props.data.at(-1)?.created_at ?? 0,
     resolvedTheme,
     customization.preset,
   ].join('-')

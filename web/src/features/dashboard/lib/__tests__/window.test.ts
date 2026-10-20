@@ -60,8 +60,8 @@ describe('dashboard window resolution', () => {
   })
 
   test('falls back to the default window when nothing is chosen', () => {
-    expect(resolveDashboardWindow()).toEqual(resolveTimeWindow('24h'))
-    expect(resolveDashboardWindow({})).toEqual(resolveTimeWindow('24h'))
+    expect(resolveDashboardWindow()).toEqual(resolveTimeWindow('today'))
+    expect(resolveDashboardWindow({})).toEqual(resolveTimeWindow('today'))
   })
 })
 
@@ -89,7 +89,7 @@ describe('dashboard chart preferences', () => {
   test('ignores a window id that is not one of the presets', () => {
     storePreferences({ defaultTimeWindowId: 'last-century' })
 
-    expect(getSavedChartPreferences().defaultTimeWindowId).toBe('24h')
+    expect(getSavedChartPreferences().defaultTimeWindowId).toBe('today')
   })
 
   test('builds the default filters as a preset without stored bounds', () => {
