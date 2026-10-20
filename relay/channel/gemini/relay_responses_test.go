@@ -203,3 +203,97 @@ func requireOrderedGeminiResponsesSubstrings(t *testing.T, s string, parts ...st
 		offset += idx + len(part)
 	}
 }
+
+type partialReadCloser struct {
+	data   []byte
+	offset int
+	err    error
+}
+
+func (r *partialReadCloser) Read(p []byte) (int, error) {
+	if r.offset < len(r.data) {
+		n := copy(p, r.data[r.offset:])
+		r.offset += n
+		return n, nil
+	}
+	return 0, r.err
+}
+
+func (r *partialReadCloser) Close() error {
+	return nil
+}
+
+func TestGeminiResponsesStreamHandlerOnUnexpectedEOFBeforeContent(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	c.Set(common.RequestIdKey, "gemini-responses-stream-err-test")
+
+	oldStreamingTimeout := constant.StreamingTimeout
+	constant.StreamingTimeout = 300
+	t.Cleanup(func() { constant.StreamingTimeout = oldStreamingTimeout })
+
+	info := newGeminiResponsesRelayInfo(true)
+	// Upstream returns 2 chunks without candidates, then unexpected EOF before any content
+	streamBody := "data: {\"modelVersion\":\"v1\"}\n\ndata: {\"modelVersion\":\"v1\"}\n\n"
+	body := &partialReadCloser{
+		data: []byte(streamBody),
+		err:  io.ErrUnexpectedEOF,
+	}
+
+	usage, newAPIError := GeminiResponsesStreamHandler(c, info, &http.Response{
+		Body: body,
+	})
+	require.NotNil(t, newAPIError, "expected non-nil newAPIError so Relay can failover")
+	assert.Nil(t, usage)
+	assert.Empty(t, recorder.Body.String(), "expected no data written to client when failing before content")
+}
+
+func TestGeminiResponsesStreamHandlerOnUnexpectedEOFAfterContent(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	c.Set(common.RequestIdKey, "gemini-responses-stream-err-after-content-test")
+
+	oldStreamingTimeout := constant.StreamingTimeout
+	constant.StreamingTimeout = 300
+	t.Cleanup(func() { constant.StreamingTimeout = oldStreamingTimeout })
+
+	info := newGeminiResponsesRelayInfo(true)
+	first := dto.GeminiChatResponse{
+		Candidates: []dto.GeminiChatCandidate{
+			{
+				Content: dto.GeminiChatContent{
+					Role: "model",
+					Parts: []dto.GeminiPart{
+						{Text: "hello"},
+					},
+				},
+			},
+		},
+	}
+	firstData, err := common.Marshal(first)
+	require.NoError(t, err)
+
+	streamBody := "data: " + string(firstData) + "\n\n"
+	body := &partialReadCloser{
+		data: []byte(streamBody),
+		err:  io.ErrUnexpectedEOF,
+	}
+
+	usage, newAPIError := GeminiResponsesStreamHandler(c, info, &http.Response{
+		Body: body,
+	})
+	require.Nil(t, newAPIError, "cannot failover after content has been written")
+	assert.NotNil(t, usage)
+
+	got := recorder.Body.String()
+	assert.Contains(t, got, `event: response.created`)
+	assert.Contains(t, got, `event: response.output_text.delta`)
+	assert.Contains(t, got, `event: error`)
+	assert.Contains(t, got, `event: response.failed`)
+}
+
+

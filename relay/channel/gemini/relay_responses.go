@@ -124,6 +124,23 @@ func GeminiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, r
 		}
 		return true
 	}
+	var pendingEvents []relayconvert.ChatToResponsesStreamEvent
+	flushedContent := false
+
+	flushPending := func() bool {
+		if flushedContent {
+			return true
+		}
+		flushedContent = true
+		for _, p := range pendingEvents {
+			if !sendEvent(p) {
+				return false
+			}
+		}
+		pendingEvents = nil
+		return true
+	}
+
 	sendChunk := func(chunk *dto.GeminiChatResponse) bool {
 		results, err := service.ConvertStreamResponseChunk(c, info, state, chunk)
 		if err != nil {
@@ -139,8 +156,16 @@ func GeminiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, r
 				streamErr = types.NewOpenAIError(fmt.Errorf("expected OAI responses stream event, got %T", result.Value), types.ErrorCodeBadResponse, http.StatusInternalServerError)
 				return false
 			}
-			if !sendEvent(event) {
-				return false
+			isInitial := event.Type == "response.created" || event.Type == "response.in_progress"
+			if !flushedContent && isInitial {
+				pendingEvents = append(pendingEvents, event)
+			} else {
+				if !flushPending() {
+					return false
+				}
+				if !sendEvent(event) {
+					return false
+				}
 			}
 		}
 		return true
@@ -151,12 +176,22 @@ func GeminiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, r
 		return sendChunk(geminiResponse)
 	})
 	if streamAPIError != nil {
+		if !flushedContent || !c.Writer.Written() {
+			return nil, streamAPIError
+		}
 		if failResponsesStream(streamAPIError) && streamErr == nil {
 			return usage, nil
 		}
 		return usage, streamAPIError
 	}
-	if info.StreamStatus != nil && !info.StreamStatus.IsNormalEnd() {
+	if info.StreamStatus != nil && (!info.StreamStatus.IsNormalEnd() || info.StreamStatus.ResponseOutcome() == "") {
+		if !flushedContent || !c.Writer.Written() {
+			return nil, types.NewOpenAIError(
+				fmt.Errorf("gemini stream ended unexpectedly before content: %s", info.StreamStatus.Summary()),
+				types.ErrorCodeBadResponseBody,
+				http.StatusInternalServerError,
+			)
+		}
 		if info.StreamStatus.EndReason != relaycommon.StreamEndReasonClientGone {
 			failResponsesStream(fmt.Errorf("gemini stream ended unexpectedly: %s", info.StreamStatus.Summary()))
 		}
@@ -164,6 +199,12 @@ func GeminiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, r
 	}
 	if streamErr != nil {
 		return nil, streamErr
+	}
+	if !flushPending() {
+		if streamErr != nil {
+			return usage, streamErr
+		}
+		return usage, nil
 	}
 	hostedEvents, err := hostedBridge.Finalize(state)
 	if err != nil {
