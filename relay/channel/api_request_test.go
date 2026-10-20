@@ -1,14 +1,20 @@
 package channel
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
+	"github.com/zhourenke/pg-api/relaykit/types"
+	"github.com/zhourenke/pg-api/service"
+	"github.com/zhourenke/pg-api/setting/operation_setting"
 )
 
 func TestProcessHeaderOverride_ChannelTestSkipsPassthroughRules(t *testing.T) {
@@ -145,7 +151,7 @@ func TestProcessHeaderOverride_PassHeadersTemplateSetsRuntimeHeaders(t *testing.
 	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
-	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader("{}"))
 	ctx.Request.Header.Set("Originator", "Codex CLI")
 	ctx.Request.Header.Set("Session_id", "sess-123")
 
@@ -191,6 +197,109 @@ func TestProcessHeaderOverride_PassHeadersTemplateSetsRuntimeHeaders(t *testing.
 	require.Equal(t, "Codex CLI", upstreamReq.Header.Get("Originator"))
 	require.Equal(t, "sess-123", upstreamReq.Header.Get("Session_id"))
 	require.Empty(t, upstreamReq.Header.Get("X-Codex-Beta-Features"))
+}
+
+// slowHeadersUpstream answers only after the delay, like an upstream that is
+// still thinking before it opens the stream.
+func slowHeadersUpstream(t *testing.T, delay time.Duration) *httptest.Server {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-time.After(delay):
+		case <-r.Context().Done():
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("data: {}\n\n"))
+	}))
+	t.Cleanup(server.Close)
+	return server
+}
+
+func TestDoRequestBoundsTheResponsesStreamHeaderWait(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	previous := operation_setting.FirstTokenTimeoutSeconds
+	operation_setting.FirstTokenTimeoutSeconds = 1
+	t.Cleanup(func() { operation_setting.FirstTokenTimeoutSeconds = previous })
+
+	const upstreamDelay = 1200 * time.Millisecond
+	upstream := slowHeadersUpstream(t, upstreamDelay)
+
+	newContext := func(t *testing.T) *gin.Context {
+		t.Helper()
+		ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+		ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader("{}"))
+		return ctx
+	}
+	attemptOf := func(format types.RelayFormat) *relaycommon.RelayInfo {
+		return &relaycommon.RelayInfo{
+			RelayFormat:      format,
+			IsStream:         true,
+			AttemptStartTime: time.Now(),
+			ChannelMeta:      &relaycommon.ChannelMeta{},
+		}
+	}
+
+	t.Run("responses stream", func(t *testing.T) {
+		ctx := newContext(t)
+		req, err := http.NewRequestWithContext(ctx.Request.Context(), http.MethodPost, upstream.URL, strings.NewReader("{}"))
+		require.NoError(t, err)
+
+		started := time.Now()
+		resp, err := DoRequest(ctx, req, attemptOf(types.RelayFormatOpenAIResponses))
+		elapsed := time.Since(started)
+
+		require.Nil(t, resp)
+		var apiErr *types.NewAPIError
+		require.ErrorAs(t, err, &apiErr)
+		assert.Equal(t, types.ErrorCodeBadResponse, apiErr.GetErrorCode())
+		assert.Equal(t, http.StatusInternalServerError, apiErr.StatusCode)
+		assert.Contains(t, apiErr.Error(), "first token timeout")
+		assert.GreaterOrEqual(t, elapsed, 900*time.Millisecond)
+		assert.Less(t, elapsed, upstreamDelay, "the budget must cut the wait instead of inheriting it")
+		assert.Equal(t, "retry", service.DecideRelayRetry(ctx, apiErr, 1).Action,
+			"the attempt produced nothing, so another channel may serve the request")
+	})
+
+	t.Run("chat stream keeps waiting", func(t *testing.T) {
+		ctx := newContext(t)
+		req, err := http.NewRequestWithContext(ctx.Request.Context(), http.MethodPost, upstream.URL, strings.NewReader("{}"))
+		require.NoError(t, err)
+
+		resp, err := DoRequest(ctx, req, attemptOf(types.RelayFormatOpenAI))
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		defer func() { _ = resp.Body.Close() }()
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+	})
+
+	// Only the wait is budgeted: a stream that answered in time must survive
+	// past the deadline, so the cancelled context cannot travel with the body.
+	t.Run("answering stream outlives the budget", func(t *testing.T) {
+		streaming := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("data: first\n\n"))
+			if flusher, ok := w.(http.Flusher); ok {
+				flusher.Flush()
+			}
+			time.Sleep(600 * time.Millisecond)
+			_, _ = w.Write([]byte("data: second\n\n"))
+		}))
+		t.Cleanup(streaming.Close)
+
+		ctx := newContext(t)
+		req, err := http.NewRequestWithContext(ctx.Request.Context(), http.MethodPost, streaming.URL, strings.NewReader("{}"))
+		require.NoError(t, err)
+
+		resp, err := DoRequest(ctx, req, attemptOf(types.RelayFormatOpenAIResponses))
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		defer func() { _ = resp.Body.Close() }()
+
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		assert.Contains(t, string(body), "second")
+	})
 }
 
 func TestToWebSocketURL(t *testing.T) {

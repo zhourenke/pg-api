@@ -312,6 +312,39 @@ func TestGeminiResponsesStreamHandlerAbortsAttemptThatNeverStartsAnswering(t *te
 		"the stream status must report the budget, not a transport error")
 }
 
+func TestGeminiResponsesStreamHandlerFailsAnAttemptWhoseBudgetIsGoneWhenTheStreamOpens(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	c.Set(common.RequestIdKey, "gemini-responses-budget-spent-test")
+
+	previousToken, previousContent := operation_setting.FirstTokenTimeoutSeconds, operation_setting.FirstContentTimeoutSeconds
+	operation_setting.FirstTokenTimeoutSeconds = 5
+	operation_setting.FirstContentTimeoutSeconds = 5
+	previousStreamingTimeout := constant.StreamingTimeout
+	constant.StreamingTimeout = 300
+	t.Cleanup(func() {
+		operation_setting.FirstTokenTimeoutSeconds = previousToken
+		operation_setting.FirstContentTimeoutSeconds = previousContent
+		constant.StreamingTimeout = previousStreamingTimeout
+	})
+
+	info := newGeminiResponsesRelayInfo(true)
+	// The upstream spent the whole budget before the headers arrived, which is
+	// what a stream that opens late in its attempt looks like.
+	info.AttemptStartTime = time.Now().Add(-time.Minute)
+	body := &silentReadCloser{closed: make(chan struct{})}
+
+	_, apiErr := GeminiResponsesStreamHandler(c, info, &http.Response{Body: body})
+	require.NotNil(t, apiErr)
+	assert.Contains(t, apiErr.Error(), "first token timeout")
+	assert.Equal(t, "retry", service.DecideRelayRetry(c, apiErr, 1).Action,
+		"nothing reached the client, so the relay may try another channel")
+	assert.Empty(t, recorder.Body.String())
+	assert.Equal(t, relaycommon.StreamEndReasonTimeout, info.StreamStatus.EndReason)
+}
+
 func TestGeminiResponsesStreamHandlerOnUnexpectedEOFAfterContent(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()

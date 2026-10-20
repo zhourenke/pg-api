@@ -10,6 +10,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	relaycommon "github.com/zhourenke/pg-api/relay/common"
+	"github.com/zhourenke/pg-api/relaykit/types"
+	"github.com/zhourenke/pg-api/setting/operation_setting"
 )
 
 // blockingBody answers like an upstream that accepted the stream and then said
@@ -75,4 +78,59 @@ func TestFirstContentGuardStaysOutOfTheWayWhenBothBudgetsAreDisabled(t *testing.
 
 	require.Nil(t, newFirstContentGuard(nil, nil, resp, 0, 0))
 	assert.Same(t, body, resp.Body, "a disabled guard must not wrap the body")
+}
+
+func TestFirstContentGuardAbortsAnAttemptWhoseBudgetWasSpentBeforeTheHeaders(t *testing.T) {
+	body := newBlockingBody()
+	resp := &http.Response{Body: body}
+	info := &relaycommon.RelayInfo{AttemptStartTime: time.Now().Add(-time.Minute)}
+
+	guard := newFirstContentGuard(nil, info, resp, time.Minute, time.Minute)
+	require.NotNil(t, guard)
+	assert.True(t, guard.Aborted(), "a stream that opens after its budget is gone must not start streaming")
+	assert.Contains(t, guard.TimeoutError().Error(), "first token timeout")
+
+	_, err := resp.Body.Read(make([]byte, 8))
+	require.ErrorIs(t, err, ErrFirstContentTimeout)
+}
+
+func TestFirstContentGuardLeavesTheBodyOpenOnceContentIsClaimed(t *testing.T) {
+	body := newBlockingBody()
+	guard := newFirstContentGuard(nil, nil, &http.Response{Body: body}, time.Minute, time.Minute)
+	require.NotNil(t, guard)
+
+	guard.MarkContent()
+	guard.abort("first content timeout: late budget", false)
+
+	select {
+	case <-body.closed:
+		t.Fatal("a budget that expires after the first content event must not close the body")
+	default:
+	}
+	assert.False(t, guard.Aborted())
+}
+
+func TestFirstTokenBudgetForAttemptOnlyGovernsResponsesStreams(t *testing.T) {
+	previous := operation_setting.FirstTokenTimeoutSeconds
+	operation_setting.FirstTokenTimeoutSeconds = 30
+	t.Cleanup(func() { operation_setting.FirstTokenTimeoutSeconds = previous })
+
+	infoFor := func(format types.RelayFormat, stream bool) *relaycommon.RelayInfo {
+		return &relaycommon.RelayInfo{RelayFormat: format, IsStream: stream}
+	}
+
+	budget, ok := FirstTokenBudgetForAttempt(infoFor(types.RelayFormatOpenAIResponses, true))
+	require.True(t, ok)
+	assert.Equal(t, 30*time.Second, budget)
+
+	_, ok = FirstTokenBudgetForAttempt(infoFor(types.RelayFormatOpenAI, true))
+	assert.False(t, ok, "a chat stream answers with its first chunk; only Responses needs this budget")
+	_, ok = FirstTokenBudgetForAttempt(infoFor(types.RelayFormatOpenAIResponses, false))
+	assert.False(t, ok, "a non-streaming request is not judged on its first content")
+	_, ok = FirstTokenBudgetForAttempt(nil)
+	assert.False(t, ok)
+
+	operation_setting.FirstTokenTimeoutSeconds = 0
+	_, ok = FirstTokenBudgetForAttempt(infoFor(types.RelayFormatOpenAIResponses, true))
+	assert.False(t, ok, "0 disables the budget")
 }

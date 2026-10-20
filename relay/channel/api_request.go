@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	common2 "github.com/zhourenke/pg-api/common"
@@ -559,10 +560,52 @@ func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 		}
 	}
 
+	// A streaming /v1/responses attempt is judged by when its first content
+	// arrives, and the wait for the response headers is part of that wait: the
+	// upstream's thinking time happens before the first byte of the stream. The
+	// guard in the response handler cannot see it, because it is built from the
+	// response, so the same budget is armed here and released as soon as the
+	// headers are in hand.
+	headerBudget, boundedWait := helper.FirstTokenBudgetForAttempt(info)
+	var headerBudgetFired atomic.Bool
+	var headerBudgetTimer *time.Timer
+	if boundedWait {
+		reqCtx, cancelHeaderWait := context.WithCancel(req.Context())
+		req = req.WithContext(reqCtx)
+		headerBudgetTimer = time.AfterFunc(headerBudget, func() {
+			headerBudgetFired.Store(true)
+			cancelHeaderWait()
+		})
+	}
+	headerBudgetError := func() error {
+		return types.NewErrorWithStatusCode(
+			fmt.Errorf("first token timeout: the attempt produced no response headers within %s of the attempt start", headerBudget),
+			types.ErrorCodeBadResponse,
+			http.StatusInternalServerError,
+		)
+	}
+
 	resp, err := relayClient.Do(req)
+	if headerBudgetTimer != nil {
+		if !headerBudgetTimer.Stop() {
+			headerBudgetFired.Store(true)
+		}
+	}
 	if err != nil {
+		if headerBudgetFired.Load() {
+			return nil, headerBudgetError()
+		}
 		logger.LogError(c, "do request failed: "+err.Error())
 		return nil, types.NewError(err, types.ErrorCodeDoRequestFailed, types.ErrOptionWithHideErrMsg("upstream error: do request failed"))
+	}
+	if headerBudgetFired.Load() {
+		// The budget expired in the same instant the headers arrived. Failing the
+		// attempt keeps the outcome deterministic; streaming it would hand the
+		// client an answer the budget already refused to wait for.
+		if resp.Body != nil {
+			_ = resp.Body.Close()
+		}
+		return nil, headerBudgetError()
 	}
 	if resp == nil {
 		return nil, errors.New("resp is nil")
