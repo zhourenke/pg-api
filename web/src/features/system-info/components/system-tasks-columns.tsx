@@ -80,16 +80,24 @@ export function useSystemTasksColumns(): ColumnDef<SystemTask>[] {
         id: 'type',
         accessorKey: 'type',
         header: t('Type'),
-        cell: ({ row }) => (
-          <div className='space-y-0.5'>
-            <div>
-              {t(
-                SYSTEM_TASK_TYPE_LABEL[row.original.type] ?? row.original.type
-              )}
+        cell: ({ row }) => {
+          const typeLabel = t(
+            SYSTEM_TASK_TYPE_LABEL[row.original.type] ?? row.original.type
+          )
+          return (
+            <div className='max-w-full min-w-0 space-y-0.5'>
+              <div className='min-w-0 truncate' title={typeLabel}>
+                {typeLabel}
+              </div>
+              <div
+                className='text-muted-foreground min-w-0 truncate'
+                title={row.original.type}
+              >
+                {row.original.type}
+              </div>
             </div>
-            <div className='text-muted-foreground'>{row.original.type}</div>
-          </div>
-        ),
+          )
+        },
         meta: { label: t('Type'), mobileTitle: true },
       },
       {
@@ -99,16 +107,17 @@ export function useSystemTasksColumns(): ColumnDef<SystemTask>[] {
         cell: ({ row }) => (
           <Badge
             variant={STATUS_VARIANT[row.original.status]}
-            className={cn('gap-1.5', STATUS_CLASS_NAME[row.original.status])}
+            title={t(row.original.status)}
+            className={cn('max-w-full min-w-0 gap-1.5', STATUS_CLASS_NAME[row.original.status])}
           >
             <span
               className={cn(
-                'size-1.5 rounded-full',
+                'size-1.5 shrink-0 rounded-full',
                 STATUS_DOT_CLASS_NAME[row.original.status]
               )}
               aria-hidden='true'
             />
-            {t(row.original.status)}
+            <span className='min-w-0 truncate'>{t(row.original.status)}</span>
           </Badge>
         ),
         meta: { label: t('Status'), mobileBadge: true },
@@ -120,15 +129,15 @@ export function useSystemTasksColumns(): ColumnDef<SystemTask>[] {
           const progress = getProgress(row.original)
 
           return (
-            <div className='flex items-center gap-2'>
+            <div className='flex max-w-full min-w-0 items-center gap-2'>
               <Progress
                 value={progress ?? 0}
                 className={cn(
-                  'w-24',
+                  'w-24 min-w-0 shrink',
                   PROGRESS_BAR_CLASS_NAME[row.original.status]
                 )}
               />
-              <span className='text-muted-foreground w-10 text-right tabular-nums'>
+              <span className='text-muted-foreground w-10 shrink-0 text-right tabular-nums'>
                 {progress === null ? '-' : `${progress}%`}
               </span>
             </div>

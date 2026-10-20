@@ -176,7 +176,7 @@ export function SessionRulesTable(props: SessionRulesTableProps) {
             if (mode === 'strict') icon = LockKeyhole
             if (mode === 'off') icon = Link2Off
             return (
-              <div className='flex min-w-0 flex-col gap-1.5'>
+              <div className='flex max-w-full min-w-0 flex-col gap-1.5'>
                 <StatusBadge
                   label={policyLabel(t, mode)}
                   icon={icon}
@@ -187,7 +187,7 @@ export function SessionRulesTable(props: SessionRulesTableProps) {
                 />
                 <span
                   data-table-text='secondary'
-                  className='text-muted-foreground whitespace-normal'
+                  className='text-muted-foreground min-w-0 truncate'
                 >
                   {source}
                 </span>

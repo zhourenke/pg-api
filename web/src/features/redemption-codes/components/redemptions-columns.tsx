@@ -229,13 +229,16 @@ export function useRedemptionsColumns(): ColumnDef<Redemption>[] {
             />
             <TooltipContent>
               <div className='space-y-1 text-xs'>
-                <div>
-                  {t('User ID:')} {userId}
+                <div className='font-mono'>
+                  <span className='text-muted-foreground'>{t('User ID:')}</span>{' '}
+                  <span className='text-foreground font-medium'>{userId}</span>
                 </div>
                 {redemption.redeemed_time > 0 && (
-                  <div>
-                    {t('Redeemed:')}{' '}
-                    {formatTimestampToDate(redemption.redeemed_time)}
+                  <div className='text-muted-foreground text-[11px]'>
+                    <span>{t('Redeemed:')}</span>{' '}
+                    <span className='font-mono'>
+                      {formatTimestampToDate(redemption.redeemed_time)}
+                    </span>
                   </div>
                 )}
               </div>

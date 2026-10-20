@@ -25,6 +25,7 @@ import { useTranslation } from 'react-i18next'
 import {
   DataTablePage,
   DataTableBulkActions,
+  TruncatedCell,
   useDataTable,
 } from '@/components/data-table'
 import { ErrorState } from '@/components/error-state'
@@ -101,8 +102,8 @@ export function VendorLinkedModels({
       cell: ({ row }) => (
         <Button
           variant='link'
-          className='text-foreground h-auto max-w-full min-w-0 justify-start p-0 font-mono'
-          title={row.original.model_name}
+          className='text-foreground h-auto max-w-full min-w-0 cursor-pointer justify-start p-0 font-mono'
+          title={t('Click to view full details')}
           onClick={() => setModel(row.original)}
         >
           <span className='min-w-0 truncate'>{row.original.model_name}</span>
@@ -112,13 +113,20 @@ export function VendorLinkedModels({
     {
       accessorKey: 'name_rule',
       header: t('Name Matching Rule'),
-      cell: ({ row }) => rules[row.original.name_rule as 0 | 1 | 2 | 3]?.label,
+      cell: ({ row }) => (
+        <TruncatedCell>
+          {rules[row.original.name_rule as 0 | 1 | 2 | 3]?.label}
+        </TruncatedCell>
+      ),
     },
     {
       accessorKey: 'matched_count',
       header: t('Matched models'),
-      cell: ({ row }) =>
-        row.original.name_rule === 0 ? '—' : (row.original.matched_count ?? 0),
+      cell: ({ row }) => (
+        <TruncatedCell className='tabular-nums'>
+          {row.original.name_rule === 0 ? '—' : (row.original.matched_count ?? 0)}
+        </TruncatedCell>
+      ),
     },
   ]
   const { table } = useDataTable({

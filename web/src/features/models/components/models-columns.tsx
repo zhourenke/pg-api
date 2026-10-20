@@ -110,8 +110,8 @@ export function useModelsColumns(
                 <div className='flex min-w-0 items-center gap-1'>
                   <Button
                     variant='link'
-                    className='text-foreground h-auto min-w-0 shrink justify-start p-0 font-mono text-sm'
-                    title={model.model_name}
+                    className='text-foreground h-auto min-w-0 shrink cursor-pointer justify-start p-0 font-mono text-sm'
+                    title={t('Click to view full details')}
                     onClick={() => {
                       setCurrentRow(model)
                       setOpen('update-model')
@@ -175,10 +175,11 @@ export function useModelsColumns(
           return (
             <Button
               variant='ghost'
-              className='h-auto w-full max-w-full min-w-0 justify-start px-0 py-1 text-left font-normal hover:bg-transparent'
+              className='h-auto w-full max-w-full min-w-0 cursor-pointer justify-start px-0 py-1 text-left font-normal hover:bg-transparent'
               aria-label={t('View pricing for {{model}}', {
                 model: row.original.model_name,
               })}
+              title={t('Click to view full details')}
               onClick={() => {
                 setCurrentRow(row.original)
                 setOpen('price-model')
@@ -211,7 +212,7 @@ export function useModelsColumns(
         cell: ({ row }) => {
           const state = getModelChannelState(row.original)
           return (
-            <div className='min-w-0 text-sm'>
+            <div className='max-w-full min-w-0 text-sm'>
               <Tooltip>
                 <TooltipTrigger
                   render={
@@ -219,7 +220,7 @@ export function useModelsColumns(
                       tabIndex={0}
                       title={t(state.description)}
                       aria-description={t(state.description)}
-                      className='block whitespace-normal sm:truncate'
+                      className='block max-w-full min-w-0 whitespace-normal sm:truncate'
                     />
                   }
                 >
@@ -272,18 +273,19 @@ export function useModelsColumns(
         enableHiding: false,
         enableSorting: false,
         cell: ({ row }) => {
-          // A model that only exists on a channel has no display policy of its
-          // own: the field carries the zero value, and whether the square lists
-          // it is decided by availability plus billing config. Saying 「隐藏」
-          // there would contradict the square column next to it.
-          if (row.original.id === 0) return '—'
-          return row.original.status === 1 ? t('Allowed') : t('Not listed')
+          let label = '—'
+          if (row.original.id !== 0) {
+            label = row.original.status === 1 ? t('Allowed') : t('Not listed')
+          }
+          return <TruncatedCell>{label}</TruncatedCell>
         },
       },
       {
         accessorKey: 'id',
         header: t('ID'),
-        cell: ({ row }) => row.original.id || '—',
+        cell: ({ row }) => (
+          <TruncatedCell>{row.original.id || '—'}</TruncatedCell>
+        ),
         meta: { mobileHidden: true },
       },
       {
@@ -301,8 +303,11 @@ export function useModelsColumns(
         accessorKey: 'name_rule',
         header: t('Match Type'),
         enableSorting: false,
-        cell: ({ row }) =>
-          rules[row.original.name_rule as 0 | 1 | 2 | 3]?.label,
+        cell: ({ row }) => (
+          <TruncatedCell>
+            {rules[row.original.name_rule as 0 | 1 | 2 | 3]?.label}
+          </TruncatedCell>
+        ),
         meta: { mobileHidden: true },
       },
       {
@@ -341,19 +346,25 @@ export function useModelsColumns(
       {
         accessorKey: 'created_time',
         header: t('Created'),
-        cell: ({ row }) =>
-          row.original.id
-            ? formatTimestampToDate(row.original.created_time)
-            : '—',
+        cell: ({ row }) => (
+          <TruncatedCell className='font-mono text-sm tabular-nums'>
+            {row.original.id
+              ? formatTimestampToDate(row.original.created_time)
+              : '—'}
+          </TruncatedCell>
+        ),
         meta: { mobileHidden: true },
       },
       {
         accessorKey: 'updated_time',
         header: t('Updated'),
-        cell: ({ row }) =>
-          row.original.id
-            ? formatTimestampToDate(row.original.updated_time)
-            : '—',
+        cell: ({ row }) => (
+          <TruncatedCell className='font-mono text-sm tabular-nums'>
+            {row.original.id
+              ? formatTimestampToDate(row.original.updated_time)
+              : '—'}
+          </TruncatedCell>
+        ),
         meta: { mobileHidden: true },
       },
       // Row actions come last. The shared table closes the row with a filler that

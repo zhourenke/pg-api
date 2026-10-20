@@ -362,11 +362,13 @@ export function ApiInfoSection({ enabled, data }: ApiInfoSectionProps) {
               id: 'color',
               header: t('Color'),
               cell: (apiInfo) => (
-                <div className='flex items-center gap-2'>
+                <div className='flex max-w-full min-w-0 items-center gap-2'>
                   <div
-                    className={`h-4 w-4 rounded-full ${getColorClass(apiInfo.color)}`}
+                    className={`h-4 w-4 shrink-0 rounded-full ${getColorClass(apiInfo.color)}`}
                   />
-                  <span className='text-sm capitalize'>{apiInfo.color}</span>
+                  <span className='min-w-0 truncate text-sm capitalize'>
+                    {apiInfo.color}
+                  </span>
                 </div>
               ),
             },

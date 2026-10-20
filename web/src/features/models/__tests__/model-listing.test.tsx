@@ -433,11 +433,11 @@ it('leaves the display policy blank for a row that has no policy of its own', ()
   cleanup()
   // 有元数据记录的行照旧显示策略，`status: 1` 是允许、`0` 是隐藏。
   view({ ...metadata, status: 1 })
-  expect(
-    within(
-      screen.getByRole('group', { name: 'Display policy cell' })
-    ).getByText('Allowed')
-  ).toBeVisible()
+  const allowed = within(
+    screen.getByRole('group', { name: 'Display policy cell' })
+  ).getByText('Allowed')
+  expect(allowed).toBeVisible()
+  expect(allowed.closest('.min-w-0')?.className).toContain('truncate')
   cleanup()
   view({ ...metadata, status: 0 })
   expect(

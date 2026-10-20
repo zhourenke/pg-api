@@ -160,15 +160,18 @@ export function useDeploymentsColumns(opts: {
             : Math.max(0, Math.min(100, 100 - percentUsed))
 
         return (
-          <div className='flex flex-col gap-1 text-sm'>
-            <div className='flex flex-wrap items-center gap-2'>
-              <span className='font-medium'>{remainingText}</span>
+          <div className='flex max-w-full min-w-0 flex-col gap-1 text-sm'>
+            <div className='flex max-w-full min-w-0 flex-wrap items-center gap-2'>
+              <span className='min-w-0 truncate font-medium'>
+                {remainingText}
+              </span>
               {status === 'running' && percentRemain !== null ? (
                 <StatusBadge
                   label={`${percentRemain}%`}
                   variant='info'
                   size='sm'
                   copyable={false}
+                  className='shrink-0'
                 />
               ) : null}
             </div>
@@ -210,7 +213,7 @@ export function useDeploymentsColumns(opts: {
               size='sm'
             />
             {qty !== null ? (
-              <span className='text-muted-foreground text-xs'>×{qty}</span>
+              <span className='text-muted-foreground shrink-0 text-xs'>×{qty}</span>
             ) : null}
           </div>
         )
@@ -229,7 +232,7 @@ export function useDeploymentsColumns(opts: {
           ts = Number(row.original.created_at)
         }
         return (
-          <div className='min-w-[140px] font-mono text-sm'>
+          <div className='max-w-full min-w-0 truncate font-mono text-sm'>
             {formatTimestampToDate(ts)}
           </div>
         )

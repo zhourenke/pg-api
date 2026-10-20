@@ -16,6 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useTranslation } from 'react-i18next'
+
 import { Button } from '@/components/ui/button'
 
 import { useModels } from './models-provider'
@@ -29,6 +31,7 @@ export function DescriptionCell({
   modelName,
   description,
 }: DescriptionCellProps) {
+  const { t } = useTranslation()
   const { setOpen, setDescriptionData } = useModels()
 
   if (!description) {
@@ -45,8 +48,8 @@ export function DescriptionCell({
       <Button
         variant='link'
         onClick={handleClick}
-        title={description}
-        className='text-muted-foreground hover:text-foreground block h-auto w-full max-w-full min-w-0 cursor-pointer overflow-hidden p-0 text-left text-sm text-ellipsis whitespace-nowrap no-underline'
+        title={t('Click to view full details')}
+        className='text-muted-foreground hover:text-foreground block h-auto w-full max-w-full min-w-0 cursor-pointer p-0 text-left text-sm break-words whitespace-normal no-underline hover:underline'
       >
         {description}
       </Button>

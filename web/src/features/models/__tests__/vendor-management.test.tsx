@@ -242,7 +242,12 @@ describe('vendor management', () => {
       await screen.findByRole('button', { name: 'example-*' })
     ).toBeVisible()
     expect(screen.getByText('1 linked model records')).toBeVisible()
-    expect(screen.getByRole('cell', { name: '24' })).toBeVisible()
+    const countCell = screen.getByRole('cell', { name: '24' })
+    expect(countCell).toBeVisible()
+    expect(countCell.firstElementChild?.className).toContain('min-w-0')
+    expect(countCell.firstElementChild?.className).toContain('truncate')
+    const ruleText = screen.getByText('Prefix')
+    expect(ruleText.closest('.min-w-0')?.className).toContain('truncate')
     const user = userEvent.setup()
     await user.type(
       screen.getByPlaceholderText('Filter by model name...'),

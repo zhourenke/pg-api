@@ -26,9 +26,11 @@ import { useTranslation } from 'react-i18next'
 import {
   DataTablePage,
   DataTableBulkActions,
+  TruncatedCell,
   useDataTable,
 } from '@/components/data-table'
 import { ErrorState } from '@/components/error-state'
+import { TableId } from '@/components/table-id'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -125,8 +127,8 @@ export function VendorsTable() {
           </span>
           <Button
             variant='link'
-            className='text-foreground h-auto min-w-0 justify-start p-0 text-left'
-            title={row.original.name}
+            className='text-foreground h-auto min-w-0 cursor-pointer justify-start p-0 text-left'
+            title={t('Click to view full details')}
             onClick={() => {
               setCurrentVendor(row.original)
               setOpen('update-vendor')
@@ -142,7 +144,7 @@ export function VendorsTable() {
       header: t('Description'),
       cell: ({ row }) => (
         <p
-          className='text-muted-foreground line-clamp-2 max-w-full min-w-0 break-words whitespace-normal'
+          className='text-muted-foreground max-w-full min-w-0 break-words whitespace-normal'
           title={row.original.description}
         >
           {row.original.description || '—'}
@@ -168,16 +170,28 @@ export function VendorsTable() {
         </Button>
       ),
     },
-    { accessorKey: 'id', header: t('ID') },
+    {
+      accessorKey: 'id',
+      header: t('ID'),
+      cell: ({ row }) => <TableId value={row.original.id} />,
+    },
     {
       accessorKey: 'created_time',
       header: t('Created At'),
-      cell: ({ row }) => formatTimestampToDate(row.original.created_time),
+      cell: ({ row }) => (
+        <TruncatedCell className='font-mono text-sm tabular-nums'>
+          {formatTimestampToDate(row.original.created_time)}
+        </TruncatedCell>
+      ),
     },
     {
       accessorKey: 'updated_time',
       header: t('Updated At'),
-      cell: ({ row }) => formatTimestampToDate(row.original.updated_time),
+      cell: ({ row }) => (
+        <TruncatedCell className='font-mono text-sm tabular-nums'>
+          {formatTimestampToDate(row.original.updated_time)}
+        </TruncatedCell>
+      ),
     },
     {
       id: 'actions',

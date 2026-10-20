@@ -96,6 +96,24 @@ it('lists instances in the shared table on wide viewports', async () => {
   expect(screen.getByRole('columnheader', { name: 'Instances' })).toBeVisible()
   expect(screen.getByText('instance-online')).toBeVisible()
   expect(screen.getByText('host-online')).toBeVisible()
+
+  // Status preserves indicator dot and truncates text
+  const statusBadge = screen.getByText('online').closest('[data-slot="badge"]') as HTMLElement
+  expect(statusBadge.className).toContain('min-w-0')
+  const statusDot = statusBadge.querySelector('span[aria-hidden="true"]') as HTMLElement
+  expect(statusDot.className).toContain('shrink-0')
+  const statusText = screen.getByText('online')
+  expect(statusText.className).toContain('min-w-0')
+  expect(statusText.className).toContain('truncate')
+
+  // CPU prioritizes preserving percentage and compresses icon
+  const cpuPercent = screen.getByText('12.3%')
+  expect(cpuPercent.className).toContain('min-w-0')
+  expect(cpuPercent.className).toContain('truncate')
+  const cpuSvg = cpuPercent.parentElement?.querySelector('svg')
+  expect(cpuSvg?.getAttribute('class')).toContain('shrink')
+  expect(cpuSvg?.getAttribute('class')).toContain('min-w-0')
+
   client.clear()
 })
 

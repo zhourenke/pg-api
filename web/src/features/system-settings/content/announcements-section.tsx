@@ -384,11 +384,11 @@ export function AnnouncementsSection({
               id: 'publish-date',
               header: t('Publish Date'),
               cell: (announcement) => (
-                <div className='flex flex-col gap-1'>
-                  <span className='text-sm font-medium'>
+                <div className='flex max-w-full min-w-0 flex-col gap-1'>
+                  <span className='min-w-0 truncate text-sm font-medium'>
                     {getRelativeTime(announcement.publishDate)}
                   </span>
-                  <span className='text-muted-foreground text-xs'>
+                  <span className='text-muted-foreground min-w-0 truncate text-xs'>
                     {dayjs(announcement.publishDate).format(
                       'YYYY-MM-DD HH:mm:ss'
                     )}

@@ -134,7 +134,7 @@ function RingProgress(props: RingProgressProps) {
       width={size}
       height={size}
       viewBox={`0 0 ${size} ${size}`}
-      className='shrink-0 -rotate-90'
+      className='size-5.5 min-w-0 shrink aspect-square -rotate-90'
       aria-hidden='true'
     >
       <circle
@@ -176,9 +176,9 @@ function ResourceCell(props: ResourceCellProps) {
       ? Math.max(0, Math.min(100, props.value))
       : null
   const content = (
-    <div className='flex items-center gap-2'>
+    <div className='flex max-w-full min-w-0 items-center gap-2'>
       <RingProgress percent={percent} />
-      <span className='tabular-nums'>{formatPercent(props.value)}</span>
+      <span className='min-w-0 shrink truncate tabular-nums'>{formatPercent(props.value)}</span>
     </div>
   )
 
@@ -187,7 +187,7 @@ function ResourceCell(props: ResourceCellProps) {
   return (
     <TooltipProvider delay={100}>
       <Tooltip>
-        <TooltipTrigger className='block w-full rounded-sm text-left focus-visible:ring-2 focus-visible:outline-none'>
+        <TooltipTrigger className='block w-full max-w-full min-w-0 rounded-sm text-left focus-visible:ring-2 focus-visible:outline-none'>
           {content}
         </TooltipTrigger>
         <TooltipContent className='max-w-80'>{props.tooltip}</TooltipContent>
@@ -222,7 +222,7 @@ export function useSystemInstancesColumns(
             instance.info?.node?.should_configure_manually === true
 
           return (
-            <div className='flex min-w-0 items-center gap-2'>
+            <div className='flex max-w-full min-w-0 items-center gap-2'>
               <span
                 className={cn(
                   'size-2 shrink-0 rounded-full',
@@ -230,9 +230,11 @@ export function useSystemInstancesColumns(
                 )}
                 aria-hidden='true'
               />
-              <div className='min-w-0'>
+              <div className='max-w-full min-w-0'>
                 <div className='flex min-w-0 items-center gap-1.5'>
-                  <span className='truncate'>{getNodeName(instance)}</span>
+                  <span className='min-w-0 truncate'>
+                    {getNodeName(instance)}
+                  </span>
                   {shouldConfigure && (
                     <Popover>
                       <PopoverTrigger
@@ -295,16 +297,17 @@ export function useSystemInstancesColumns(
         cell: ({ row }) => (
           <Badge
             variant='secondary'
-            className={cn('gap-1.5', STATUS_CLASS_NAME[row.original.status])}
+            title={t(row.original.status)}
+            className={cn('max-w-full min-w-0 gap-1.5', STATUS_CLASS_NAME[row.original.status])}
           >
             <span
               className={cn(
-                'size-1.5 rounded-full',
+                'size-1.5 shrink-0 rounded-full',
                 STATUS_DOT_CLASS_NAME[row.original.status]
               )}
               aria-hidden='true'
             />
-            {t(row.original.status)}
+            <span className='min-w-0 truncate'>{t(row.original.status)}</span>
           </Badge>
         ),
         meta: { label: t('Status'), mobileBadge: true },
@@ -316,10 +319,12 @@ export function useSystemInstancesColumns(
           <TooltipProvider delay={100}>
             <Tooltip>
               <TooltipTrigger
-                className='inline-flex shrink-0 rounded-full focus-visible:ring-2 focus-visible:outline-none'
+                className='inline-flex max-w-full min-w-0 shrink rounded-full focus-visible:ring-2 focus-visible:outline-none'
                 aria-label={t('Node role')}
               >
-                <Badge variant='outline'>{roleLabel(row.original)}</Badge>
+                <Badge variant='outline' className='max-w-full min-w-0'>
+                  <span className='min-w-0 truncate'>{roleLabel(row.original)}</span>
+                </Badge>
               </TooltipTrigger>
               <TooltipContent>
                 {t(roleDescriptionKey(row.original))}
