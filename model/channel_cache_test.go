@@ -102,3 +102,33 @@ func TestInitChannelCachePublishesSuccessfulLoad(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, selected, "a successful load must still replace the published routing table")
 }
+
+func TestGetRandomSatisfiedChannelExcludesAttemptedChannelsOnRetry(t *testing.T) {
+	db := newChannelCacheTestDB(t, "exclude_cache.db")
+	useChannelCacheTestDB(t, db)
+
+	ch1 := &Channel{Id: 101, Name: "ch1", Key: "k1", Status: common.ChannelStatusEnabled, Group: "default", Models: "m-equal", Weight: common.GetPointer(uint(10)), Priority: common.GetPointer(int64(0))}
+	ch2 := &Channel{Id: 102, Name: "ch2", Key: "k2", Status: common.ChannelStatusEnabled, Group: "default", Models: "m-equal", Weight: common.GetPointer(uint(10)), Priority: common.GetPointer(int64(0))}
+	require.NoError(t, db.Create(ch1).Error)
+	require.NoError(t, db.Create(ch2).Error)
+	require.NoError(t, db.Create(&Ability{Group: "default", Model: "m-equal", ChannelId: ch1.Id, Enabled: true, Weight: 10, Priority: common.GetPointer(int64(0))}).Error)
+	require.NoError(t, db.Create(&Ability{Group: "default", Model: "m-equal", ChannelId: ch2.Id, Enabled: true, Weight: 10, Priority: common.GetPointer(int64(0))}).Error)
+	require.NoError(t, InitChannelCache())
+
+	for _, mem := range []bool{true, false} {
+		t.Run(map[bool]string{true: "memory", false: "database"}[mem], func(t *testing.T) {
+			common.MemoryCacheEnabled = mem
+			// When channel 101 failed and is excluded, channel 102 must always be selected across multiple runs
+			for range 20 {
+				selected, err := GetRandomSatisfiedChannel("default", "m-equal", 1, nil, 101)
+				require.NoError(t, err)
+				require.NotNil(t, selected)
+				assert.Equal(t, 102, selected.Id, "retry must exclude the attempted channel 101 and pick channel 102")
+			}
+			// When both are excluded, returns nil so retry moves to next group or stops cleanly
+			exhausted, err := GetRandomSatisfiedChannel("default", "m-equal", 2, nil, 101, 102)
+			require.NoError(t, err)
+			assert.Nil(t, exhausted, "when all candidates at this priority have failed, returns nil")
+		})
+	}
+}

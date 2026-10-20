@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zhourenke/pg-api/common"
@@ -104,6 +105,11 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 	userGroup := common.GetContextKeyString(param.Ctx, constant.ContextKeyUserGroup)
 	filters := GetChannelConstraints(param.Ctx).Filters
 
+	var excludedChannelIDs []int
+	if param.GetRetry() > 0 && param.Ctx != nil {
+		excludedChannelIDs = GetUsedChannelIDs(param.Ctx)
+	}
+
 	if param.TokenGroup == "auto" {
 		autoGroups := GetRequestAutoGroups(param.Ctx, userGroup)
 		if len(autoGroups) == 0 {
@@ -138,6 +144,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 				param.ModelName,
 				priorityRetry,
 				filters,
+				excludedChannelIDs...,
 			)
 			if channel == nil {
 				// Current group has no available channel for this model, try next group
@@ -181,6 +188,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			param.ModelName,
 			param.GetRetry(),
 			filters,
+			excludedChannelIDs...,
 		)
 		if err != nil {
 			return nil, param.TokenGroup, err
@@ -324,4 +332,25 @@ func pinnedChannelUnavailable(pin dto.ChannelPin, statusCode int, messageID stri
 // trail, which the retry log and the consume log's admin_info both read.
 func AppendUsedChannel(c *gin.Context, channelID int) {
 	c.Set("use_channel", append(c.GetStringSlice("use_channel"), fmt.Sprintf("%d", channelID)))
+}
+
+// GetUsedChannelIDs extracts the list of unique channel IDs attempted so far
+// for this request, sourced from use_channel trail or context channel_id.
+func GetUsedChannelIDs(c *gin.Context) []int {
+	if c == nil {
+		return nil
+	}
+	raw := c.GetStringSlice("use_channel")
+	ids := make([]int, 0, len(raw)+1)
+	seen := make(map[int]bool, len(raw)+1)
+	for _, s := range raw {
+		if id, err := strconv.Atoi(s); err == nil && id > 0 && !seen[id] {
+			seen[id] = true
+			ids = append(ids, id)
+		}
+	}
+	if initialID := c.GetInt("channel_id"); initialID > 0 && !seen[initialID] {
+		ids = append(ids, initialID)
+	}
+	return ids
 }

@@ -137,10 +137,11 @@ func GetRandomSatisfiedChannel(
 	model string,
 	retry int,
 	filters []dto.ChannelFilter,
+	excludedChannelIDs ...int,
 ) (*Channel, error) {
 	// if memory cache is disabled, get channel directly from database
 	if !common.MemoryCacheEnabled {
-		return GetChannel(group, model, retry, filters)
+		return GetChannel(group, model, retry, filters, excludedChannelIDs...)
 	}
 
 	channelSyncLock.RLock()
@@ -157,6 +158,27 @@ func GetRandomSatisfiedChannel(
 
 	if len(channels) == 0 {
 		return nil, nil
+	}
+
+	hasExclusions := len(excludedChannelIDs) > 0
+	if hasExclusions && len(channels) > 1 {
+		excluded := make(map[int]bool, len(excludedChannelIDs))
+		for _, id := range excludedChannelIDs {
+			if id > 0 {
+				excluded[id] = true
+			}
+		}
+		var untried []int
+		for _, channelId := range channels {
+			if !excluded[channelId] {
+				untried = append(untried, channelId)
+			}
+		}
+		if len(untried) > 0 {
+			channels = untried
+		} else {
+			return nil, nil
+		}
 	}
 
 	if len(channels) == 1 {
@@ -180,10 +202,14 @@ func GetRandomSatisfiedChannel(
 	}
 	sort.Sort(sort.Reverse(sort.IntSlice(sortedUniquePriorities)))
 
-	if retry >= len(uniquePriorities) {
-		retry = len(uniquePriorities) - 1
+	targetIndex := 0
+	if !hasExclusions {
+		if retry >= len(uniquePriorities) {
+			retry = len(uniquePriorities) - 1
+		}
+		targetIndex = retry
 	}
-	targetPriority := int64(sortedUniquePriorities[retry])
+	targetPriority := int64(sortedUniquePriorities[targetIndex])
 
 	// get the priority for the given retry number
 	var sumWeight = 0

@@ -127,3 +127,52 @@ func TestCacheGetRandomSatisfiedChannelUsesTokenAutoGroupsWhenGlobalAutoIsEmpty(
 	assert.Equal(t, "default", selectedGroup)
 	assert.Equal(t, "default", common.GetContextKeyString(ctx, constant.ContextKeyAutoGroup))
 }
+
+func TestCacheGetRandomSatisfiedChannelExcludesAttemptedChannelsOnRetry(t *testing.T) {
+	db := setupChannelSelectAutoGroupsTest(t)
+	const modelName = "equal-retry-model"
+	createChannelSelectAutoGroupsChannel(t, db, 2201, "default", modelName)
+	createChannelSelectAutoGroupsChannel(t, db, 2202, "default", modelName)
+	model.InitChannelCache()
+
+	gin.SetMode(gin.TestMode)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	common.SetContextKey(ctx, constant.ContextKeyUserGroup, "default")
+
+	// Attempt 0: first attempt (no retries yet)
+	retry := 0
+	param := &RetryParam{
+		Ctx:         ctx,
+		TokenGroup:  "default",
+		ModelName:   modelName,
+		RequestPath: "/v1/chat/completions",
+		Retry:       &retry,
+	}
+
+	first, _, err := CacheGetRandomSatisfiedChannel(param)
+	require.NoError(t, err)
+	require.NotNil(t, first)
+	firstID := first.Id
+	AppendUsedChannel(ctx, firstID)
+
+	// Attempt 1: retry = 1, must exclude firstID and pick the other channel 100% of the time
+	param.IncreaseRetry()
+	for range 10 {
+		second, _, err := CacheGetRandomSatisfiedChannel(param)
+		require.NoError(t, err)
+		require.NotNil(t, second)
+		assert.NotEqual(t, firstID, second.Id, "retry must not pick the failed channel again")
+		assert.Contains(t, []int{2201, 2202}, second.Id)
+	}
+
+	// Attempt 2: both channels have been tried and failed
+	otherID := 2201
+	if firstID == 2201 {
+		otherID = 2202
+	}
+	AppendUsedChannel(ctx, otherID)
+	param.IncreaseRetry()
+	third, _, err := CacheGetRandomSatisfiedChannel(param)
+	require.NoError(t, err)
+	assert.Nil(t, third, "when all candidate channels in the group have been attempted, returns nil to prevent infinite retry loops")
+}
