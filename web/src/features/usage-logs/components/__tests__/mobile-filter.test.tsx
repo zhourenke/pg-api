@@ -139,7 +139,7 @@ it('applies the selected mobile date range directly and resets pagination while 
   )
   if (!trigger) throw new Error('date range trigger not found')
   await user.click(trigger)
-  await user.click(screen.getByRole('button', { name: 'Custom Time Range' }))
+  await user.click(screen.getByRole('button', { name: 'Custom' }))
   fireEvent.change(screen.getByLabelText('Start Time'), {
     target: { value: '2026-09-07T09:30' },
   })

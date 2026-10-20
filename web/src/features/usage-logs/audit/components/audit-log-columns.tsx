@@ -50,6 +50,9 @@ export function useAuditLogColumns(
         {
           accessorKey: 'username',
           header: t('Username'),
+          cell: ({ row }) => (
+            <TruncatedCell>{row.original.username || '—'}</TruncatedCell>
+          ),
           meta: { label: t('Username') },
         },
         {
@@ -67,8 +70,8 @@ export function useAuditLogColumns(
               return <TruncatedCell>{getValue<string>()}</TruncatedCell>
             }
             return (
-              <div className='min-w-0 space-y-1'>
-                <div className='flex min-w-0 items-baseline gap-1'>
+              <div className='max-w-full min-w-0 space-y-1'>
+                <div className='flex max-w-full min-w-0 items-baseline gap-1'>
                   <TruncatedCell
                     className='min-w-0 font-medium'
                     tooltipContent={operation.summary}

@@ -59,7 +59,12 @@ export function AuditLogDetailsDialog(props: { entry: AuditLog }) {
       description={t('View the complete details for this log entry')}
       descriptionClassName='sr-only'
       trigger={
-        <Button variant='ghost' size='sm' className='h-7 px-2'>
+        <Button
+          variant='ghost'
+          size='sm'
+          className='h-7 cursor-pointer px-2'
+          title={t('Click to view full details')}
+        >
           {t('Details')}
         </Button>
       }

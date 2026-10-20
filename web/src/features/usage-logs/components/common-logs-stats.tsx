@@ -95,12 +95,12 @@ export const CommonLogsStats = memo(function CommonLogsStats() {
         accent='bg-sky-500/70'
       />
       <StatBadge
-        label={t('RPM')}
+        label={t('Real-time RPM')}
         value={stats?.rpm || 0}
         accent='bg-rose-500/65'
       />
       <StatBadge
-        label={t('TPM')}
+        label={t('Real-time TPM')}
         value={stats?.tpm || 0}
         accent='bg-slate-400/70'
       />

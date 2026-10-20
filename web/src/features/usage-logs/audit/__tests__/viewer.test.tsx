@@ -481,7 +481,7 @@ it('filters own access history by result, generation and time and resets paginat
     await screen.findByRole('option', { name: 'Historical tokens' })
   )
   await user.click(screen.getByRole('button', { name: 'Date Range' }))
-  await user.click(screen.getByRole('button', { name: 'Custom Time Range' }))
+  await user.click(screen.getByRole('button', { name: 'Custom' }))
   fireEvent.change(screen.getByLabelText('Start Time'), {
     target: { value: '2026-09-01T12:00' },
   })

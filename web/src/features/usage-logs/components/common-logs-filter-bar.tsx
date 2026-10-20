@@ -27,7 +27,6 @@ import {
   useMemo,
   useRef,
   startTransition,
-  memo,
 } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -128,7 +127,7 @@ interface CommonLogsFilterBarProps<TData> {
   table: Table<TData>
 }
 
-function CommonLogsFilterBarInner<TData>(
+export function CommonLogsFilterBar<TData>(
   props: CommonLogsFilterBarProps<TData>
 ) {
   const { t } = useTranslation()
@@ -628,8 +627,3 @@ function CommonLogsFilterBarInner<TData>(
     />
   )
 }
-
-export const CommonLogsFilterBar = memo(
-  CommonLogsFilterBarInner,
-  (prev, next) => prev.table.options.columns === next.table.options.columns
-) as typeof CommonLogsFilterBarInner

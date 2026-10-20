@@ -55,7 +55,7 @@ function ModelBadgeContent(props: ModelBadgeProps & { copyable: boolean }) {
       showDot={!provider?.icon}
       autoColor={provider?.icon ? undefined : props.modelName}
       className={cn(
-        'border-border/60 bg-muted/30 h-6 max-w-full gap-1.5 rounded-md border px-2 [font-family:var(--font-body)]',
+        'border-border/60 bg-white dark:bg-muted/30 h-6 max-w-full min-w-0 gap-1.5 rounded-md border px-2 [font-family:var(--font-body)]',
         provider?.icon && 'text-foreground',
         props.wrapText && 'h-auto min-h-6 py-px whitespace-normal',
         props.className
@@ -75,7 +75,7 @@ function ModelBadgeContent(props: ModelBadgeProps & { copyable: boolean }) {
           className={
             props.wrapText
               ? 'line-clamp-2 leading-5 [overflow-wrap:anywhere]'
-              : 'min-w-0 truncate leading-normal whitespace-nowrap'
+              : 'min-w-0 truncate leading-normal'
           }
         >
           {props.modelName}
@@ -113,9 +113,10 @@ export function ModelBadge(props: ModelBadgeProps) {
         <CopyButton
           value={props.modelName}
           aria-label={modelLabel}
+          tooltip={t('Click to copy')}
           size='sm'
           iconClassName='hidden'
-          className='h-auto min-h-8 max-w-full min-w-0 justify-start px-0 py-0 text-left font-normal whitespace-normal'
+          className='h-auto min-h-8 w-fit max-w-full min-w-0 justify-start px-0 py-0 text-left font-normal whitespace-normal'
         >
           <ModelBadgeContent {...props} copyable={false} />
         </CopyButton>
@@ -149,9 +150,10 @@ export function ModelBadge(props: ModelBadgeProps) {
       <Button
         variant='ghost'
         aria-label={modelLabel}
+        title={t('Click to view full details')}
         aria-haspopup='dialog'
         onClick={props.onInspect}
-        className='h-auto min-h-8 max-w-full min-w-0 flex-wrap justify-start gap-1 px-0 py-0 text-left font-normal whitespace-normal'
+        className='h-auto min-h-8 w-fit max-w-full min-w-0 cursor-pointer flex-wrap justify-start gap-1 rounded-md px-0 py-0 text-left font-normal whitespace-normal'
       >
         {content}
       </Button>
@@ -165,7 +167,8 @@ export function ModelBadge(props: ModelBadgeProps) {
           <Button
             variant='ghost'
             aria-label={modelLabel}
-            className='h-auto max-w-full min-w-0 flex-wrap justify-start gap-1 p-0 font-normal'
+            title={t('Click to view full details')}
+            className='h-auto w-fit max-w-full min-w-0 cursor-pointer flex-wrap justify-start gap-1 rounded-md p-0 font-normal hover:bg-transparent'
           />
         }
       >

@@ -83,6 +83,7 @@ export function AuditLogViewer(props: {
   const columns = useAuditLogColumns(props.accessOnly)
   const { table } = useDataTable({
     columns,
+    meta: { measurementKey: props.scope },
     data:
       canQuery && !query.isError
         ? (query.data?.items ?? EMPTY_LOGS)
@@ -116,6 +117,7 @@ export function AuditLogViewer(props: {
       <DataTablePage
         table={table}
         columns={columns}
+        measurementKey={props.scope}
         isLoading={query.isPending && canQuery && !invalidRange}
         isFetching={query.isFetching}
         emptyTitle={

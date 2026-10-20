@@ -55,6 +55,32 @@ describe('TimingMetricsCell', () => {
     expect(screen.getByText('Generate')).toBeInTheDocument()
     expect(screen.getByText('3.0 s')).toBeInTheDocument()
   })
+
+  test('keeps timing values shrinkable and truncated with hover title', () => {
+    const { container } = render(
+      <TimingMetricsCell
+        durationMs={5400}
+        frtMs={1200}
+        completionTokens={150}
+        isStream
+      />
+    )
+
+    const firstTokenVal = screen.getByText('1.2 s')
+    const generateVal = screen.getByText('4.2 s')
+    expect(firstTokenVal.className).toContain('shrink')
+    expect(firstTokenVal.className).toContain('truncate')
+    expect(firstTokenVal.className).not.toContain('shrink-0')
+    expect(generateVal.className).toContain('shrink')
+    expect(generateVal.className).toContain('truncate')
+    expect(generateVal.className).not.toContain('shrink-0')
+
+    const root = container.firstElementChild as HTMLElement
+    expect(root).toHaveAttribute(
+      'title',
+      'First token: 1.2 s · Generate: 4.2 s'
+    )
+  })
 })
 
 describe('StreamTpsCell', () => {
@@ -89,9 +115,15 @@ describe('StreamTpsCell', () => {
       />
     )
 
-    const burstTrigger = screen.getByText('Burst')
+    // First line shows Stream
+    expect(screen.getByText('Stream')).toBeInTheDocument()
+    // Second line shows t/s
+    expect(screen.getByText('t/s')).toBeInTheDocument()
+
+    const burstTrigger = screen.getByRole('button', { name: 'Burst Streaming' })
     expect(burstTrigger).toBeInTheDocument()
-    expect(burstTrigger).toHaveClass('text-amber-600', 'cursor-help')
+    expect(burstTrigger).toHaveClass('text-amber-600/70', 'cursor-help')
+    expect(burstTrigger).not.toHaveClass('underline', 'hover:underline')
 
     // Hover trigger to open tooltip
     fireEvent.pointerEnter(burstTrigger)
@@ -136,8 +168,15 @@ describe('StreamTpsCell', () => {
       />
     )
 
-    const burstTrigger = screen.getByText('脉冲')
+    // 第一行保留正常的“流”
+    expect(screen.getByText('流')).toBeInTheDocument()
+    // 第二行保留“t/s”
+    expect(screen.getByText('t/s')).toBeInTheDocument()
+
+    const burstTrigger = screen.getByRole('button', { name: '脉冲流式' })
     expect(burstTrigger).toBeInTheDocument()
+    expect(burstTrigger).toHaveClass('cursor-help')
+    expect(burstTrigger).not.toHaveClass('underline', 'hover:underline')
 
     fireEvent.pointerEnter(burstTrigger)
     fireEvent.focus(burstTrigger)
@@ -165,7 +204,7 @@ describe('StreamTpsCell', () => {
       />
     )
 
-    const burstTrigger = screen.getByText('Burst')
+    const burstTrigger = screen.getByRole('button', { name: 'Burst Streaming' })
     fireEvent.pointerEnter(burstTrigger)
     fireEvent.focus(burstTrigger)
 

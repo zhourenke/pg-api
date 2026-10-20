@@ -163,7 +163,6 @@ export function AuditLogs() {
           )}
           <div className='min-h-0 flex-1'>
             <AuditLogViewer
-              key={`${userId}:${effectiveScope}`}
               scope={effectiveScope}
               filters={filters}
               onFiltersChange={handleFiltersChange}

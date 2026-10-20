@@ -342,7 +342,7 @@ it('omits unused token and throughput placeholders for non-streaming calls', () 
   expect(within(timing as HTMLElement).queryByText('—')).not.toBeInTheDocument()
 })
 
-it('displays Burst label when streamed output is delivered in a burst', () => {
+it('displays Burst indicator when streamed output is delivered in a burst', () => {
   renderLogs({
     logs: [
       {
@@ -354,7 +354,7 @@ it('displays Burst label when streamed output is delivered in a burst', () => {
       },
     ],
   })
-  expect(screen.getByText('Burst')).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Burst Streaming' })).toBeVisible()
   expect(screen.getByText('<0.1 s')).toBeVisible()
 })
 

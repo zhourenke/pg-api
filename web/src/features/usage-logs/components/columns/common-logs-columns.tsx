@@ -296,8 +296,8 @@ export function useCommonLogsColumns(
           const config = getLogTypeConfig(log.type)
 
           return (
-            <div className='flex min-w-0 flex-col gap-0.5'>
-              <span className='truncate font-mono text-xs tabular-nums'>
+            <div className='flex max-w-full min-w-0 flex-col gap-0.5'>
+              <span className='max-w-full min-w-0 truncate font-mono text-xs tabular-nums'>
                 {formatTimestampToDate(timestamp)}
               </span>
               <StatusBadge
@@ -305,7 +305,7 @@ export function useCommonLogsColumns(
                 variant={config.color as StatusBadgeProps['variant']}
                 size='sm'
                 copyable={false}
-                className='-ml-1.5 !text-xs [&_span]:!text-xs'
+                className='-ml-1.5 max-w-full min-w-0 !text-xs [&_span]:!text-xs'
               />
             </div>
           )
@@ -315,7 +315,6 @@ export function useCommonLogsColumns(
           if (value.includes(LOG_TYPE_ALL_VALUE)) return true
           return value.includes(String(row.original.type))
         },
-        enableHiding: false,
       },
     ]
 
@@ -346,9 +345,6 @@ export function useCommonLogsColumns(
             const channelChain = hasRetryChain
               ? useChannel.join(' → ')
               : undefined
-            const channelDisplay = log.channel_name
-              ? `${log.channel_name} #${log.channel}`
-              : `#${log.channel}`
             const channelIdDisplay = `#${log.channel}`
             const channelName = sensitiveVisible ? log.channel_name : '••••'
             const multiKeyIndex = other?.admin_info?.multi_key_index
@@ -358,127 +354,87 @@ export function useCommonLogsColumns(
               Number.isFinite(multiKeyIndex)
 
             return (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <div className='flex max-w-full min-w-0 flex-col gap-0.5' />
-                    }
-                  >
-                    <div className='relative inline-flex w-fit items-center gap-1'>
-                      <StatusBadge
-                        label={channelIdDisplay}
-                        autoColor={String(log.channel)}
-                        copyText={String(log.channel)}
-                        size='sm'
-                        showDot={false}
-                        className='font-mono'
-                      />
-                      {showMultiKeyIndex && (
-                        <StatusBadge
-                          label={String(multiKeyIndex)}
-                          size='sm'
-                          showDot={false}
-                          copyable={false}
-                          variant='neutral'
-                          className='h-5 min-w-5 justify-center rounded-full px-1 font-mono text-xs'
-                          aria-label={`${t('Key')} ${multiKeyIndex}`}
+              <div className='flex max-w-full min-w-0 flex-col gap-0.5'>
+                <div className='relative inline-flex w-fit max-w-full min-w-0 items-center gap-1'>
+                  <StatusBadge
+                    label={channelIdDisplay}
+                    autoColor={String(log.channel)}
+                    copyText={String(log.channel)}
+                    size='sm'
+                    showDot={false}
+                    className='font-mono'
+                  />
+                  {showMultiKeyIndex && (
+                    <StatusBadge
+                      label={String(multiKeyIndex)}
+                      size='sm'
+                      showDot={false}
+                      copyable={false}
+                      variant='neutral'
+                      className='h-5 min-w-5 justify-center rounded-full px-1 font-mono text-xs'
+                      aria-label={`${t('Key')} ${multiKeyIndex}`}
+                    />
+                  )}
+                  {hasRetryChain && (
+                    <Popover>
+                      <PopoverTrigger
+                        render={
+                          <button
+                            type='button'
+                            className='text-muted-foreground hover:text-foreground focus-visible:ring-ring inline-flex size-5 shrink-0 items-center justify-center rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none'
+                            aria-label={t('Retry Chain')}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        }
+                      >
+                        <GitBranch
+                          className='size-3.5 text-amber-500'
+                          aria-hidden='true'
                         />
-                      )}
-                      {hasRetryChain && (
-                        <Popover>
-                          <PopoverTrigger
-                            render={
-                              <button
-                                type='button'
-                                className='text-muted-foreground hover:text-foreground focus-visible:ring-ring inline-flex size-5 shrink-0 items-center justify-center rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none'
-                                aria-label={t('Retry Chain')}
-                                onClick={(e) => e.stopPropagation()}
-                              />
-                            }
-                          >
-                            <GitBranch
-                              className='size-3.5 text-amber-500'
-                              aria-hidden='true'
-                            />
-                          </PopoverTrigger>
-                          <PopoverContent
-                            side='top'
-                            align='start'
-                            className='w-64 text-xs'
-                          >
-                            <div className='flex flex-col gap-1'>
-                              <p className='font-medium'>{t('Retry Chain')}</p>
-                              <p className='text-muted-foreground font-mono break-all'>
-                                {channelChain}
-                              </p>
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      )}
-                      {affinity && (
-                        <button
-                          type='button'
-                          className='absolute -top-1 -right-1 leading-none text-amber-500'
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setAffinityTarget({
-                              rule_name: affinity.rule_name || '',
-                              using_group:
-                                affinity.using_group ||
-                                affinity.selected_group ||
-                                '',
-                              key_hint: affinity.key_hint || '',
-                              key_fp: affinity.key_fp || '',
-                            })
-                            setAffinityDialogOpen(true)
-                          }}
-                        >
-                          <Sparkles className='size-3 fill-current' />
-                        </button>
-                      )}
-                    </div>
-                    {log.channel_name && (
-                      <span className='text-muted-foreground/70 max-w-full min-w-0 truncate [font-family:var(--font-body)] !text-xs'>
-                        {channelName}
-                      </span>
-                    )}
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <div className='space-y-1'>
-                      <p>
-                        {sensitiveVisible ? channelDisplay : channelIdDisplay}
-                      </p>
-                      {channelChain && (
-                        <p className='text-muted-foreground text-xs'>
-                          {t('Chain')}: {channelChain}
-                        </p>
-                      )}
-                      {showMultiKeyIndex && (
-                        <p className='text-muted-foreground text-xs'>
-                          {t('Key')}: {multiKeyIndex}
-                        </p>
-                      )}
-                      {affinity && (
-                        <div className='border-t pt-1 text-xs'>
-                          <p className='font-medium'>{t('Channel Affinity')}</p>
-                          <p>
-                            {t('Rule')}: {affinity.rule_name || '-'}
-                          </p>
-                          <p>
-                            {t('Group')}:{' '}
-                            {sensitiveVisible
-                              ? affinity.using_group ||
-                                affinity.selected_group ||
-                                '-'
-                              : '••••'}
+                      </PopoverTrigger>
+                      <PopoverContent
+                        side='top'
+                        align='start'
+                        className='w-64 text-xs'
+                      >
+                        <div className='flex flex-col gap-1'>
+                          <p className='font-medium'>{t('Retry Chain')}</p>
+                          <p className='text-muted-foreground font-mono break-all'>
+                            {channelChain}
                           </p>
                         </div>
-                      )}
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+                      </PopoverContent>
+                    </Popover>
+                  )}
+                  {affinity && (
+                    <button
+                      type='button'
+                      className='absolute -top-1 -right-1 leading-none text-amber-500'
+                      title={t('Channel Affinity')}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setAffinityTarget({
+                          rule_name: affinity.rule_name || '',
+                          using_group:
+                            affinity.using_group ||
+                            affinity.selected_group ||
+                            '',
+                          key_hint: affinity.key_hint || '',
+                          key_fp: affinity.key_fp || '',
+                        })
+                        setAffinityDialogOpen(true)
+                      }}
+                    >
+                      <Sparkles className='size-3 fill-current' />
+                    </button>
+                  )}
+                </div>
+                {log.channel_name && (
+                  <span className='text-muted-foreground/70 max-w-full min-w-0 truncate [font-family:var(--font-body)] !text-xs'>
+                    {channelName}
+                  </span>
+                )}
+              </div>
             )
           },
         },
@@ -500,7 +456,8 @@ export function useCommonLogsColumns(
             return (
               <button
                 type='button'
-                className='flex max-w-full min-w-0 items-center gap-1.5 text-left'
+                className='flex max-w-full min-w-0 cursor-pointer items-center gap-1.5 text-left'
+                title={t('Click to view full details')}
                 onClick={(e) => {
                   e.stopPropagation()
                   setSelectedUserId(log.user_id)
@@ -524,20 +481,9 @@ export function useCommonLogsColumns(
                       : '•'}
                   </AvatarFallback>
                 </Avatar>
-                <TooltipProvider delay={300}>
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={
-                        <span className='text-muted-foreground max-w-full min-w-0 truncate text-sm hover:underline' />
-                      }
-                    >
-                      {sensitiveVisible ? log.username : '••••'}
-                    </TooltipTrigger>
-                    {sensitiveVisible && log.username.length > 12 && (
-                      <TooltipContent side='top'>{log.username}</TooltipContent>
-                    )}
-                  </Tooltip>
-                </TooltipProvider>
+                <span className='text-foreground max-w-full min-w-0 truncate text-sm hover:underline'>
+                  {sensitiveVisible ? log.username : '••••'}
+                </span>
               </button>
             )
           },
@@ -565,14 +511,14 @@ export function useCommonLogsColumns(
           <div className='flex max-w-full min-w-0 flex-col gap-0.5'>
             <TooltipProvider delay={300}>
               <Tooltip>
-                <TooltipTrigger render={<div className='max-w-full' />}>
+                <TooltipTrigger render={<div className='max-w-full min-w-0' />}>
                   <StatusBadge
                     label={displayName}
                     icon={KeyRound}
                     copyText={sensitiveVisible ? tokenName : undefined}
                     size='sm'
                     showDot={false}
-                    className='border-border/60 bg-muted/30 text-foreground h-6 max-w-full gap-1.5 overflow-hidden rounded-md border px-2 py-0.5 [font-family:var(--font-body)]'
+                    className='border-border/60 dark:bg-muted/30 text-foreground h-6 max-w-full gap-1.5 overflow-hidden rounded-md border bg-white px-2 py-0.5 [font-family:var(--font-body)]'
                   />
                 </TooltipTrigger>
                 {sensitiveVisible && tokenName.length > 16 && (
@@ -583,19 +529,18 @@ export function useCommonLogsColumns(
               </Tooltip>
             </TooltipProvider>
             {(group || groupRatio != null) && (
-              <span className='block max-w-full truncate text-xs leading-normal'>
+              <span className='flex max-w-full min-w-0 items-baseline gap-1 text-xs leading-normal'>
                 {group ? (
                   <GroupBadge
                     group={group}
                     label={sensitiveVisible ? undefined : '••••'}
                     type='text'
                     size='sm'
-                    className='inline align-baseline text-xs leading-normal [&>span]:leading-normal'
+                    className='min-w-0 shrink truncate align-baseline text-xs leading-normal [&>span]:min-w-0 [&>span]:truncate [&>span]:leading-normal'
                   />
                 ) : null}
-                {group && groupRatio != null ? ' ' : null}
                 {groupRatio != null ? (
-                  <span className='text-muted-foreground/60 relative top-px align-baseline tabular-nums'>
+                  <span className='text-muted-foreground/60 shrink-0 tabular-nums'>
                     {formatRatioCompact(groupRatio)}x
                   </span>
                 ) : null}
@@ -616,7 +561,7 @@ export function useCommonLogsColumns(
           const modelInfo = formatModelName(log)
 
           return (
-            <div className='flex max-w-full min-w-0 flex-col gap-0.5'>
+            <div className='flex max-w-full min-w-0 flex-col items-start gap-0.5'>
               <ModelBadge
                 modelName={modelInfo.name}
                 actualModel={modelInfo.actualModel}
@@ -672,12 +617,12 @@ export function useCommonLogsColumns(
 
           return (
             <div className='flex max-w-full min-w-0 flex-col gap-0.5'>
-              <span className='min-w-0 truncate font-mono text-xs font-medium tabular-nums'>
+              <span className='max-w-full min-w-0 truncate font-mono text-xs font-medium tabular-nums'>
                 {promptTokens.toLocaleString()} /{' '}
                 {completionTokens.toLocaleString()}
               </span>
               {(cacheReadTokens > 0 || cacheWriteTokens > 0) && (
-                <div className='flex min-w-0 items-center gap-1 text-[11px]'>
+                <div className='flex max-w-full min-w-0 items-center gap-1 text-[11px]'>
                   {cacheReadTokens > 0 && (
                     <span className='text-muted-foreground/60 min-w-0 truncate'>
                       {t('Cache')}↓ {cacheReadTokens.toLocaleString()}
@@ -752,13 +697,13 @@ export function useCommonLogsColumns(
             detailPreview = (
               <span
                 className={cn(
-                  'min-w-0 truncate leading-snug group-hover:underline',
+                  'flex max-w-full min-w-0 items-center leading-snug no-underline hover:underline',
                   primaryTextClass
                 )}
               >
-                {primary.text}
+                <span className='min-w-0 truncate'>{primary.text}</span>
                 {hasMore && (
-                  <span className='text-muted-foreground/40 ml-0.5'>
+                  <span className='text-muted-foreground/40 ml-0.5 shrink-0'>
                     +{segments.length - 1}
                   </span>
                 )}
@@ -766,7 +711,7 @@ export function useCommonLogsColumns(
             )
           } else if (log.content) {
             detailPreview = (
-              <span className='text-muted-foreground max-w-full min-w-0 truncate group-hover:underline'>
+              <span className='text-muted-foreground block max-w-full min-w-0 truncate no-underline hover:underline'>
                 {log.content}
               </span>
             )
@@ -776,7 +721,7 @@ export function useCommonLogsColumns(
             <>
               <button
                 type='button'
-                className='group flex max-w-full min-w-0 items-center gap-1 text-left text-xs'
+                className='flex max-w-full min-w-0 cursor-pointer items-center gap-1 text-left text-xs'
                 onClick={() => setDialogOpen(true)}
                 title={t('Click to view full details')}
               >
@@ -792,11 +737,6 @@ export function useCommonLogsColumns(
             </>
           )
         },
-        size: 180,
-        // The cell shows one truncated line of a log's details, so the length of
-        // that line says nothing about the width the column needs: it is a
-        // window, kept at the width declared here in every state.
-        meta: { measurement: 'window' },
       }
     )
 

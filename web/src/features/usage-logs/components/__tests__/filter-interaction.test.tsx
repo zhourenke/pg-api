@@ -142,24 +142,24 @@ it('commits draft filter and refreshes when clicking Refresh button', async () =
   })
 })
 
-it('preserves default 24h preset and stays as 24 Hours when clicking Refresh button', async () => {
+it('preserves default today preset and stays as Today when clicking Refresh button', async () => {
   const { router } = await renderFilter()
   const user = userEvent.setup()
 
-  expect(screen.getByRole('button', { name: '24 Hours' })).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Today' })).toBeVisible()
 
   const refreshButton = screen.getByRole('button', { name: 'Refresh' })
   await user.click(refreshButton)
 
   await waitFor(() => {
     expect(router.state.location.search).toMatchObject({
-      preset: '24h',
+      preset: 'today',
     })
   })
-  expect(screen.getByRole('button', { name: '24 Hours' })).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Today' })).toBeVisible()
 })
 
-it('preserves default 24h preset when submitting search with Enter in input', async () => {
+it('preserves default today preset when submitting search with Enter in input', async () => {
   const { router } = await renderFilter()
   const input = screen.getByPlaceholderText('Model Name')
 
@@ -169,10 +169,10 @@ it('preserves default 24h preset when submitting search with Enter in input', as
   await waitFor(() => {
     expect(router.state.location.search).toMatchObject({
       model: 'gpt-4o',
-      preset: '24h',
+      preset: 'today',
     })
   })
-  expect(screen.getByRole('button', { name: '24 Hours' })).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Today' })).toBeVisible()
 })
 
 it('preserves chosen preset and advances timestamp on subsequent refresh', async () => {
