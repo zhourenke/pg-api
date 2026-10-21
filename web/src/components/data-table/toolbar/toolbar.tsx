@@ -28,6 +28,7 @@ import { useDebounce, useMediaQuery } from '@/hooks'
 import { cn } from '@/lib/utils'
 
 import { DataTableFacetedFilter } from './faceted-filter'
+import { DataTableFitColumnsButton } from './fit-columns-button'
 import { DataTableMobileFilterPanel } from './mobile-filter-panel'
 import { DataTableViewOptions } from './view-options'
 
@@ -122,6 +123,10 @@ export type DataTableToolbarProps<TData> = {
    * Hide the View Options (column visibility) dropdown.
    */
   hideViewOptions?: boolean
+  /**
+   * Hide the Fit Column Widths (自适应列宽) button.
+   */
+  hideFitColumns?: boolean
   /**
    * Keep the search field and the action cluster on one row: the search field
    * grows into the free space and shrinks when the toolbar runs out of width,
@@ -334,6 +339,10 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
     <DataTableViewOptions table={props.table} />
   ) : null
 
+  const fitColumnsNode = !props.hideFitColumns ? (
+    <DataTableFitColumnsButton table={props.table} />
+  ) : null
+
   const viewToggleNode = props.viewToggle ?? null
 
   const expandToggle = hasExpandable ? (
@@ -372,6 +381,7 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
             {resetButton}
             {searchButton}
             {viewToggleNode}
+            {fitColumnsNode}
             {viewOptionsNode}
           </>
         }
@@ -412,6 +422,7 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
             {resetButton}
             {searchButton}
             {viewToggleNode}
+            {fitColumnsNode}
             {viewOptionsNode}
           </div>
         </div>
@@ -437,6 +448,7 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
         {resetButton}
         {searchButton}
         {viewToggleNode}
+        {fitColumnsNode}
         {viewOptionsNode}
         {expandToggle}
       </div>
