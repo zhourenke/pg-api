@@ -127,7 +127,7 @@ describe('StreamTpsCell', () => {
 
     // Hover trigger to open tooltip
     fireEvent.pointerEnter(burstTrigger)
-    fireEvent.focus(burstTrigger)
+    fireEvent.mouseEnter(burstTrigger)
 
     // Base UI tooltip popup
     const heading = await screen.findByText('Burst Streaming')
@@ -179,7 +179,7 @@ describe('StreamTpsCell', () => {
     expect(burstTrigger).not.toHaveClass('underline', 'hover:underline')
 
     fireEvent.pointerEnter(burstTrigger)
-    fireEvent.focus(burstTrigger)
+    fireEvent.mouseEnter(burstTrigger)
 
     const heading = await screen.findByText('脉冲流式')
     expect(heading).toBeInTheDocument()
@@ -206,7 +206,7 @@ describe('StreamTpsCell', () => {
 
     const burstTrigger = screen.getByRole('button', { name: 'Burst Streaming' })
     fireEvent.pointerEnter(burstTrigger)
-    fireEvent.focus(burstTrigger)
+    fireEvent.mouseEnter(burstTrigger)
 
     await screen.findByText('Burst Streaming')
     expect(screen.queryByText('Generation duration')).not.toBeInTheDocument()
@@ -299,5 +299,41 @@ describe('StreamTpsCell', () => {
     // Must cleanly stay open and not flash closed
     expect(await screen.findByText('Burst Streaming')).toBeInTheDocument()
     expect(screen.getByText('25 ms')).toBeInTheDocument()
+  })
+
+  test('toggles cleanly on repeated clicks without third-click or random flash-closes', async () => {
+    render(
+      <StreamTpsCell
+        isStream
+        throughput={{
+          tokensPerSecond: null,
+          isBurst: true,
+          outputMs: 50,
+          overallTokensPerSecond: 90,
+        }}
+      />
+    )
+
+    const burstTrigger = screen.getByRole('button', { name: 'Burst Streaming' })
+
+    // Click 1: opens
+    fireEvent.click(burstTrigger)
+    expect(await screen.findByText('50 ms')).toBeInTheDocument()
+
+    // Click 2: closes
+    fireEvent.click(burstTrigger)
+    expect(screen.queryByText('50 ms')).not.toBeInTheDocument()
+
+    // Click 3: opens cleanly (no third-click flash close)
+    fireEvent.click(burstTrigger)
+    expect(await screen.findByText('50 ms')).toBeInTheDocument()
+
+    // Click 4: closes cleanly
+    fireEvent.click(burstTrigger)
+    expect(screen.queryByText('50 ms')).not.toBeInTheDocument()
+
+    // Click 5: opens cleanly
+    fireEvent.click(burstTrigger)
+    expect(await screen.findByText('50 ms')).toBeInTheDocument()
   })
 })
