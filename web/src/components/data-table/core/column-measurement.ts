@@ -110,7 +110,7 @@ function measureCells(
   // recalculate styles and layout, so one join per column instead of one per cell
   // is most of what measuring a table costs.
   const box = getMeasurementBox()
-  const clones = cells.map((cell) => createMeasurementClone(cell))
+  const clones = cells.map((cell) => createMeasurementClone(cell, tableElement))
 
   // A stale containment from the previous column would answer a query this
   // column does not ask, so the box starts each column unconstrained.
@@ -153,6 +153,31 @@ type MeasurementClone = {
   clone: HTMLElement
 }
 
+function getTableRootContainer(tableElement?: HTMLElement): HTMLElement | null {
+  if (!tableElement) return null
+  let current: HTMLElement | null = tableElement.parentElement
+  let root: HTMLElement | null = current
+  while (
+    current &&
+    current !== document.body &&
+    current !== document.documentElement
+  ) {
+    if (current.className) {
+      root = current
+    }
+    if (
+      current.hasAttribute('data-measurement-key') &&
+      current.parentElement &&
+      current.parentElement !== document.body
+    ) {
+      root = current.parentElement
+      break
+    }
+    current = current.parentElement
+  }
+  return root
+}
+
 /**
  * Reads the width an element needs when nothing constrains it. The clone is
  * taken out of the table so the current column widths cannot influence the
@@ -162,7 +187,10 @@ type MeasurementClone = {
  * be laid out as one anonymous row, where their widths would influence each
  * other instead of being read one by one.
  */
-function createMeasurementClone(element: HTMLElement): MeasurementClone {
+function createMeasurementClone(
+  element: HTMLElement,
+  tableElement?: HTMLElement
+): MeasurementClone {
   const clone = element.cloneNode(true) as HTMLElement
 
   clone.querySelectorAll('[data-column-resizer]').forEach((resizer) => {
@@ -187,7 +215,29 @@ function createMeasurementClone(element: HTMLElement): MeasurementClone {
   clone.style.whiteSpace = 'nowrap'
 
   const holder = document.createElement('div')
-  holder.append(clone)
+  const rootContainer = getTableRootContainer(tableElement)
+  if (rootContainer && rootContainer !== document.body) {
+    holder.className = rootContainer.className
+  }
+
+  const mockTable = document.createElement('table')
+  if (tableElement) {
+    mockTable.className = tableElement.className
+    for (const attr of tableElement.attributes) {
+      if (attr.name.startsWith('data-')) {
+        mockTable.setAttribute(attr.name, attr.value)
+      }
+    }
+  }
+  mockTable.style.width = 'max-content'
+  mockTable.style.minWidth = '0'
+  mockTable.style.maxWidth = 'none'
+  mockTable.style.tableLayout = 'auto'
+
+  const tr = document.createElement('tr')
+  tr.append(clone)
+  mockTable.append(tr)
+  holder.append(mockTable)
 
   return { holder, clone }
 }
