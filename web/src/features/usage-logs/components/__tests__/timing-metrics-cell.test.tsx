@@ -336,4 +336,33 @@ describe('StreamTpsCell', () => {
     fireEvent.click(burstTrigger)
     expect(await screen.findByText('50 ms')).toBeInTheDocument()
   })
+
+  test('toggles cleanly on rapid clicks (< 500ms) without getting stuck in same state', async () => {
+    render(
+      <StreamTpsCell
+        isStream
+        throughput={{
+          tokensPerSecond: null,
+          isBurst: true,
+          outputMs: 40,
+          overallTokensPerSecond: 120,
+        }}
+      />
+    )
+
+    const burstTrigger = screen.getByRole('button', { name: 'Burst Streaming' })
+
+    // Rapid successive clicks simulating < 500ms intervals
+    fireEvent.click(burstTrigger)
+    expect(await screen.findByText('40 ms')).toBeInTheDocument()
+
+    fireEvent.click(burstTrigger)
+    expect(screen.queryByText('40 ms')).not.toBeInTheDocument()
+
+    fireEvent.click(burstTrigger)
+    expect(await screen.findByText('40 ms')).toBeInTheDocument()
+
+    fireEvent.click(burstTrigger)
+    expect(screen.queryByText('40 ms')).not.toBeInTheDocument()
+  })
 })
