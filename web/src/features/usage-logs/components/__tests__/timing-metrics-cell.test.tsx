@@ -257,4 +257,47 @@ describe('StreamTpsCell', () => {
 
     expect(screen.queryByText('35 ms')).not.toBeInTheDocument()
   })
+
+  test('does not flash closed on first click or when re-clicked after interacting elsewhere', async () => {
+    render(
+      <div>
+        <button type='button'>Elsewhere</button>
+        <StreamTpsCell
+          isStream
+          throughput={{
+            tokensPerSecond: null,
+            isBurst: true,
+            outputMs: 25,
+            overallTokensPerSecond: 80,
+          }}
+        />
+      </div>
+    )
+
+    const burstTrigger = screen.getByRole('button', { name: 'Burst Streaming' })
+    const elsewhere = screen.getByRole('button', { name: 'Elsewhere' })
+
+    // Scenario 1: First click (pointerdown -> focus -> click in real browser)
+    fireEvent.pointerDown(burstTrigger)
+    fireEvent.focus(burstTrigger)
+    fireEvent.click(burstTrigger)
+
+    // Must remain open
+    expect(await screen.findByText('Burst Streaming')).toBeInTheDocument()
+    expect(screen.getByText('25 ms')).toBeInTheDocument()
+
+    // Scenario 2: Interact elsewhere (blur trigger, close popover)
+    fireEvent.click(elsewhere)
+    fireEvent.blur(burstTrigger)
+    expect(screen.queryByText('25 ms')).not.toBeInTheDocument()
+
+    // Scenario 3: Return and re-click (pointerdown -> focus -> click again)
+    fireEvent.pointerDown(burstTrigger)
+    fireEvent.focus(burstTrigger)
+    fireEvent.click(burstTrigger)
+
+    // Must cleanly stay open and not flash closed
+    expect(await screen.findByText('Burst Streaming')).toBeInTheDocument()
+    expect(screen.getByText('25 ms')).toBeInTheDocument()
+  })
 })

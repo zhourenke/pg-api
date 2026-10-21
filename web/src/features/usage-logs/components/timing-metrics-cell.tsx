@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { CircleAlert, Zap } from 'lucide-react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -217,6 +217,7 @@ interface StreamTpsCellProps {
 export function StreamTpsCell(props: StreamTpsCellProps) {
   const { t } = useTranslation()
   const [burstOpen, setBurstOpen] = useState(false)
+  const isPointerRef = useRef(false)
   const showStreamError =
     props.isStream && props.streamStatus && props.streamStatus.status !== 'ok'
 
@@ -243,9 +244,29 @@ export function StreamTpsCell(props: StreamTpsCellProps) {
               <button
                 type='button'
                 aria-label={t('Burst Streaming')}
-                onFocus={() => setBurstOpen(true)}
+                onPointerDown={() => {
+                  isPointerRef.current = true
+                }}
+                onMouseDown={() => {
+                  isPointerRef.current = true
+                }}
+                onTouchStart={() => {
+                  isPointerRef.current = true
+                }}
+                onKeyDown={() => {
+                  isPointerRef.current = false
+                }}
+                onFocus={() => {
+                  if (!isPointerRef.current) {
+                    setBurstOpen(true)
+                  }
+                }}
+                onBlur={() => {
+                  isPointerRef.current = false
+                }}
                 onClick={(e) => {
                   e.stopPropagation()
+                  isPointerRef.current = false
                 }}
                 className='group/burst focus-visible:ring-ring inline-flex size-6 -my-1.5 -mx-1 cursor-help items-center justify-center rounded-xs text-amber-600/70 transition-colors hover:text-amber-600 active:text-amber-600 data-popup-open:text-amber-600 focus-visible:ring-1 focus-visible:outline-none touch-manipulation dark:text-amber-400/70 dark:hover:text-amber-300 dark:active:text-amber-300 dark:data-popup-open:text-amber-300'
               >
