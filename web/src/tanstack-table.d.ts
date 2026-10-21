@@ -25,6 +25,10 @@ declare module '@tanstack/react-table' {
      * When this key changes, column widths adapt to the new content structure.
      */
     measurementKey?: unknown
+    /**
+     * Re-measures and adapts column widths to the current content.
+     */
+    fitColumnWidths?: () => void
   }
 
   interface ColumnMeta<_TData, _TValue> {

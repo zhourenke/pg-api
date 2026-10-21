@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import type { ColumnDef } from '@tanstack/react-table'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import * as React from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { DataTableView, useDataTable } from '@/components/data-table'
@@ -632,5 +633,44 @@ describe('column resizing', () => {
     }
 
     expect(getColumnWidths()[0]).toBe('116px')
+  })
+
+  it('re-measures and adapts all columns to current content when fitColumnWidths is called', async () => {
+    stubScrollingWidth()
+
+    function DynamicHarness() {
+      const [names, setNames] = React.useState(['short'])
+      const { table, fitColumnWidths } = useDataTable({
+        data: names.map((name, index) => ({ id: index + 1, name })),
+        columns,
+      })
+
+      return (
+        <div>
+          <button
+            type='button'
+            onClick={() => setNames(['very-very-long-content-after-filtering'])}
+          >
+            Filter
+          </button>
+          <button type='button' onClick={() => fitColumnWidths?.()}>
+            Fit
+          </button>
+          <DataTableView table={table} />
+        </div>
+      )
+    }
+
+    render(<DynamicHarness />)
+    expect(getColumnWidths()[0]).toBe('56px')
+
+    await dragSeparator(screen.getByRole('separator'), 200, 400)
+    expect(getColumnWidths()[0]).toBe('256px')
+
+    fireEvent.click(screen.getByText('Filter'))
+    expect(getColumnWidths()[0]).toBe('256px')
+
+    fireEvent.click(screen.getByText('Fit'))
+    expect(getColumnWidths()[0]).toBe('320px')
   })
 })

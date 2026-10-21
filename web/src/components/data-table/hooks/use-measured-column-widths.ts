@@ -102,6 +102,20 @@ export function useMeasuredColumnWidths<TData>(
   const measuredIdsRef = React.useRef(new Set<string>())
   const frozenRef = React.useRef(false)
 
+  const followUpTimerRef = React.useRef<number | null>(null)
+  const settleTimerRef = React.useRef<number | null>(null)
+
+  const clearFollowUp = React.useCallback(() => {
+    if (followUpTimerRef.current !== null) {
+      window.clearInterval(followUpTimerRef.current)
+      followUpTimerRef.current = null
+    }
+    if (settleTimerRef.current !== null) {
+      window.clearTimeout(settleTimerRef.current)
+      settleTimerRef.current = null
+    }
+  }, [])
+
   /**
    * Measures columns and applies the widths. Returns true once the widths must
    * stop following the content, because the user has taken over.
@@ -301,4 +315,86 @@ export function useMeasuredColumnWidths<TData>(
       window.clearTimeout(settleTimer)
     }
   }, [currentKey, enabled, measureColumns])
+
+  const fitColumnWidths = React.useCallback(() => {
+    const tableElement = tableElementRef.current
+    if (!tableElement) {
+      return
+    }
+
+    clearFollowUp()
+    frozenRef.current = false
+    measuredIdsRef.current.clear()
+    appliedRef.current = null
+
+    const measured: ColumnSizingState = {}
+
+    for (const column of getMeasuredColumns(table)) {
+      const contentWidth = measureColumnContentWidth(tableElement, column.id)
+      if (contentWidth === undefined) {
+        continue
+      }
+
+      const headerWidth = measureColumnHeaderWidth(tableElement, column.id)
+      const fitWidth = Math.max(
+        getContentFitWidth(column, contentWidth),
+        headerWidth ?? 0
+      )
+
+      measuredIdsRef.current.add(column.id)
+      measured[column.id] = fitWidth
+    }
+
+    appliedRef.current = { ...measured }
+    table.setColumnSizing(() => ({ ...measured }))
+
+    const followUp = window.setInterval(() => {
+      if (measureColumns()) {
+        window.clearInterval(followUp)
+        if (followUpTimerRef.current === followUp) {
+          followUpTimerRef.current = null
+        }
+      }
+    }, FOLLOW_UP_MS)
+    followUpTimerRef.current = followUp
+
+    settleTimerRef.current = window.setTimeout(() => {
+      window.clearInterval(followUp)
+      if (followUpTimerRef.current === followUp) {
+        followUpTimerRef.current = null
+      }
+      settleTimerRef.current = null
+    }, SETTLE_WINDOW_MS)
+  }, [clearFollowUp, measureColumns, table, tableElementRef])
+
+  React.useEffect(() => {
+    const meta = table.options.meta as
+      | {
+          _registerFitColumnWidths?: (fn: (() => void) | undefined) => void
+          fitColumnWidths?: () => void
+        }
+      | undefined
+
+    if (meta?._registerFitColumnWidths) {
+      meta._registerFitColumnWidths(fitColumnWidths)
+      return () => {
+        meta._registerFitColumnWidths?.(undefined)
+      }
+    }
+
+    if (table.options.meta) {
+      table.options.meta.fitColumnWidths = fitColumnWidths
+      return () => {
+        if (table.options.meta?.fitColumnWidths === fitColumnWidths) {
+          delete table.options.meta.fitColumnWidths
+        }
+      }
+    }
+  }, [table, fitColumnWidths])
+
+  React.useEffect(() => {
+    return () => {
+      clearFollowUp()
+    }
+  }, [clearFollowUp])
 }

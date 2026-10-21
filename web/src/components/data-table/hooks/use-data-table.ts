@@ -255,6 +255,20 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>) {
     [columns, resolvedEnableColumnResizing]
   )
 
+  const fitColumnWidthsRef = React.useRef<(() => void) | undefined>(undefined)
+  const resolvedMeta = React.useMemo(() => {
+    const baseMeta = (options.meta ?? {}) as Record<string, unknown>
+    return {
+      ...baseMeta,
+      fitColumnWidths: () => {
+        fitColumnWidthsRef.current?.()
+      },
+      _registerFitColumnWidths: (fn: (() => void) | undefined) => {
+        fitColumnWidthsRef.current = fn
+      },
+    }
+  }, [options.meta])
+
   const table = useReactTable({
     data,
     columns: tableColumns,
@@ -272,7 +286,7 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>) {
     },
     enableRowSelection: options.enableRowSelection,
     enableSorting: resolvedEnableSorting,
-    meta: options.meta,
+    meta: resolvedMeta,
     getRowId: options.getRowId,
     getSubRows: options.getSubRows,
     globalFilterFn: options.globalFilterFn,
@@ -356,6 +370,7 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>) {
 
   return {
     table,
+    fitColumnWidths: resolvedMeta.fitColumnWidths,
   }
 }
 
