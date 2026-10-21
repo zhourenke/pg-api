@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { CircleAlert, Zap } from 'lucide-react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -24,6 +25,11 @@ import {
   textColorMap,
   type StatusVariant,
 } from '@/components/status-badge'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import {
   Tooltip,
   TooltipContent,
@@ -210,6 +216,7 @@ interface StreamTpsCellProps {
 
 export function StreamTpsCell(props: StreamTpsCellProps) {
   const { t } = useTranslation()
+  const [burstOpen, setBurstOpen] = useState(false)
   const showStreamError =
     props.isStream && props.streamStatus && props.streamStatus.status !== 'ok'
 
@@ -228,56 +235,61 @@ export function StreamTpsCell(props: StreamTpsCellProps) {
   if (isBurst) {
     secondLineContent = (
       <span className='inline-flex max-w-full min-w-0 items-center gap-0.5 truncate'>
-        <TooltipProvider delay={200}>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <span
-                  role='button'
-                  tabIndex={0}
-                  aria-label={t('Burst Streaming')}
-                  className='group/burst focus-visible:ring-ring inline-flex cursor-help items-center rounded-xs text-amber-600/70 transition-colors hover:text-amber-600 focus-visible:ring-1 focus-visible:outline-none dark:text-amber-400/70 dark:hover:text-amber-300'
-                >
-                  <Zap className='size-3 shrink-0 transition-colors group-hover/burst:fill-amber-500/80 group-focus-visible/burst:fill-amber-500/80 dark:group-hover/burst:fill-amber-400/80 dark:group-focus-visible/burst:fill-amber-400/80' />
-                </span>
-              }
-            />
-            <TooltipContent
-              side='top'
-              className='flex w-64 flex-col items-stretch gap-2 p-3 text-xs shadow-md'
-            >
-              <div className='text-foreground flex items-center gap-1.5 font-semibold'>
-                <Zap className='size-3.5 shrink-0 fill-amber-500 text-amber-500 dark:fill-amber-400 dark:text-amber-400' />
-                <span>{t('Burst Streaming')}</span>
-              </div>
-              <p className='text-muted-foreground text-xs leading-relaxed'>
-                {t(
-                  'Upstream delivered tokens in an instant burst instead of a steady stream.'
-                )}
-              </p>
-              {(outputMs != null || overallTps != null) && (
-                <div className='border-border/60 text-muted-foreground flex flex-col gap-1.5 border-t pt-2 text-[11px]'>
-                  {outputMs != null && (
-                    <div className='flex items-center justify-between gap-3'>
-                      <span>{t('Generation duration')}</span>
-                      <span className='text-foreground font-mono font-medium tabular-nums'>
-                        {outputMs} ms
-                      </span>
-                    </div>
-                  )}
-                  {overallTps != null && (
-                    <div className='flex items-center justify-between gap-3'>
-                      <span>{t('Overall rate')}</span>
-                      <span className='text-foreground font-mono font-medium tabular-nums'>
-                        {Math.round(overallTps)} t/s
-                      </span>
-                    </div>
-                  )}
-                </div>
+        <Popover open={burstOpen} onOpenChange={setBurstOpen}>
+          <PopoverTrigger
+            openOnHover
+            delay={200}
+            render={
+              <button
+                type='button'
+                aria-label={t('Burst Streaming')}
+                onFocus={() => setBurstOpen(true)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                }}
+                className='group/burst focus-visible:ring-ring inline-flex size-6 -my-1.5 -mx-1 cursor-help items-center justify-center rounded-xs text-amber-600/70 transition-colors hover:text-amber-600 active:text-amber-600 data-popup-open:text-amber-600 focus-visible:ring-1 focus-visible:outline-none touch-manipulation dark:text-amber-400/70 dark:hover:text-amber-300 dark:active:text-amber-300 dark:data-popup-open:text-amber-300'
+              >
+                <Zap className='size-3 shrink-0 transition-colors group-hover/burst:fill-amber-500/80 group-active/burst:fill-amber-500/80 group-data-popup-open/burst:fill-amber-500/80 group-focus-visible/burst:fill-amber-500/80 dark:group-hover/burst:fill-amber-400/80 dark:group-active/burst:fill-amber-400/80 dark:group-data-popup-open/burst:fill-amber-400/80 dark:group-focus-visible/burst:fill-amber-400/80' />
+              </button>
+            }
+          />
+          <PopoverContent
+            side='top'
+            sideOffset={6}
+            showArrow
+            className='border-border flex w-64 flex-col items-stretch gap-2 rounded-md border p-3 text-xs shadow-md ring-0'
+          >
+            <div className='text-foreground flex items-center gap-1.5 font-semibold'>
+              <Zap className='size-3.5 shrink-0 fill-amber-500 text-amber-500 dark:fill-amber-400 dark:text-amber-400' />
+              <span>{t('Burst Streaming')}</span>
+            </div>
+            <p className='text-muted-foreground text-xs leading-relaxed'>
+              {t(
+                'Upstream delivered tokens in an instant burst instead of a steady stream.'
               )}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+            </p>
+            {(outputMs != null || overallTps != null) && (
+              <div className='border-border/60 text-muted-foreground flex flex-col gap-1.5 border-t pt-2 text-[11px]'>
+                {outputMs != null && (
+                  <div className='flex items-center justify-between gap-3'>
+                    <span>{t('Generation duration')}</span>
+                    <span className='text-foreground font-mono font-medium tabular-nums'>
+                      {outputMs} ms
+                    </span>
+                  </div>
+                )}
+                {overallTps != null && (
+                  <div className='flex items-center justify-between gap-3'>
+                    <span>{t('Overall rate')}</span>
+                    <span className='text-foreground font-mono font-medium tabular-nums'>
+                      {Math.round(overallTps)} t/s
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </PopoverContent>
+        </Popover>
         <span className='shrink-0'>t/s</span>
       </span>
     )

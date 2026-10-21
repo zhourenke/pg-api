@@ -212,4 +212,49 @@ describe('StreamTpsCell', () => {
     expect(screen.queryByText('Generation duration')).not.toBeInTheDocument()
     expect(screen.queryByText('Overall rate')).not.toBeInTheDocument()
   })
+
+  test('opens burst streaming popup on click/touch, supports touch target styles, and dismisses on outside click', async () => {
+    render(
+      <div>
+        <button type='button'>Outside element</button>
+        <StreamTpsCell
+          isStream
+          throughput={{
+            tokensPerSecond: null,
+            isBurst: true,
+            outputMs: 35,
+            overallTokensPerSecond: 60,
+          }}
+        />
+      </div>
+    )
+
+    const burstTrigger = screen.getByRole('button', { name: 'Burst Streaming' })
+    expect(burstTrigger).toBeInTheDocument()
+    expect(burstTrigger).toHaveClass(
+      'touch-manipulation',
+      'active:text-amber-600',
+      'data-popup-open:text-amber-600'
+    )
+
+    const zapIcon = burstTrigger.querySelector('svg')
+    expect(zapIcon).toHaveClass(
+      'group-active/burst:fill-amber-500/80',
+      'group-data-popup-open/burst:fill-amber-500/80'
+    )
+
+    // Tap/click trigger opens the popover
+    fireEvent.click(burstTrigger)
+
+    const heading = await screen.findByText('Burst Streaming')
+    expect(heading).toBeInTheDocument()
+    expect(screen.getByText('35 ms')).toBeInTheDocument()
+    expect(screen.getByText('60 t/s')).toBeInTheDocument()
+
+    // Clicking outside dismisses the popover
+    const outside = screen.getByRole('button', { name: 'Outside element' })
+    fireEvent.click(outside)
+
+    expect(screen.queryByText('35 ms')).not.toBeInTheDocument()
+  })
 })

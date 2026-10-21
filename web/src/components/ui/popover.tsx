@@ -38,6 +38,8 @@ function PopoverContent({
   collisionPadding,
   collisionBoundary,
   collisionAvoidance,
+  showArrow = false,
+  children,
   ...props
 }: PopoverPrimitive.Popup.Props &
   Pick<
@@ -49,7 +51,9 @@ function PopoverContent({
     | 'collisionPadding'
     | 'collisionBoundary'
     | 'collisionAvoidance'
-  >) {
+  > & {
+    showArrow?: boolean
+  }) {
   return (
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Positioner
@@ -69,7 +73,15 @@ function PopoverContent({
             className
           )}
           {...props}
-        />
+        >
+          {children}
+          {showArrow && (
+            <PopoverPrimitive.Arrow
+              data-slot='popover-arrow'
+              className="before:bg-popover before:border-border relative z-50 block h-1.5 w-3 overflow-clip before:absolute before:bottom-0 before:left-1/2 before:h-[8.5px] before:w-[8.5px] before:[transform:translate(-50%,50%)_rotate(45deg)] before:border before:content-[''] data-[side=bottom]:top-[-6px] data-[side=left]:right-[-9px] data-[side=left]:rotate-90 data-[side=right]:left-[-9px] data-[side=right]:-rotate-90 data-[side=top]:bottom-[-6px] data-[side=top]:rotate-180"
+            />
+          )}
+        </PopoverPrimitive.Popup>
       </PopoverPrimitive.Positioner>
     </PopoverPrimitive.Portal>
   )
