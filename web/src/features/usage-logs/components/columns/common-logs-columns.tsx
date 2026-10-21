@@ -35,9 +35,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { toIntlLocale } from '@/i18n/languages'
 import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
 import { formatBillingCurrencyFromUSD } from '@/lib/currency'
-import { formatLogQuota, formatTimestampToDate } from '@/lib/format'
+import {
+  formatLogQuota,
+  formatNumber,
+  formatTimestampToDate,
+} from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { useSystemConfigStore } from '@/stores/system-config-store'
 
@@ -283,7 +288,8 @@ export function useCommonLogsColumns(
   isAdmin: boolean,
   isRoot: boolean
 ): ColumnDef<UsageLog>[] {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const currency = useSystemConfigStore((state) => state.config.currency)
   return useMemo(() => {
     const columns: ColumnDef<UsageLog>[] = [
@@ -595,6 +601,8 @@ export function useCommonLogsColumns(
       {
         accessorKey: 'prompt_tokens',
         header: 'Tokens',
+        size: 160,
+        meta: { measurement: 'window' },
         cell: ({ row }) => {
           const log = row.original
           if (!isDisplayableLogType(log.type)) return null
@@ -615,22 +623,55 @@ export function useCommonLogsColumns(
             ? cacheWrite5m + cacheWrite1h
             : other?.cache_creation_tokens || 0
 
+          const hasCache = cacheReadTokens > 0 || cacheWriteTokens > 0
+          const formattedPrompt = formatNumber(promptTokens, locale)
+          const formattedCompletion = formatNumber(completionTokens, locale)
+          const formattedCacheRead = formatNumber(cacheReadTokens, locale)
+          const formattedCacheWrite = formatNumber(cacheWriteTokens, locale)
+
+          const tooltipLines = [
+            `${t('Input Tokens')}: ${formattedPrompt}`,
+            `${t('Output Tokens')}: ${formattedCompletion}`,
+          ]
+          if (cacheReadTokens > 0) {
+            tooltipLines.push(`${t('Cache Read')}: ${formattedCacheRead}`)
+          }
+          if (cacheWriteTokens > 0) {
+            if (hasSplitCache) {
+              if (cacheWrite5m > 0) {
+                tooltipLines.push(
+                  `${t('Cache Write (5m)')}: ${formatNumber(cacheWrite5m, locale)}`
+                )
+              }
+              if (cacheWrite1h > 0) {
+                tooltipLines.push(
+                  `${t('Cache Write (1h)')}: ${formatNumber(cacheWrite1h, locale)}`
+                )
+              }
+            } else {
+              tooltipLines.push(`${t('Cache Write')}: ${formattedCacheWrite}`)
+            }
+          }
+
           return (
-            <div className='flex max-w-full min-w-0 flex-col gap-0.5'>
+            <div
+              className='flex max-w-full min-w-0 flex-col gap-0.5'
+              title={tooltipLines.join('\n')}
+            >
               <span className='max-w-full min-w-0 truncate font-mono text-xs font-medium tabular-nums'>
-                {promptTokens.toLocaleString()} /{' '}
-                {completionTokens.toLocaleString()}
+                {formattedPrompt} / {formattedCompletion}
               </span>
-              {(cacheReadTokens > 0 || cacheWriteTokens > 0) && (
-                <div className='flex max-w-full min-w-0 items-center gap-1 text-[11px]'>
+              {hasCache && (
+                <div className='flex max-w-full min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] leading-tight'>
                   {cacheReadTokens > 0 && (
-                    <span className='text-muted-foreground/60 min-w-0 truncate'>
-                      {t('Cache')}↓ {cacheReadTokens.toLocaleString()}
+                    <span className='text-muted-foreground/60 min-w-0 max-w-full truncate tabular-nums'>
+                      {t('Cache')}↓ {formattedCacheRead}
                     </span>
                   )}
                   {cacheWriteTokens > 0 && (
-                    <span className='text-muted-foreground/60 min-w-0 truncate'>
-                      ↑ {cacheWriteTokens.toLocaleString()}
+                    <span className='text-muted-foreground/60 min-w-0 max-w-full truncate tabular-nums'>
+                      {cacheReadTokens > 0 ? '↑' : `${t('Cache')}↑`}{' '}
+                      {formattedCacheWrite}
                     </span>
                   )}
                 </div>
@@ -743,5 +784,5 @@ export function useCommonLogsColumns(
     return columns
     // Log formatters read currency settings from the store.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [t, isAdmin, isRoot, currency])
+  }, [t, isAdmin, isRoot, currency, locale])
 }
