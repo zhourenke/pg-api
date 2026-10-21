@@ -167,7 +167,7 @@ describe('usage logs prompt_tokens column specifications', () => {
     expect(tokensSpan).toHaveClass('tabular-nums')
   })
 
-  it('renders both cache read and write with flex-wrap and full hover title when both are present', () => {
+  it('renders both cache read and write with intrinsic max-content width and full hover title', () => {
     const { container } = renderLogTable(
       makeLog({
         prompt_tokens: 211452,
@@ -184,8 +184,12 @@ describe('usage logs prompt_tokens column specifications', () => {
     )
     expect(tokensCell).toBeInTheDocument()
 
-    // Cache container should use flex-wrap to avoid being squeezed into ellipsis
-    const cacheContainer = tokensCell?.querySelector('div.flex-wrap')
+    // Root cell element should carry w-max to allow accurate intrinsic width measurement
+    const rootCellDiv = tokensCell?.firstElementChild
+    expect(rootCellDiv).toHaveClass('w-max')
+
+    // Cache container should use w-max so flexbox measurement calculates true content width
+    const cacheContainer = tokensCell?.querySelector('div.w-max')
     expect(cacheContainer).toBeInTheDocument()
 
     // Both read and write numbers should be visible in text
@@ -193,7 +197,6 @@ describe('usage logs prompt_tokens column specifications', () => {
     expect(tokensCell).toHaveTextContent('↑ 3,452')
 
     // Root cell element should have a complete title attribute with all token details
-    const rootCellDiv = tokensCell?.firstElementChild
     expect(rootCellDiv).toHaveAttribute('title')
     const title = rootCellDiv?.getAttribute('title') ?? ''
     expect(title).toContain('输入 Token: 211,452')
@@ -272,7 +275,7 @@ describe('usage logs prompt_tokens column specifications', () => {
     expect(title).toContain('缓存写入 (1h): 25,000')
   })
 
-  it('configures prompt_tokens column with window measurement and recommended width', () => {
+  it('configures prompt_tokens column as an adaptive measured column without fixed window measurement', () => {
     let columns: ReturnType<typeof useCommonLogsColumns> | undefined
     function ColumnsInspector() {
       columns = useCommonLogsColumns(true, false)
@@ -292,7 +295,7 @@ describe('usage logs prompt_tokens column specifications', () => {
         col.id === 'prompt_tokens'
     )
     expect(promptTokensColumn).toBeDefined()
-    expect(promptTokensColumn?.size).toBe(160)
-    expect(promptTokensColumn?.meta?.measurement).toBe('window')
+    expect(promptTokensColumn?.size).toBeUndefined()
+    expect(promptTokensColumn?.meta?.measurement).toBeUndefined()
   })
 })
