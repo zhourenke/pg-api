@@ -22,6 +22,7 @@ import { useState, type ComponentProps, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
+  DataTableFitColumnsButton,
   DataTableMobileFilterPanel,
   DataTableViewOptions,
 } from '@/components/data-table'
@@ -175,6 +176,7 @@ export function LogsFilterToolbar<TData>(props: LogsFilterToolbarProps<TData>) {
               <Button type='button' onClick={props.onSearch}>
                 {t('Refresh')}
               </Button>
+              <DataTableFitColumnsButton table={props.table} />
               <DataTableViewOptions table={props.table} />
             </>
           }
@@ -268,6 +270,7 @@ export function LogsFilterToolbar<TData>(props: LogsFilterToolbarProps<TData>) {
           <Button type='button' onClick={props.onSearch}>
             {t('Refresh')}
           </Button>
+          <DataTableFitColumnsButton table={props.table} />
           <DataTableViewOptions table={props.table} />
         </div>
       </div>

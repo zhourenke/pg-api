@@ -45,7 +45,7 @@ export function DataTableFitColumnsButton<TData>(
   }
 
   const showIcon = props.showIcon ?? true
-  const hideTextOnMobile = props.hideTextOnMobile ?? true
+  const hideTextOnMobile = props.hideTextOnMobile ?? false
 
   return (
     <Button

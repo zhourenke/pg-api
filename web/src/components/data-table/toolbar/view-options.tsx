@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { Table } from '@tanstack/react-table'
+import { StretchHorizontal } from 'lucide-react'
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -26,7 +27,9 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
+  DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
@@ -72,6 +75,16 @@ export function DataTableViewOptions<TData>({
         {t('View')}
       </DropdownMenuTrigger>
       <DropdownMenuContent align='end' className='w-auto min-w-[150px]'>
+        <DropdownMenuGroup>
+          <DropdownMenuItem
+            onClick={() => table.options.meta?.fitColumnWidths?.()}
+            className='gap-2'
+          >
+            <StretchHorizontal className='size-3.5' aria-hidden='true' />
+            {t('Fit column widths')}
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuLabel>{t('Toggle columns')}</DropdownMenuLabel>
           {hideableColumns.map((column) => {

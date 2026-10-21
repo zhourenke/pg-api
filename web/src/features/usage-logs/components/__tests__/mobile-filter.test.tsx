@@ -205,14 +205,20 @@ it('closes the drawer and applies filters when Refresh is pressed', async () => 
 it('keeps all quick actions visible without opening a menu', async () => {
   await renderMobileFilter()
   const user = userEvent.setup()
-  for (const name of ['Hide', 'Filter', 'Refresh', 'View']) {
+  for (const name of [
+    'Hide',
+    'Filter',
+    'Refresh',
+    'Fit column widths',
+    'View',
+  ]) {
     expect(screen.getByRole('button', { name })).toBeVisible()
   }
   expect(screen.queryByRole('button', { name: 'More' })).not.toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Hide' }))
   expect(screen.getByRole('button', { name: 'Show' })).toBeVisible()
   screen.getByRole('button', { name: 'Show' }).focus()
-  for (const name of ['Filter', 'Refresh', 'View']) {
+  for (const name of ['Filter', 'Refresh', 'Fit column widths', 'View']) {
     await user.tab()
     expect(screen.getByRole('button', { name })).toHaveFocus()
   }
