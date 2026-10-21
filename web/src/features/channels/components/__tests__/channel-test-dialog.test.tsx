@@ -207,3 +207,11 @@ it('puts a failure summary and its own actions side by side in the narrow card',
   expect(resultColumn?.parentElement?.contains(settingsButton)).toBe(true)
   client.clear()
 })
+
+it('renders the fit columns button beside the filter search input', async () => {
+  const client = renderDialog()
+  expect(
+    await screen.findByRole('button', { name: 'Fit column widths' })
+  ).toBeVisible()
+  client.clear()
+})

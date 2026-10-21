@@ -20,7 +20,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ListChecks, RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
-import { useDataTable } from '@/components/data-table'
+import { DataTableFitColumnsButton, useDataTable } from '@/components/data-table'
 import { ErrorState } from '@/components/error-state'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -151,7 +151,16 @@ export function SystemTasksPanel() {
                     {t('Tasks currently pending or running.')}
                   </p>
                 </div>
-                <Badge variant='outline'>{activeTasks.length}</Badge>
+                <div className='flex items-center gap-2'>
+                  <Badge variant='outline'>{activeTasks.length}</Badge>
+                  {hasActiveTasks && (
+                    <DataTableFitColumnsButton
+                      table={table}
+                      size='xs'
+                      className='h-6 text-xs'
+                    />
+                  )}
+                </div>
               </div>
               {activeTasks.length > 0 ? (
                 <SystemTasksTable table={table} />

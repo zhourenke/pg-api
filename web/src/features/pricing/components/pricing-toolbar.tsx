@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { ArrowDown, ArrowUp, Check, Filter } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, Filter, StretchHorizontal } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -87,6 +87,7 @@ export interface PricingToolbarProps {
   hasActiveFilters: boolean
   activeFilterCount: number
   onClearFilters: () => void
+  onFitColumns?: () => void
 }
 
 export function PricingToolbar(props: PricingToolbarProps) {
@@ -224,6 +225,21 @@ export function PricingToolbar(props: PricingToolbarProps) {
               <ArrowUp className='size-3.5' />
             )}
           </Button>
+
+          {props.viewMode === 'table' && props.onFitColumns && (
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              onClick={props.onFitColumns}
+              className='h-8 gap-1.5 text-xs'
+              title={t('Fit column widths')}
+              aria-label={t('Fit column widths')}
+            >
+              <StretchHorizontal className='size-3.5' aria-hidden='true' />
+              <span className='hidden sm:inline'>{t('Fit column widths')}</span>
+            </Button>
+          )}
 
           {!isMobile && (
             <DataTableViewModeToggle

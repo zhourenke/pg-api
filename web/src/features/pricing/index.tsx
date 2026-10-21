@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { PublicLayout } from '@/components/layout'
@@ -41,6 +41,7 @@ export function Pricing() {
   const [selectedModelName, setSelectedModelName] = useState<string | null>(
     null
   )
+  const fitColumnsRef = useRef<() => void>(() => {})
 
   const {
     models,
@@ -146,6 +147,9 @@ export function Pricing() {
         showRechargePrice={showRechargePrice}
         selectedGroup={groupFilter}
         onModelClick={handleModelClick}
+        onRegisterFitColumns={(fn) => {
+          fitColumnsRef.current = fn
+        }}
       />
     )
   }
@@ -258,6 +262,7 @@ export function Pricing() {
                 hasActiveFilters={hasActiveFilters}
                 activeFilterCount={activeFilterCount}
                 onClearFilters={clearFilters}
+                onFitColumns={() => fitColumnsRef.current()}
               />
 
               {renderPricingContent()}

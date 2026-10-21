@@ -238,6 +238,34 @@ describe('pricing controls', () => {
     )
   })
 
+  it('renders fit columns button in table view and invokes onFitColumns on click', async () => {
+    const props = toolbarProps()
+    const onFitColumns = vi.fn()
+    const user = userEvent.setup()
+    const { rerender } = render(
+      <PricingToolbar
+        {...props}
+        viewMode='card'
+        onFitColumns={onFitColumns}
+      />
+    )
+    expect(
+      screen.queryByRole('button', { name: 'Fit column widths' })
+    ).not.toBeInTheDocument()
+
+    rerender(
+      <PricingToolbar
+        {...props}
+        viewMode='table'
+        onFitColumns={onFitColumns}
+      />
+    )
+    const fitButton = screen.getByRole('button', { name: 'Fit column widths' })
+    expect(fitButton).toBeVisible()
+    await user.click(fitButton)
+    expect(onFitColumns).toHaveBeenCalledTimes(1)
+  })
+
   it('selects a price field from the sort dropdown', async () => {
     const props = toolbarProps()
     const user = userEvent.setup()

@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { Row, PaginationState } from '@tanstack/react-table'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -40,6 +40,7 @@ export interface PricingTableProps {
   showRechargePrice?: boolean
   selectedGroup?: string
   onModelClick?: (modelName: string) => void
+  onRegisterFitColumns?: (fn: () => void) => void
 }
 
 export function PricingTable(props: PricingTableProps) {
@@ -53,6 +54,7 @@ export function PricingTable(props: PricingTableProps) {
     showRechargePrice = false,
     selectedGroup,
     onModelClick,
+    onRegisterFitColumns,
   } = props
 
   const [pagination, setPagination] = useState<PaginationState>({
@@ -70,7 +72,7 @@ export function PricingTable(props: PricingTableProps) {
 
   const measurementKey = `${tokenUnit}-${showRechargePrice ? 'recharge' : 'std'}-${selectedGroup ?? 'all'}`
 
-  const { table } = useDataTable({
+  const { table, fitColumnWidths } = useDataTable({
     data: models,
     columns,
     meta: { measurementKey },
@@ -82,6 +84,15 @@ export function PricingTable(props: PricingTableProps) {
     withSortedRowModel: false,
     withFacetedRowModel: false,
   })
+
+  useEffect(() => {
+    if (fitColumnWidths) {
+      onRegisterFitColumns?.(fitColumnWidths)
+    }
+    return () => {
+      onRegisterFitColumns?.(() => {})
+    }
+  }, [fitColumnWidths, onRegisterFitColumns])
 
   const handleRowClick = useCallback(
     (model: PricingModel) => {

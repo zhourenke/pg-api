@@ -47,6 +47,7 @@ import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import {
   DataTableBulkActions as BulkActionsToolbar,
+  DataTableFitColumnsButton,
   DataTablePagination,
   ResponsiveDataTableView,
   useDataTable,
@@ -1047,13 +1048,14 @@ function ChannelTestDialogContent({
                   )}
                 </div>
               </div>
-              <div className='flex flex-col gap-2 sm:flex-row sm:items-center'>
+              <div className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'>
                 <Input
                   placeholder={t('Filter models...')}
                   value={searchTerm}
                   onChange={handleSearchTermChange}
                   className='sm:w-64'
                 />
+                <DataTableFitColumnsButton table={table} size='sm' className='h-9' />
               </div>
             </div>
 

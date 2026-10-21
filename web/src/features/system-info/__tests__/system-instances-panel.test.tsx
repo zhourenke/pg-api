@@ -93,6 +93,7 @@ it('lists instances in the shared table on wide viewports', async () => {
   const client = renderPanel()
 
   expect(await screen.findByRole('table')).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Fit column widths' })).toBeVisible()
   expect(screen.getByRole('columnheader', { name: 'Instances' })).toBeVisible()
   expect(screen.getByText('instance-online')).toBeVisible()
   expect(screen.getByText('host-online')).toBeVisible()

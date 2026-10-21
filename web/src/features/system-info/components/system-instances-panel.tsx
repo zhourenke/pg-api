@@ -17,8 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Loader2, RefreshCw, ServerCog, Trash2 } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { Loader2, RefreshCw, ServerCog, StretchHorizontal, Trash2 } from 'lucide-react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -54,6 +54,7 @@ type SystemInstancesTableProps = {
   deletingNodeName: string | null
   isDeletingInstance: boolean
   onDeleteStaleInstance: (instance: SystemInstance) => void
+  onRegisterFitColumns?: (fn: () => void) => void
 }
 
 function SystemInstancesList(props: SystemInstancesTableProps) {
@@ -62,12 +63,22 @@ function SystemInstancesList(props: SystemInstancesTableProps) {
     isDeletingInstance: props.isDeletingInstance,
     onDeleteStaleInstance: props.onDeleteStaleInstance,
   })
-  const { table } = useDataTable({
+  const { table, fitColumnWidths } = useDataTable({
     data: props.instances,
     columns,
     getRowId: (instance) => instance.node_name,
     enableSorting: false,
   })
+
+  const onRegisterFitColumns = props.onRegisterFitColumns
+  useEffect(() => {
+    if (fitColumnWidths) {
+      onRegisterFitColumns?.(fitColumnWidths)
+    }
+    return () => {
+      onRegisterFitColumns?.(() => {})
+    }
+  }, [fitColumnWidths, onRegisterFitColumns])
 
   return (
     <ResponsiveDataTableView
@@ -88,6 +99,7 @@ export function SystemInstancesPanel() {
   const [deleteTarget, setDeleteTarget] = useState<SystemInstance | null>(null)
   const [deleteAllConfirmOpen, setDeleteAllConfirmOpen] = useState(false)
   const [deletingNodeName, setDeletingNodeName] = useState<string | null>(null)
+  const fitColumnsRef = useRef<() => void>(() => {})
   const instancesQuery = useQuery({
     queryKey: ['system-info', 'instances'],
     queryFn: async () => {
@@ -214,6 +226,9 @@ export function SystemInstancesPanel() {
             isMutatingInstance || deleteStaleInstancesMutation.isPending
           }
           onDeleteStaleInstance={setDeleteTarget}
+          onRegisterFitColumns={(fn) => {
+            fitColumnsRef.current = fn
+          }}
         />
       </div>
     )
@@ -270,6 +285,20 @@ export function SystemInstancesPanel() {
                 {t('Delete all stale')}
               </Button>
             ) : null}
+            {instances.length > 0 && (
+              <Button
+                type='button'
+                variant='outline'
+                size='sm'
+                onClick={() => fitColumnsRef.current()}
+                className='gap-1.5'
+                title={t('Fit column widths')}
+                aria-label={t('Fit column widths')}
+              >
+                <StretchHorizontal className='size-3.5' aria-hidden='true' />
+                <span className='hidden sm:inline'>{t('Fit column widths')}</span>
+              </Button>
+            )}
             <Button
               type='button'
               variant='outline'
