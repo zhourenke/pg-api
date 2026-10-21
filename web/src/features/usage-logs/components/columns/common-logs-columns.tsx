@@ -601,8 +601,6 @@ export function useCommonLogsColumns(
       {
         accessorKey: 'prompt_tokens',
         header: 'Tokens',
-        size: 160,
-        meta: { measurement: 'window' },
         cell: ({ row }) => {
           const log = row.original
           if (!isDisplayableLogType(log.type)) return null
@@ -655,21 +653,21 @@ export function useCommonLogsColumns(
 
           return (
             <div
-              className='flex max-w-full min-w-0 flex-col gap-0.5'
+              className='flex w-max max-w-full min-w-0 flex-col gap-0.5'
               title={tooltipLines.join('\n')}
             >
               <span className='max-w-full min-w-0 truncate font-mono text-xs font-medium tabular-nums'>
                 {formattedPrompt} / {formattedCompletion}
               </span>
               {hasCache && (
-                <div className='flex max-w-full min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] leading-tight'>
+                <div className='flex w-max max-w-full items-center gap-1 text-[11px] leading-tight'>
                   {cacheReadTokens > 0 && (
-                    <span className='text-muted-foreground/60 min-w-0 max-w-full truncate tabular-nums'>
+                    <span className='text-muted-foreground/60 min-w-0 truncate tabular-nums'>
                       {t('Cache')}↓ {formattedCacheRead}
                     </span>
                   )}
                   {cacheWriteTokens > 0 && (
-                    <span className='text-muted-foreground/60 min-w-0 max-w-full truncate tabular-nums'>
+                    <span className='text-muted-foreground/60 min-w-0 truncate tabular-nums'>
                       {cacheReadTokens > 0 ? '↑' : `${t('Cache')}↑`}{' '}
                       {formattedCacheWrite}
                     </span>
