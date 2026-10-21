@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { CircleAlert, Zap } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -217,8 +217,36 @@ interface StreamTpsCellProps {
 export function StreamTpsCell(props: StreamTpsCellProps) {
   const { t } = useTranslation()
   const [burstOpen, setBurstOpen] = useState(false)
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const showStreamError =
     props.isStream && props.streamStatus && props.streamStatus.status !== 'ok'
+
+  const clearCloseTimer = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current)
+      closeTimerRef.current = null
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      clearCloseTimer()
+    }
+  }, [])
+
+  const handlePointerEnter = (e: React.PointerEvent) => {
+    if (e.pointerType === 'touch') return
+    clearCloseTimer()
+    setBurstOpen(true)
+  }
+
+  const handlePointerLeave = (e: React.PointerEvent) => {
+    if (e.pointerType === 'touch') return
+    clearCloseTimer()
+    closeTimerRef.current = setTimeout(() => {
+      setBurstOpen(false)
+    }, 150)
+  }
 
   const isBurst = props.throughput?.isBurst ?? false
   const outputMs = props.throughput?.outputMs
@@ -235,17 +263,23 @@ export function StreamTpsCell(props: StreamTpsCellProps) {
   if (isBurst) {
     secondLineContent = (
       <span className='inline-flex max-w-full min-w-0 items-center gap-0.5 truncate'>
-        <Popover open={burstOpen} onOpenChange={setBurstOpen}>
+        <Popover
+          open={burstOpen}
+          onOpenChange={(nextOpen) => {
+            clearCloseTimer()
+            setBurstOpen(nextOpen)
+          }}
+        >
           <PopoverTrigger
-            openOnHover
-            delay={0}
             render={
               <button
                 type='button'
                 aria-label={t('Burst Streaming')}
+                onPointerEnter={handlePointerEnter}
+                onPointerLeave={handlePointerLeave}
                 onClick={(e) => {
                   e.stopPropagation()
-                  ;(e as unknown as { preventBaseUIHandler?: () => void }).preventBaseUIHandler?.()
+                  clearCloseTimer()
                   setBurstOpen((prev) => !prev)
                 }}
                 className='group/burst focus-visible:ring-ring inline-flex size-6 -my-1.5 -mx-1 cursor-help items-center justify-center rounded-xs text-amber-600/70 transition-colors hover:text-amber-600 active:text-amber-600 data-popup-open:text-amber-600 focus-visible:ring-1 focus-visible:outline-none touch-manipulation dark:text-amber-400/70 dark:hover:text-amber-300 dark:active:text-amber-300 dark:data-popup-open:text-amber-300'
@@ -258,6 +292,8 @@ export function StreamTpsCell(props: StreamTpsCellProps) {
             side='top'
             sideOffset={6}
             showArrow
+            onPointerEnter={handlePointerEnter}
+            onPointerLeave={handlePointerLeave}
             className='border-border flex w-64 flex-col items-stretch gap-2 rounded-md border p-3 text-xs shadow-md ring-0'
           >
             <div className='text-foreground flex items-center gap-1.5 font-semibold'>

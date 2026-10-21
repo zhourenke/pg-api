@@ -126,8 +126,7 @@ describe('StreamTpsCell', () => {
     expect(burstTrigger).not.toHaveClass('underline', 'hover:underline')
 
     // Hover trigger to open tooltip
-    fireEvent.pointerEnter(burstTrigger)
-    fireEvent.mouseEnter(burstTrigger)
+    fireEvent.pointerEnter(burstTrigger, { pointerType: 'mouse' })
 
     // Base UI tooltip popup
     const heading = await screen.findByText('Burst Streaming')
@@ -178,8 +177,7 @@ describe('StreamTpsCell', () => {
     expect(burstTrigger).toHaveClass('cursor-help')
     expect(burstTrigger).not.toHaveClass('underline', 'hover:underline')
 
-    fireEvent.pointerEnter(burstTrigger)
-    fireEvent.mouseEnter(burstTrigger)
+    fireEvent.pointerEnter(burstTrigger, { pointerType: 'mouse' })
 
     const heading = await screen.findByText('脉冲流式')
     expect(heading).toBeInTheDocument()
@@ -205,8 +203,7 @@ describe('StreamTpsCell', () => {
     )
 
     const burstTrigger = screen.getByRole('button', { name: 'Burst Streaming' })
-    fireEvent.pointerEnter(burstTrigger)
-    fireEvent.mouseEnter(burstTrigger)
+    fireEvent.pointerEnter(burstTrigger, { pointerType: 'mouse' })
 
     await screen.findByText('Burst Streaming')
     expect(screen.queryByText('Generation duration')).not.toBeInTheDocument()
