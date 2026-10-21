@@ -216,8 +216,12 @@ interface StreamTpsCellProps {
 
 export function StreamTpsCell(props: StreamTpsCellProps) {
   const { t } = useTranslation()
-  const [burstOpen, setBurstOpen] = useState(false)
+  const [isPinned, setIsPinned] = useState(false)
+  const [isHovered, setIsHovered] = useState(false)
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastTouchTimeRef = useRef(0)
+  const lastPointerEnterTimeRef = useRef(0)
+  const isHoverSuppressedRef = useRef(false)
   const showStreamError =
     props.isStream && props.streamStatus && props.streamStatus.status !== 'ok'
 
@@ -234,18 +238,75 @@ export function StreamTpsCell(props: StreamTpsCellProps) {
     }
   }, [])
 
+  const burstOpen = isPinned || (isHovered && !isHoverSuppressedRef.current)
+
   const handlePointerEnter = (e: React.PointerEvent) => {
     if (e.pointerType === 'touch') return
+    lastPointerEnterTimeRef.current = Date.now()
     clearCloseTimer()
-    setBurstOpen(true)
+    if (!isHoverSuppressedRef.current) {
+      setIsHovered(true)
+    }
   }
 
   const handlePointerLeave = (e: React.PointerEvent) => {
     if (e.pointerType === 'touch') return
+    isHoverSuppressedRef.current = false
     clearCloseTimer()
     closeTimerRef.current = setTimeout(() => {
-      setBurstOpen(false)
+      setIsHovered(false)
     }, 150)
+  }
+
+  const toggleBurst = (fromClick = false) => {
+    clearCloseTimer()
+    // When moving mouse from elsewhere and immediately clicking (< 300ms since enter)
+    // while not pinned, treat it as a deliberate click to open/pin, not an immediate close
+    if (fromClick && !isPinned && Date.now() - lastPointerEnterTimeRef.current < 300) {
+      setIsPinned(true)
+      isHoverSuppressedRef.current = false
+      return
+    }
+
+    if (burstOpen) {
+      setIsPinned(false)
+      setIsHovered(false)
+      isHoverSuppressedRef.current = true
+    } else {
+      setIsPinned(true)
+      isHoverSuppressedRef.current = false
+    }
+  }
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (e.pointerType === 'touch') {
+      e.stopPropagation()
+      // @ts-expect-error Base UI synthetic event method
+      e.preventBaseUIHandler?.()
+      lastTouchTimeRef.current = Date.now()
+      toggleBurst(false)
+    }
+  }
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    e.stopPropagation()
+    // @ts-expect-error Base UI synthetic event method
+    e.preventBaseUIHandler?.()
+    if (Date.now() - lastTouchTimeRef.current > 300) {
+      lastTouchTimeRef.current = Date.now()
+      toggleBurst(false)
+    }
+  }
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    // @ts-expect-error Base UI synthetic event method
+    e.preventBaseUIHandler?.()
+    // Suppress synthetic mouse click dispatched immediately after a touch tap
+    if (Date.now() - lastTouchTimeRef.current < 500) {
+      return
+    }
+    toggleBurst(true)
   }
 
   const isBurst = props.throughput?.isBurst ?? false
@@ -267,7 +328,11 @@ export function StreamTpsCell(props: StreamTpsCellProps) {
           open={burstOpen}
           onOpenChange={(nextOpen) => {
             clearCloseTimer()
-            setBurstOpen(nextOpen)
+            if (!nextOpen) {
+              setIsPinned(false)
+              setIsHovered(false)
+              isHoverSuppressedRef.current = false
+            }
           }}
         >
           <PopoverTrigger
@@ -277,11 +342,17 @@ export function StreamTpsCell(props: StreamTpsCellProps) {
                 aria-label={t('Burst Streaming')}
                 onPointerEnter={handlePointerEnter}
                 onPointerLeave={handlePointerLeave}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  clearCloseTimer()
-                  setBurstOpen((prev) => !prev)
+                onPointerDown={(e) => {
+                  // @ts-expect-error Base UI synthetic event method
+                  e.preventBaseUIHandler?.()
                 }}
+                onMouseDown={(e) => {
+                  // @ts-expect-error Base UI synthetic event method
+                  e.preventBaseUIHandler?.()
+                }}
+                onPointerUp={handlePointerUp}
+                onTouchEnd={handleTouchEnd}
+                onClick={handleClick}
                 className='group/burst focus-visible:ring-ring inline-flex size-6 -my-1.5 -mx-1 cursor-help items-center justify-center rounded-xs text-amber-600/70 transition-colors hover:text-amber-600 active:text-amber-600 data-popup-open:text-amber-600 focus-visible:ring-1 focus-visible:outline-none touch-manipulation dark:text-amber-400/70 dark:hover:text-amber-300 dark:active:text-amber-300 dark:data-popup-open:text-amber-300'
               >
                 <Zap className='size-3 shrink-0 transition-colors group-hover/burst:fill-amber-500/80 group-active/burst:fill-amber-500/80 group-data-popup-open/burst:fill-amber-500/80 group-focus-visible/burst:fill-amber-500/80 dark:group-hover/burst:fill-amber-400/80 dark:group-active/burst:fill-amber-400/80 dark:group-data-popup-open/burst:fill-amber-400/80 dark:group-focus-visible/burst:fill-amber-400/80' />

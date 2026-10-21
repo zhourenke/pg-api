@@ -362,4 +362,35 @@ describe('StreamTpsCell', () => {
     fireEvent.click(burstTrigger)
     expect(screen.queryByText('40 ms')).not.toBeInTheDocument()
   })
+
+  test('handles touch tap (pointerup pointerType touch) and suppresses subsequent synthetic click without flash closing', async () => {
+    render(
+      <StreamTpsCell
+        isStream
+        throughput={{
+          tokensPerSecond: null,
+          isBurst: true,
+          outputMs: 40,
+          overallTokensPerSecond: 120,
+        }}
+      />
+    )
+
+    const burstTrigger = screen.getByRole('button', { name: 'Burst Streaming' })
+
+    // Touch Tap 1: pointerdown -> pointerup (touch)
+    fireEvent.pointerDown(burstTrigger, { pointerType: 'touch' })
+    fireEvent.pointerUp(burstTrigger, { pointerType: 'touch' })
+
+    // Immediate synthetic click that browsers emit on touch
+    fireEvent.click(burstTrigger)
+
+    // Must open and stay open (not flash-closed by synthetic click)
+    expect(await screen.findByText('40 ms')).toBeInTheDocument()
+
+    // Touch Tap 2: closes cleanly
+    fireEvent.pointerDown(burstTrigger, { pointerType: 'touch' })
+    fireEvent.pointerUp(burstTrigger, { pointerType: 'touch' })
+    expect(screen.queryByText('40 ms')).not.toBeInTheDocument()
+  })
 })
