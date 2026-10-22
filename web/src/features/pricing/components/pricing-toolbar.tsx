@@ -16,11 +16,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { ArrowDown, ArrowUp, Check, Filter, StretchHorizontal } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, Filter } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { DataTableViewModeToggle } from '@/components/data-table'
+import {
+  DataTableFitColumnsButton,
+  DataTableViewModeToggle,
+} from '@/components/data-table'
 import {
   sideDrawerContentClassName,
   sideDrawerFormClassName,
@@ -227,18 +230,11 @@ export function PricingToolbar(props: PricingToolbarProps) {
           </Button>
 
           {props.viewMode === 'table' && props.onFitColumns && (
-            <Button
-              type='button'
-              variant='outline'
+            <DataTableFitColumnsButton
               size='sm'
-              onClick={props.onFitColumns}
               className='h-8 gap-1.5 text-xs'
-              title={t('Fit column widths')}
-              aria-label={t('Fit column widths')}
-            >
-              <StretchHorizontal className='size-3.5' aria-hidden='true' />
-              <span className='hidden sm:inline'>{t('Fit column widths')}</span>
-            </Button>
+              onClick={props.onFitColumns}
+            />
           )}
 
           {!isMobile && (

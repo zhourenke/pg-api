@@ -17,13 +17,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Loader2, RefreshCw, ServerCog, StretchHorizontal, Trash2 } from 'lucide-react'
+import { Loader2, RefreshCw, ServerCog, Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { ConfirmDialog } from '@/components/confirm-dialog'
-import { ResponsiveDataTableView, useDataTable } from '@/components/data-table'
+import {
+  DataTableFitColumnsButton,
+  ResponsiveDataTableView,
+  useDataTable,
+} from '@/components/data-table'
 import { ErrorState } from '@/components/error-state'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -286,18 +290,10 @@ export function SystemInstancesPanel() {
               </Button>
             ) : null}
             {instances.length > 0 && (
-              <Button
-                type='button'
-                variant='outline'
+              <DataTableFitColumnsButton
                 size='sm'
                 onClick={() => fitColumnsRef.current()}
-                className='gap-1.5'
-                title={t('Fit column widths')}
-                aria-label={t('Fit column widths')}
-              >
-                <StretchHorizontal className='size-3.5' aria-hidden='true' />
-                <span className='hidden sm:inline'>{t('Fit column widths')}</span>
-              </Button>
+              />
             )}
             <Button
               type='button'
