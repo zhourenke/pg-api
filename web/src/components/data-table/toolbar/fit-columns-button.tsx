@@ -22,6 +22,7 @@ import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
+import { useMediaQuery } from '@/hooks'
 import { cn } from '@/lib/utils'
 
 export type DataTableFitColumnsButtonProps<TData> = {
@@ -34,8 +35,7 @@ export type DataTableFitColumnsButtonProps<TData> = {
   size?: React.ComponentProps<typeof Button>['size']
   variant?: React.ComponentProps<typeof Button>['variant']
   /**
-   * Render the leading stretch icon. Defaults to `true`; the label collapses to
-   * the icon alone below the `md` breakpoint only while the icon is present.
+   * Render the leading stretch icon. Defaults to `true`.
    */
   showIcon?: boolean
   onClick?: () => void
@@ -44,14 +44,23 @@ export type DataTableFitColumnsButtonProps<TData> = {
 /**
  * Trigger for `table.options.meta.fitColumnWidths`.
  *
- * The visible label is the short `自适应` (full text lives in the accessible
- * name and the native tooltip), and it is dropped below `md` so a crowded
- * toolbar keeps the action cluster on one row instead of wrapping.
+ * The visible label is the short `自适应`; the full `自适应列宽` stays in the
+ * accessible name and the native tooltip.
+ *
+ * Renders nothing at the same narrow width where `ResponsiveDataTableView` and
+ * `DataTablePage` replace the table with the card list: there are no column
+ * widths to fit there, and collapsing to the icon alone only leaves a control
+ * that acts on a table the user cannot see.
  */
 export function DataTableFitColumnsButton<TData>(
   props: DataTableFitColumnsButtonProps<TData>
 ) {
   const { t } = useTranslation()
+  const isNarrowViewport = useMediaQuery('(max-width: 640px)')
+
+  if (isNarrowViewport) {
+    return null
+  }
 
   const handleClick = () => {
     props.onClick?.()
@@ -73,9 +82,7 @@ export function DataTableFitColumnsButton<TData>(
       {showIcon && (
         <StretchHorizontal className='size-3.5' aria-hidden='true' />
       )}
-      <span className={cn('whitespace-nowrap', showIcon && 'hidden md:inline')}>
-        {t('Fit columns')}
-      </span>
+      <span className='whitespace-nowrap'>{t('Fit columns')}</span>
     </Button>
   )
 }

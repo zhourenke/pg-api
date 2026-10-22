@@ -53,7 +53,7 @@ describe('DataTableFitColumnsButton and toolbar integration', () => {
     expect(fitColumnWidths).toHaveBeenCalledTimes(1)
   })
 
-  it('uses the short label and collapses it below md while the icon is shown', () => {
+  it('renders the short label next to the icon', () => {
     function Fixture() {
       const table = useReactTable({
         data: rows,
@@ -69,10 +69,36 @@ describe('DataTableFitColumnsButton and toolbar integration', () => {
     const label = screen.getByText('Fit columns')
 
     expect(label.tagName).toBe('SPAN')
-    // Narrow screens keep the icon and drop the label so the toolbar does not
-    // wrap the action cluster onto a second row.
-    expect(label).toHaveClass('hidden', 'md:inline', 'whitespace-nowrap')
+    expect(label).toHaveClass('whitespace-nowrap')
     expect(button.querySelector('svg')).not.toBeNull()
+  })
+
+  it('renders nothing at the width where the table becomes a card list', () => {
+    const original = window.matchMedia
+    vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({
+      ...original(query),
+      matches: query === '(max-width: 640px)',
+    }))
+
+    function Fixture() {
+      const table = useReactTable({
+        data: rows,
+        columns: [{ accessorKey: 'name', header: 'Name' }],
+        getCoreRowModel: getCoreRowModel(),
+      })
+
+      return <DataTableToolbar table={table} />
+    }
+
+    render(<Fixture />)
+
+    // Card rows have no column widths to fit, so the trigger must not survive as
+    // an icon-only button that acts on a table the user cannot see.
+    expect(screen.queryByText('Fit columns')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /Fit column widths/i })
+    ).not.toBeInTheDocument()
+    vi.restoreAllMocks()
   })
 
   it('keeps the label visible when the icon is disabled', () => {
@@ -87,9 +113,8 @@ describe('DataTableFitColumnsButton and toolbar integration', () => {
     }
 
     render(<Fixture />)
-    const label = screen.getByText('Fit columns')
 
-    expect(label).not.toHaveClass('hidden')
+    expect(screen.getByText('Fit columns')).toBeInTheDocument()
     expect(
       screen
         .getByRole('button', { name: /Fit column widths/i })
