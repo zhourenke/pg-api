@@ -25,15 +25,29 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 export type DataTableFitColumnsButtonProps<TData> = {
-  table: Table<TData>
+  /**
+   * Table whose `meta.fitColumnWidths` performs the fit. Omit it when the caller
+   * already holds the handler and passes it through `onClick`.
+   */
+  table?: Table<TData>
   className?: string
   size?: React.ComponentProps<typeof Button>['size']
   variant?: React.ComponentProps<typeof Button>['variant']
+  /**
+   * Render the leading stretch icon. Defaults to `true`; the label collapses to
+   * the icon alone below the `md` breakpoint only while the icon is present.
+   */
   showIcon?: boolean
-  hideTextOnMobile?: boolean
   onClick?: () => void
 }
 
+/**
+ * Trigger for `table.options.meta.fitColumnWidths`.
+ *
+ * The visible label is the short `自适应` (full text lives in the accessible
+ * name and the native tooltip), and it is dropped below `md` so a crowded
+ * toolbar keeps the action cluster on one row instead of wrapping.
+ */
 export function DataTableFitColumnsButton<TData>(
   props: DataTableFitColumnsButtonProps<TData>
 ) {
@@ -41,11 +55,10 @@ export function DataTableFitColumnsButton<TData>(
 
   const handleClick = () => {
     props.onClick?.()
-    props.table.options.meta?.fitColumnWidths?.()
+    props.table?.options.meta?.fitColumnWidths?.()
   }
 
   const showIcon = props.showIcon ?? true
-  const hideTextOnMobile = props.hideTextOnMobile ?? false
 
   return (
     <Button
@@ -57,9 +70,11 @@ export function DataTableFitColumnsButton<TData>(
       title={t('Fit column widths')}
       aria-label={t('Fit column widths')}
     >
-      {showIcon && <StretchHorizontal className='size-3.5' aria-hidden='true' />}
-      <span className={cn(hideTextOnMobile && 'hidden sm:inline')}>
-        {t('Fit column widths')}
+      {showIcon && (
+        <StretchHorizontal className='size-3.5' aria-hidden='true' />
+      )}
+      <span className={cn('whitespace-nowrap', showIcon && 'hidden md:inline')}>
+        {t('Fit columns')}
       </span>
     </Button>
   )

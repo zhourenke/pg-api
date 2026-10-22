@@ -53,6 +53,50 @@ describe('DataTableFitColumnsButton and toolbar integration', () => {
     expect(fitColumnWidths).toHaveBeenCalledTimes(1)
   })
 
+  it('uses the short label and collapses it below md while the icon is shown', () => {
+    function Fixture() {
+      const table = useReactTable({
+        data: rows,
+        columns: [{ accessorKey: 'name', header: 'Name' }],
+        getCoreRowModel: getCoreRowModel(),
+      })
+
+      return <DataTableFitColumnsButton table={table} />
+    }
+
+    render(<Fixture />)
+    const button = screen.getByRole('button', { name: /Fit column widths/i })
+    const label = screen.getByText('Fit columns')
+
+    expect(label.tagName).toBe('SPAN')
+    // Narrow screens keep the icon and drop the label so the toolbar does not
+    // wrap the action cluster onto a second row.
+    expect(label).toHaveClass('hidden', 'md:inline', 'whitespace-nowrap')
+    expect(button.querySelector('svg')).not.toBeNull()
+  })
+
+  it('keeps the label visible when the icon is disabled', () => {
+    function Fixture() {
+      const table = useReactTable({
+        data: rows,
+        columns: [{ accessorKey: 'name', header: 'Name' }],
+        getCoreRowModel: getCoreRowModel(),
+      })
+
+      return <DataTableFitColumnsButton table={table} showIcon={false} />
+    }
+
+    render(<Fixture />)
+    const label = screen.getByText('Fit columns')
+
+    expect(label).not.toHaveClass('hidden')
+    expect(
+      screen
+        .getByRole('button', { name: /Fit column widths/i })
+        .querySelector('svg')
+    ).toBeNull()
+  })
+
   it('renders in DataTableToolbar by default and allows hiding via hideFitColumns', () => {
     function Fixture(props: { hideFitColumns?: boolean }) {
       const table = useReactTable({
@@ -62,10 +106,7 @@ describe('DataTableFitColumnsButton and toolbar integration', () => {
       })
 
       return (
-        <DataTableToolbar
-          table={table}
-          hideFitColumns={props.hideFitColumns}
-        />
+        <DataTableToolbar table={table} hideFitColumns={props.hideFitColumns} />
       )
     }
 
@@ -80,7 +121,7 @@ describe('DataTableFitColumnsButton and toolbar integration', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('renders with Chinese text 自适应列宽 when zh locale bundle is loaded', () => {
+  it('renders the short Chinese label 自适应 with the full text as accessible name', () => {
     i18n.addResourceBundle('zhCN', 'translation', zh.translation, true, true)
 
     function Fixture() {
@@ -97,5 +138,6 @@ describe('DataTableFitColumnsButton and toolbar integration', () => {
     const button = screen.getByRole('button', { name: '自适应列宽' })
     expect(button).toBeInTheDocument()
     expect(button).toHaveAttribute('title', '自适应列宽')
+    expect(screen.getByText('自适应')).toBeInTheDocument()
   })
 })
