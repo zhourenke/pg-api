@@ -32,12 +32,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  CONSUMPTION_DISTRIBUTION_CHART_OPTIONS,
   MODEL_ANALYTICS_CHART_OPTIONS,
   TIME_GRANULARITY_OPTIONS,
 } from '@/features/dashboard/constants'
 import type {
-  ConsumptionDistributionChartType,
   DashboardChartPreferences,
   ModelAnalyticsChartTab,
 } from '@/features/dashboard/types'
@@ -142,38 +140,6 @@ export function ModelsChartPreferences(props: ModelsChartPreferencesProps) {
               {TIME_GRANULARITY_OPTIONS.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {t(option.label)}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className='grid gap-1.5'>
-        <Label htmlFor='consumption-distribution-chart'>
-          {t('Default consumption chart')}
-        </Label>
-        <Select
-          items={CONSUMPTION_DISTRIBUTION_CHART_OPTIONS.map((option) => ({
-            value: option.value,
-            label: t(option.labelKey),
-          }))}
-          value={draft.consumptionDistributionChart}
-          onValueChange={(value) =>
-            setDraft((prev) => ({
-              ...prev,
-              consumptionDistributionChart:
-                value as ConsumptionDistributionChartType,
-            }))
-          }
-        >
-          <SelectTrigger id='consumption-distribution-chart'>
-            <SelectValue placeholder={t('Select default chart')} />
-          </SelectTrigger>
-          <SelectContent alignItemWithTrigger={false}>
-            <SelectGroup>
-              {CONSUMPTION_DISTRIBUTION_CHART_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {t(option.labelKey)}
                 </SelectItem>
               ))}
             </SelectGroup>

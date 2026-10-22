@@ -17,7 +17,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { VChart } from '@visactor/react-vchart'
-import { Coins, Hash, Layers, PieChart as PieChartIcon } from 'lucide-react'
+import {
+  AreaChart,
+  BarChart3,
+  Coins,
+  Hash,
+  Layers,
+  PieChart as PieChartIcon,
+} from 'lucide-react'
 import { useEffect, useMemo, useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -71,10 +78,13 @@ interface ModelChartsProps {
 function resolveSpec(
   chartData: ProcessedChartData,
   tab: ModelAnalyticsChartTab,
-  metric: ChartMetric
+  metric: ChartMetric,
+  trendStyle: 'area' | 'bar' = 'area'
 ) {
   if (metric === 'quota') {
-    if (tab === 'trend') return chartData.spec_area
+    if (tab === 'trend') {
+      return trendStyle === 'bar' ? chartData.spec_line : chartData.spec_area
+    }
     if (tab === 'proportion') {
       return chartData.spec_pie_quota ?? chartData.spec_pie
     }
@@ -107,6 +117,7 @@ export function ModelCharts(props: ModelChartsProps) {
     props.defaultChartTab ?? 'trend'
   )
   const [metric, setMetric] = useState<ChartMetric>('count')
+  const [trendStyle, setTrendStyle] = useState<'area' | 'bar'>('area')
   const [themeReady, setThemeReady] = useState(false)
   const themeManagerRef = useRef<
     (typeof import('@visactor/vchart'))['ThemeManager'] | null
@@ -147,11 +158,12 @@ export function ModelCharts(props: ModelChartsProps) {
     [props.data, props.loading, timeGranularity, t, chartRadius]
   )
 
-  const spec = resolveSpec(chartData, activeTab, metric)
+  const spec = resolveSpec(chartData, activeTab, metric, trendStyle)
   const specType = typeof spec?.type === 'string' ? spec.type : activeTab
   const chartKey = [
     activeTab,
     metric,
+    trendStyle,
     specType,
     timeGranularity,
     props.loading ? 'loading' : 'ready',
@@ -231,6 +243,40 @@ export function ModelCharts(props: ModelChartsProps) {
               </button>
             ))}
           </div>
+
+          {/* Quota Trend Style (Area vs Bar) */}
+          {activeTab === 'trend' && metric === 'quota' && (
+            <div className='bg-muted/60 inline-flex h-7 items-center rounded-lg border p-0.5 sm:h-8'>
+              <button
+                type='button'
+                onClick={() => setTrendStyle('area')}
+                className={cn(
+                  'inline-flex shrink-0 items-center gap-1 rounded-md px-2 text-xs font-medium transition-colors',
+                  trendStyle === 'area'
+                    ? 'bg-background text-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+                title={t('Area Chart')}
+              >
+                <AreaChart className='size-3' />
+                <span className='hidden sm:inline'>{t('Area Chart')}</span>
+              </button>
+              <button
+                type='button'
+                onClick={() => setTrendStyle('bar')}
+                className={cn(
+                  'inline-flex shrink-0 items-center gap-1 rounded-md px-2 text-xs font-medium transition-colors',
+                  trendStyle === 'bar'
+                    ? 'bg-background text-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+                title={t('Bar Chart')}
+              >
+                <BarChart3 className='size-3' />
+                <span className='hidden sm:inline'>{t('Bar Chart')}</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
