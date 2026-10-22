@@ -20,7 +20,6 @@ import { useQuery } from '@tanstack/react-query'
 import { VChart } from '@visactor/react-vchart'
 import {
   ExternalLink,
-  Loader2,
   TableProperties,
   User as UserIcon,
   Users,
@@ -47,10 +46,7 @@ import {
 } from '@/features/dashboard/constants'
 import { useDashboardWindow } from '@/features/dashboard/hooks/use-dashboard-window'
 import { processUserChartData, safeDivide } from '@/features/dashboard/lib'
-import type {
-  ProcessedUserChartData,
-  UserChartsFilters,
-} from '@/features/dashboard/types'
+import type { UserChartsFilters } from '@/features/dashboard/types'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatCompactNumber, formatNumber, formatQuota } from '@/lib/format'
 import { requireServerSuccess } from '@/lib/server-error-message'
@@ -61,20 +57,19 @@ let themeManagerPromise: Promise<
   (typeof import('@visactor/vchart'))['ThemeManager']
 > | null = null
 
-const USER_CHARTS: {
-  value: string
+type UserAnalyticsTab = 'rank' | 'trend'
+
+const USER_TAB_OPTIONS: {
+  value: UserAnalyticsTab
   labelKey: string
-  specKey: keyof ProcessedUserChartData
 }[] = [
   {
     value: 'rank',
-    labelKey: 'User Consumption Ranking',
-    specKey: 'spec_user_rank',
+    labelKey: 'Ranking',
   },
   {
     value: 'trend',
-    labelKey: 'User Consumption Trend',
-    specKey: 'spec_user_trend',
+    labelKey: 'Trend',
   },
 ]
 
@@ -202,84 +197,95 @@ export function UserCharts(props: UserChartsProps) {
     return rows.sort((a, b) => b.quota - a.quota).slice(0, topUserLimit)
   }, [userData, topUserLimit])
 
+  const [activeTab, setActiveTab] = useState<UserAnalyticsTab>('rank')
+  const spec =
+    activeTab === 'rank'
+      ? chartData.spec_user_rank
+      : chartData.spec_user_trend
+
   return (
     <div className='space-y-3 sm:space-y-4'>
-      {/* Top control bar: Top User Limit */}
-      <div className='flex flex-wrap items-center justify-between gap-2'>
-        <div className='flex items-center gap-2'>
-          <IconBadge tone='info' size='sm'>
-            <Users className='size-3.5' />
-          </IconBadge>
-          <span className='text-xs font-semibold text-foreground'>
-            {t('User Analytics')}
-          </span>
-          {isLoading && (
-            <Loader2 className='text-muted-foreground size-3.5 animate-spin' />
-          )}
-        </div>
+      {/* User chart card */}
+      <div className='bg-card overflow-hidden rounded-xl border shadow-xs'>
+        <div className='flex w-full flex-col gap-2 border-b px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-3'>
+          <div className='flex items-center gap-2'>
+            <IconBadge tone='info' size='sm'>
+              <Users />
+            </IconBadge>
+            <div className='text-sm font-semibold'>
+              {t(
+                activeTab === 'rank'
+                  ? 'User Consumption Ranking'
+                  : 'User Consumption Trend'
+              )}
+            </div>
+            <Badge
+              variant='secondary'
+              className='h-5 px-1.5 font-mono text-[11px]'
+            >
+              TOP {topUserLimit}
+            </Badge>
+          </div>
 
-        <div className='flex items-center gap-1.5'>
-          <span className='text-muted-foreground text-xs font-medium'>
-            {t('Top Users')}:
-          </span>
-          <div className='bg-muted/60 inline-flex h-7 items-center rounded-lg border p-0.5 sm:h-8'>
-            {TOP_USER_LIMIT_OPTIONS.map((limit) => (
-              <button
-                key={limit}
-                type='button'
-                onClick={() => handleTopUserLimitChange(limit)}
-                className={cn(
-                  'shrink-0 rounded-md px-2.5 text-xs font-medium transition-colors',
-                  topUserLimit === limit
-                    ? 'bg-background text-foreground shadow-xs'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                {t('Top {{count}}', { count: limit })}
-              </button>
-            ))}
+          <div className='flex flex-wrap items-center gap-2'>
+            {/* View tabs: Ranking | Trend */}
+            <div className='bg-muted/60 inline-flex h-7 items-center rounded-lg border p-0.5 sm:h-8'>
+              {USER_TAB_OPTIONS.map((item) => (
+                <button
+                  key={item.value}
+                  type='button'
+                  onClick={() => setActiveTab(item.value)}
+                  className={cn(
+                    'shrink-0 rounded-md px-3 text-xs font-medium transition-colors',
+                    activeTab === item.value
+                      ? 'bg-background text-foreground shadow-xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  {t(item.labelKey)}
+                </button>
+              ))}
+            </div>
+
+            {/* Limit selector: Top 5 / 10 / 20 / 50 */}
+            <div className='bg-muted/60 inline-flex h-7 items-center rounded-lg border p-0.5 sm:h-8'>
+              {TOP_USER_LIMIT_OPTIONS.map((limit) => (
+                <button
+                  key={limit}
+                  type='button'
+                  onClick={() => handleTopUserLimitChange(limit)}
+                  className={cn(
+                    'shrink-0 rounded-md px-2 text-xs font-medium transition-colors sm:px-2.5',
+                    topUserLimit === limit
+                      ? 'bg-background text-foreground shadow-xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  {t('Top {{count}}', { count: limit })}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* User charts */}
-      <div className='grid gap-3 sm:gap-4'>
-        {USER_CHARTS.map((chart) => {
-          const spec = chartData[chart.specKey]
-
-          return (
-            <div
-              key={chart.value}
-              className='bg-card overflow-hidden rounded-xl border shadow-xs'
-            >
-              <div className='flex w-full items-center gap-2 border-b px-3 py-2.5 sm:px-5 sm:py-3'>
-                <IconBadge tone='info' size='sm'>
-                  <Users />
-                </IconBadge>
-                <div className='text-sm font-semibold'>{t(chart.labelKey)}</div>
-              </div>
-
-              <div className='h-[300px] p-1.5 sm:h-96 sm:p-2'>
-                {isLoading ? (
-                  <Skeleton className='h-full w-full' />
-                ) : (
-                  themeReady &&
-                  spec && (
-                    <VChart
-                      key={`user-${chart.value}-${topUserLimit}-${timeGranularity}-${timeRange.start_timestamp}-${timeRange.end_timestamp}-${resolvedTheme}`}
-                      spec={{
-                        ...spec,
-                        theme: resolvedTheme === 'dark' ? 'dark' : 'light',
-                        background: 'transparent',
-                      }}
-                      option={VCHART_OPTION}
-                    />
-                  )
-                )}
-              </div>
-            </div>
-          )
-        })}
+        <div className='h-[300px] p-1.5 sm:h-96 sm:p-2'>
+          {isLoading ? (
+            <Skeleton className='h-full w-full' />
+          ) : (
+            themeReady &&
+            spec && (
+              <VChart
+                key={`user-${activeTab}-${topUserLimit}-${timeGranularity}-${timeRange.start_timestamp}-${timeRange.end_timestamp}-${resolvedTheme}`}
+                spec={{
+                  ...spec,
+                  theme: resolvedTheme === 'dark' ? 'dark' : 'light',
+                  background: 'transparent',
+                }}
+                option={VCHART_OPTION}
+              />
+            )
+          )}
+        </div>
       </div>
 
       {/* Top Users Usage Table with Drill-down Action */}

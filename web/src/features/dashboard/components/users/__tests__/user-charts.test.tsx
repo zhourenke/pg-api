@@ -103,10 +103,10 @@ describe('UserCharts preset and granularity updates', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getAllByTestId('vchart-user-mock')).toHaveLength(2)
+      expect(screen.getByTestId('vchart-user-mock')).toBeInTheDocument()
     })
     const initialMounts = mountCount
-    expect(initialMounts).toBeGreaterThanOrEqual(2)
+    expect(initialMounts).toBeGreaterThanOrEqual(1)
 
     // Click 'Top 20' button
     const btn20 = screen.getByRole('button', { name: /20/ })
@@ -115,6 +115,10 @@ describe('UserCharts preset and granularity updates', () => {
     expect(onFiltersChange).toHaveBeenCalledWith(
       expect.objectContaining({ topUserLimit: 20 })
     )
+
+    // Switch view to Trend
+    const trendBtn = screen.getByRole('button', { name: 'Trend' })
+    await user.click(trendBtn)
 
     // Re-render with updated preset from DashboardToolbar
     rerender(
@@ -126,10 +130,10 @@ describe('UserCharts preset and granularity updates', () => {
       </Wrapper>
     )
 
-    // Charts must remount with the updated time window bounds in their keys
+    // Chart must remount with the updated time window bounds in its key
     await waitFor(() => {
       expect(mountCount).toBeGreaterThan(initialMounts)
-      expect(unmountCount).toBeGreaterThanOrEqual(2)
+      expect(unmountCount).toBeGreaterThanOrEqual(1)
     })
   })
 })
