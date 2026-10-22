@@ -24,10 +24,7 @@ import { useTranslation } from 'react-i18next'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { useThemeCustomization } from '@/context/theme-customization-provider'
 import { useTheme } from '@/context/theme-provider'
-import {
-  DEFAULT_TIME_GRANULARITY,
-  MODEL_ANALYTICS_CHART_OPTIONS,
-} from '@/features/dashboard/constants'
+import { DEFAULT_TIME_GRANULARITY } from '@/features/dashboard/constants'
 import { processChartData } from '@/features/dashboard/lib'
 import type {
   ModelAnalyticsChartTab,
@@ -53,6 +50,15 @@ const METRIC_OPTIONS: {
   { value: 'count', labelKey: 'By requests', icon: Hash },
   { value: 'quota', labelKey: 'By quota', icon: Coins },
   { value: 'tokens', labelKey: 'By tokens', icon: Layers },
+]
+
+const VIEW_TAB_OPTIONS: {
+  value: ModelAnalyticsChartTab
+  labelKey: string
+}[] = [
+  { value: 'trend', labelKey: 'Trend' },
+  { value: 'proportion', labelKey: 'Share' },
+  { value: 'top', labelKey: 'Ranking' },
 ]
 
 interface ModelChartsProps {
@@ -209,7 +215,7 @@ export function ModelCharts(props: ModelChartsProps) {
 
           {/* View Tab Selector */}
           <div className='bg-muted/60 inline-flex h-7 items-center rounded-lg border p-0.5 sm:h-8'>
-            {MODEL_ANALYTICS_CHART_OPTIONS.map((tab) => (
+            {VIEW_TAB_OPTIONS.map((tab) => (
               <button
                 key={tab.value}
                 type='button'
