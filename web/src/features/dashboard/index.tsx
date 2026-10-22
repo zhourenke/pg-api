@@ -103,26 +103,25 @@ const LazyFlowCharts = lazy(() =>
 
 function LogStatCardsFallback() {
   return (
-    <div className='overflow-hidden rounded-lg border'>
-      <div className='divide-border/60 grid grid-cols-2 divide-x sm:grid-cols-3 lg:grid-cols-5'>
-        {LOG_STAT_CARD_FALLBACK_KEYS.map((key, index) => (
-          <div
-            key={key}
-            className={cn(
-              'px-2.5 py-1.5 sm:px-5 sm:py-4',
-              index === LOG_STAT_CARD_FALLBACK_KEYS.length - 1 &&
-                'col-span-2 sm:col-span-1'
-            )}
-          >
-            <div className='flex items-center gap-1.5 sm:gap-2'>
-              <Skeleton className='size-4 rounded-sm sm:size-7 sm:rounded-md' />
-              <Skeleton className='h-4 w-16' />
-            </div>
-            <Skeleton className='mt-1 h-5 w-16 sm:mt-2 sm:h-7 sm:w-20' />
-            <Skeleton className='mt-1 hidden h-3.5 w-28 md:block' />
+    <div className='grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-5'>
+      {LOG_STAT_CARD_FALLBACK_KEYS.map((key, index) => (
+        <div
+          key={key}
+          className={cn(
+            'bg-card overflow-hidden rounded-xl border p-2.5 shadow-xs sm:p-3',
+            index === LOG_STAT_CARD_FALLBACK_KEYS.length - 1 &&
+              'col-span-2 sm:col-span-1'
+          )}
+        >
+          <div className='flex items-center gap-1.5 sm:gap-2'>
+            <Skeleton className='size-4 rounded-sm sm:size-7 sm:rounded-md' />
+            <Skeleton className='h-4 w-16' />
           </div>
-        ))}
-      </div>
+          <Skeleton className='mt-2 h-6 w-20 sm:h-7 sm:w-24' />
+          <Skeleton className='mt-1.5 h-3 w-28 sm:h-3.5 sm:w-32' />
+          <Skeleton className='mt-2.5 h-7 w-full rounded-md' />
+        </div>
+      ))}
     </div>
   )
 }
