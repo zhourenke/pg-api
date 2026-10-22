@@ -26,12 +26,13 @@ import {
   User as UserIcon,
   X,
 } from 'lucide-react'
-import { useState, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { DateTimePicker } from '@/components/datetime-picker'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
   Popover,
   PopoverContent,
@@ -62,13 +63,11 @@ import type {
   DashboardChartPreferences,
   DashboardFilters,
 } from '@/features/dashboard/types'
+import { useDebouncedFilterChange } from '@/hooks/use-debounced-filter-change'
 import dayjs from '@/lib/dayjs'
 import type { TimeGranularity } from '@/lib/time'
 import { TIME_WINDOW_PRESETS, type TimeWindowId } from '@/lib/time-window'
 import { cn } from '@/lib/utils'
-
-import { ModelsChartPreferences } from '../models/models-chart-preferences'
-import { ModelsFilter } from '../models/models-filter-dialog'
 
 const PRIMARY_PRESET_IDS = new Set<TimeWindowId>([
   'today',
@@ -96,8 +95,8 @@ interface DashboardToolbarProps {
   sectionMeta: Record<DashboardSectionId, { titleKey: string }>
   onSectionChange: (section: string) => void
   isAdmin?: boolean
-  chartPreferences: DashboardChartPreferences
-  onChartPreferencesChange: (preferences: DashboardChartPreferences) => void
+  chartPreferences?: DashboardChartPreferences
+  onChartPreferencesChange?: (preferences: DashboardChartPreferences) => void
   flowSensitiveVisible?: boolean
   onToggleFlowSensitive?: () => void
 }
@@ -168,7 +167,27 @@ export function DashboardToolbar(props: DashboardToolbarProps) {
     })
   }
 
+  const [usernameInput, setUsernameInput] = useState(
+    props.currentFilters.username ?? ''
+  )
+
+  useEffect(() => {
+    setUsernameInput(props.currentFilters.username ?? '')
+  }, [props.currentFilters.username])
+
+  const { change: debouncedChangeUsername, isPending: usernamePending } =
+    useDebouncedFilterChange<string>((username) =>
+      apply({ username: username.trim() || undefined })
+    )
+
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value
+    setUsernameInput(val)
+    debouncedChangeUsername(val)
+  }
+
   const handleClearUsername = () => {
+    setUsernameInput('')
     apply({ username: undefined })
   }
 
@@ -238,21 +257,6 @@ export function DashboardToolbar(props: DashboardToolbarProps) {
                   : t('Show sensitive data')}
               </TooltipContent>
             </Tooltip>
-          )}
-
-          {props.activeSection === 'models' && (
-            <>
-              <ModelsChartPreferences
-                preferences={props.chartPreferences}
-                onPreferencesChange={props.onChartPreferencesChange}
-              />
-              <ModelsFilter
-                currentFilters={props.currentFilters}
-                onFilterChange={props.onFilterChange}
-                onReset={props.onResetFilters}
-                titleKey='Filter'
-              />
-            </>
           )}
 
           {props.onRefresh && (
@@ -453,10 +457,40 @@ export function DashboardToolbar(props: DashboardToolbarProps) {
             </Select>
           </div>
 
+          {/* Admin Username Filter */}
+          {props.isAdmin && (
+            <div className='relative flex items-center'>
+              <UserIcon className='text-muted-foreground/60 pointer-events-none absolute left-2 size-3' />
+              <Input
+                value={usernameInput}
+                onChange={handleUsernameChange}
+                placeholder={t('Filter by username')}
+                className='h-7 w-28 pl-6 pr-6 text-xs sm:w-36'
+              />
+              {usernameInput && (
+                <button
+                  type='button'
+                  onClick={handleClearUsername}
+                  className='hover:bg-muted text-muted-foreground hover:text-foreground absolute right-1.5 rounded-xs p-0.5'
+                  aria-label={t('Clear username')}
+                  title={t('Clear username')}
+                >
+                  <X className='size-2.5' />
+                </button>
+              )}
+              {usernamePending && (
+                <span
+                  aria-hidden='true'
+                  className='bg-primary pointer-events-none absolute top-1/2 right-6 size-1.5 -translate-y-1/2 rounded-full'
+                />
+              )}
+            </div>
+          )}
+
           {/* Active Filter Badges & Reset Button */}
           {hasActiveFilters && (
             <div className='flex items-center gap-1'>
-              {props.currentFilters.username && (
+              {!props.isAdmin && props.currentFilters.username && (
                 <Badge
                   variant='secondary'
                   className='h-6 gap-1 px-1.5 text-[11px]'

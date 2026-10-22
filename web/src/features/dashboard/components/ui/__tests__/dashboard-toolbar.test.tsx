@@ -108,10 +108,10 @@ describe('DashboardToolbar', () => {
     expect(onResetFilters).toHaveBeenCalled()
   })
 
-  it('renders model filter only on models section and hides it on users and flow', () => {
+  it('does not render redundant preferences or filter modal buttons in the toolbar', () => {
     const filters: DashboardFilters = { preset: '7d' }
 
-    const { rerender } = render(
+    render(
       <DashboardToolbar
         currentFilters={filters}
         onFilterChange={vi.fn()}
@@ -125,24 +125,46 @@ describe('DashboardToolbar', () => {
       />
     )
 
-    expect(screen.getByRole('button', { name: /Filter/i })).toBeInTheDocument()
-
-    rerender(
-      <DashboardToolbar
-        currentFilters={filters}
-        onFilterChange={vi.fn()}
-        onResetFilters={vi.fn()}
-        activeSection='users'
-        visibleSections={['models', 'flow', 'users']}
-        sectionMeta={SECTION_META}
-        onSectionChange={vi.fn()}
-        chartPreferences={DEFAULT_DASHBOARD_CHART_PREFERENCES}
-        onChartPreferencesChange={vi.fn()}
-      />
-    )
-
     expect(
       screen.queryByRole('button', { name: /Filter/i })
     ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /Preferences/i })
+    ).not.toBeInTheDocument()
+  })
+
+  it('renders inline admin username filter input and triggers filter change and clear', async () => {
+    const user = userEvent.setup()
+    const onFilterChange = vi.fn()
+
+    const filters: DashboardFilters = {
+      preset: '7d',
+      username: 'bob',
+    }
+
+    render(
+      <DashboardToolbar
+        currentFilters={filters}
+        onFilterChange={onFilterChange}
+        onResetFilters={vi.fn()}
+        activeSection='models'
+        visibleSections={['models', 'flow', 'users']}
+        sectionMeta={SECTION_META}
+        onSectionChange={vi.fn()}
+        isAdmin
+      />
+    )
+
+    const input = screen.getByPlaceholderText('Filter by username')
+    expect(input).toBeDefined()
+    expect((input as HTMLInputElement).value).toBe('bob')
+
+    const clearButton = screen.getByRole('button', { name: 'Clear username' })
+    await user.click(clearButton)
+    expect(onFilterChange).toHaveBeenCalledWith(
+      expect.not.objectContaining({
+        username: expect.anything(),
+      })
+    )
   })
 })
