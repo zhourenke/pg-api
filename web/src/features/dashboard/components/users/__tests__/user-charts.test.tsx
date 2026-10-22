@@ -108,8 +108,8 @@ describe('UserCharts preset and granularity updates', () => {
     const initialMounts = mountCount
     expect(initialMounts).toBeGreaterThanOrEqual(1)
 
-    // Click 'Top 20' button
-    const btn20 = screen.getByRole('button', { name: /20/ })
+    // Click 'Top 20' tab
+    const btn20 = screen.getByRole('tab', { name: /20/ })
     await user.click(btn20)
 
     expect(onFiltersChange).toHaveBeenCalledWith(
@@ -117,7 +117,7 @@ describe('UserCharts preset and granularity updates', () => {
     )
 
     // Switch view to Trend
-    const trendBtn = screen.getByRole('button', { name: 'Trend' })
+    const trendBtn = screen.getByRole('tab', { name: 'Trend' })
     await user.click(trendBtn)
 
     // Re-render with updated preset from DashboardToolbar

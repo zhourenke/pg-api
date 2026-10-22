@@ -29,6 +29,7 @@ import { useEffect, useMemo, useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { IconBadge } from '@/components/ui/icon-badge'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useThemeCustomization } from '@/context/theme-customization-provider'
 import { useTheme } from '@/context/theme-provider'
 import { DEFAULT_TIME_GRANULARITY } from '@/features/dashboard/constants'
@@ -40,7 +41,6 @@ import type {
 } from '@/features/dashboard/types'
 import { useThemeRadiusPx } from '@/lib/theme-radius'
 import type { TimeGranularity } from '@/lib/time'
-import { cn } from '@/lib/utils'
 import { VCHART_OPTION } from '@/lib/vchart'
 
 let themeManagerPromise: Promise<
@@ -202,80 +202,70 @@ export function ModelCharts(props: ModelChartsProps) {
 
         <div className='flex flex-wrap items-center gap-2'>
           {/* Metric Selector */}
-          <div className='bg-muted/60 inline-flex h-7 items-center rounded-lg border p-0.5 sm:h-8'>
-            {METRIC_OPTIONS.map((opt) => {
-              const Icon = opt.icon
-              const isSelected = metric === opt.value
-              return (
-                <button
-                  key={opt.value}
-                  type='button'
-                  onClick={() => setMetric(opt.value)}
-                  className={cn(
-                    'inline-flex shrink-0 items-center gap-1 rounded-md px-2.5 text-xs font-medium transition-colors',
-                    isSelected
-                      ? 'bg-background text-foreground shadow-xs'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  <Icon className='size-3' />
-                  <span>{t(opt.labelKey)}</span>
-                </button>
-              )
-            })}
-          </div>
+          <Tabs
+            value={metric}
+            onValueChange={(val) => setMetric(val as ChartMetric)}
+          >
+            <TabsList aria-label={t('Metric')}>
+              {METRIC_OPTIONS.map((opt) => {
+                const Icon = opt.icon
+                return (
+                  <TabsTrigger
+                    key={opt.value}
+                    value={opt.value}
+                    className='gap-1.5 px-2.5'
+                  >
+                    <Icon data-icon='inline-start' aria-hidden='true' />
+                    <span>{t(opt.labelKey)}</span>
+                  </TabsTrigger>
+                )
+              })}
+            </TabsList>
+          </Tabs>
 
           {/* View Tab Selector */}
-          <div className='bg-muted/60 inline-flex h-7 items-center rounded-lg border p-0.5 sm:h-8'>
-            {VIEW_TAB_OPTIONS.map((tab) => (
-              <button
-                key={tab.value}
-                type='button'
-                onClick={() => setActiveTab(tab.value)}
-                className={cn(
-                  'shrink-0 rounded-md px-2.5 text-xs font-medium transition-colors',
-                  activeTab === tab.value
-                    ? 'bg-background text-foreground shadow-xs'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                {t(tab.labelKey)}
-              </button>
-            ))}
-          </div>
+          <Tabs
+            value={activeTab}
+            onValueChange={(val) => setActiveTab(val as ModelAnalyticsChartTab)}
+          >
+            <TabsList aria-label={t('View')}>
+              {VIEW_TAB_OPTIONS.map((tab) => (
+                <TabsTrigger
+                  key={tab.value}
+                  value={tab.value}
+                  className='px-2.5'
+                >
+                  {t(tab.labelKey)}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
 
           {/* Quota Trend Style (Area vs Bar) */}
           {activeTab === 'trend' && metric === 'quota' && (
-            <div className='bg-muted/60 inline-flex h-7 items-center rounded-lg border p-0.5 sm:h-8'>
-              <button
-                type='button'
-                onClick={() => setTrendStyle('area')}
-                className={cn(
-                  'inline-flex shrink-0 items-center gap-1 rounded-md px-2 text-xs font-medium transition-colors',
-                  trendStyle === 'area'
-                    ? 'bg-background text-foreground shadow-xs'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-                title={t('Area Chart')}
-              >
-                <AreaChart className='size-3' />
-                <span className='hidden sm:inline'>{t('Area Chart')}</span>
-              </button>
-              <button
-                type='button'
-                onClick={() => setTrendStyle('bar')}
-                className={cn(
-                  'inline-flex shrink-0 items-center gap-1 rounded-md px-2 text-xs font-medium transition-colors',
-                  trendStyle === 'bar'
-                    ? 'bg-background text-foreground shadow-xs'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-                title={t('Bar Chart')}
-              >
-                <BarChart3 className='size-3' />
-                <span className='hidden sm:inline'>{t('Bar Chart')}</span>
-              </button>
-            </div>
+            <Tabs
+              value={trendStyle}
+              onValueChange={(val) => setTrendStyle(val as 'area' | 'bar')}
+            >
+              <TabsList aria-label={t('Trend style')}>
+                <TabsTrigger
+                  value='area'
+                  title={t('Area Chart')}
+                  className='gap-1 px-2'
+                >
+                  <AreaChart data-icon='inline-start' aria-hidden='true' />
+                  <span className='hidden sm:inline'>{t('Area Chart')}</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value='bar'
+                  title={t('Bar Chart')}
+                  className='gap-1 px-2'
+                >
+                  <BarChart3 data-icon='inline-start' aria-hidden='true' />
+                  <span className='hidden sm:inline'>{t('Bar Chart')}</span>
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           )}
         </div>
       </div>

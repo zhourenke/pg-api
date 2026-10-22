@@ -39,6 +39,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useTheme } from '@/context/theme-provider'
 import { getUserQuotaDataByUsers } from '@/features/dashboard/api'
 import {
@@ -50,7 +51,6 @@ import type { UserChartsFilters } from '@/features/dashboard/types'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatCompactNumber, formatNumber, formatQuota } from '@/lib/format'
 import { requireServerSuccess } from '@/lib/server-error-message'
-import { cn } from '@/lib/utils'
 import { VCHART_OPTION } from '@/lib/vchart'
 
 let themeManagerPromise: Promise<
@@ -229,42 +229,32 @@ export function UserCharts(props: UserChartsProps) {
 
           <div className='flex flex-wrap items-center gap-2'>
             {/* View tabs: Ranking | Trend */}
-            <div className='bg-muted/60 inline-flex h-7 items-center rounded-lg border p-0.5 sm:h-8'>
-              {USER_TAB_OPTIONS.map((item) => (
-                <button
-                  key={item.value}
-                  type='button'
-                  onClick={() => setActiveTab(item.value)}
-                  className={cn(
-                    'shrink-0 rounded-md px-3 text-xs font-medium transition-colors',
-                    activeTab === item.value
-                      ? 'bg-background text-foreground shadow-xs'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  {t(item.labelKey)}
-                </button>
-              ))}
-            </div>
+            <Tabs
+              value={activeTab}
+              onValueChange={(val) => setActiveTab(val as UserAnalyticsTab)}
+            >
+              <TabsList aria-label={t('User Analytics')}>
+                {USER_TAB_OPTIONS.map((item) => (
+                  <TabsTrigger key={item.value} value={item.value}>
+                    {t(item.labelKey)}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
 
             {/* Limit selector: Top 5 / 10 / 20 / 50 */}
-            <div className='bg-muted/60 inline-flex h-7 items-center rounded-lg border p-0.5 sm:h-8'>
-              {TOP_USER_LIMIT_OPTIONS.map((limit) => (
-                <button
-                  key={limit}
-                  type='button'
-                  onClick={() => handleTopUserLimitChange(limit)}
-                  className={cn(
-                    'shrink-0 rounded-md px-2 text-xs font-medium transition-colors sm:px-2.5',
-                    topUserLimit === limit
-                      ? 'bg-background text-foreground shadow-xs'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  {t('Top {{count}}', { count: limit })}
-                </button>
-              ))}
-            </div>
+            <Tabs
+              value={String(topUserLimit)}
+              onValueChange={(val) => handleTopUserLimitChange(Number(val))}
+            >
+              <TabsList aria-label={t('Display limit')}>
+                {TOP_USER_LIMIT_OPTIONS.map((limit) => (
+                  <TabsTrigger key={limit} value={String(limit)}>
+                    {t('Top {{count}}', { count: limit })}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
           </div>
         </div>
 
