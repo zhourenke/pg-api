@@ -73,7 +73,7 @@ export function LogStatCards(props: LogStatCardsProps) {
   const avgTokensDisplay =
     stats.totalCount > 0
       ? `${formatNumber(Math.round(stats.avgTokensPerRequest), locale)} Tokens / ${t('call')}`
-      : t('Cost per call')
+      : '--'
 
   const cardItems = [
     {
