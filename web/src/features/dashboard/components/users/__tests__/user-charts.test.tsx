@@ -123,10 +123,6 @@ describe('UserCharts preset and granularity updates', () => {
       expect.objectContaining({ topUserLimit: 20 })
     )
 
-    // Switch view to Trend
-    const trendBtn = screen.getByRole('tab', { name: 'Trend' })
-    await user.click(trendBtn)
-
     // Re-render with updated preset from DashboardToolbar
     rerender(
       <Wrapper>

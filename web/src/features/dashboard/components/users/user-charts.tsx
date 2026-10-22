@@ -57,22 +57,6 @@ let themeManagerPromise: Promise<
   (typeof import('@visactor/vchart'))['ThemeManager']
 > | null = null
 
-type UserAnalyticsTab = 'rank' | 'trend'
-
-const USER_TAB_OPTIONS: {
-  value: UserAnalyticsTab
-  labelKey: string
-}[] = [
-  {
-    value: 'rank',
-    labelKey: 'Ranking',
-  },
-  {
-    value: 'trend',
-    labelKey: 'Trend',
-  },
-]
-
 const TOP_USER_LIMIT_OPTIONS = [5, 10, 20, 50]
 
 interface UserBreakdownItem {
@@ -206,11 +190,7 @@ export function UserCharts(props: UserChartsProps) {
     return rows.sort((a, b) => b.quota - a.quota).slice(0, topUserLimit)
   }, [filteredUserData, topUserLimit])
 
-  const [activeTab, setActiveTab] = useState<UserAnalyticsTab>('rank')
-  const spec =
-    activeTab === 'rank'
-      ? chartData.spec_user_rank
-      : chartData.spec_user_trend
+  const spec = chartData.spec_user_trend
 
   return (
     <div className='space-y-3 sm:space-y-4'>
@@ -222,11 +202,7 @@ export function UserCharts(props: UserChartsProps) {
               <Users />
             </IconBadge>
             <div className='text-sm font-semibold'>
-              {t(
-                activeTab === 'rank'
-                  ? 'User Consumption Ranking'
-                  : 'User Consumption Trend'
-              )}
+              {t('User Consumption Trend')}
             </div>
             <Badge
               variant='secondary'
@@ -237,20 +213,6 @@ export function UserCharts(props: UserChartsProps) {
           </div>
 
           <div className='flex flex-wrap items-center gap-2'>
-            {/* View tabs: Ranking | Trend */}
-            <Tabs
-              value={activeTab}
-              onValueChange={(val) => setActiveTab(val as UserAnalyticsTab)}
-            >
-              <TabsList aria-label={t('User Analytics')}>
-                {USER_TAB_OPTIONS.map((item) => (
-                  <TabsTrigger key={item.value} value={item.value}>
-                    {t(item.labelKey)}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
-
             {/* Limit selector: Top 5 / 10 / 20 / 50 */}
             <Tabs
               value={String(topUserLimit)}
@@ -274,7 +236,7 @@ export function UserCharts(props: UserChartsProps) {
             themeReady &&
             spec && (
               <VChart
-                key={`user-${activeTab}-${topUserLimit}-${timeGranularity}-${timeRange.start_timestamp}-${timeRange.end_timestamp}-${resolvedTheme}`}
+                key={`user-trend-${topUserLimit}-${timeGranularity}-${timeRange.start_timestamp}-${timeRange.end_timestamp}-${resolvedTheme}`}
                 spec={{
                   ...spec,
                   theme: resolvedTheme === 'dark' ? 'dark' : 'light',

@@ -47,25 +47,16 @@ let themeManagerPromise: Promise<
   (typeof import('@visactor/vchart'))['ThemeManager']
 > | null = null
 
-type ChartMetric = 'count' | 'quota' | 'tokens'
+type ChartMetric = 'quota' | 'count' | 'tokens'
 
 const METRIC_OPTIONS: {
   value: ChartMetric
   labelKey: string
-  icon: typeof Hash
+  icon: typeof Coins
 }[] = [
-  { value: 'count', labelKey: 'By requests', icon: Hash },
   { value: 'quota', labelKey: 'By quota', icon: Coins },
+  { value: 'count', labelKey: 'By requests', icon: Hash },
   { value: 'tokens', labelKey: 'By tokens', icon: Layers },
-]
-
-const VIEW_TAB_OPTIONS: {
-  value: ModelAnalyticsChartTab
-  labelKey: string
-}[] = [
-  { value: 'trend', labelKey: 'Trend' },
-  { value: 'proportion', labelKey: 'Share' },
-  { value: 'top', labelKey: 'Ranking' },
 ]
 
 interface ModelChartsProps {
@@ -77,32 +68,16 @@ interface ModelChartsProps {
 
 function resolveSpec(
   chartData: ProcessedChartData,
-  tab: ModelAnalyticsChartTab,
   metric: ChartMetric,
   trendStyle: 'area' | 'bar' = 'area'
 ) {
   if (metric === 'quota') {
-    if (tab === 'trend') {
-      return trendStyle === 'bar' ? chartData.spec_line : chartData.spec_area
-    }
-    if (tab === 'proportion') {
-      return chartData.spec_pie_quota ?? chartData.spec_pie
-    }
-    return chartData.spec_rank_quota ?? chartData.spec_rank_bar
+    return trendStyle === 'bar' ? chartData.spec_line : chartData.spec_area
   }
   if (metric === 'tokens') {
-    if (tab === 'trend') {
-      return chartData.spec_token_line ?? chartData.spec_model_line
-    }
-    if (tab === 'proportion') {
-      return chartData.spec_pie_tokens ?? chartData.spec_pie
-    }
-    return chartData.spec_rank_tokens ?? chartData.spec_rank_bar
+    return chartData.spec_token_line ?? chartData.spec_model_line
   }
-  // count
-  if (tab === 'trend') return chartData.spec_model_line
-  if (tab === 'proportion') return chartData.spec_pie
-  return chartData.spec_rank_bar
+  return chartData.spec_model_line
 }
 
 export function ModelCharts(props: ModelChartsProps) {
@@ -113,20 +88,13 @@ export function ModelCharts(props: ModelChartsProps) {
     '--radius-md',
     `${customization.preset}:${customization.radius}`
   )
-  const [activeTab, setActiveTab] = useState<ModelAnalyticsChartTab>(
-    props.defaultChartTab ?? 'trend'
-  )
-  const [metric, setMetric] = useState<ChartMetric>('count')
+  const [metric, setMetric] = useState<ChartMetric>('quota')
   const [trendStyle, setTrendStyle] = useState<'area' | 'bar'>('area')
   const [themeReady, setThemeReady] = useState(false)
   const themeManagerRef = useRef<
     (typeof import('@visactor/vchart'))['ThemeManager'] | null
   >(null)
   const timeGranularity = props.timeGranularity ?? DEFAULT_TIME_GRANULARITY
-
-  useEffect(() => {
-    if (props.defaultChartTab) setActiveTab(props.defaultChartTab)
-  }, [props.defaultChartTab])
 
   useEffect(() => {
     const updateTheme = async () => {
@@ -158,10 +126,10 @@ export function ModelCharts(props: ModelChartsProps) {
     [props.data, props.loading, timeGranularity, t, chartRadius]
   )
 
-  const spec = resolveSpec(chartData, activeTab, metric, trendStyle)
-  const specType = typeof spec?.type === 'string' ? spec.type : activeTab
+  const spec = resolveSpec(chartData, metric, trendStyle)
+  const specType = typeof spec?.type === 'string' ? spec.type : 'trend'
   const chartKey = [
-    activeTab,
+    'trend',
     metric,
     trendStyle,
     specType,
@@ -173,10 +141,6 @@ export function ModelCharts(props: ModelChartsProps) {
     resolvedTheme,
     customization.preset,
   ].join('-')
-
-  let totalDisplay = chartData.totalCountDisplay
-  if (metric === 'quota') totalDisplay = chartData.totalQuotaDisplay
-  else if (metric === 'tokens') totalDisplay = chartData.totalTokensDisplay
 
   let titleTone: 'success' | 'chart-4' | 'info' = 'info'
   if (metric === 'quota') {
@@ -193,11 +157,8 @@ export function ModelCharts(props: ModelChartsProps) {
             <PieChartIcon />
           </IconBadge>
           <div className='text-sm font-semibold'>
-            {t('Model Call Analytics')}
+            {t('Model Call Trend')}
           </div>
-          <span className='text-muted-foreground font-mono text-xs tabular-nums'>
-            {t('Total:')} {totalDisplay}
-          </span>
         </div>
 
         <div className='flex flex-wrap items-center gap-2'>
@@ -223,26 +184,8 @@ export function ModelCharts(props: ModelChartsProps) {
             </TabsList>
           </Tabs>
 
-          {/* View Tab Selector */}
-          <Tabs
-            value={activeTab}
-            onValueChange={(val) => setActiveTab(val as ModelAnalyticsChartTab)}
-          >
-            <TabsList aria-label={t('View')}>
-              {VIEW_TAB_OPTIONS.map((tab) => (
-                <TabsTrigger
-                  key={tab.value}
-                  value={tab.value}
-                  className='px-2.5'
-                >
-                  {t(tab.labelKey)}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
-
           {/* Quota Trend Style (Area vs Bar) */}
-          {activeTab === 'trend' && metric === 'quota' && (
+          {metric === 'quota' && (
             <Tabs
               value={trendStyle}
               onValueChange={(val) => setTrendStyle(val as 'area' | 'bar')}

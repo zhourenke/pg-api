@@ -25,6 +25,7 @@ import type {
   ProcessedUserChartData,
 } from '@/features/dashboard/types'
 import { getCurrencyDisplay } from '@/lib/currency'
+import { formatTokens } from '@/lib/format'
 import { formatChartTime, type TimeGranularity } from '@/lib/time'
 
 type TFunction = (key: string) => string
@@ -213,10 +214,10 @@ export function processChartData(
     }
   }
 
-  const { config } = getCurrencyDisplay()
+  const { config, meta } = getCurrencyDisplay()
   const quotaPerUnit = config.quotaPerUnit
-
-  // Aggregate all metrics by time and model
+  const rate = 'exchangeRate' in meta ? meta.exchangeRate : 1
+  const symbol = 'symbol' in meta ? meta.symbol : '$'
   const timeModelMap = new Map<
     string,
     Map<string, { quota: number; count: number; tokens: number }>
@@ -329,8 +330,8 @@ export function processChartData(
       const stats = timeModelMap.get(time)?.get(model)
       const rawQuota = Number(stats?.quota) || 0
       const usd = rawQuota ? rawQuota / quotaPerUnit : 0
-      // Match legacy frontend getQuotaWithUnit(..., 4)
-      const usage = usd ? Number(usd.toFixed(4)) : 0
+      // Match display currency
+      const usage = usd ? Number((usd * rate).toFixed(4)) : 0
       return {
         Time: time,
         Model: model,
@@ -368,7 +369,7 @@ export function processChartData(
       const stats = modelMap?.get(model)
       const rawQuota = Number(stats?.quota) || 0
       const usd = rawQuota ? rawQuota / quotaPerUnit : 0
-      const usage = usd ? Number(usd.toFixed(4)) : 0
+      const usage = usd ? Number((usd * rate).toFixed(4)) : 0
       timeSum += rawQuota
       const key = topAreaModels.has(model) ? model : otherLabel
       const prev = buckets.get(key) || { rawQuota: 0, usage: 0 }
@@ -630,6 +631,25 @@ export function processChartData(
           updateContent: makeTooltipDimensionUpdateContent(),
         },
       },
+      axes: [
+        { orient: 'bottom', type: 'band' },
+        {
+          orient: 'left',
+          type: 'linear',
+          label: {
+            formatMethod: (value: number) => {
+              if (value === 0) return `${symbol}0`
+              if (value >= 1_000_000) {
+                return `${symbol}${(value / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`
+              }
+              if (value >= 1_000) {
+                return `${symbol}${(value / 1_000).toFixed(1).replace(/\.0$/, '')}K`
+              }
+              return `${symbol}${value >= 10 ? Math.round(value) : value.toFixed(1).replace(/\.0$/, '')}`
+            },
+          },
+        },
+      ],
       background: { fill: 'transparent' },
       animation: true,
     },
@@ -678,6 +698,25 @@ export function processChartData(
         },
       },
       point: { visible: false },
+      axes: [
+        { orient: 'bottom', type: 'band' },
+        {
+          orient: 'left',
+          type: 'linear',
+          label: {
+            formatMethod: (value: number) => {
+              if (value === 0) return `${symbol}0`
+              if (value >= 1_000_000) {
+                return `${symbol}${(value / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`
+              }
+              if (value >= 1_000) {
+                return `${symbol}${(value / 1_000).toFixed(1).replace(/\.0$/, '')}K`
+              }
+              return `${symbol}${value >= 10 ? Math.round(value) : value.toFixed(1).replace(/\.0$/, '')}`
+            },
+          },
+        },
+      ],
       background: { fill: 'transparent' },
       animation: true,
     },
@@ -691,9 +730,18 @@ export function processChartData(
       legends: { visible: true, selectMode: 'single' },
       color: modelColor,
       title: {
-        visible: true,
-        text: tt('Call Trend'),
+        visible: false,
       },
+      axes: [
+        { orient: 'bottom', type: 'band' },
+        {
+          orient: 'left',
+          type: 'linear',
+          label: {
+            formatMethod: (value: number) => formatInt(value),
+          },
+        },
+      ],
       tooltip: {
         mark: {
           content: [
@@ -936,9 +984,21 @@ export function processChartData(
       legends: { visible: true, selectMode: 'single' },
       color: modelColor,
       title: {
-        visible: true,
-        text: tt('Token Consumption Trend'),
+        visible: false,
       },
+      axes: [
+        { orient: 'bottom', type: 'band' },
+        {
+          orient: 'left',
+          type: 'linear',
+          label: {
+            formatMethod: (value: number) => {
+              if (value === 0) return '0'
+              return formatTokens(value, '0')
+            },
+          },
+        },
+      ],
       tooltip: {
         mark: {
           content: [
@@ -1082,7 +1142,6 @@ export function processUserChartData(
   const sorted = [...userQuotaTotal.entries()].sort((a, b) => b[1] - a[1])
   const topUsers = sorted.slice(0, limit).map(([u]) => u)
   const topUserSet = new Set(topUsers)
-  const totalQuota = sorted.slice(0, limit).reduce((s, [, q]) => s + q, 0)
 
   const rankValues = sorted.slice(0, limit).map(([username, quota]) => ({
     User: username,
@@ -1141,9 +1200,7 @@ export function processUserChartData(
       seriesField: 'User',
       direction: 'horizontal',
       title: {
-        visible: true,
-        text: tt('User Consumption Ranking'),
-        subtext: `${tt('Total:')} ${formatVal(totalQuota)}`,
+        visible: false,
       },
       legends: { visible: false },
       bar: {
@@ -1197,9 +1254,7 @@ export function processUserChartData(
       seriesField: 'User',
       stack: false,
       title: {
-        visible: true,
-        text: tt('User Consumption Trend'),
-        subtext: `${tt('Total:')} ${formatVal(totalQuota)}`,
+        visible: false,
       },
       legends: { visible: true, selectMode: 'single' },
       axes: [
