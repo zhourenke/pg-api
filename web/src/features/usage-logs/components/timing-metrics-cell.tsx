@@ -262,7 +262,11 @@ export function StreamTpsCell(props: StreamTpsCellProps) {
     clearCloseTimer()
     // When moving mouse from elsewhere and immediately clicking (< 300ms since enter)
     // while not pinned, treat it as a deliberate click to open/pin, not an immediate close
-    if (fromClick && !isPinned && Date.now() - lastPointerEnterTimeRef.current < 300) {
+    if (
+      fromClick &&
+      !isPinned &&
+      Date.now() - lastPointerEnterTimeRef.current < 300
+    ) {
       setIsPinned(true)
       isHoverSuppressedRef.current = false
       return
@@ -353,9 +357,9 @@ export function StreamTpsCell(props: StreamTpsCellProps) {
                 onPointerUp={handlePointerUp}
                 onTouchEnd={handleTouchEnd}
                 onClick={handleClick}
-                className='group/burst focus-visible:ring-ring inline-flex size-6 -my-1.5 -mx-1 cursor-help items-center justify-center rounded-xs text-amber-600/70 transition-colors hover:text-amber-600 active:text-amber-600 data-popup-open:text-amber-600 focus-visible:ring-1 focus-visible:outline-none touch-manipulation dark:text-amber-400/70 dark:hover:text-amber-300 dark:active:text-amber-300 dark:data-popup-open:text-amber-300'
+                className='group/burst focus-visible:ring-ring -mx-1 -my-1.5 inline-flex size-6 cursor-help touch-manipulation items-center justify-center rounded-xs text-amber-600/70 transition-colors hover:text-amber-600 focus-visible:ring-1 focus-visible:outline-none active:text-amber-600 data-popup-open:text-amber-600 dark:text-amber-400/70 dark:hover:text-amber-300 dark:active:text-amber-300 dark:data-popup-open:text-amber-300'
               >
-                <Zap className='size-3 shrink-0 transition-colors group-hover/burst:fill-amber-500/80 group-active/burst:fill-amber-500/80 group-data-popup-open/burst:fill-amber-500/80 group-focus-visible/burst:fill-amber-500/80 dark:group-hover/burst:fill-amber-400/80 dark:group-active/burst:fill-amber-400/80 dark:group-data-popup-open/burst:fill-amber-400/80 dark:group-focus-visible/burst:fill-amber-400/80' />
+                <Zap className='size-3 shrink-0 transition-colors group-hover/burst:fill-amber-500/80 group-focus-visible/burst:fill-amber-500/80 group-active/burst:fill-amber-500/80 group-data-popup-open/burst:fill-amber-500/80 dark:group-hover/burst:fill-amber-400/80 dark:group-focus-visible/burst:fill-amber-400/80 dark:group-active/burst:fill-amber-400/80 dark:group-data-popup-open/burst:fill-amber-400/80' />
               </button>
             }
           />
