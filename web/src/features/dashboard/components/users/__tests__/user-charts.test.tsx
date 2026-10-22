@@ -116,7 +116,7 @@ describe('UserCharts preset and granularity updates', () => {
     expect(initialMounts).toBeGreaterThanOrEqual(1)
 
     // Click 'Top 20' tab
-    const btn20 = screen.getByRole('tab', { name: /20/ })
+    const btn20 = screen.getAllByRole('tab', { name: /20/ })[0]
     await user.click(btn20)
 
     expect(onFiltersChange).toHaveBeenCalledWith(
