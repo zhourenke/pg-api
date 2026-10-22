@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { VChart } from '@visactor/react-vchart'
-import { PieChart as PieChartIcon } from 'lucide-react'
+import { Coins, Hash, Layers, PieChart as PieChartIcon } from 'lucide-react'
 import { useEffect, useMemo, useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -31,29 +31,62 @@ import {
 import { processChartData } from '@/features/dashboard/lib'
 import type {
   ModelAnalyticsChartTab,
+  ProcessedChartData,
   QuotaDataItem,
 } from '@/features/dashboard/types'
 import { useThemeRadiusPx } from '@/lib/theme-radius'
 import type { TimeGranularity } from '@/lib/time'
+import { cn } from '@/lib/utils'
 import { VCHART_OPTION } from '@/lib/vchart'
 
 let themeManagerPromise: Promise<
   (typeof import('@visactor/vchart'))['ThemeManager']
 > | null = null
 
-type ChartSpecKey = 'spec_model_line' | 'spec_pie' | 'spec_rank_bar'
+type ChartMetric = 'count' | 'quota' | 'tokens'
 
-const CHART_SPEC_KEYS: Record<ModelAnalyticsChartTab, ChartSpecKey> = {
-  trend: 'spec_model_line',
-  proportion: 'spec_pie',
-  top: 'spec_rank_bar',
-}
+const METRIC_OPTIONS: {
+  value: ChartMetric
+  labelKey: string
+  icon: typeof Hash
+}[] = [
+  { value: 'count', labelKey: 'By requests', icon: Hash },
+  { value: 'quota', labelKey: 'By quota', icon: Coins },
+  { value: 'tokens', labelKey: 'By tokens', icon: Layers },
+]
 
 interface ModelChartsProps {
   data: QuotaDataItem[]
   loading?: boolean
   timeGranularity?: TimeGranularity
   defaultChartTab?: ModelAnalyticsChartTab
+}
+
+function resolveSpec(
+  chartData: ProcessedChartData,
+  tab: ModelAnalyticsChartTab,
+  metric: ChartMetric
+) {
+  if (metric === 'quota') {
+    if (tab === 'trend') return chartData.spec_area
+    if (tab === 'proportion') {
+      return chartData.spec_pie_quota ?? chartData.spec_pie
+    }
+    return chartData.spec_rank_quota ?? chartData.spec_rank_bar
+  }
+  if (metric === 'tokens') {
+    if (tab === 'trend') {
+      return chartData.spec_token_line ?? chartData.spec_model_line
+    }
+    if (tab === 'proportion') {
+      return chartData.spec_pie_tokens ?? chartData.spec_pie
+    }
+    return chartData.spec_rank_tokens ?? chartData.spec_rank_bar
+  }
+  // count
+  if (tab === 'trend') return chartData.spec_model_line
+  if (tab === 'proportion') return chartData.spec_pie
+  return chartData.spec_rank_bar
 }
 
 export function ModelCharts(props: ModelChartsProps) {
@@ -67,6 +100,7 @@ export function ModelCharts(props: ModelChartsProps) {
   const [activeTab, setActiveTab] = useState<ModelAnalyticsChartTab>(
     props.defaultChartTab ?? 'trend'
   )
+  const [metric, setMetric] = useState<ChartMetric>('count')
   const [themeReady, setThemeReady] = useState(false)
   const themeManagerRef = useRef<
     (typeof import('@visactor/vchart'))['ThemeManager'] | null
@@ -107,10 +141,11 @@ export function ModelCharts(props: ModelChartsProps) {
     [props.data, props.loading, timeGranularity, t, chartRadius]
   )
 
-  const spec = chartData[CHART_SPEC_KEYS[activeTab]]
+  const spec = resolveSpec(chartData, activeTab, metric)
   const specType = typeof spec?.type === 'string' ? spec.type : activeTab
   const chartKey = [
     activeTab,
+    metric,
     specType,
     timeGranularity,
     props.loading ? 'loading' : 'ready',
@@ -121,36 +156,75 @@ export function ModelCharts(props: ModelChartsProps) {
     customization.preset,
   ].join('-')
 
+  let totalDisplay = chartData.totalCountDisplay
+  if (metric === 'quota') totalDisplay = chartData.totalQuotaDisplay
+  else if (metric === 'tokens') totalDisplay = chartData.totalTokensDisplay
+
+  let titleTone: 'success' | 'chart-4' | 'info' = 'info'
+  if (metric === 'quota') {
+    titleTone = 'success'
+  } else if (metric === 'tokens') {
+    titleTone = 'chart-4'
+  }
+
   return (
-    <div className='overflow-hidden rounded-lg border'>
-      <div className='flex w-full flex-col gap-1.5 border-b px-3 py-2 sm:gap-3 sm:px-5 sm:py-3 lg:flex-row lg:items-center lg:justify-between'>
+    <div className='bg-card overflow-hidden rounded-xl border shadow-xs'>
+      <div className='flex w-full flex-col gap-2 border-b px-3 py-2.5 sm:px-5 sm:py-3 lg:flex-row lg:items-center lg:justify-between'>
         <div className='flex items-center gap-2'>
-          <IconBadge tone='chart-4' size='sm'>
+          <IconBadge tone={titleTone} size='sm'>
             <PieChartIcon />
           </IconBadge>
           <div className='text-sm font-semibold'>
             {t('Model Call Analytics')}
           </div>
-          <span className='text-muted-foreground text-xs'>
-            {t('Total:')} {chartData.totalCountDisplay}
+          <span className='text-muted-foreground font-mono text-xs tabular-nums'>
+            {t('Total:')} {totalDisplay}
           </span>
         </div>
 
-        <div className='bg-muted/60 inline-flex h-7 w-full overflow-x-auto rounded-lg border p-0.5 sm:h-8 sm:w-auto'>
-          {MODEL_ANALYTICS_CHART_OPTIONS.map((tab) => (
-            <button
-              key={tab.value}
-              type='button'
-              onClick={() => setActiveTab(tab.value)}
-              className={`shrink-0 rounded-md px-3 text-xs font-medium transition-colors ${
-                activeTab === tab.value
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {t(tab.labelKey)}
-            </button>
-          ))}
+        <div className='flex flex-wrap items-center gap-2'>
+          {/* Metric Selector */}
+          <div className='bg-muted/60 inline-flex h-7 items-center rounded-lg border p-0.5 sm:h-8'>
+            {METRIC_OPTIONS.map((opt) => {
+              const Icon = opt.icon
+              const isSelected = metric === opt.value
+              return (
+                <button
+                  key={opt.value}
+                  type='button'
+                  onClick={() => setMetric(opt.value)}
+                  className={cn(
+                    'inline-flex shrink-0 items-center gap-1 rounded-md px-2.5 text-xs font-medium transition-colors',
+                    isSelected
+                      ? 'bg-background text-foreground shadow-xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <Icon className='size-3' />
+                  <span>{t(opt.labelKey)}</span>
+                </button>
+              )
+            })}
+          </div>
+
+          {/* View Tab Selector */}
+          <div className='bg-muted/60 inline-flex h-7 items-center rounded-lg border p-0.5 sm:h-8'>
+            {MODEL_ANALYTICS_CHART_OPTIONS.map((tab) => (
+              <button
+                key={tab.value}
+                type='button'
+                onClick={() => setActiveTab(tab.value)}
+                className={cn(
+                  'shrink-0 rounded-md px-2.5 text-xs font-medium transition-colors',
+                  activeTab === tab.value
+                    ? 'bg-background text-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {t(tab.labelKey)}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

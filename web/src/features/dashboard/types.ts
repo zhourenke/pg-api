@@ -252,6 +252,12 @@ export interface ProcessedChartData {
   spec_rank_bar: VChartSpec
   totalQuotaDisplay: string
   totalCountDisplay: string
+  totalTokensDisplay: string
+  spec_pie_quota?: VChartSpec
+  spec_pie_tokens?: VChartSpec
+  spec_rank_quota?: VChartSpec
+  spec_rank_tokens?: VChartSpec
+  spec_token_line?: VChartSpec
 }
 
 export interface ProcessedUserChartData {

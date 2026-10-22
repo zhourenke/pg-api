@@ -209,6 +209,7 @@ export function processChartData(
       },
       totalQuotaDisplay: formatQuotaTotal(0),
       totalCountDisplay: formatInt(0),
+      totalTokensDisplay: formatInt(0),
     }
   }
 
@@ -299,6 +300,10 @@ export function processChartData(
   )
   const totalQuotaRaw = [...modelTotalsMap.values()].reduce(
     (sum, x) => sum + (Number(x.quota) || 0),
+    0
+  )
+  const totalTokensRaw = [...modelTotalsMap.values()].reduce(
+    (sum, x) => sum + (Number(x.tokens) || 0),
     0
   )
 
@@ -447,6 +452,110 @@ export function processChartData(
   } else {
     rankValues = allRankValues
   }
+
+  // Pie chart by Quota
+  const pieQuotaValues = [...modelTotalsMap.entries()]
+    .map(([model, stats]) => {
+      const raw = Number(stats.quota) || 0
+      const usd = raw ? raw / quotaPerUnit : 0
+      return {
+        type: model,
+        value: usd ? Number(usd.toFixed(4)) : 0,
+        rawQuota: raw,
+      }
+    })
+    .sort((a, b) => b.rawQuota - a.rawQuota)
+
+  // Pie chart by Tokens
+  const pieTokenValues = [...modelTotalsMap.entries()]
+    .map(([model, stats]) => ({
+      type: model,
+      value: Number(stats.tokens) || 0,
+    }))
+    .sort((a, b) => b.value - a.value)
+
+  // Rank bar by Quota
+  const allRankQuotaValues = [...modelTotalsMap.entries()]
+    .map(([model, stats]) => {
+      const raw = Number(stats.quota) || 0
+      const usd = raw ? raw / quotaPerUnit : 0
+      return {
+        Model: model,
+        Quota: usd ? Number(usd.toFixed(4)) : 0,
+        rawQuota: raw,
+      }
+    })
+    .sort((a, b) => b.rawQuota - a.rawQuota)
+
+  let rankQuotaValues: typeof allRankQuotaValues
+  if (allRankQuotaValues.length > MAX_RANK_MODELS) {
+    const topModels = allRankQuotaValues.slice(0, MAX_RANK_MODELS)
+    const otherQuota = allRankQuotaValues
+      .slice(MAX_RANK_MODELS)
+      .reduce((sum, item) => sum + item.Quota, 0)
+    const otherRawQuota = allRankQuotaValues
+      .slice(MAX_RANK_MODELS)
+      .reduce((sum, item) => sum + item.rawQuota, 0)
+    rankQuotaValues = [
+      ...topModels,
+      {
+        Model: otherLabel,
+        Quota: Number(otherQuota.toFixed(4)),
+        rawQuota: otherRawQuota,
+      },
+    ]
+  } else {
+    rankQuotaValues = allRankQuotaValues
+  }
+
+  // Rank bar by Tokens
+  const allRankTokenValues = [...modelTotalsMap.entries()]
+    .map(([model, stats]) => ({
+      Model: model,
+      Tokens: Number(stats.tokens) || 0,
+    }))
+    .sort((a, b) => b.Tokens - a.Tokens)
+
+  let rankTokenValues: typeof allRankTokenValues
+  if (allRankTokenValues.length > MAX_RANK_MODELS) {
+    const topModels = allRankTokenValues.slice(0, MAX_RANK_MODELS)
+    const otherTokens = allRankTokenValues
+      .slice(MAX_RANK_MODELS)
+      .reduce((sum, item) => sum + item.Tokens, 0)
+    rankTokenValues = [...topModels, { Model: otherLabel, Tokens: otherTokens }]
+  } else {
+    rankTokenValues = allRankTokenValues
+  }
+
+  // Token trend over time
+  const tokenLineValues: Array<{
+    Time: string
+    Model: string
+    Tokens: number
+  }> = []
+  chartTimes.forEach((time) => {
+    const timeData = topTrendModels.map((model) => {
+      const stats = timeModelMap.get(time)?.get(model)
+      return {
+        Time: time,
+        Model: model,
+        Tokens: Number(stats?.tokens) || 0,
+      }
+    })
+    if (otherTrendModels.length > 0) {
+      const otherTokens = otherTrendModels.reduce((sum, model) => {
+        const stats = timeModelMap.get(time)?.get(model)
+        return sum + (Number(stats?.tokens) || 0)
+      }, 0)
+      timeData.push({
+        Time: time,
+        Model: otherLabel,
+        Tokens: otherTokens,
+      })
+    }
+    tokenLineValues.push(...timeData)
+  })
+  tokenLineValues.sort((a, b) => a.Time.localeCompare(b.Time))
 
   return {
     spec_pie: {
@@ -681,8 +790,223 @@ export function processChartData(
       background: { fill: 'transparent' },
       animation: true,
     },
+    spec_pie_quota: {
+      type: 'pie',
+      data: [{ id: 'pieQuotaData', values: pieQuotaValues }],
+      outerRadius: 0.8,
+      innerRadius: 0.5,
+      padAngle: 0.6,
+      valueField: 'value',
+      categoryField: 'type',
+      pie: {
+        style:
+          chartCornerRadius == null ? {} : { cornerRadius: chartCornerRadius },
+        state: {
+          hover: { outerRadius: 0.85, stroke: '#000', lineWidth: 1 },
+          selected: { outerRadius: 0.85, stroke: '#000', lineWidth: 1 },
+        },
+      },
+      title: {
+        visible: true,
+        text: tt('Quota Distribution'),
+      },
+      legends: { visible: true, orient: 'left' },
+      label: { visible: true },
+      color: modelColor,
+      tooltip: {
+        mark: {
+          content: [
+            {
+              key: (datum: Record<string, unknown>) => datum?.type,
+              value: (datum: Record<string, unknown>) =>
+                formatQuotaValue(Number(datum?.rawQuota) || 0),
+            },
+          ],
+        },
+      },
+      background: { fill: 'transparent' },
+      animation: true,
+    },
+    spec_pie_tokens: {
+      type: 'pie',
+      data: [{ id: 'pieTokenData', values: pieTokenValues }],
+      outerRadius: 0.8,
+      innerRadius: 0.5,
+      padAngle: 0.6,
+      valueField: 'value',
+      categoryField: 'type',
+      pie: {
+        style:
+          chartCornerRadius == null ? {} : { cornerRadius: chartCornerRadius },
+        state: {
+          hover: { outerRadius: 0.85, stroke: '#000', lineWidth: 1 },
+          selected: { outerRadius: 0.85, stroke: '#000', lineWidth: 1 },
+        },
+      },
+      title: {
+        visible: true,
+        text: tt('Token Distribution'),
+      },
+      legends: { visible: true, orient: 'left' },
+      label: { visible: true },
+      color: modelColor,
+      tooltip: {
+        mark: {
+          content: [
+            {
+              key: (datum: Record<string, unknown>) => datum?.type,
+              value: (datum: Record<string, unknown>) =>
+                formatInt(Number(datum?.value) || 0),
+            },
+          ],
+        },
+      },
+      background: { fill: 'transparent' },
+      animation: true,
+    },
+    spec_rank_quota: {
+      type: 'bar',
+      data: [{ id: 'rankQuotaData', values: rankQuotaValues }],
+      xField: 'Model',
+      yField: 'Quota',
+      seriesField: 'Model',
+      legends: { visible: true, selectMode: 'single' },
+      color: modelColor,
+      title: {
+        visible: true,
+        text: tt('Quota Consumption Ranking'),
+      },
+      bar: {
+        state: {
+          hover: { stroke: '#000', lineWidth: 1 },
+        },
+      },
+      tooltip: {
+        mark: {
+          content: [
+            {
+              key: (datum: Record<string, unknown>) => datum?.Model,
+              value: (datum: Record<string, unknown>) =>
+                formatQuotaValue(Number(datum?.rawQuota) || 0),
+            },
+          ],
+        },
+      },
+      background: { fill: 'transparent' },
+      animation: true,
+    },
+    spec_rank_tokens: {
+      type: 'bar',
+      data: [{ id: 'rankTokenData', values: rankTokenValues }],
+      xField: 'Model',
+      yField: 'Tokens',
+      seriesField: 'Model',
+      legends: { visible: true, selectMode: 'single' },
+      color: modelColor,
+      title: {
+        visible: true,
+        text: tt('Token Consumption Ranking'),
+      },
+      bar: {
+        state: {
+          hover: { stroke: '#000', lineWidth: 1 },
+        },
+      },
+      tooltip: {
+        mark: {
+          content: [
+            {
+              key: (datum: Record<string, unknown>) => datum?.Model,
+              value: (datum: Record<string, unknown>) =>
+                formatInt(Number(datum?.Tokens) || 0),
+            },
+          ],
+        },
+      },
+      background: { fill: 'transparent' },
+      animation: true,
+    },
+    spec_token_line: {
+      type: 'area',
+      data: [{ id: 'tokenLineData', values: tokenLineValues }],
+      xField: 'Time',
+      yField: 'Tokens',
+      seriesField: 'Model',
+      stack: false,
+      legends: { visible: true, selectMode: 'single' },
+      color: modelColor,
+      title: {
+        visible: true,
+        text: tt('Token Consumption Trend'),
+      },
+      tooltip: {
+        mark: {
+          content: [
+            {
+              key: (datum: Record<string, unknown>) => datum?.Model,
+              value: (datum: Record<string, unknown>) =>
+                formatInt(Number(datum?.Tokens) || 0),
+            },
+          ],
+        },
+        dimension: {
+          content: [
+            {
+              key: (datum: Record<string, unknown>) => datum?.Model,
+              value: (datum: Record<string, unknown>) =>
+                Number(datum?.Tokens) || 0,
+            },
+          ],
+          updateContent: (
+            array: Array<{
+              key: string
+              value: string | number
+            }>
+          ) => {
+            const modelItems = array.filter(
+              (item) => !isOtherTooltipKey(item.key)
+            )
+            const otherItems = array.filter((item) =>
+              isOtherTooltipKey(item.key)
+            )
+            modelItems.sort(
+              (a, b) => (Number(b.value) || 0) - (Number(a.value) || 0)
+            )
+            array = [...modelItems, ...otherItems]
+
+            let sum = 0
+            for (let i = 0; i < array.length; i++) {
+              const v = Number(array[i].value) || 0
+              sum += v
+              array[i].value = formatInt(v)
+            }
+            array.unshift({
+              key: tt('Total:'),
+              value: formatInt(sum),
+            })
+            return array
+          },
+        },
+      },
+      area: {
+        style: {
+          fillOpacity: 0.08,
+          curveType: 'monotone',
+        },
+      },
+      line: {
+        style: {
+          lineWidth: 2,
+          curveType: 'monotone',
+        },
+      },
+      point: { visible: false },
+      background: { fill: 'transparent' },
+      animation: true,
+    },
     totalQuotaDisplay: formatQuotaTotal(totalQuotaRaw),
     totalCountDisplay: formatInt(totalTimes),
+    totalTokensDisplay: formatInt(totalTokensRaw),
   }
 }
 
