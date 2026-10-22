@@ -27,7 +27,6 @@ import {
   GitBranch,
   Hash,
   Info,
-  Loader2,
   Route,
   WalletCards,
 } from 'lucide-react'
@@ -652,9 +651,6 @@ export function FlowCharts(props: FlowChartsProps) {
                 }
               />
             </div>
-          )}
-          {isLoading && (
-            <Loader2 className='text-muted-foreground size-4 animate-spin' />
           )}
         </div>
       </div>
