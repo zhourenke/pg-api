@@ -192,8 +192,7 @@ export function processChartData(
         seriesField: 'Model',
         legends: { visible: true, selectMode: 'single' },
         title: {
-          visible: true,
-          text: tt('Call Trend'),
+          visible: false,
         },
       },
       spec_rank_bar: {
@@ -204,8 +203,7 @@ export function processChartData(
         seriesField: 'Model',
         legends: { visible: true, selectMode: 'single' },
         title: {
-          visible: true,
-          text: tt('Call Count Ranking'),
+          visible: false,
         },
       },
       totalQuotaDisplay: formatQuotaTotal(0),
@@ -1104,9 +1102,7 @@ export function processUserChartData(
       seriesField: 'User',
       direction: 'horizontal',
       title: {
-        visible: true,
-        text: tt('User Consumption Ranking'),
-        subtext: tt('No data available'),
+        visible: false,
       },
       legends: { visible: false },
       color: { type: 'ordinal', range: USER_COLORS },
@@ -1119,9 +1115,7 @@ export function processUserChartData(
       yField: 'rawQuota',
       seriesField: 'User',
       title: {
-        visible: true,
-        text: tt('User Consumption Trend'),
-        subtext: tt('No data available'),
+        visible: false,
       },
       legends: { visible: true, selectMode: 'single' },
       color: { type: 'ordinal', range: USER_COLORS },
