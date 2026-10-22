@@ -218,13 +218,43 @@ export function formatLogQuota(quota: number): string {
 }
 
 /**
- * Format tokens count with K/M suffixes
+ * Format tokens count with K, M, B, T suffixes
  */
-export function formatTokens(tokens: number): string {
-  if (tokens === 0) return '-'
+export function formatTokens(
+  tokens: number | null | undefined,
+  zeroFallback = '-'
+): string {
+  if (tokens == null || !Number.isFinite(tokens) || tokens === 0) {
+    return zeroFallback
+  }
+  if (tokens < 0) return '0'
   if (tokens < 1000) return tokens.toString()
-  if (tokens < 1000000) return `${(tokens / 1000).toFixed(1)}K`
-  return `${(tokens / 1000000).toFixed(2)}M`
+  if (tokens < 1_000_000) {
+    const v = (tokens / 1000)
+      .toFixed(tokens >= 10_000 ? 0 : 1)
+      .replace(/\.0+$/, '')
+      .replace(/(\.[0-9]*[1-9])0+$/, '$1')
+    return `${v}K`
+  }
+  if (tokens < 1_000_000_000) {
+    const v = (tokens / 1_000_000)
+      .toFixed(tokens >= 10_000_000 ? 1 : 2)
+      .replace(/\.0+$/, '')
+      .replace(/(\.[0-9]*[1-9])0+$/, '$1')
+    return `${v}M`
+  }
+  if (tokens < 1_000_000_000_000) {
+    const v = (tokens / 1_000_000_000)
+      .toFixed(tokens >= 10_000_000_000 ? 1 : 2)
+      .replace(/\.0+$/, '')
+      .replace(/(\.[0-9]*[1-9])0+$/, '$1')
+    return `${v}B`
+  }
+  const v = (tokens / 1_000_000_000_000)
+    .toFixed(2)
+    .replace(/\.0+$/, '')
+    .replace(/(\.[0-9]*[1-9])0+$/, '$1')
+  return `${v}T`
 }
 
 /**

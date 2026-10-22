@@ -36,7 +36,6 @@ import {
   readSiteDefaultTimeGranularity,
   statusQueryOptions,
 } from '@/lib/status-query'
-import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { OverviewDashboard } from './components/overview/overview-dashboard'
@@ -64,11 +63,9 @@ import type {
 const route = getRouteApi('/_authenticated/dashboard/$section')
 
 const LOG_STAT_CARD_FALLBACK_KEYS = [
-  'count',
   'quota',
+  'count',
   'tokens',
-  'average-rpm',
-  'average-tpm',
 ] as const
 
 const LazyLogStatCards = lazy(() =>
@@ -103,23 +100,17 @@ const LazyFlowCharts = lazy(() =>
 
 function LogStatCardsFallback() {
   return (
-    <div className='grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-5'>
-      {LOG_STAT_CARD_FALLBACK_KEYS.map((key, index) => (
+    <div className='grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3'>
+      {LOG_STAT_CARD_FALLBACK_KEYS.map((key) => (
         <div
           key={key}
-          className={cn(
-            'bg-card overflow-hidden rounded-xl border p-2.5 shadow-xs sm:p-3',
-            index === LOG_STAT_CARD_FALLBACK_KEYS.length - 1 &&
-              'col-span-2 sm:col-span-1'
-          )}
+          className='bg-card overflow-hidden rounded-xl border p-2.5 shadow-xs sm:p-3'
         >
           <div className='flex items-center gap-1.5 sm:gap-2'>
             <Skeleton className='size-4 rounded-sm sm:size-7 sm:rounded-md' />
             <Skeleton className='h-4 w-16' />
           </div>
           <Skeleton className='mt-2 h-6 w-20 sm:h-7 sm:w-24' />
-          <Skeleton className='mt-1.5 h-3 w-28 sm:h-3.5 sm:w-32' />
-          <Skeleton className='mt-2.5 h-7 w-full rounded-md' />
         </div>
       ))}
     </div>
@@ -145,10 +136,10 @@ const SECTION_META: Record<DashboardSectionId, { titleKey: string }> = {
     titleKey: 'Overview',
   },
   models: {
-    titleKey: 'Model Call Analytics',
+    titleKey: 'Usage Analytics',
   },
   flow: {
-    titleKey: 'Flow',
+    titleKey: 'Usage Flow',
   },
   users: {
     titleKey: 'User Analytics',

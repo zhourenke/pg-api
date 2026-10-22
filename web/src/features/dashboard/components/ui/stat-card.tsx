@@ -41,7 +41,7 @@ interface StatCardDetail {
 interface StatCardProps {
   title: string
   value: string | number
-  description: string
+  description?: string
   icon: LucideIcon
   sparkline?: number[]
   sparklineVariant?: StatCardSparklineVariant
@@ -246,12 +246,14 @@ export function StatCard(props: StatCardProps) {
         )}
       >
         <Skeleton className='h-5 w-16 sm:h-7 sm:w-24' />
-        <Skeleton
-          className={cn(
-            'h-3 w-24 sm:h-3.5 sm:w-32',
-            props.compactMobile && 'hidden sm:block'
-          )}
-        />
+        {props.description && (
+          <Skeleton
+            className={cn(
+              'h-3 w-24 sm:h-3.5 sm:w-32',
+              props.compactMobile && 'hidden sm:block'
+            )}
+          />
+        )}
       </div>
     )
   } else if (props.error) {
@@ -260,14 +262,16 @@ export function StatCard(props: StatCardProps) {
         <div className='text-muted-foreground mt-0.5 font-mono text-base font-bold tracking-tight break-all tabular-nums sm:text-2xl'>
           --
         </div>
-        <p
-          className={cn(
-            'text-muted-foreground/60 line-clamp-1 text-[11px] sm:text-xs',
-            props.compactMobile && 'hidden sm:block'
-          )}
-        >
-          {props.description}
-        </p>
+        {props.description && (
+          <p
+            className={cn(
+              'text-muted-foreground/60 line-clamp-1 text-[11px] sm:text-xs',
+              props.compactMobile && 'hidden sm:block'
+            )}
+          >
+            {props.description}
+          </p>
+        )}
       </div>
     )
   } else {
@@ -276,31 +280,38 @@ export function StatCard(props: StatCardProps) {
         <div className='text-foreground font-mono text-base font-semibold tracking-tight break-all tabular-nums sm:text-2xl'>
           {props.value}
         </div>
-        <p
-          className={cn(
-            'text-muted-foreground/60 line-clamp-1 text-[11px] leading-relaxed sm:text-xs',
-            props.compactMobile && 'hidden sm:block'
-          )}
-        >
-          {props.description}
-        </p>
+        {props.description && (
+          <p
+            className={cn(
+              'text-muted-foreground/60 line-clamp-1 text-[11px] leading-relaxed sm:text-xs',
+              props.compactMobile && 'hidden sm:block'
+            )}
+          >
+            {props.description}
+          </p>
+        )}
       </div>
     )
   }
 
-  let visualization: ReactNode
+  let visualization: ReactNode = null
   if (props.details?.length) {
     visualization = <StatCardDetails details={props.details} />
-  } else if (sparklineVariant === 'line') {
-    visualization = <LineSparkline values={props.sparkline} tone={tone} />
-  } else {
-    visualization = <BarSparkline values={props.sparkline} tone={tone} />
+  } else if (props.sparkline && props.sparkline.length > 0) {
+    if (sparklineVariant === 'line') {
+      visualization = <LineSparkline values={props.sparkline} tone={tone} />
+    } else {
+      visualization = <BarSparkline values={props.sparkline} tone={tone} />
+    }
   }
+
+  const hasBottomContent = Boolean(visualization)
 
   return (
     <div
       className={cn(
-        'group flex flex-col justify-between sm:min-h-32 sm:gap-3',
+        'group flex flex-col justify-between sm:gap-3',
+        hasBottomContent && 'sm:min-h-32',
         props.compactMobile ? 'gap-1' : 'gap-1.5'
       )}
     >
@@ -325,7 +336,7 @@ export function StatCard(props: StatCardProps) {
 
       {valueContent}
 
-      <div className='hidden sm:block'>{visualization}</div>
+      {visualization && <div className='hidden sm:block'>{visualization}</div>}
     </div>
   )
 }

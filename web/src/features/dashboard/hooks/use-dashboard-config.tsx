@@ -47,7 +47,7 @@ export function useModelStatCardsConfig(): StatCardConfig[] {
   return [
     {
       key: 'count',
-      title: t('Total Count'),
+      title: t('Total Requests'),
       description: t('Statistical count'),
       icon: Hash,
       iconTone: 'info',
