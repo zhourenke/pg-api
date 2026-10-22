@@ -60,7 +60,10 @@ func getAdminFlowQuotaData(startTime int64, endTime int64, username string) ([]*
 	query := flowQuotaBaseQuery(startTime, endTime).
 		Select("user_id, username, use_group, model_name, channel_id, sum(count) as count, sum(quota) as quota, sum(token_used) as token_used")
 	if username != "" {
-		query = query.Where("username = ?", username)
+		var err error
+		if query, err = applyExplicitLogTextFilter(query, "username", username); err != nil {
+			return nil, err
+		}
 	}
 	err := query.
 		Group("user_id, username, use_group, model_name, channel_id").
@@ -77,7 +80,10 @@ func getRootFlowQuotaData(startTime int64, endTime int64, username string) ([]*F
 	query := flowQuotaBaseQuery(startTime, endTime).
 		Select("user_id, username, node_name, token_id, use_group, model_name, channel_id, sum(count) as count, sum(quota) as quota, sum(token_used) as token_used")
 	if username != "" {
-		query = query.Where("username = ?", username)
+		var err error
+		if query, err = applyExplicitLogTextFilter(query, "username", username); err != nil {
+			return nil, err
+		}
 	}
 	err := query.
 		Group("user_id, username, node_name, token_id, use_group, model_name, channel_id").

@@ -121,6 +121,16 @@ func TestGetFlowQuotaDataUsesQuotaDataRoleSpecificDimensions(t *testing.T) {
 	require.Equal(t, "east", adminRows[0].ChannelName)
 	require.Equal(t, 150, adminRows[0].Quota)
 
+	fuzzyAdminRows, err := GetFlowQuotaData(900, 2000, "lic", 0, common.RoleAdminUser)
+	require.NoError(t, err)
+	require.Len(t, fuzzyAdminRows, 2)
+	require.Equal(t, "alice", fuzzyAdminRows[0].Username)
+
+	fuzzyAllDates, err := GetAllQuotaDates(900, 2000, "lic")
+	require.NoError(t, err)
+	require.NotEmpty(t, fuzzyAllDates)
+	require.Equal(t, "alice", fuzzyAllDates[0].Username)
+
 	selfRows, err := GetFlowQuotaData(900, 2000, "", 1, common.RoleCommonUser)
 	require.NoError(t, err)
 	require.Len(t, selfRows, 1)

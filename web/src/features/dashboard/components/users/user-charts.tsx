@@ -146,19 +146,28 @@ export function UserCharts(props: UserChartsProps) {
     staleTime: 60_000,
   })
 
+  const filteredUserData = useMemo(() => {
+    if (!userData || userData.length === 0) return []
+    const filterUsername = props.filters.username?.trim().toLowerCase()
+    if (!filterUsername) return userData
+    return userData.filter((item) =>
+      item.username?.toLowerCase().includes(filterUsername)
+    )
+  }, [userData, props.filters.username])
+
   const chartData = useMemo(
     () =>
       processUserChartData(
-        isLoading ? [] : (userData ?? []),
+        isLoading ? [] : filteredUserData,
         timeGranularity,
         t,
         topUserLimit
       ),
-    [userData, isLoading, timeGranularity, t, topUserLimit]
+    [filteredUserData, isLoading, timeGranularity, t, topUserLimit]
   )
 
   const topUsersTableData = useMemo(() => {
-    if (!userData || userData.length === 0) return []
+    if (filteredUserData.length === 0) return []
 
     const userMap = new Map<
       string,
@@ -166,7 +175,7 @@ export function UserCharts(props: UserChartsProps) {
     >()
     let totalQuota = 0
 
-    for (const item of userData) {
+    for (const item of filteredUserData) {
       const name = item.username || 'Unknown'
       const quota = Number(item.quota) || 0
       const count = Number(item.count) || 0

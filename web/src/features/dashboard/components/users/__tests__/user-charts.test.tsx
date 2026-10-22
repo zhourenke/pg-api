@@ -56,6 +56,13 @@ vi.mock('@/features/dashboard/api', () => ({
         quota: 50000,
         token_used: 1000,
       },
+      {
+        user_id: 2,
+        username: 'bob',
+        count: 5,
+        quota: 20000,
+        token_used: 500,
+      },
     ],
   })),
 }))
@@ -135,5 +142,26 @@ describe('UserCharts preset and granularity updates', () => {
       expect(mountCount).toBeGreaterThan(initialMounts)
       expect(unmountCount).toBeGreaterThanOrEqual(1)
     })
+  })
+
+  it('filters users using fuzzy username matching', async () => {
+    const filters: UserChartsFilters = {
+      preset: 'today',
+      timeGranularity: 'hour',
+      topUserLimit: 10,
+      username: 'lic',
+    }
+
+    const Wrapper = createWrapper()
+    render(
+      <Wrapper>
+        <UserCharts filters={filters} onFiltersChange={vi.fn()} />
+      </Wrapper>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('alice')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('bob')).not.toBeInTheDocument()
   })
 })
