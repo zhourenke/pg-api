@@ -53,7 +53,7 @@ describe('DataTableFitColumnsButton and toolbar integration', () => {
     expect(fitColumnWidths).toHaveBeenCalledTimes(1)
   })
 
-  it('renders the short label next to the icon', () => {
+  it('renders a text-only trigger without a leading icon', () => {
     function Fixture() {
       const table = useReactTable({
         data: rows,
@@ -70,7 +70,8 @@ describe('DataTableFitColumnsButton and toolbar integration', () => {
 
     expect(label.tagName).toBe('SPAN')
     expect(label).toHaveClass('whitespace-nowrap')
-    expect(button.querySelector('svg')).not.toBeNull()
+    expect(button.querySelector('svg')).toBeNull()
+    expect(button).toHaveTextContent('Fit columns')
   })
 
   it('renders nothing at the width where the table becomes a card list', () => {
@@ -101,27 +102,6 @@ describe('DataTableFitColumnsButton and toolbar integration', () => {
     vi.restoreAllMocks()
   })
 
-  it('keeps the label visible when the icon is disabled', () => {
-    function Fixture() {
-      const table = useReactTable({
-        data: rows,
-        columns: [{ accessorKey: 'name', header: 'Name' }],
-        getCoreRowModel: getCoreRowModel(),
-      })
-
-      return <DataTableFitColumnsButton table={table} showIcon={false} />
-    }
-
-    render(<Fixture />)
-
-    expect(screen.getByText('Fit columns')).toBeInTheDocument()
-    expect(
-      screen
-        .getByRole('button', { name: /Fit column widths/i })
-        .querySelector('svg')
-    ).toBeNull()
-  })
-
   it('renders in DataTableToolbar by default and allows hiding via hideFitColumns', () => {
     function Fixture(props: { hideFitColumns?: boolean }) {
       const table = useReactTable({
@@ -146,7 +126,7 @@ describe('DataTableFitColumnsButton and toolbar integration', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('renders the short Chinese label 自适应 with the full text as accessible name', () => {
+  it('renders the short Chinese label 适应 with the full text as accessible name', () => {
     i18n.addResourceBundle('zhCN', 'translation', zh.translation, true, true)
 
     function Fixture() {
@@ -163,6 +143,10 @@ describe('DataTableFitColumnsButton and toolbar integration', () => {
     const button = screen.getByRole('button', { name: '自适应列宽' })
     expect(button).toBeInTheDocument()
     expect(button).toHaveAttribute('title', '自适应列宽')
-    expect(screen.getByText('自适应')).toBeInTheDocument()
+    expect(screen.getByText('适应')).toBeInTheDocument()
+    // The visible words stay inside the accessible name, so speech input can
+    // still match what the user reads.
+    expect(button.textContent).toBe('适应')
+    expect(button.getAttribute('aria-label')).toContain(button.textContent)
   })
 })

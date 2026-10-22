@@ -232,7 +232,7 @@ export function PricingToolbar(props: PricingToolbarProps) {
           {props.viewMode === 'table' && props.onFitColumns && (
             <DataTableFitColumnsButton
               size='sm'
-              className='h-8 gap-1.5 text-xs'
+              className='h-8 text-xs'
               onClick={props.onFitColumns}
             />
           )}
