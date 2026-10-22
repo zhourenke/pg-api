@@ -107,4 +107,42 @@ describe('DashboardToolbar', () => {
     await user.click(resetButtons[0])
     expect(onResetFilters).toHaveBeenCalled()
   })
+
+  it('renders model filter only on models section and hides it on users and flow', () => {
+    const filters: DashboardFilters = { preset: '7d' }
+
+    const { rerender } = render(
+      <DashboardToolbar
+        currentFilters={filters}
+        onFilterChange={vi.fn()}
+        onResetFilters={vi.fn()}
+        activeSection='models'
+        visibleSections={['models', 'flow', 'users']}
+        sectionMeta={SECTION_META}
+        onSectionChange={vi.fn()}
+        chartPreferences={DEFAULT_DASHBOARD_CHART_PREFERENCES}
+        onChartPreferencesChange={vi.fn()}
+      />
+    )
+
+    expect(screen.getByRole('button', { name: /Filter/i })).toBeInTheDocument()
+
+    rerender(
+      <DashboardToolbar
+        currentFilters={filters}
+        onFilterChange={vi.fn()}
+        onResetFilters={vi.fn()}
+        activeSection='users'
+        visibleSections={['models', 'flow', 'users']}
+        sectionMeta={SECTION_META}
+        onSectionChange={vi.fn()}
+        chartPreferences={DEFAULT_DASHBOARD_CHART_PREFERENCES}
+        onChartPreferencesChange={vi.fn()}
+      />
+    )
+
+    expect(
+      screen.queryByRole('button', { name: /Filter/i })
+    ).not.toBeInTheDocument()
+  })
 })

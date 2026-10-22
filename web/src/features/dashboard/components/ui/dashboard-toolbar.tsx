@@ -241,18 +241,19 @@ export function DashboardToolbar(props: DashboardToolbarProps) {
           )}
 
           {props.activeSection === 'models' && (
-            <ModelsChartPreferences
-              preferences={props.chartPreferences}
-              onPreferencesChange={props.onChartPreferencesChange}
-            />
+            <>
+              <ModelsChartPreferences
+                preferences={props.chartPreferences}
+                onPreferencesChange={props.onChartPreferencesChange}
+              />
+              <ModelsFilter
+                currentFilters={props.currentFilters}
+                onFilterChange={props.onFilterChange}
+                onReset={props.onResetFilters}
+                titleKey='Filter'
+              />
+            </>
           )}
-
-          <ModelsFilter
-            currentFilters={props.currentFilters}
-            onFilterChange={props.onFilterChange}
-            onReset={props.onResetFilters}
-            titleKey='Filter'
-          />
 
           {props.onRefresh && (
             <Tooltip>
