@@ -272,6 +272,20 @@ export function Dashboard() {
     [navigate]
   )
 
+  const handleSelectUser = useCallback(
+    (username: string) => {
+      setModelFilters((prev) => ({
+        ...prev,
+        username,
+      }))
+      void navigate({
+        to: '/dashboard/$section',
+        params: { section: 'models' },
+      })
+    },
+    [navigate]
+  )
+
   if (activeSection === 'overview') {
     return <OverviewDashboard />
   }
@@ -355,6 +369,7 @@ export function Dashboard() {
                 <LazyUserCharts
                   filters={userChartsFilters}
                   onFiltersChange={handleUserFiltersChange}
+                  onSelectUser={handleSelectUser}
                 />
               </Suspense>
             </FadeIn>

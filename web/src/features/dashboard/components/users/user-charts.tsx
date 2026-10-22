@@ -18,22 +18,44 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
 import { VChart } from '@visactor/react-vchart'
-import { Users, Loader2 } from 'lucide-react'
-import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
+import {
+  ExternalLink,
+  Loader2,
+  TableProperties,
+  User as UserIcon,
+  Users,
+} from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useTheme } from '@/context/theme-provider'
 import { getUserQuotaDataByUsers } from '@/features/dashboard/api'
 import { TIME_GRANULARITY_OPTIONS } from '@/features/dashboard/constants'
 import { useDashboardWindow } from '@/features/dashboard/hooks/use-dashboard-window'
-import { saveGranularity, processUserChartData } from '@/features/dashboard/lib'
+import {
+  processUserChartData,
+  safeDivide,
+  saveGranularity,
+} from '@/features/dashboard/lib'
 import type {
   ProcessedUserChartData,
   UserChartsFilters,
 } from '@/features/dashboard/types'
+import { toIntlLocale } from '@/i18n/languages'
+import { formatCompactNumber, formatNumber, formatQuota } from '@/lib/format'
 import { requireServerSuccess } from '@/lib/server-error-message'
 import type { TimeGranularity } from '@/lib/time'
 import { TIME_WINDOW_PRESETS, type TimeWindowId } from '@/lib/time-window'
@@ -62,21 +84,30 @@ const USER_CHARTS: {
 
 const TOP_USER_LIMIT_OPTIONS = [5, 10, 20, 50]
 
+interface UserBreakdownItem {
+  username: string
+  count: number
+  quota: number
+  tokens: number
+  avgCostPerCall: number
+  quotaShare: number
+}
+
 interface UserChartsProps {
   filters: UserChartsFilters
   onFiltersChange: (filters: UserChartsFilters) => void
+  onSelectUser?: (username: string) => void
 }
 
 export function UserCharts(props: UserChartsProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const { resolvedTheme } = useTheme()
   const [themeReady, setThemeReady] = useState(false)
   const themeManagerRef = useRef<
     (typeof import('@visactor/vchart'))['ThemeManager'] | null
   >(null)
 
-  // The selection is owned by the dashboard parent so it persists across
-  // sub-section switches; the window is resolved from the chosen preset.
   const timeGranularity = props.filters.timeGranularity
   const preset = props.filters.preset
   const topUserLimit = props.filters.topUserLimit
@@ -148,8 +179,49 @@ export function UserCharts(props: UserChartsProps) {
     [userData, isLoading, timeGranularity, t, topUserLimit]
   )
 
+  const topUsersTableData = useMemo(() => {
+    if (!userData || userData.length === 0) return []
+
+    const userMap = new Map<
+      string,
+      { count: number; quota: number; tokens: number }
+    >()
+    let totalQuota = 0
+
+    for (const item of userData) {
+      const name = item.username || 'Unknown'
+      const quota = Number(item.quota) || 0
+      const count = Number(item.count) || 0
+      const tokens = Number(item.token_used) || 0
+
+      totalQuota += quota
+
+      const cur = userMap.get(name) || { count: 0, quota: 0, tokens: 0 }
+      userMap.set(name, {
+        count: cur.count + count,
+        quota: cur.quota + quota,
+        tokens: cur.tokens + tokens,
+      })
+    }
+
+    const rows: UserBreakdownItem[] = []
+    for (const [name, stats] of userMap.entries()) {
+      rows.push({
+        username: name,
+        count: stats.count,
+        quota: stats.quota,
+        tokens: stats.tokens,
+        avgCostPerCall: safeDivide(stats.quota, stats.count),
+        quotaShare: safeDivide(stats.quota * 100, totalQuota, 1),
+      })
+    }
+
+    return rows.sort((a, b) => b.quota - a.quota).slice(0, topUserLimit)
+  }, [userData, topUserLimit])
+
   return (
-    <div className='space-y-3'>
+    <div className='space-y-3 sm:space-y-4'>
+      {/* Control bar */}
       <div className='flex items-center gap-1.5 overflow-x-auto pb-1 sm:gap-2'>
         <Tabs
           value={preset}
@@ -216,16 +288,17 @@ export function UserCharts(props: UserChartsProps) {
         )}
       </div>
 
-      <div className='grid gap-3'>
+      {/* User charts */}
+      <div className='grid gap-3 sm:gap-4'>
         {USER_CHARTS.map((chart) => {
           const spec = chartData[chart.specKey]
 
           return (
             <div
               key={chart.value}
-              className='overflow-hidden rounded-lg border'
+              className='bg-card overflow-hidden rounded-xl border shadow-xs'
             >
-              <div className='flex w-full items-center gap-2 border-b px-3 py-2 sm:px-5 sm:py-3'>
+              <div className='flex w-full items-center gap-2 border-b px-3 py-2.5 sm:px-5 sm:py-3'>
                 <IconBadge tone='info' size='sm'>
                   <Users />
                 </IconBadge>
@@ -253,6 +326,129 @@ export function UserCharts(props: UserChartsProps) {
             </div>
           )
         })}
+      </div>
+
+      {/* Top Users Usage Table with Drill-down Action */}
+      <div className='bg-card overflow-hidden rounded-xl border shadow-xs'>
+        <div className='flex items-center justify-between border-b px-4 py-3 sm:px-5'>
+          <div className='flex items-center gap-2'>
+            <IconBadge tone='chart-2' size='sm'>
+              <TableProperties />
+            </IconBadge>
+            <div className='flex items-center gap-2'>
+              <h3 className='text-sm font-semibold'>
+                {t('User Usage Details')}
+              </h3>
+              <Badge
+                variant='secondary'
+                className='h-5 px-1.5 font-mono text-[11px]'
+              >
+                TOP {topUsersTableData.length}
+              </Badge>
+            </div>
+          </div>
+        </div>
+
+        <div className='overflow-x-auto'>
+          <Table>
+            <TableHeader>
+              <TableRow className='hover:bg-transparent'>
+                <TableHead className='font-medium'>{t('User')}</TableHead>
+                <TableHead className='text-right font-medium'>
+                  {t('Quota')}
+                </TableHead>
+                <TableHead className='text-right font-medium'>
+                  {t('Calls')}
+                </TableHead>
+                <TableHead className='text-right font-medium'>
+                  {t('Tokens')}
+                </TableHead>
+                <TableHead className='text-right font-medium'>
+                  {t('Avg Cost')}
+                </TableHead>
+                {props.onSelectUser && (
+                  <TableHead className='text-right font-medium'>
+                    {t('Action')}
+                  </TableHead>
+                )}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {topUsersTableData.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={props.onSelectUser ? 6 : 5}
+                    className='text-muted-foreground h-24 text-center text-xs'
+                  >
+                    {t('No data available')}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                topUsersTableData.map((item) => (
+                  <TableRow key={item.username} className='hover:bg-muted/40'>
+                    <TableCell className='py-2.5 font-mono text-xs'>
+                      <div className='flex items-center gap-2'>
+                        <span className='bg-muted flex size-6 shrink-0 items-center justify-center rounded-md'>
+                          <UserIcon className='text-muted-foreground size-3.5' />
+                        </span>
+                        <span className='font-semibold'>{item.username}</span>
+                      </div>
+                    </TableCell>
+
+                    <TableCell className='py-2.5 text-right font-mono text-xs'>
+                      <div className='flex flex-col items-end gap-1'>
+                        <span className='text-foreground font-semibold tabular-nums'>
+                          {formatQuota(item.quota)}
+                        </span>
+                        <div className='flex items-center gap-1.5'>
+                          <div className='bg-muted h-1.5 w-12 overflow-hidden rounded-full'>
+                            <div
+                              className='bg-success h-full rounded-full'
+                              style={{
+                                width: `${Math.min(100, item.quotaShare)}%`,
+                              }}
+                            />
+                          </div>
+                          <span className='text-muted-foreground text-[10px] tabular-nums'>
+                            {item.quotaShare}%
+                          </span>
+                        </div>
+                      </div>
+                    </TableCell>
+
+                    <TableCell className='text-foreground py-2.5 text-right font-mono text-xs tabular-nums'>
+                      {formatNumber(item.count, locale)}
+                    </TableCell>
+
+                    <TableCell className='text-foreground py-2.5 text-right font-mono text-xs tabular-nums'>
+                      {formatCompactNumber(item.tokens, locale)}
+                    </TableCell>
+
+                    <TableCell className='text-muted-foreground py-2.5 text-right font-mono text-xs tabular-nums'>
+                      {item.avgCostPerCall > 0
+                        ? formatQuota(item.avgCostPerCall)
+                        : '--'}
+                    </TableCell>
+
+                    {props.onSelectUser && (
+                      <TableCell className='py-2.5 text-right'>
+                        <Button
+                          size='sm'
+                          variant='outline'
+                          className='h-6 gap-1 px-2 text-[11px]'
+                          onClick={() => props.onSelectUser?.(item.username)}
+                        >
+                          <ExternalLink className='size-2.5' />
+                          <span>{t('Analyze User')}</span>
+                        </Button>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     </div>
   )
