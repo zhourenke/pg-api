@@ -89,6 +89,12 @@ const LazyConsumptionDistributionChart = lazy(() =>
   }))
 )
 
+const LazyModelBreakdownTable = lazy(() =>
+  import('./components/models/model-breakdown-table').then((m) => ({
+    default: m.ModelBreakdownTable,
+  }))
+)
+
 const LazyUserCharts = lazy(() =>
   import('./components/users/user-charts').then((m) => ({
     default: m.UserCharts,
@@ -330,6 +336,14 @@ export function Dashboard() {
                     timeGranularity={
                       modelFilters.time_granularity || DEFAULT_TIME_GRANULARITY
                     }
+                  />
+                </Suspense>
+              </FadeIn>
+              <FadeIn delay={0.2}>
+                <Suspense fallback={<ModelChartsFallback />}>
+                  <LazyModelBreakdownTable
+                    data={modelData}
+                    loading={dataLoading}
                   />
                 </Suspense>
               </FadeIn>
