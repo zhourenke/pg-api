@@ -42,6 +42,7 @@ import { useAuthStore } from '@/stores/auth-store'
 import { OverviewDashboard } from './components/overview/overview-dashboard'
 import { DashboardToolbar } from './components/ui/dashboard-toolbar'
 import { DEFAULT_TIME_GRANULARITY } from './constants'
+import { useDashboardData } from './hooks/use-dashboard-data'
 import {
   buildDefaultDashboardFilters,
   getSavedChartPreferences,
@@ -57,7 +58,6 @@ import {
 import type {
   DashboardChartPreferences,
   DashboardFilters,
-  QuotaDataItem,
   UserChartsFilters,
 } from './types'
 
@@ -169,8 +169,6 @@ export function Dashboard() {
   const activeSection = (params.section ??
     DASHBOARD_DEFAULT_SECTION) as DashboardSectionId
 
-  const [modelData, setModelData] = useState<QuotaDataItem[]>([])
-  const [dataLoading, setDataLoading] = useState(false)
   const [chartPreferences, setChartPreferences] =
     useState<DashboardChartPreferences>(() => getSavedChartPreferences())
   const [modelFilters, setModelFilters] = useState<DashboardFilters>(() =>
@@ -184,6 +182,15 @@ export function Dashboard() {
     })
   )
   const [flowSensitiveVisible, setFlowSensitiveVisible] = useState(true)
+
+  const isAdmin = Boolean(userRole && userRole >= ROLE.ADMIN)
+  const {
+    data: modelData,
+    isLoading: dataLoading,
+    isFetching: dataFetching,
+    refetch: refetchModelData,
+    stats: modelStats,
+  } = useDashboardData(modelFilters, isAdmin)
 
   // The site default granularity (Ops > Log maintenance) applies to every
   // browser that did not choose its own granularity on the dashboard. The
@@ -233,14 +240,6 @@ export function Dashboard() {
     }))
   }, [chartPreferences])
 
-  const handleDataUpdate = useCallback(
-    (data: QuotaDataItem[], loading: boolean) => {
-      setModelData(data)
-      setDataLoading(loading)
-    },
-    []
-  )
-
   const handleChartPreferencesChange = useCallback(
     (preferences: DashboardChartPreferences) => {
       setChartPreferences(preferences)
@@ -254,7 +253,6 @@ export function Dashboard() {
     []
   )
 
-  const isAdmin = Boolean(userRole && userRole >= ROLE.ADMIN)
   const visibleSections = useMemo(
     () =>
       DASHBOARD_SECTION_IDS.filter(
@@ -305,6 +303,8 @@ export function Dashboard() {
             currentFilters={modelFilters}
             onFilterChange={handleFilterChange}
             onResetFilters={handleResetFilters}
+            onRefresh={refetchModelData}
+            isRefreshing={dataFetching}
             activeSection={activeSection}
             visibleSections={visibleSections}
             sectionMeta={SECTION_META}
@@ -321,10 +321,7 @@ export function Dashboard() {
             <>
               <FadeIn>
                 <Suspense fallback={<LogStatCardsFallback />}>
-                  <LazyLogStatCards
-                    filters={modelFilters}
-                    onDataUpdate={handleDataUpdate}
-                  />
+                  <LazyLogStatCards stats={modelStats} loading={dataLoading} />
                 </Suspense>
               </FadeIn>
               <FadeIn delay={0.1}>

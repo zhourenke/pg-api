@@ -44,6 +44,8 @@ export interface UseDashboardDataResult {
   stats: ExtendedDashboardStats
 }
 
+const EMPTY_DATA: QuotaDataItem[] = []
+
 export function useDashboardData(
   filters?: DashboardFilters,
   isAdmin = false
@@ -59,16 +61,16 @@ export function useDashboardData(
     queryKey: ['dashboard', 'quota-data', queryParams, isAdmin],
     queryFn: async () => {
       const response = await getUserQuotaDates(queryParams, isAdmin)
-      return requireServerSuccess(response).data ?? []
+      return requireServerSuccess(response).data ?? EMPTY_DATA
     },
     staleTime: 60_000,
   })
 
-  const rawData = data ?? []
+  const rawData = data ?? EMPTY_DATA
 
   const stats = useMemo(
-    () => calculateExtendedDashboardStats(data ?? [], window.start, window.end),
-    [data, window.end, window.start]
+    () => calculateExtendedDashboardStats(rawData, window.start, window.end),
+    [rawData, window.end, window.start]
   )
 
   return {

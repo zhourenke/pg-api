@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next'
 
 import { StatCard } from '@/features/dashboard/components/ui/stat-card'
 import { useDashboardData } from '@/features/dashboard/hooks/use-dashboard-data'
+import type { ExtendedDashboardStats } from '@/features/dashboard/lib'
 import type {
   DashboardFilters,
   QuotaDataItem,
@@ -32,6 +33,9 @@ import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
 interface LogStatCardsProps {
+  stats?: ExtendedDashboardStats
+  loading?: boolean
+  error?: boolean
   filters?: DashboardFilters
   onDataUpdate?: (data: QuotaDataItem[], loading: boolean) => void
 }
@@ -42,16 +46,24 @@ export function LogStatCards(props: LogStatCardsProps) {
   const user = useAuthStore((state) => state.auth.user)
   const isAdmin = Boolean(user?.role && user.role >= 10)
 
-  const { data, isLoading, isError, stats } = useDashboardData(
-    props.filters,
+  const queried = useDashboardData(
+    props.stats ? undefined : props.filters,
     isAdmin
   )
 
+  const stats = props.stats ?? queried.stats
+  const isLoading =
+    props.loading !== undefined ? props.loading : queried.isLoading
+  const isError = props.error !== undefined ? props.error : queried.isError
+
   const onDataUpdate = props.onDataUpdate
+  const queriedData = queried.data
 
   useEffect(() => {
-    onDataUpdate?.(data, isLoading)
-  }, [data, isLoading, onDataUpdate])
+    if (onDataUpdate && !props.stats) {
+      onDataUpdate(queriedData, isLoading)
+    }
+  }, [queriedData, isLoading, onDataUpdate, props.stats])
 
   const avgCostDisplay =
     stats.avgCostPerRequest > 0
