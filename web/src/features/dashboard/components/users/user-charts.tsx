@@ -204,7 +204,7 @@ export function UserCharts(props: UserChartsProps) {
     }
 
     return rows.sort((a, b) => b.quota - a.quota).slice(0, topUserLimit)
-  }, [userData, topUserLimit])
+  }, [filteredUserData, topUserLimit])
 
   const [activeTab, setActiveTab] = useState<UserAnalyticsTab>('rank')
   const spec =

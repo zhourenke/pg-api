@@ -40,7 +40,6 @@ import {
 } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { MultiSelect } from '@/components/multi-select'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
   Empty,
@@ -70,7 +69,6 @@ import {
   getFlowStages,
 } from '@/features/dashboard/lib'
 import {
-  compactFlowSelectionLabel,
   flowDisplayState,
   requireSuccessfulFlowRows,
 } from '@/features/dashboard/lib/flow-selection'
@@ -92,6 +90,7 @@ import { VCHART_OPTION } from '@/lib/vchart'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { FlowNodeFilterControl } from './flow-node-filter'
+import { FlowUserFilterControl } from './flow-user-filter'
 
 interface FlowChartsProps {
   filters?: DashboardFilters
@@ -362,14 +361,6 @@ export function FlowCharts(props: FlowChartsProps) {
       t,
     ]
   )
-  const userFilterOptions = useMemo(
-    () =>
-      flowData.filterOptions.users.map((user) => ({
-        label: `${user.label} · ${user.valueLabel}`,
-        value: user.value,
-      })),
-    [flowData.filterOptions.users]
-  )
   const nodeFilterStages = useMemo(
     () => visibleStages.filter((stage) => stage !== 'user'),
     [visibleStages]
@@ -407,6 +398,15 @@ export function FlowCharts(props: FlowChartsProps) {
   }, [])
   const clearFlowNodeFilters = useCallback(() => {
     setSelectedNodes([])
+  }, [])
+  const handleToggleUser = useCallback((userId: string) => {
+    setSelectedUsers((prev) => toggleSelectedValue(prev, userId))
+  }, [])
+  const handleRemoveUser = useCallback((userId: string) => {
+    setSelectedUsers((prev) => prev.filter((item) => item !== userId))
+  }, [])
+  const handleClearUsers = useCallback(() => {
+    setSelectedUsers([])
   }, [])
   // Clicking a node only drives the highlight: keep every node/link on screen
   // but emphasize the full paths through the clicked node and dim the rest.
@@ -634,23 +634,17 @@ export function FlowCharts(props: FlowChartsProps) {
             onRemoveNode={removeFlowNodeFilter}
             onClearNodes={clearFlowNodeFilters}
           />
-        </div>
 
-        <div className='flex min-w-0 items-center gap-2 xl:justify-end'>
           {isAdmin && (
-            <div className='flex min-w-0 flex-col gap-2 sm:flex-row xl:w-[min(24rem,34vw)]'>
-              <MultiSelect
-                options={userFilterOptions}
-                selected={selectedUsers}
-                onChange={setSelectedUsers}
-                placeholder={t('All users')}
-                emptyText={t('No users')}
-                maxVisibleChips={2}
-                renderSelectedSummary={(values) =>
-                  compactFlowSelectionLabel(values.length)
-                }
-              />
-            </div>
+            <FlowUserFilterControl
+              metricLabel={metricLabel}
+              formatMetricValue={formatNodeMetricValue}
+              options={flowData.filterOptions.users}
+              selectedUsers={selectedUsers}
+              onToggleUser={handleToggleUser}
+              onRemoveUser={handleRemoveUser}
+              onClearUsers={handleClearUsers}
+            />
           )}
         </div>
       </div>
