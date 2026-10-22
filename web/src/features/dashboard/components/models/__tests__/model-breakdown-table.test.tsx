@@ -55,9 +55,6 @@ describe('ModelBreakdownTable', () => {
     expect(screen.getByText('gpt-4o')).toBeDefined()
     expect(screen.getByText('claude-3-5-sonnet')).toBeDefined()
     expect(screen.getByText('deepseek-v3')).toBeDefined()
-
-    // 3 models total
-    expect(screen.getByText('3 models')).toBeDefined()
   })
 
   it('filters rows based on search input', async () => {

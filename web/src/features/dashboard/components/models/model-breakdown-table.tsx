@@ -16,37 +16,29 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
-  Bot,
-  ChevronLeft,
-  ChevronRight,
-  Search,
-  TableProperties,
-  X,
-} from 'lucide-react'
-import { useState, useMemo } from 'react'
+import type {
+  ColumnDef,
+  PaginationState,
+  SortingState,
+} from '@tanstack/react-table'
+import { Bot, Search, TableProperties, X } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import {
+  DataTablePagination,
+  DataTableRow,
+  DataTableView,
+  useDataTable,
+} from '@/components/data-table'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { safeDivide } from '@/features/dashboard/lib'
 import type { QuotaDataItem } from '@/features/dashboard/types'
 import { toIntlLocale } from '@/i18n/languages'
-import { formatCompactNumber, formatNumber, formatQuota } from '@/lib/format'
+import { formatNumber, formatQuota, formatTokens } from '@/lib/format'
+import { cn } from '@/lib/utils'
 
 interface ModelBreakdownItem {
   model: string
@@ -60,9 +52,6 @@ interface ModelBreakdownItem {
   tokensShare: number
 }
 
-type SortField = 'quota' | 'count' | 'tokens' | 'avgCost' | 'model'
-type SortOrder = 'asc' | 'desc'
-
 interface ModelBreakdownTableProps {
   data: QuotaDataItem[]
   loading?: boolean
@@ -75,9 +64,13 @@ export function ModelBreakdownTable(props: ModelBreakdownTableProps) {
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
 
   const [searchTerm, setSearchTerm] = useState('')
-  const [sortField, setSortField] = useState<SortField>('quota')
-  const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
-  const [currentPage, setCurrentPage] = useState(1)
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: 'quota', desc: true },
+  ])
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: PAGE_SIZE,
+  })
 
   const { items } = useMemo(() => {
     const modelMap = new Map<
@@ -141,50 +134,105 @@ export function ModelBreakdownTable(props: ModelBreakdownTableProps) {
     return items.filter((item) => item.model.toLowerCase().includes(trimmed))
   }, [items, searchTerm])
 
-  const sortedItems = useMemo(() => {
-    return [...filteredItems].sort((a, b) => {
-      let comparison = 0
-      if (sortField === 'model') {
-        comparison = a.model.localeCompare(b.model)
-      } else if (sortField === 'quota') {
-        comparison = a.quota - b.quota
-      } else if (sortField === 'count') {
-        comparison = a.count - b.count
-      } else if (sortField === 'tokens') {
-        comparison = a.tokens - b.tokens
-      } else if (sortField === 'avgCost') {
-        comparison = a.avgCostPerCall - b.avgCostPerCall
-      }
-      return sortOrder === 'desc' ? -comparison : comparison
-    })
-  }, [filteredItems, sortField, sortOrder])
-
-  const totalPages = Math.max(1, Math.ceil(sortedItems.length / PAGE_SIZE))
-  const paginatedItems = sortedItems.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE
+  const columns = useMemo<ColumnDef<ModelBreakdownItem>[]>(
+    () => [
+      {
+        accessorKey: 'model',
+        header: t('Model'),
+        cell: ({ row }) => (
+          <div className='flex max-w-[16rem] min-w-0 items-center gap-2 sm:max-w-xs'>
+            <span className='bg-muted flex size-6 shrink-0 items-center justify-center rounded-md'>
+              <Bot className='text-muted-foreground size-3.5' />
+            </span>
+            <span
+              className='truncate font-mono text-xs font-semibold tracking-tight'
+              title={row.original.model}
+            >
+              {row.original.model}
+            </span>
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'quota',
+        header: t('Quota'),
+        cell: ({ row }) => (
+          <div className='flex flex-col items-end gap-0.5 text-right font-mono text-xs'>
+            <span className='text-foreground font-semibold tabular-nums'>
+              {formatQuota(row.original.quota)}
+            </span>
+            <span className='text-muted-foreground text-[11px] tabular-nums'>
+              {row.original.quotaShare}%
+            </span>
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'count',
+        header: t('Requests'),
+        cell: ({ row }) => (
+          <div className='flex flex-col items-end gap-0.5 text-right font-mono text-xs'>
+            <span className='text-foreground tabular-nums'>
+              {formatNumber(row.original.count, locale)}
+            </span>
+            <span className='text-muted-foreground text-[11px] tabular-nums'>
+              {row.original.countShare}%
+            </span>
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'tokens',
+        header: t('Token Count'),
+        cell: ({ row }) => (
+          <div className='flex flex-col items-end gap-0.5 text-right font-mono text-xs'>
+            <span
+              className='text-foreground tabular-nums'
+              title={formatNumber(row.original.tokens, locale)}
+            >
+              {formatTokens(row.original.tokens, '0')}
+            </span>
+            <span className='text-muted-foreground text-[11px] tabular-nums'>
+              {row.original.tokensShare}%
+            </span>
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'avgCostPerCall',
+        header: t('Avg Quota'),
+        cell: ({ row }) => (
+          <div className='text-muted-foreground text-right font-mono text-xs tabular-nums'>
+            {row.original.avgCostPerCall > 0
+              ? formatQuota(row.original.avgCostPerCall)
+              : '--'}
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'avgTokensPerCall',
+        header: t('Avg Tokens Count'),
+        cell: ({ row }) => (
+          <div className='text-muted-foreground text-right font-mono text-xs tabular-nums'>
+            {row.original.avgTokensPerCall > 0
+              ? formatTokens(Math.round(row.original.avgTokensPerCall), '0')
+              : '--'}
+          </div>
+        ),
+      },
+    ],
+    [t, locale]
   )
 
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'))
-    } else {
-      setSortField(field)
-      setSortOrder('desc')
-    }
-    setCurrentPage(1)
-  }
-
-  const renderSortIndicator = (field: SortField) => {
-    if (sortField !== field) {
-      return <ArrowUpDown className='text-muted-foreground/40 ml-1 size-3' />
-    }
-    return sortOrder === 'desc' ? (
-      <ArrowDown className='text-primary ml-1 size-3' />
-    ) : (
-      <ArrowUp className='text-primary ml-1 size-3' />
-    )
-  }
+  const { table } = useDataTable({
+    data: filteredItems,
+    columns,
+    sorting,
+    onSortingChange: setSorting,
+    pagination,
+    onPaginationChange: setPagination,
+    enableRowSelection: false,
+  })
 
   if (props.loading) {
     return (
@@ -210,19 +258,9 @@ export function ModelBreakdownTable(props: ModelBreakdownTableProps) {
           <IconBadge tone='chart-2' size='sm'>
             <TableProperties />
           </IconBadge>
-          <div className='flex items-center gap-2'>
-            <h3 className='text-sm font-semibold'>
-              {t('Model Usage Details')}
-            </h3>
-            <Badge
-              variant='secondary'
-              className='h-5 px-1.5 font-mono text-[11px]'
-            >
-              {searchTerm.trim()
-                ? `${filteredItems.length} / ${items.length} ${t('models')}`
-                : `${items.length} ${t('models')}`}
-            </Badge>
-          </div>
+          <h3 className='text-sm font-semibold'>
+            {t('Model Usage Details')}
+          </h3>
         </div>
 
         <div className='flex items-center gap-2'>
@@ -234,7 +272,7 @@ export function ModelBreakdownTable(props: ModelBreakdownTableProps) {
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value)
-                setCurrentPage(1)
+                setPagination((prev) => ({ ...prev, pageIndex: 0 }))
               }}
               className='h-8 pr-7 pl-8 text-xs'
             />
@@ -243,7 +281,7 @@ export function ModelBreakdownTable(props: ModelBreakdownTableProps) {
                 type='button'
                 onClick={() => {
                   setSearchTerm('')
-                  setCurrentPage(1)
+                  setPagination((prev) => ({ ...prev, pageIndex: 0 }))
                 }}
                 className='text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2 rounded-xs p-0.5'
                 aria-label={t('Reset')}
@@ -255,213 +293,29 @@ export function ModelBreakdownTable(props: ModelBreakdownTableProps) {
         </div>
       </div>
 
-      {/* Table Content */}
-      <div className='overflow-x-auto'>
-        <Table>
-          <TableHeader>
-            <TableRow className='hover:bg-transparent'>
-              <TableHead
-                className='cursor-pointer font-medium select-none'
-                onClick={() => handleSort('model')}
-              >
-                <div className='flex items-center'>
-                  <span>{t('Model')}</span>
-                  {renderSortIndicator('model')}
-                </div>
-              </TableHead>
-              <TableHead
-                className='cursor-pointer text-right font-medium select-none'
-                onClick={() => handleSort('quota')}
-              >
-                <div className='flex items-center justify-end'>
-                  <span>{t('Quota')}</span>
-                  {renderSortIndicator('quota')}
-                </div>
-              </TableHead>
-              <TableHead
-                className='cursor-pointer text-right font-medium select-none'
-                onClick={() => handleSort('count')}
-              >
-                <div className='flex items-center justify-end'>
-                  <span>{t('Calls')}</span>
-                  {renderSortIndicator('count')}
-                </div>
-              </TableHead>
-              <TableHead
-                className='cursor-pointer text-right font-medium select-none'
-                onClick={() => handleSort('tokens')}
-              >
-                <div className='flex items-center justify-end'>
-                  <span>{t('Tokens')}</span>
-                  {renderSortIndicator('tokens')}
-                </div>
-              </TableHead>
-              <TableHead
-                className='cursor-pointer text-right font-medium select-none'
-                onClick={() => handleSort('avgCost')}
-              >
-                <div className='flex items-center justify-end'>
-                  <span>{t('Avg Cost')}</span>
-                  {renderSortIndicator('avgCost')}
-                </div>
-              </TableHead>
-              <TableHead className='text-right font-medium'>
-                <span>{t('Avg Tokens')}</span>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {paginatedItems.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={6}
-                  className='text-muted-foreground h-32 text-center text-xs'
-                >
-                  {items.length === 0
-                    ? t('No data available')
-                    : t('No matching models')}
-                </TableCell>
-              </TableRow>
-            ) : (
-              paginatedItems.map((item) => (
-                <TableRow key={item.model} className='hover:bg-muted/40'>
-                  {/* Model Name */}
-                  <TableCell className='max-w-[16rem] py-2.5 sm:max-w-xs'>
-                    <div className='flex items-center gap-2'>
-                      <span className='bg-muted flex size-6 shrink-0 items-center justify-center rounded-md'>
-                        <Bot className='text-muted-foreground size-3.5' />
-                      </span>
-                      <span
-                        className='truncate font-mono text-xs font-semibold tracking-tight'
-                        title={item.model}
-                      >
-                        {item.model}
-                      </span>
-                    </div>
-                  </TableCell>
+      <DataTableView
+        table={table}
+        containerClassName='border-0 rounded-none'
+        emptyTitle={t('No matching models')}
+        emptyDescription={
+          items.length === 0 ? t('No data available') : undefined
+        }
+        tableClassName={cn(
+          '[&_[data-slot=table]]:text-[13px] [&_[data-slot=table]_td]:text-[13px] [&_[data-slot=table]_td_*]:text-[13px] [&_[data-slot=table]_th]:text-[13px] [&_[data-slot=table]_th_*]:text-[13px]'
+        )}
+        renderRow={(row) => (
+          <DataTableRow
+            key={row.id}
+            row={row}
+            cellRenderColumns={table.options.columns}
+            className='hover:bg-muted/40 transition-colors'
+          />
+        )}
+      />
 
-                  {/* Quota & Share */}
-                  <TableCell className='py-2.5 text-right font-mono text-xs'>
-                    <div className='flex flex-col items-end gap-1'>
-                      <span className='text-foreground font-semibold tabular-nums'>
-                        {formatQuota(item.quota)}
-                      </span>
-                      <div className='flex items-center gap-1.5'>
-                        <div className='bg-muted h-1.5 w-12 overflow-hidden rounded-full'>
-                          <div
-                            className='bg-success h-full rounded-full'
-                            style={{
-                              width: `${Math.min(100, item.quotaShare)}%`,
-                            }}
-                          />
-                        </div>
-                        <span className='text-muted-foreground text-[10px] tabular-nums'>
-                          {item.quotaShare}%
-                        </span>
-                      </div>
-                    </div>
-                  </TableCell>
-
-                  {/* Call Count & Share */}
-                  <TableCell className='py-2.5 text-right font-mono text-xs'>
-                    <div className='flex flex-col items-end gap-1'>
-                      <span className='text-foreground tabular-nums'>
-                        {formatNumber(item.count, locale)}
-                      </span>
-                      <div className='flex items-center gap-1.5'>
-                        <div className='bg-muted h-1.5 w-12 overflow-hidden rounded-full'>
-                          <div
-                            className='bg-info h-full rounded-full'
-                            style={{
-                              width: `${Math.min(100, item.countShare)}%`,
-                            }}
-                          />
-                        </div>
-                        <span className='text-muted-foreground text-[10px] tabular-nums'>
-                          {item.countShare}%
-                        </span>
-                      </div>
-                    </div>
-                  </TableCell>
-
-                  {/* Tokens & Share */}
-                  <TableCell className='py-2.5 text-right font-mono text-xs'>
-                    <div className='flex flex-col items-end gap-1'>
-                      <span
-                        className='text-foreground tabular-nums'
-                        title={formatNumber(item.tokens, locale)}
-                      >
-                        {formatCompactNumber(item.tokens, locale)}
-                      </span>
-                      <div className='flex items-center gap-1.5'>
-                        <div className='bg-muted h-1.5 w-12 overflow-hidden rounded-full'>
-                          <div
-                            className='bg-chart-4 h-full rounded-full'
-                            style={{
-                              width: `${Math.min(100, item.tokensShare)}%`,
-                            }}
-                          />
-                        </div>
-                        <span className='text-muted-foreground text-[10px] tabular-nums'>
-                          {item.tokensShare}%
-                        </span>
-                      </div>
-                    </div>
-                  </TableCell>
-
-                  {/* Avg Cost / Call */}
-                  <TableCell className='text-muted-foreground py-2.5 text-right font-mono text-xs tabular-nums'>
-                    {item.avgCostPerCall > 0
-                      ? formatQuota(item.avgCostPerCall)
-                      : '--'}
-                  </TableCell>
-
-                  {/* Avg Tokens / Call */}
-                  <TableCell className='text-muted-foreground py-2.5 text-right font-mono text-xs tabular-nums'>
-                    {item.avgTokensPerCall > 0
-                      ? formatCompactNumber(
-                          Math.round(item.avgTokensPerCall),
-                          locale
-                        )
-                      : '--'}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Pagination Footer */}
-      {totalPages > 1 && (
-        <div className='flex items-center justify-between border-t px-4 py-2.5 sm:px-5'>
-          <div className='text-muted-foreground font-mono text-xs'>
-            {currentPage} / {totalPages}
-          </div>
-          <div className='flex items-center gap-1.5'>
-            <Button
-              variant='outline'
-              size='sm'
-              className='h-7 px-2.5 text-xs'
-              disabled={currentPage <= 1}
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              aria-label={t('Previous page')}
-            >
-              <ChevronLeft className='mr-1 size-3' />
-              <span>{t('Previous page')}</span>
-            </Button>
-            <Button
-              variant='outline'
-              size='sm'
-              className='h-7 px-2.5 text-xs'
-              disabled={currentPage >= totalPages}
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              aria-label={t('Next page')}
-            >
-              <span>{t('Next page')}</span>
-              <ChevronRight className='ml-1 size-3' />
-            </Button>
-          </div>
+      {table.getPageCount() > 1 && (
+        <div className='border-t px-4 py-2.5 sm:px-5'>
+          <DataTablePagination table={table} />
         </div>
       )}
     </div>
