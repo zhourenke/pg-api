@@ -25,6 +25,7 @@ import {
   ChevronRight,
   Search,
   TableProperties,
+  X,
 } from 'lucide-react'
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -217,7 +218,9 @@ export function ModelBreakdownTable(props: ModelBreakdownTableProps) {
               variant='secondary'
               className='h-5 px-1.5 font-mono text-[11px]'
             >
-              {items.length} {t('models')}
+              {searchTerm.trim()
+                ? `${filteredItems.length} / ${items.length} ${t('models')}`
+                : `${items.length} ${t('models')}`}
             </Badge>
           </div>
         </div>
@@ -226,15 +229,28 @@ export function ModelBreakdownTable(props: ModelBreakdownTableProps) {
           <div className='relative w-full sm:w-60'>
             <Search className='text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2' />
             <Input
-              type='search'
+              type='text'
               placeholder={t('Search models...')}
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value)
                 setCurrentPage(1)
               }}
-              className='h-8 pl-8 text-xs'
+              className='h-8 pr-7 pl-8 text-xs'
             />
+            {searchTerm && (
+              <button
+                type='button'
+                onClick={() => {
+                  setSearchTerm('')
+                  setCurrentPage(1)
+                }}
+                className='text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2 rounded-xs p-0.5'
+                aria-label={t('Reset')}
+              >
+                <X className='size-3' />
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -377,9 +393,19 @@ export function ModelBreakdownTable(props: ModelBreakdownTableProps) {
                       >
                         {formatCompactNumber(item.tokens, locale)}
                       </span>
-                      <span className='text-muted-foreground text-[10px] tabular-nums'>
-                        {item.tokensShare}%
-                      </span>
+                      <div className='flex items-center gap-1.5'>
+                        <div className='bg-muted h-1.5 w-12 overflow-hidden rounded-full'>
+                          <div
+                            className='bg-chart-4 h-full rounded-full'
+                            style={{
+                              width: `${Math.min(100, item.tokensShare)}%`,
+                            }}
+                          />
+                        </div>
+                        <span className='text-muted-foreground text-[10px] tabular-nums'>
+                          {item.tokensShare}%
+                        </span>
+                      </div>
                     </div>
                   </TableCell>
 
