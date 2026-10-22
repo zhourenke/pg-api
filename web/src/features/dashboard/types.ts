@@ -212,9 +212,9 @@ export interface DashboardChartPreferences {
 
 // User analytics selections are held by the dashboard parent so they survive
 // switching between dashboard sub-sections, matching the model/flow filters.
-export interface UserChartsFilters {
-  preset: TimeWindowId
-  timeGranularity: TimeGranularity
+export interface UserChartsFilters extends Partial<DashboardFilters> {
+  preset?: TimeWindowId
+  timeGranularity?: TimeGranularity
   topUserLimit: number
 }
 

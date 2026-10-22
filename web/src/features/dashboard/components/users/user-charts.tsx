@@ -42,6 +42,9 @@ import {
 } from '@/components/ui/table'
 import { useTheme } from '@/context/theme-provider'
 import { getUserQuotaDataByUsers } from '@/features/dashboard/api'
+import {
+  DEFAULT_TIME_GRANULARITY,
+} from '@/features/dashboard/constants'
 import { useDashboardWindow } from '@/features/dashboard/hooks/use-dashboard-window'
 import { processUserChartData, safeDivide } from '@/features/dashboard/lib'
 import type {
@@ -101,12 +104,14 @@ export function UserCharts(props: UserChartsProps) {
     (typeof import('@visactor/vchart'))['ThemeManager'] | null
   >(null)
 
-  const timeGranularity = props.filters.timeGranularity
-  const preset = props.filters.preset
-  const topUserLimit = props.filters.topUserLimit
+  const timeGranularity =
+    props.filters.timeGranularity ??
+    props.filters.time_granularity ??
+    DEFAULT_TIME_GRANULARITY
+  const topUserLimit = props.filters.topUserLimit ?? 10
   const onFiltersChange = props.onFiltersChange
 
-  const window = useDashboardWindow({ preset })
+  const window = useDashboardWindow(props.filters)
   const timeRange = useMemo(
     () => ({
       start_timestamp: window.start,

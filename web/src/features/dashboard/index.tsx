@@ -174,12 +174,15 @@ export function Dashboard() {
   const [modelFilters, setModelFilters] = useState<DashboardFilters>(() =>
     buildDefaultDashboardFilters(getSavedChartPreferences())
   )
-  const [userChartsFilters, setUserChartsFilters] = useState<UserChartsFilters>(
+  const [topUserLimit, setTopUserLimit] = useState(10)
+
+  const userChartsFilters = useMemo<UserChartsFilters>(
     () => ({
-      preset: getSavedChartPreferences().defaultTimeWindowId,
-      timeGranularity: getSavedGranularity(),
-      topUserLimit: 10,
-    })
+      ...modelFilters,
+      timeGranularity: modelFilters.time_granularity ?? getSavedGranularity(),
+      topUserLimit,
+    }),
+    [modelFilters, topUserLimit]
   )
   const [flowSensitiveVisible, setFlowSensitiveVisible] = useState(true)
 
@@ -231,40 +234,35 @@ export function Dashboard() {
 
   const handleFilterChange = useCallback((filters: DashboardFilters) => {
     setModelFilters(filters)
-    setUserChartsFilters((previous) => ({
-      ...previous,
-      preset: filters.preset ?? previous.preset,
-      timeGranularity: filters.time_granularity ?? previous.timeGranularity,
-    }))
   }, [])
 
-  const handleUserFiltersChange = useCallback((filters: UserChartsFilters) => {
-    setUserChartsFilters(filters)
-    setModelFilters((previous) => ({
-      ...previous,
-      preset: filters.preset,
-      time_granularity: filters.timeGranularity,
-    }))
-  }, [])
+  const handleUserFiltersChange = useCallback(
+    (filters: UserChartsFilters) => {
+      if (
+        filters.topUserLimit !== undefined &&
+        filters.topUserLimit !== topUserLimit
+      ) {
+        setTopUserLimit(filters.topUserLimit)
+      }
+      setModelFilters((previous) => ({
+        ...previous,
+        preset: filters.preset,
+        start_timestamp: filters.start_timestamp,
+        end_timestamp: filters.end_timestamp,
+        time_granularity: filters.time_granularity ?? filters.timeGranularity,
+      }))
+    },
+    [topUserLimit]
+  )
 
   const handleResetFilters = useCallback(() => {
-    const defaults = buildDefaultDashboardFilters(chartPreferences)
-    setModelFilters(defaults)
-    setUserChartsFilters((previous) => ({
-      ...previous,
-      preset: defaults.preset ?? previous.preset,
-      timeGranularity: defaults.time_granularity ?? previous.timeGranularity,
-    }))
+    setModelFilters(buildDefaultDashboardFilters(chartPreferences))
   }, [chartPreferences])
 
   const handleChartPreferencesChange = useCallback(
     (preferences: DashboardChartPreferences) => {
       setChartPreferences(preferences)
       setModelFilters(buildDefaultDashboardFilters(preferences))
-      setUserChartsFilters((previous) => ({
-        ...previous,
-        preset: preferences.defaultTimeWindowId,
-      }))
       saveChartPreferences(preferences)
     },
     []
