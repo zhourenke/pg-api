@@ -24,7 +24,7 @@ import type { RankingPeriod } from '../types'
 
 const PERIODS: { id: RankingPeriod; labelKey: string }[] = [
   { id: 'today', labelKey: 'Today' },
-  { id: 'week', labelKey: 'Week' },
+  { id: 'week', labelKey: 'This week' },
   { id: 'month', labelKey: 'Month' },
   { id: 'year', labelKey: 'Year' },
 ]
