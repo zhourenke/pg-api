@@ -2740,6 +2740,7 @@
     "Model assignments": "模型归属",
     "model billing support": "模型计费支持",
     "Model Call Analytics": "模型调用分析",
+    "Monitor model consumption, call trends, token throughput, and routing flow.": "监控模型用量、调用趋势、Token 吞吐与流量走向。",
     "Model deleted": "模型已删除",
     "Model Deployment": "模型部署",
     "Model deployment service is disabled": "模型部署服务未启用",
