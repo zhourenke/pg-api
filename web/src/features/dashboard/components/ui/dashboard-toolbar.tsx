@@ -20,8 +20,7 @@ import {
   Clock,
   Eye,
   EyeOff,
-  RefreshCw,
-  RotateCcw,
+  Loader2,
   User as UserIcon,
   X,
 } from 'lucide-react'
@@ -42,6 +41,11 @@ import {
 } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import {
   DEFAULT_TIME_GRANULARITY,
   TIME_GRANULARITY_OPTIONS,
 } from '@/features/dashboard/constants'
@@ -58,7 +62,6 @@ import type {
 import { useDebouncedFilterChange } from '@/hooks/use-debounced-filter-change'
 import type { TimeGranularity } from '@/lib/time'
 import { DEFAULT_TIME_WINDOW_ID, type TimeWindowId } from '@/lib/time-window'
-import { cn } from '@/lib/utils'
 
 interface DashboardToolbarProps {
   currentFilters: DashboardFilters
@@ -281,59 +284,54 @@ export function DashboardToolbar(props: DashboardToolbarProps) {
           {/* Action Buttons Cluster: Flow Sensitive Toggle, Reset, Refresh */}
           <div className='flex shrink-0 items-center justify-end gap-1.5 sm:gap-2'>
             {props.activeSection === 'flow' && props.onToggleFlowSensitive && (
-              <Button
-                type='button'
-                variant='outline'
-                size='sm'
-                onClick={props.onToggleFlowSensitive}
-                aria-label={
-                  props.flowSensitiveVisible
-                    ? t('Hide sensitive data')
-                    : t('Show sensitive data')
-                }
-                className='h-8 gap-1.5 px-2.5 text-xs'
-              >
-                {props.flowSensitiveVisible ? (
-                  <Eye className='size-3.5' />
-                ) : (
-                  <EyeOff className='size-3.5' />
-                )}
-                <span className='hidden sm:inline'>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      type='button'
+                      variant='ghost'
+                      size='icon'
+                      onClick={props.onToggleFlowSensitive}
+                      aria-label={
+                        props.flowSensitiveVisible
+                          ? t('Hide sensitive data')
+                          : t('Show sensitive data')
+                      }
+                      className='text-muted-foreground hover:text-foreground size-8'
+                    >
+                      {props.flowSensitiveVisible ? (
+                        <Eye className='size-4' />
+                      ) : (
+                        <EyeOff className='size-4' />
+                      )}
+                    </Button>
+                  }
+                />
+                <TooltipContent>
                   {props.flowSensitiveVisible
                     ? t('Hide sensitive data')
                     : t('Show sensitive data')}
-                </span>
-              </Button>
+                </TooltipContent>
+              </Tooltip>
             )}
 
             <Button
               type='button'
               variant='outline'
-              size='sm'
               onClick={props.onResetFilters}
               disabled={!hasActiveFilters}
-              className='h-8 gap-1.5 px-2.5 text-xs'
-              title={t('Reset')}
             >
-              <RotateCcw className='size-3.5' />
-              <span>{t('Reset')}</span>
+              {t('Reset')}
             </Button>
 
             {props.onRefresh && (
               <Button
                 type='button'
-                size='sm'
                 onClick={props.onRefresh}
                 disabled={props.isRefreshing}
-                className='h-8 gap-1.5 px-3 text-xs'
               >
-                <RefreshCw
-                  className={cn(
-                    'size-3.5',
-                    props.isRefreshing && 'animate-spin'
-                  )}
-                />
-                <span>{t('Refresh')}</span>
+                {props.isRefreshing && <Loader2 className='animate-spin' />}
+                {t('Refresh')}
               </Button>
             )}
           </div>
