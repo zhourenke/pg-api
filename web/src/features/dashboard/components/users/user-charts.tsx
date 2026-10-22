@@ -40,16 +40,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useTheme } from '@/context/theme-provider'
 import { getUserQuotaDataByUsers } from '@/features/dashboard/api'
-import { TIME_GRANULARITY_OPTIONS } from '@/features/dashboard/constants'
 import { useDashboardWindow } from '@/features/dashboard/hooks/use-dashboard-window'
-import {
-  processUserChartData,
-  safeDivide,
-  saveGranularity,
-} from '@/features/dashboard/lib'
+import { processUserChartData, safeDivide } from '@/features/dashboard/lib'
 import type {
   ProcessedUserChartData,
   UserChartsFilters,
@@ -57,8 +51,7 @@ import type {
 import { toIntlLocale } from '@/i18n/languages'
 import { formatCompactNumber, formatNumber, formatQuota } from '@/lib/format'
 import { requireServerSuccess } from '@/lib/server-error-message'
-import type { TimeGranularity } from '@/lib/time'
-import { TIME_WINDOW_PRESETS, type TimeWindowId } from '@/lib/time-window'
+import { cn } from '@/lib/utils'
 import { VCHART_OPTION } from '@/lib/vchart'
 
 let themeManagerPromise: Promise<
@@ -120,21 +113,6 @@ export function UserCharts(props: UserChartsProps) {
       end_timestamp: window.end,
     }),
     [window]
-  )
-
-  const handlePresetChange = useCallback(
-    (next: TimeWindowId) => {
-      onFiltersChange({ ...props.filters, preset: next })
-    },
-    [onFiltersChange, props.filters]
-  )
-
-  const handleGranularityChange = useCallback(
-    (g: TimeGranularity) => {
-      saveGranularity(g)
-      onFiltersChange({ ...props.filters, timeGranularity: g })
-    },
-    [onFiltersChange, props.filters]
   )
 
   const handleTopUserLimitChange = useCallback(
@@ -221,71 +199,42 @@ export function UserCharts(props: UserChartsProps) {
 
   return (
     <div className='space-y-3 sm:space-y-4'>
-      {/* Control bar */}
-      <div className='flex items-center gap-1.5 overflow-x-auto pb-1 sm:gap-2'>
-        <Tabs
-          value={preset}
-          onValueChange={(value) => handlePresetChange(value as TimeWindowId)}
-          className='shrink-0'
-        >
-          <TabsList>
-            {TIME_WINDOW_PRESETS.map((item) => (
-              <TabsTrigger
-                key={item.id}
-                value={item.id}
-                data-preset={item.id}
-                className='px-2.5 text-xs'
-              >
-                {t(item.labelKey)}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+      {/* Top control bar: Top User Limit */}
+      <div className='flex flex-wrap items-center justify-between gap-2'>
+        <div className='flex items-center gap-2'>
+          <IconBadge tone='info' size='sm'>
+            <Users className='size-3.5' />
+          </IconBadge>
+          <span className='text-xs font-semibold text-foreground'>
+            {t('User Analytics')}
+          </span>
+          {isLoading && (
+            <Loader2 className='text-muted-foreground size-3.5 animate-spin' />
+          )}
+        </div>
 
-        <Tabs
-          value={timeGranularity}
-          onValueChange={(value) =>
-            handleGranularityChange(value as TimeGranularity)
-          }
-          className='shrink-0'
-        >
-          <TabsList>
-            {TIME_GRANULARITY_OPTIONS.map((opt) => (
-              <TabsTrigger
-                key={opt.value}
-                value={opt.value}
-                className='px-2.5 text-xs'
-              >
-                {t(opt.label)}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-
-        <Tabs
-          value={String(topUserLimit)}
-          onValueChange={(value) => handleTopUserLimitChange(Number(value))}
-          className='shrink-0'
-        >
-          <TabsList>
-            <span className='text-muted-foreground px-2 text-xs font-medium whitespace-nowrap'>
-              {t('Top Users')}
-            </span>
+        <div className='flex items-center gap-1.5'>
+          <span className='text-muted-foreground text-xs font-medium'>
+            {t('Top Users')}:
+          </span>
+          <div className='bg-muted/60 inline-flex h-7 items-center rounded-lg border p-0.5 sm:h-8'>
             {TOP_USER_LIMIT_OPTIONS.map((limit) => (
-              <TabsTrigger
+              <button
                 key={limit}
-                value={String(limit)}
-                className='px-2.5 text-xs'
+                type='button'
+                onClick={() => handleTopUserLimitChange(limit)}
+                className={cn(
+                  'shrink-0 rounded-md px-2.5 text-xs font-medium transition-colors',
+                  topUserLimit === limit
+                    ? 'bg-background text-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
               >
                 {t('Top {{count}}', { count: limit })}
-              </TabsTrigger>
+              </button>
             ))}
-          </TabsList>
-        </Tabs>
-
-        {isLoading && (
-          <Loader2 className='text-muted-foreground size-4 animate-spin' />
-        )}
+          </div>
+        </div>
       </div>
 
       {/* User charts */}

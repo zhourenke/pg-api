@@ -86,7 +86,7 @@ describe('UserCharts preset and granularity updates', () => {
     cleanup()
   })
 
-  it('triggers onFiltersChange and updates time range when clicking a preset tab', async () => {
+  it('triggers onFiltersChange on limit change and remounts charts on window update', async () => {
     const user = userEvent.setup()
     const onFiltersChange = vi.fn()
     const filters: UserChartsFilters = {
@@ -108,15 +108,15 @@ describe('UserCharts preset and granularity updates', () => {
     const initialMounts = mountCount
     expect(initialMounts).toBeGreaterThanOrEqual(2)
 
-    // Click '7d' preset tab
-    const tab7d = screen.getByRole('tab', { name: '7 Days' })
-    await user.click(tab7d)
+    // Click 'Top 20' button
+    const btn20 = screen.getByRole('button', { name: /20/ })
+    await user.click(btn20)
 
     expect(onFiltersChange).toHaveBeenCalledWith(
-      expect.objectContaining({ preset: '7d' })
+      expect.objectContaining({ topUserLimit: 20 })
     )
 
-    // Re-render with the new preset to simulate parent state update
+    // Re-render with updated preset from DashboardToolbar
     rerender(
       <Wrapper>
         <UserCharts
