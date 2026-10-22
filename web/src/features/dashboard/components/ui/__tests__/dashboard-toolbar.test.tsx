@@ -33,7 +33,7 @@ const SECTION_META = {
 }
 
 describe('DashboardToolbar', () => {
-  it('renders primary time presets and triggers onFilterChange when clicked', async () => {
+  it('opens CompactDateTimeRangePicker and triggers onFilterChange when preset is selected', async () => {
     const user = userEvent.setup()
     const onFilterChange = vi.fn()
     const onResetFilters = vi.fn()
@@ -59,7 +59,14 @@ describe('DashboardToolbar', () => {
       />
     )
 
-    // Verify 7d preset chip is rendered
+    // Range picker button displays current preset
+    const pickerTrigger = screen.getByRole('button', { name: '24 Hours' })
+    expect(pickerTrigger).toBeDefined()
+
+    // Open popover
+    await user.click(pickerTrigger)
+
+    // Click 7 Days preset inside popover
     const preset7d = screen.getByRole('button', { name: '7 Days' })
     expect(preset7d).toBeDefined()
 
@@ -72,7 +79,7 @@ describe('DashboardToolbar', () => {
     )
   })
 
-  it('renders active username filter and triggers clear', async () => {
+  it('renders active username filter badge and triggers reset', async () => {
     const user = userEvent.setup()
     const onFilterChange = vi.fn()
     const onResetFilters = vi.fn()
@@ -102,10 +109,33 @@ describe('DashboardToolbar', () => {
     expect(screen.getByText('alice')).toBeDefined()
 
     // Click reset button
-    const resetButtons = screen.getAllByTitle('Reset')
-    expect(resetButtons.length).toBeGreaterThan(0)
-    await user.click(resetButtons[0])
+    const resetButton = screen.getByRole('button', { name: 'Reset' })
+    expect(resetButton).toBeEnabled()
+    await user.click(resetButton)
     expect(onResetFilters).toHaveBeenCalled()
+  })
+
+  it('disables reset button when there are no active filters', () => {
+    const filters: DashboardFilters = {
+      preset: 'today',
+      time_granularity: 'hour',
+    }
+
+    render(
+      <DashboardToolbar
+        currentFilters={filters}
+        onFilterChange={vi.fn()}
+        onResetFilters={vi.fn()}
+        activeSection='models'
+        visibleSections={['models', 'flow', 'users']}
+        sectionMeta={SECTION_META}
+        onSectionChange={vi.fn()}
+        chartPreferences={DEFAULT_DASHBOARD_CHART_PREFERENCES}
+      />
+    )
+
+    const resetButton = screen.getByRole('button', { name: 'Reset' })
+    expect(resetButton).toBeDisabled()
   })
 
   it('does not render redundant preferences or filter modal buttons in the toolbar', () => {
@@ -126,7 +156,7 @@ describe('DashboardToolbar', () => {
     )
 
     expect(
-      screen.queryByRole('button', { name: /Filter/i })
+      screen.queryByRole('button', { name: /^Filter$/i })
     ).not.toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: /Preferences/i })
@@ -166,5 +196,53 @@ describe('DashboardToolbar', () => {
         username: expect.anything(),
       })
     )
+  })
+
+  it('renders flow sensitive toggle on flow section and triggers callback', async () => {
+    const user = userEvent.setup()
+    const onToggleFlowSensitive = vi.fn()
+
+    render(
+      <DashboardToolbar
+        currentFilters={{ preset: 'today' }}
+        onFilterChange={vi.fn()}
+        onResetFilters={vi.fn()}
+        activeSection='flow'
+        visibleSections={['models', 'flow']}
+        sectionMeta={SECTION_META}
+        onSectionChange={vi.fn()}
+        flowSensitiveVisible
+        onToggleFlowSensitive={onToggleFlowSensitive}
+      />
+    )
+
+    const toggleButton = screen.getByRole('button', {
+      name: 'Hide sensitive data',
+    })
+    expect(toggleButton).toBeDefined()
+    await user.click(toggleButton)
+    expect(onToggleFlowSensitive).toHaveBeenCalled()
+  })
+
+  it('triggers onRefresh when refresh button is clicked', async () => {
+    const user = userEvent.setup()
+    const onRefresh = vi.fn()
+
+    render(
+      <DashboardToolbar
+        currentFilters={{ preset: 'today' }}
+        onFilterChange={vi.fn()}
+        onResetFilters={vi.fn()}
+        activeSection='models'
+        visibleSections={['models', 'flow']}
+        sectionMeta={SECTION_META}
+        onSectionChange={vi.fn()}
+        onRefresh={onRefresh}
+      />
+    )
+
+    const refreshButton = screen.getByRole('button', { name: 'Refresh' })
+    await user.click(refreshButton)
+    expect(onRefresh).toHaveBeenCalled()
   })
 })

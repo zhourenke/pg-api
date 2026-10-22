@@ -17,8 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import {
-  Calendar as CalendarIcon,
-  ChevronDown,
+  Clock,
   Eye,
   EyeOff,
   RefreshCw,
@@ -26,18 +25,13 @@ import {
   User as UserIcon,
   X,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { DateTimePicker } from '@/components/datetime-picker'
+import { CompactDateTimeRangePicker } from '@/components/compact-date-time-range-picker'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
 import {
   Select,
   SelectContent,
@@ -48,11 +42,9 @@ import {
 } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
-import { TIME_GRANULARITY_OPTIONS } from '@/features/dashboard/constants'
+  DEFAULT_TIME_GRANULARITY,
+  TIME_GRANULARITY_OPTIONS,
+} from '@/features/dashboard/constants'
 import {
   cleanFilters,
   resolveDashboardWindow,
@@ -64,25 +56,9 @@ import type {
   DashboardFilters,
 } from '@/features/dashboard/types'
 import { useDebouncedFilterChange } from '@/hooks/use-debounced-filter-change'
-import dayjs from '@/lib/dayjs'
 import type { TimeGranularity } from '@/lib/time'
-import { TIME_WINDOW_PRESETS, type TimeWindowId } from '@/lib/time-window'
+import { DEFAULT_TIME_WINDOW_ID, type TimeWindowId } from '@/lib/time-window'
 import { cn } from '@/lib/utils'
-
-const PRIMARY_PRESET_IDS = new Set<TimeWindowId>([
-  'today',
-  '24h',
-  '7d',
-  '30d',
-  'this-month',
-])
-
-const SECONDARY_PRESET_IDS = new Set<TimeWindowId>([
-  'yesterday',
-  'this-week',
-  'last-week',
-  'last-month',
-])
 
 interface DashboardToolbarProps {
   currentFilters: DashboardFilters
@@ -103,8 +79,12 @@ interface DashboardToolbarProps {
 
 export function DashboardToolbar(props: DashboardToolbarProps) {
   const { t } = useTranslation()
-  const [customRangeOpen, setCustomRangeOpen] = useState(false)
   const window = resolveDashboardWindow(props.currentFilters)
+
+  const defaultPreset =
+    props.chartPreferences?.defaultTimeWindowId ?? DEFAULT_TIME_WINDOW_ID
+  const defaultGranularity =
+    props.chartPreferences?.defaultTimeGranularity ?? DEFAULT_TIME_GRANULARITY
 
   const isCustomRange =
     !props.currentFilters.preset &&
@@ -112,59 +92,48 @@ export function DashboardToolbar(props: DashboardToolbarProps) {
       props.currentFilters.start_timestamp && props.currentFilters.end_timestamp
     )
 
-  const activePresetId = props.currentFilters.preset
-
-  const primaryPresets = useMemo(
-    () =>
-      TIME_WINDOW_PRESETS.filter((preset) => PRIMARY_PRESET_IDS.has(preset.id)),
-    []
-  )
-
-  const secondaryPresets = useMemo(
-    () =>
-      TIME_WINDOW_PRESETS.filter((preset) =>
-        SECONDARY_PRESET_IDS.has(preset.id)
-      ),
-    []
+  const hasActiveFilters = Boolean(
+    (props.currentFilters.preset &&
+      props.currentFilters.preset !== defaultPreset) ||
+    isCustomRange ||
+    props.currentFilters.username ||
+    (props.currentFilters.time_granularity &&
+      props.currentFilters.time_granularity !== defaultGranularity)
   )
 
   const apply = (patch: Partial<DashboardFilters>) => {
     props.onFilterChange(cleanFilters({ ...props.currentFilters, ...patch }))
   }
 
-  const handleSelectPreset = (presetId: TimeWindowId) => {
-    apply({
-      preset: presetId,
-      start_timestamp: undefined,
-      end_timestamp: undefined,
-    })
+  const handleDateTimeRangeChange = ({
+    start,
+    end,
+    preset,
+  }: {
+    start?: Date
+    end?: Date
+    preset?: TimeWindowId
+  }) => {
+    if (preset) {
+      apply({
+        preset,
+        start_timestamp: undefined,
+        end_timestamp: undefined,
+      })
+    } else if (start && end) {
+      const startTs = Math.floor(start.getTime() / 1000)
+      const endTs = Math.floor(end.getTime() / 1000)
+      apply({
+        preset: undefined,
+        start_timestamp: Math.min(startTs, endTs),
+        end_timestamp: Math.max(startTs, endTs),
+      })
+    }
   }
 
   const handleGranularityChange = (granularity: TimeGranularity) => {
     saveGranularity(granularity)
     apply({ time_granularity: granularity })
-  }
-
-  const handleCustomStartChange = (date: Date | undefined) => {
-    if (!date) return
-    const startTs = Math.floor(date.getTime() / 1000)
-    const endTs = window.end
-    apply({
-      preset: undefined,
-      start_timestamp: Math.min(startTs, endTs),
-      end_timestamp: Math.max(startTs, endTs),
-    })
-  }
-
-  const handleCustomEndChange = (date: Date | undefined) => {
-    if (!date) return
-    const endTs = Math.floor(date.getTime() / 1000)
-    const startTs = window.start
-    apply({
-      preset: undefined,
-      start_timestamp: Math.min(startTs, endTs),
-      end_timestamp: Math.max(startTs, endTs),
-    })
   }
 
   const [usernameInput, setUsernameInput] = useState(
@@ -191,21 +160,11 @@ export function DashboardToolbar(props: DashboardToolbarProps) {
     apply({ username: undefined })
   }
 
-  const formattedDateRange = useMemo(() => {
-    const startStr = dayjs(window.start * 1000).format('YYYY-MM-DD HH:mm')
-    const endStr = dayjs(window.end * 1000).format('YYYY-MM-DD HH:mm')
-    return `${startStr} ~ ${endStr}`
-  }, [window.end, window.start])
-
-  const hasActiveFilters = Boolean(
-    isCustomRange || props.currentFilters.username
-  )
-
   return (
-    <div className='flex flex-col gap-2.5 sm:gap-3'>
-      {/* Upper Navigation & Actions Bar */}
-      <div className='flex flex-wrap items-center justify-between gap-2'>
-        {props.visibleSections.length > 1 ? (
+    <div className='flex flex-col gap-3'>
+      {/* Upper Navigation Row: Section Tabs */}
+      {props.visibleSections.length > 1 && (
+        <div className='flex items-center justify-between gap-2'>
           <Tabs
             value={props.activeSection}
             onValueChange={props.onSectionChange}
@@ -218,308 +177,166 @@ export function DashboardToolbar(props: DashboardToolbarProps) {
               ))}
             </TabsList>
           </Tabs>
-        ) : (
-          <div />
-        )}
-
-        <div className='flex shrink-0 items-center gap-1.5 sm:gap-2'>
-          {props.activeSection === 'flow' && props.onToggleFlowSensitive && (
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    variant='outline'
-                    size='sm'
-                    onClick={props.onToggleFlowSensitive}
-                    aria-label={
-                      props.flowSensitiveVisible
-                        ? t('Hide sensitive data')
-                        : t('Show sensitive data')
-                    }
-                    className='h-8 gap-1.5 px-2.5 text-xs'
-                  >
-                    {props.flowSensitiveVisible ? (
-                      <Eye className='size-3.5' />
-                    ) : (
-                      <EyeOff className='size-3.5' />
-                    )}
-                    <span className='hidden sm:inline'>
-                      {props.flowSensitiveVisible
-                        ? t('Hide sensitive data')
-                        : t('Show sensitive data')}
-                    </span>
-                  </Button>
-                }
-              />
-              <TooltipContent>
-                {props.flowSensitiveVisible
-                  ? t('Hide sensitive data')
-                  : t('Show sensitive data')}
-              </TooltipContent>
-            </Tooltip>
-          )}
-
-          {props.onRefresh && (
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    variant='outline'
-                    size='icon'
-                    onClick={props.onRefresh}
-                    disabled={props.isRefreshing}
-                    aria-label={t('Refresh')}
-                    className='size-8'
-                  >
-                    <RefreshCw
-                      className={cn(
-                        'size-3.5',
-                        props.isRefreshing && 'animate-spin'
-                      )}
-                    />
-                  </Button>
-                }
-              />
-              <TooltipContent>{t('Refresh')}</TooltipContent>
-            </Tooltip>
-          )}
         </div>
-      </div>
+      )}
 
-      {/* Persistent Filter & Granularity Control Strip */}
-      <div className='bg-muted/40 flex flex-wrap items-center justify-between gap-2 rounded-xl border p-1.5 sm:p-2'>
-        {/* Left: Quick Time Window Presets & Custom Range */}
-        <div className='flex min-w-0 flex-wrap items-center gap-1 sm:gap-1.5'>
-          <div className='flex items-center gap-1 overflow-x-auto py-0.5'>
-            {primaryPresets.map((preset) => {
-              const active = activePresetId === preset.id
-              return (
-                <Button
-                  key={preset.id}
-                  type='button'
-                  size='sm'
-                  variant={active ? 'default' : 'ghost'}
-                  data-preset={preset.id}
-                  onClick={() => handleSelectPreset(preset.id)}
-                  className={cn(
-                    'h-7 px-2.5 text-xs font-medium',
-                    active
-                      ? 'shadow-xs'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  {t(preset.labelKey)}
-                </Button>
-              )
-            })}
-
-            {/* Secondary presets dropdown */}
-            <Popover>
-              <PopoverTrigger
-                render={
-                  <Button
-                    variant='ghost'
-                    size='sm'
-                    className={cn(
-                      'h-7 gap-1 px-2 text-xs font-medium',
-                      activePresetId && SECONDARY_PRESET_IDS.has(activePresetId)
-                        ? 'bg-accent text-accent-foreground font-semibold'
-                        : 'text-muted-foreground hover:text-foreground'
-                    )}
-                  >
-                    <span>
-                      {activePresetId &&
-                      SECONDARY_PRESET_IDS.has(activePresetId)
-                        ? t(
-                            secondaryPresets.find(
-                              (p) => p.id === activePresetId
-                            )?.labelKey ?? 'More'
-                          )
-                        : t('More')}
-                    </span>
-                    <ChevronDown className='size-3 opacity-60' />
-                  </Button>
-                }
+      {/* Unified Filter Toolbar Card */}
+      <div className='bg-card/50 rounded-lg border p-2.5 shadow-xs sm:p-3'>
+        <div className='flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between'>
+          {/* Primary Filters: Date-Time Range, Granularity, and Admin Username */}
+          <div className='flex min-w-0 flex-1 flex-wrap items-center gap-2'>
+            {/* Standard Compact DateTime Range Picker */}
+            <div className='w-full min-w-0 sm:w-auto sm:min-w-[13.5rem]'>
+              <CompactDateTimeRangePicker
+                start={new Date(window.start * 1000)}
+                end={new Date(window.end * 1000)}
+                preset={props.currentFilters.preset}
+                onChange={handleDateTimeRangeChange}
+                className='h-8 text-sm'
               />
-              <PopoverContent className='w-40 p-1' align='start'>
-                <div className='flex flex-col gap-0.5'>
-                  {secondaryPresets.map((preset) => (
-                    <Button
-                      key={preset.id}
-                      variant={
-                        activePresetId === preset.id ? 'secondary' : 'ghost'
-                      }
-                      size='sm'
-                      className='h-8 justify-start px-2.5 text-xs font-normal'
-                      onClick={() => handleSelectPreset(preset.id)}
-                    >
-                      {t(preset.labelKey)}
-                    </Button>
-                  ))}
-                </div>
-              </PopoverContent>
-            </Popover>
-
-            {/* Custom Range Popover */}
-            <Popover open={customRangeOpen} onOpenChange={setCustomRangeOpen}>
-              <PopoverTrigger
-                render={
-                  <Button
-                    variant={isCustomRange ? 'default' : 'ghost'}
-                    size='sm'
-                    className={cn(
-                      'h-7 gap-1 px-2.5 text-xs font-medium',
-                      !isCustomRange &&
-                        'text-muted-foreground hover:text-foreground'
-                    )}
-                  >
-                    <CalendarIcon className='size-3' />
-                    <span>{t('Custom Time Range')}</span>
-                  </Button>
-                }
-              />
-              <PopoverContent className='w-72 p-3 sm:w-80' align='start'>
-                <div className='flex flex-col gap-3'>
-                  <div className='text-xs font-semibold'>
-                    {t('Custom Time Range')}
-                  </div>
-                  <div className='flex flex-col gap-1.5'>
-                    <label className='text-muted-foreground text-[11px] font-medium'>
-                      {t('Start Time')}
-                    </label>
-                    <DateTimePicker
-                      value={new Date(window.start * 1000)}
-                      onChange={handleCustomStartChange}
-                      placeholder={t('Select start time')}
-                    />
-                  </div>
-                  <div className='flex flex-col gap-1.5'>
-                    <label className='text-muted-foreground text-[11px] font-medium'>
-                      {t('End Time')}
-                    </label>
-                    <DateTimePicker
-                      value={new Date(window.end * 1000)}
-                      onChange={handleCustomEndChange}
-                      placeholder={t('Select end time')}
-                    />
-                  </div>
-                  <Button
-                    size='sm'
-                    className='mt-1 w-full'
-                    onClick={() => setCustomRangeOpen(false)}
-                  >
-                    {t('Confirm')}
-                  </Button>
-                </div>
-              </PopoverContent>
-            </Popover>
-          </div>
-        </div>
-
-        {/* Right: Granularity, Active Filters & Range Display */}
-        <div className='flex flex-wrap items-center gap-1.5 sm:gap-2'>
-          {/* Active Range Tooltip / Display */}
-          <div
-            className='text-muted-foreground/80 hidden items-center gap-1.5 font-mono text-[11px] lg:flex'
-            title={formattedDateRange}
-          >
-            <CalendarIcon className='size-3 shrink-0' />
-            <span className='max-w-64 truncate'>{formattedDateRange}</span>
-          </div>
-
-          {/* Granularity Switcher */}
-          <div className='flex items-center gap-1'>
-            <span className='text-muted-foreground hidden text-[11px] font-medium sm:inline'>
-              {t('Time Granularity')}:
-            </span>
-            <Select
-              items={TIME_GRANULARITY_OPTIONS.map((option) => ({
-                value: option.value,
-                label: t(option.label),
-              }))}
-              value={props.currentFilters.time_granularity ?? 'hour'}
-              onValueChange={(val) =>
-                handleGranularityChange(val as TimeGranularity)
-              }
-            >
-              <SelectTrigger className='h-7 min-w-20 px-2 text-xs'>
-                <SelectValue placeholder={t('Time Granularity')} />
-              </SelectTrigger>
-              <SelectContent alignItemWithTrigger={false}>
-                <SelectGroup>
-                  {TIME_GRANULARITY_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {t(opt.label)}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Admin Username Filter */}
-          {props.isAdmin && (
-            <div className='relative flex items-center'>
-              <UserIcon className='text-muted-foreground/60 pointer-events-none absolute left-2 size-3' />
-              <Input
-                value={usernameInput}
-                onChange={handleUsernameChange}
-                placeholder={t('Filter by username')}
-                className='h-7 w-28 pl-6 pr-6 text-xs sm:w-36'
-              />
-              {usernameInput && (
-                <button
-                  type='button'
-                  onClick={handleClearUsername}
-                  className='hover:bg-muted text-muted-foreground hover:text-foreground absolute right-1.5 rounded-xs p-0.5'
-                  aria-label={t('Clear username')}
-                  title={t('Clear username')}
-                >
-                  <X className='size-2.5' />
-                </button>
-              )}
-              {usernamePending && (
-                <span
-                  aria-hidden='true'
-                  className='bg-primary pointer-events-none absolute top-1/2 right-6 size-1.5 -translate-y-1/2 rounded-full'
-                />
-              )}
             </div>
-          )}
 
-          {/* Active Filter Badges & Reset Button */}
-          {hasActiveFilters && (
-            <div className='flex items-center gap-1'>
-              {!props.isAdmin && props.currentFilters.username && (
-                <Badge
-                  variant='secondary'
-                  className='h-6 gap-1 px-1.5 text-[11px]'
+            {/* Time Granularity Selector */}
+            <div className='w-full min-w-0 sm:w-auto sm:min-w-[8.5rem]'>
+              <Select
+                items={TIME_GRANULARITY_OPTIONS.map((option) => ({
+                  value: option.value,
+                  label: t(option.label),
+                }))}
+                value={props.currentFilters.time_granularity ?? 'hour'}
+                onValueChange={(val) =>
+                  handleGranularityChange(val as TimeGranularity)
+                }
+              >
+                <SelectTrigger
+                  className='h-8 w-full gap-1.5 text-sm'
+                  aria-label={t('Time Granularity')}
                 >
-                  <UserIcon className='size-2.5' />
-                  <span>{props.currentFilters.username}</span>
+                  <Clock className='text-muted-foreground size-3.5 shrink-0' />
+                  <SelectValue placeholder={t('Time Granularity')} />
+                </SelectTrigger>
+                <SelectContent alignItemWithTrigger={false}>
+                  <SelectGroup>
+                    {TIME_GRANULARITY_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {t(opt.label)}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Admin Username Search Filter */}
+            {props.isAdmin && (
+              <div className='relative w-full min-w-0 sm:w-44 md:w-52'>
+                <UserIcon className='text-muted-foreground/60 pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2' />
+                <Input
+                  value={usernameInput}
+                  onChange={handleUsernameChange}
+                  placeholder={t('Filter by username')}
+                  aria-label={t('Filter by username')}
+                  className='h-8 pr-7 pl-8 text-sm'
+                />
+                {usernameInput && (
                   <button
                     type='button'
                     onClick={handleClearUsername}
-                    className='hover:bg-muted ml-0.5 rounded-xs p-0.5'
-                    aria-label={t('Reset')}
+                    className='hover:bg-muted text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2 rounded-xs p-0.5'
+                    aria-label={t('Clear username')}
+                    title={t('Clear username')}
                   >
-                    <X className='size-2.5' />
+                    <X className='size-3' />
                   </button>
-                </Badge>
-              )}
+                )}
+                {usernamePending && (
+                  <span
+                    aria-hidden='true'
+                    className='bg-primary pointer-events-none absolute top-1/2 right-7 size-1.5 -translate-y-1/2 rounded-full'
+                  />
+                )}
+              </div>
+            )}
 
-              <Button
-                variant='ghost'
-                size='sm'
-                onClick={props.onResetFilters}
-                className='text-muted-foreground hover:text-foreground h-7 gap-1 px-2 text-xs'
-                title={t('Reset')}
+            {/* Non-Admin Active Username Filter Badge */}
+            {!props.isAdmin && props.currentFilters.username && (
+              <Badge
+                variant='secondary'
+                className='h-8 gap-1.5 px-2.5 text-xs font-normal'
               >
-                <RotateCcw className='size-3' />
-                <span className='hidden sm:inline'>{t('Reset')}</span>
+                <UserIcon className='text-muted-foreground size-3' />
+                <span>{props.currentFilters.username}</span>
+                <button
+                  type='button'
+                  onClick={handleClearUsername}
+                  className='hover:bg-muted ml-0.5 rounded-xs p-0.5'
+                  aria-label={t('Clear username')}
+                >
+                  <X className='size-2.5' />
+                </button>
+              </Badge>
+            )}
+          </div>
+
+          {/* Action Buttons Cluster: Flow Sensitive Toggle, Reset, Refresh */}
+          <div className='flex shrink-0 items-center justify-end gap-1.5 sm:gap-2'>
+            {props.activeSection === 'flow' && props.onToggleFlowSensitive && (
+              <Button
+                type='button'
+                variant='outline'
+                size='sm'
+                onClick={props.onToggleFlowSensitive}
+                aria-label={
+                  props.flowSensitiveVisible
+                    ? t('Hide sensitive data')
+                    : t('Show sensitive data')
+                }
+                className='h-8 gap-1.5 px-2.5 text-xs'
+              >
+                {props.flowSensitiveVisible ? (
+                  <Eye className='size-3.5' />
+                ) : (
+                  <EyeOff className='size-3.5' />
+                )}
+                <span className='hidden sm:inline'>
+                  {props.flowSensitiveVisible
+                    ? t('Hide sensitive data')
+                    : t('Show sensitive data')}
+                </span>
               </Button>
-            </div>
-          )}
+            )}
+
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              onClick={props.onResetFilters}
+              disabled={!hasActiveFilters}
+              className='h-8 gap-1.5 px-2.5 text-xs'
+              title={t('Reset')}
+            >
+              <RotateCcw className='size-3.5' />
+              <span>{t('Reset')}</span>
+            </Button>
+
+            {props.onRefresh && (
+              <Button
+                type='button'
+                size='sm'
+                onClick={props.onRefresh}
+                disabled={props.isRefreshing}
+                className='h-8 gap-1.5 px-3 text-xs'
+              >
+                <RefreshCw
+                  className={cn(
+                    'size-3.5',
+                    props.isRefreshing && 'animate-spin'
+                  )}
+                />
+                <span>{t('Refresh')}</span>
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>
