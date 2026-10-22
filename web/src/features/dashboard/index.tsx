@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getRouteApi, useNavigate } from '@tanstack/react-router'
 import {
   useState,
@@ -184,6 +184,9 @@ export function Dashboard() {
   const [flowSensitiveVisible, setFlowSensitiveVisible] = useState(true)
 
   const isAdmin = Boolean(userRole && userRole >= ROLE.ADMIN)
+  const queryClient = useQueryClient()
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false)
+
   const {
     data: modelData,
     isLoading: dataLoading,
@@ -191,6 +194,20 @@ export function Dashboard() {
     refetch: refetchModelData,
     stats: modelStats,
   } = useDashboardData(modelFilters, isAdmin)
+
+  const handleRefresh = useCallback(async () => {
+    setIsManualRefreshing(true)
+    try {
+      await Promise.all([
+        refetchModelData(),
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
+      ])
+    } finally {
+      setIsManualRefreshing(false)
+    }
+  }, [queryClient, refetchModelData])
+
+  const isRefreshing = dataFetching || isManualRefreshing
 
   // The site default granularity (Ops > Log maintenance) applies to every
   // browser that did not choose its own granularity on the dashboard. The
@@ -303,8 +320,8 @@ export function Dashboard() {
             currentFilters={modelFilters}
             onFilterChange={handleFilterChange}
             onResetFilters={handleResetFilters}
-            onRefresh={refetchModelData}
-            isRefreshing={dataFetching}
+            onRefresh={handleRefresh}
+            isRefreshing={isRefreshing}
             activeSection={activeSection}
             visibleSections={visibleSections}
             sectionMeta={SECTION_META}
