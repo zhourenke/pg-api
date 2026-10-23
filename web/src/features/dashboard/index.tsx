@@ -62,11 +62,7 @@ import type {
 
 const route = getRouteApi('/_authenticated/dashboard/$section')
 
-const LOG_STAT_CARD_FALLBACK_KEYS = [
-  'quota',
-  'count',
-  'tokens',
-] as const
+const LOG_STAT_CARD_FALLBACK_KEYS = ['quota', 'count', 'tokens'] as const
 
 const LazyLogStatCards = lazy(() =>
   import('./components/models/log-stat-cards').then((m) => ({

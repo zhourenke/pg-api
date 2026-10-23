@@ -213,7 +213,9 @@ export function useDeploymentsColumns(opts: {
               size='sm'
             />
             {qty !== null ? (
-              <span className='text-muted-foreground shrink-0 text-xs'>×{qty}</span>
+              <span className='text-muted-foreground shrink-0 text-xs'>
+                ×{qty}
+              </span>
             ) : null}
           </div>
         )

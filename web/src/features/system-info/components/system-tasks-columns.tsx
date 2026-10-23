@@ -108,7 +108,10 @@ export function useSystemTasksColumns(): ColumnDef<SystemTask>[] {
           <Badge
             variant={STATUS_VARIANT[row.original.status]}
             title={t(row.original.status)}
-            className={cn('max-w-full min-w-0 gap-1.5', STATUS_CLASS_NAME[row.original.status])}
+            className={cn(
+              'max-w-full min-w-0 gap-1.5',
+              STATUS_CLASS_NAME[row.original.status]
+            )}
           >
             <span
               className={cn(

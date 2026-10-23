@@ -124,7 +124,9 @@ export function VendorLinkedModels({
       header: t('Matched models'),
       cell: ({ row }) => (
         <TruncatedCell className='tabular-nums'>
-          {row.original.name_rule === 0 ? '—' : (row.original.matched_count ?? 0)}
+          {row.original.name_rule === 0
+            ? '—'
+            : (row.original.matched_count ?? 0)}
         </TruncatedCell>
       ),
     },

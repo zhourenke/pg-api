@@ -158,9 +158,7 @@ export function ModelCharts(props: ModelChartsProps) {
           <IconBadge tone={titleTone} size='sm'>
             <PieChartIcon />
           </IconBadge>
-          <div className='text-sm font-semibold'>
-            {t('Model Call Trend')}
-          </div>
+          <div className='text-sm font-semibold'>{t('Model Call Trend')}</div>
         </div>
 
         <div className='flex flex-wrap items-center gap-2'>

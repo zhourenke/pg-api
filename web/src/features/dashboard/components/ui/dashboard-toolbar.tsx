@@ -16,14 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import {
-  Clock,
-  Eye,
-  EyeOff,
-  Loader2,
-  User as UserIcon,
-  X,
-} from 'lucide-react'
+import { Clock, Eye, EyeOff, Loader2, User as UserIcon, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 

@@ -20,7 +20,10 @@ import { useQuery } from '@tanstack/react-query'
 import { ListChecks, RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
-import { DataTableFitColumnsButton, useDataTable } from '@/components/data-table'
+import {
+  DataTableFitColumnsButton,
+  useDataTable,
+} from '@/components/data-table'
 import { ErrorState } from '@/components/error-state'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

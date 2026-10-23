@@ -333,7 +333,8 @@ export function processChartData(
       content: [
         {
           key: (datum: Record<string, unknown>) => datum?.Model,
-          value: (datum: Record<string, unknown>) => Number(datum?.[field]) || 0,
+          value: (datum: Record<string, unknown>) =>
+            Number(datum?.[field]) || 0,
         },
       ],
       updateContent: (
@@ -344,7 +345,9 @@ export function processChartData(
       ) => {
         const modelItems = array.filter((item) => !isOtherTooltipKey(item.key))
         const otherItems = array.filter((item) => isOtherTooltipKey(item.key))
-        modelItems.sort((a, b) => (Number(b.value) || 0) - (Number(a.value) || 0))
+        modelItems.sort(
+          (a, b) => (Number(b.value) || 0) - (Number(a.value) || 0)
+        )
         array = [...modelItems, ...otherItems]
 
         let sum = 0

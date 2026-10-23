@@ -243,22 +243,14 @@ describe('pricing controls', () => {
     const onFitColumns = vi.fn()
     const user = userEvent.setup()
     const { rerender } = render(
-      <PricingToolbar
-        {...props}
-        viewMode='card'
-        onFitColumns={onFitColumns}
-      />
+      <PricingToolbar {...props} viewMode='card' onFitColumns={onFitColumns} />
     )
     expect(
       screen.queryByRole('button', { name: 'Fit column widths' })
     ).not.toBeInTheDocument()
 
     rerender(
-      <PricingToolbar
-        {...props}
-        viewMode='table'
-        onFitColumns={onFitColumns}
-      />
+      <PricingToolbar {...props} viewMode='table' onFitColumns={onFitColumns} />
     )
     const fitButton = screen.getByRole('button', { name: 'Fit column widths' })
     expect(fitButton).toBeVisible()

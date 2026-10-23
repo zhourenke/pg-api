@@ -317,14 +317,18 @@ it('renders both task tables as the shared table on wide viewports', async () =>
 
   expect(await screen.findByText('active-runner')).toBeVisible()
   expect(screen.getAllByRole('table')).toHaveLength(2)
-  expect(screen.getAllByRole('button', { name: 'Fit column widths' })).toHaveLength(2)
+  expect(
+    screen.getAllByRole('button', { name: 'Fit column widths' })
+  ).toHaveLength(2)
   expect(screen.getAllByRole('columnheader', { name: 'Type' })).toHaveLength(2)
   expect(screen.getByText('history-runner')).toBeVisible()
 
   // Progress compresses progress bar and preserves percentage
   const progressText = screen.getByText('85%')
   expect(progressText.className).toContain('shrink-0')
-  const progressBar = progressText.parentElement?.querySelector('[data-slot="progress"]')
+  const progressBar = progressText.parentElement?.querySelector(
+    '[data-slot="progress"]'
+  )
   expect(progressBar?.className).toContain('min-w-0')
   expect(progressBar?.className).toContain('shrink')
 

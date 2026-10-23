@@ -154,7 +154,9 @@ export function useUsersColumns(): ColumnDef<User>[] {
           return (
             <Tooltip>
               <TooltipTrigger
-                render={<div className='-ml-1.5 max-w-full min-w-0 cursor-help' />}
+                render={
+                  <div className='-ml-1.5 max-w-full min-w-0 cursor-help' />
+                }
               >
                 <StatusBadge
                   label={t(statusConfig.labelKey)}

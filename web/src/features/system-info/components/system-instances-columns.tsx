@@ -134,7 +134,7 @@ function RingProgress(props: RingProgressProps) {
       width={size}
       height={size}
       viewBox={`0 0 ${size} ${size}`}
-      className='size-5.5 min-w-0 shrink aspect-square -rotate-90'
+      className='aspect-square size-5.5 min-w-0 shrink -rotate-90'
       aria-hidden='true'
     >
       <circle
@@ -178,7 +178,9 @@ function ResourceCell(props: ResourceCellProps) {
   const content = (
     <div className='flex max-w-full min-w-0 items-center gap-2'>
       <RingProgress percent={percent} />
-      <span className='min-w-0 shrink truncate tabular-nums'>{formatPercent(props.value)}</span>
+      <span className='min-w-0 shrink truncate tabular-nums'>
+        {formatPercent(props.value)}
+      </span>
     </div>
   )
 
@@ -298,7 +300,10 @@ export function useSystemInstancesColumns(
           <Badge
             variant='secondary'
             title={t(row.original.status)}
-            className={cn('max-w-full min-w-0 gap-1.5', STATUS_CLASS_NAME[row.original.status])}
+            className={cn(
+              'max-w-full min-w-0 gap-1.5',
+              STATUS_CLASS_NAME[row.original.status]
+            )}
           >
             <span
               className={cn(
@@ -323,7 +328,9 @@ export function useSystemInstancesColumns(
                 aria-label={t('Node role')}
               >
                 <Badge variant='outline' className='max-w-full min-w-0'>
-                  <span className='min-w-0 truncate'>{roleLabel(row.original)}</span>
+                  <span className='min-w-0 truncate'>
+                    {roleLabel(row.original)}
+                  </span>
                 </Badge>
               </TooltipTrigger>
               <TooltipContent>

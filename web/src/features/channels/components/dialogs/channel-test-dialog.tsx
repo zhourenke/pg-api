@@ -1055,7 +1055,11 @@ function ChannelTestDialogContent({
                   onChange={handleSearchTermChange}
                   className='sm:w-64'
                 />
-                <DataTableFitColumnsButton table={table} size='sm' className='h-9' />
+                <DataTableFitColumnsButton
+                  table={table}
+                  size='sm'
+                  className='h-9'
+                />
               </div>
             </div>
 

@@ -93,15 +93,21 @@ it('lists instances in the shared table on wide viewports', async () => {
   const client = renderPanel()
 
   expect(await screen.findByRole('table')).toBeVisible()
-  expect(screen.getByRole('button', { name: 'Fit column widths' })).toBeVisible()
+  expect(
+    screen.getByRole('button', { name: 'Fit column widths' })
+  ).toBeVisible()
   expect(screen.getByRole('columnheader', { name: 'Instances' })).toBeVisible()
   expect(screen.getByText('instance-online')).toBeVisible()
   expect(screen.getByText('host-online')).toBeVisible()
 
   // Status preserves indicator dot and truncates text
-  const statusBadge = screen.getByText('online').closest('[data-slot="badge"]') as HTMLElement
+  const statusBadge = screen
+    .getByText('online')
+    .closest('[data-slot="badge"]') as HTMLElement
   expect(statusBadge.className).toContain('min-w-0')
-  const statusDot = statusBadge.querySelector('span[aria-hidden="true"]') as HTMLElement
+  const statusDot = statusBadge.querySelector(
+    'span[aria-hidden="true"]'
+  ) as HTMLElement
   expect(statusDot.className).toContain('shrink-0')
   const statusText = screen.getByText('online')
   expect(statusText.className).toContain('min-w-0')

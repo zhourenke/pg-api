@@ -440,7 +440,9 @@ it('truncates user role inside TruncatedCell with tooltip', () => {
   function UserRoleTable() {
     const columns = useUsersColumns().filter(
       (column) =>
-        (column.id ?? ('accessorKey' in column ? String(column.accessorKey) : '')) === 'role'
+        (column.id ??
+          ('accessorKey' in column ? String(column.accessorKey) : '')) ===
+        'role'
     )
     const table = useReactTable({
       columns,
