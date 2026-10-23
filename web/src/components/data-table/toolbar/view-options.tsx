@@ -17,7 +17,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { Table } from '@tanstack/react-table'
-import { StretchHorizontal } from 'lucide-react'
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -27,9 +26,7 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
-  DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
@@ -39,6 +36,16 @@ type DataTableViewOptionsProps<TData> = {
   table: Table<TData>
 }
 
+/**
+ * Column visibility control for a table.
+ *
+ * Only the column toggles live here. Fitting every column to its content is the
+ * `DataTableFitColumnsButton` the toolbar renders next to this one; offering it
+ * here as well would be the same action under a second name in the same row.
+ *
+ * Hidden when the table has no hideable column, so the menu can never open on an
+ * empty list.
+ */
 export function DataTableViewOptions<TData>({
   table,
 }: DataTableViewOptionsProps<TData>) {
@@ -61,6 +68,10 @@ export function DataTableViewOptions<TData>({
 
   const [, forceUpdate] = React.useReducer((x: number) => x + 1, 0)
 
+  if (hideableColumns.length === 0) {
+    return null
+  }
+
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger
@@ -75,16 +86,6 @@ export function DataTableViewOptions<TData>({
         {t('View')}
       </DropdownMenuTrigger>
       <DropdownMenuContent align='end' className='w-auto min-w-[150px]'>
-        <DropdownMenuGroup>
-          <DropdownMenuItem
-            onClick={() => table.options.meta?.fitColumnWidths?.()}
-            className='gap-2'
-          >
-            <StretchHorizontal className='size-3.5' aria-hidden='true' />
-            {t('Fit column widths')}
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuLabel>{t('Toggle columns')}</DropdownMenuLabel>
           {hideableColumns.map((column) => {

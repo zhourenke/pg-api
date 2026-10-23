@@ -74,6 +74,20 @@ const MemoizedContainer = React.memo(
   () => true
 )
 
+function FixedColumnsFixture() {
+  const columns: ColumnDef<(typeof rows)[0]>[] = [
+    { accessorKey: 'name', header: 'Channel Name', enableHiding: false },
+    { id: 'actions', header: 'Actions', enableHiding: false },
+  ]
+  const table = useReactTable({
+    data: rows,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+  })
+
+  return <DataTableViewOptions table={table} />
+}
+
 function MemoizedParentFixture() {
   const [columnVisibility, setColumnVisibility] = React.useState({})
   const columns: ColumnDef<(typeof rows)[0]>[] = [
@@ -118,6 +132,25 @@ describe('view options', () => {
     expect(
       screen.queryByRole('menuitemcheckbox', { name: 'Actions' })
     ).toBeNull()
+  })
+
+  it('offers no fit-column action, which the toolbar already shows as 适应', async () => {
+    const user = userEvent.setup()
+    render(<MultiColumnFixture />)
+
+    await user.click(screen.getByRole('button', { name: 'View' }))
+
+    expect(
+      await screen.findByRole('menuitemcheckbox', { name: 'Channel Name' })
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Fit column widths' })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: '自适应列宽' })).toBeNull()
+  })
+
+  it('renders no trigger when the table has no hideable column', () => {
+    render(<FixedColumnsFixture />)
+
+    expect(screen.queryByRole('button', { name: 'View' })).toBeNull()
   })
 
   it('toggles column visibility and checkbox state back and forth on repeated clicks inside memoized parent', async () => {
