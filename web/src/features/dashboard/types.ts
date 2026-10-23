@@ -199,13 +199,7 @@ export interface DashboardFilters {
   username?: string
 }
 
-export type ConsumptionDistributionChartType = 'bar' | 'area'
-
-export type ModelAnalyticsChartTab = 'trend' | 'proportion' | 'top'
-
 export interface DashboardChartPreferences {
-  consumptionDistributionChart: ConsumptionDistributionChartType
-  modelAnalyticsChart: ModelAnalyticsChartTab
   defaultTimeWindowId: TimeWindowId
   defaultTimeGranularity: TimeGranularity
 }
@@ -245,25 +239,15 @@ export type PingStatusMap = Record<string, PingStatus>
 type VChartSpec = Record<string, any>
 
 export interface ProcessedChartData {
-  spec_pie: VChartSpec
-  spec_line: VChartSpec
-  spec_area: VChartSpec
-  spec_model_line: VChartSpec
+  spec_quota_bar: VChartSpec
+  spec_quota_area: VChartSpec
+  spec_model_area: VChartSpec
   spec_model_bar: VChartSpec
-  spec_rank_bar: VChartSpec
-  totalQuotaDisplay: string
-  totalCountDisplay: string
-  totalTokensDisplay: string
-  spec_pie_quota?: VChartSpec
-  spec_pie_tokens?: VChartSpec
-  spec_rank_quota?: VChartSpec
-  spec_rank_tokens?: VChartSpec
-  spec_token_line?: VChartSpec
+  spec_token_area?: VChartSpec
   spec_token_bar?: VChartSpec
 }
 
 export interface ProcessedUserChartData {
-  spec_user_rank: VChartSpec
   spec_user_trend: VChartSpec
   spec_user_bar: VChartSpec
 }

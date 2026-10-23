@@ -30,16 +30,13 @@ import { useTranslation } from 'react-i18next'
 
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { useThemeCustomization } from '@/context/theme-customization-provider'
 import { useTheme } from '@/context/theme-provider'
 import { DEFAULT_TIME_GRANULARITY } from '@/features/dashboard/constants'
 import { processChartData } from '@/features/dashboard/lib'
 import type {
-  ModelAnalyticsChartTab,
   ProcessedChartData,
   QuotaDataItem,
 } from '@/features/dashboard/types'
-import { useThemeRadiusPx } from '@/lib/theme-radius'
 import type { TimeGranularity } from '@/lib/time'
 import { VCHART_OPTION } from '@/lib/vchart'
 
@@ -63,7 +60,6 @@ interface ModelChartsProps {
   data: QuotaDataItem[]
   loading?: boolean
   timeGranularity?: TimeGranularity
-  defaultChartTab?: ModelAnalyticsChartTab
 }
 
 function resolveSpec(
@@ -73,23 +69,18 @@ function resolveSpec(
 ) {
   const useBar = trendStyle === 'bar'
   if (metric === 'quota') {
-    return useBar ? chartData.spec_line : chartData.spec_area
+    return useBar ? chartData.spec_quota_bar : chartData.spec_quota_area
   }
   if (metric === 'tokens') {
     if (useBar) return chartData.spec_token_bar ?? chartData.spec_model_bar
-    return chartData.spec_token_line ?? chartData.spec_model_line
+    return chartData.spec_token_area ?? chartData.spec_model_area
   }
-  return useBar ? chartData.spec_model_bar : chartData.spec_model_line
+  return useBar ? chartData.spec_model_bar : chartData.spec_model_area
 }
 
 export function ModelCharts(props: ModelChartsProps) {
   const { t } = useTranslation()
   const { resolvedTheme } = useTheme()
-  const { customization } = useThemeCustomization()
-  const chartRadius = useThemeRadiusPx(
-    '--radius-md',
-    `${customization.preset}:${customization.radius}`
-  )
   const [metric, setMetric] = useState<ChartMetric>('quota')
   const [trendStyle, setTrendStyle] = useState<'area' | 'bar'>('area')
   const [themeReady, setThemeReady] = useState(false)
@@ -118,14 +109,8 @@ export function ModelCharts(props: ModelChartsProps) {
   }, [resolvedTheme])
 
   const chartData = useMemo(
-    () =>
-      processChartData(
-        props.loading ? [] : props.data,
-        timeGranularity,
-        t,
-        chartRadius
-      ),
-    [props.data, props.loading, timeGranularity, t, chartRadius]
+    () => processChartData(props.loading ? [] : props.data, timeGranularity, t),
+    [props.data, props.loading, timeGranularity, t]
   )
 
   const spec = resolveSpec(chartData, metric, trendStyle)
@@ -141,7 +126,6 @@ export function ModelCharts(props: ModelChartsProps) {
     props.data.at(0)?.created_at ?? 0,
     props.data.at(-1)?.created_at ?? 0,
     resolvedTheme,
-    customization.preset,
   ].join('-')
 
   let titleTone: 'success' | 'chart-4' | 'info' = 'info'
