@@ -16,16 +16,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ViewScopeToggle } from '@/components/view-scope-toggle'
 import { CacheStatsDialog } from '@/features/system-settings/general/channel-affinity/cache-stats-dialog'
 
 import { UserInfoDialog } from './components/dialogs/user-info-dialog'
 import {
-  type LogsViewScope,
   UsageLogsProvider,
   useLogsViewScope,
   useUsageLogsContext,
@@ -45,27 +43,13 @@ function UsageLogsContent() {
   const { canManageScope, viewScope, setViewScope, viewAccess } =
     useLogsViewScope()
 
-  const handleViewScopeChange = useCallback(
-    (scope: string) => {
-      if (scope === 'all' || scope === 'self') {
-        setViewScope(scope as LogsViewScope)
-      }
-    },
-    [setViewScope]
-  )
-
   return (
     <>
       <SectionPageLayout fixedContent>
         <SectionPageLayout.Title>{t('Usage Logs')}</SectionPageLayout.Title>
         <SectionPageLayout.Actions>
           {canManageScope && (
-            <Tabs value={viewScope} onValueChange={handleViewScopeChange}>
-              <TabsList>
-                <TabsTrigger value='all'>{t('All')}</TabsTrigger>
-                <TabsTrigger value='self'>{t('Only Mine')}</TabsTrigger>
-              </TabsList>
-            </Tabs>
+            <ViewScopeToggle value={viewScope} onValueChange={setViewScope} />
           )}
         </SectionPageLayout.Actions>
         <SectionPageLayout.Content>

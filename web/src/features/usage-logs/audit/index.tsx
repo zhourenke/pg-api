@@ -22,7 +22,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ViewScopeToggle } from '@/components/view-scope-toggle'
 import { getUserProfile } from '@/features/profile/api'
 import {
   ADMIN_PERMISSION_RESOURCES,
@@ -141,17 +141,7 @@ export function AuditLogs() {
       <SectionPageLayout.Title>{t('Audit Logs')}</SectionPageLayout.Title>
       <SectionPageLayout.Actions>
         {canReadAll && !accessRevoked && (
-          <Tabs
-            value={scope}
-            onValueChange={(value) =>
-              setScope(value === 'all' ? 'all' : 'self')
-            }
-          >
-            <TabsList aria-label={t('View scope')}>
-              <TabsTrigger value='all'>{t('All')}</TabsTrigger>
-              <TabsTrigger value='self'>{t('Only Mine')}</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <ViewScopeToggle value={scope} onValueChange={setScope} />
         )}
       </SectionPageLayout.Actions>
       <SectionPageLayout.Content>
