@@ -22,6 +22,11 @@ export { BadgeListCell } from './core/badge-list-cell'
 export { TruncatedCell } from './core/truncated-cell'
 export { DataTableViewOptions } from './toolbar/view-options'
 export { DataTableFitColumnsButton } from './toolbar/fit-columns-button'
+export {
+  DataTableSortMenu,
+  type DataTableSortDirection,
+  type DataTableSortOption,
+} from './toolbar/sort-menu'
 export { DataTableToolbar } from './toolbar/toolbar'
 export { DataTableMobileFilterPanel } from './toolbar/mobile-filter-panel'
 export { DataTableBulkActions } from './toolbar/bulk-actions'

@@ -16,13 +16,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { ArrowDown, ArrowUp, Check, Filter } from 'lucide-react'
+import { Filter } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
   DataTableFitColumnsButton,
+  DataTableSortMenu,
   DataTableViewModeToggle,
+  type DataTableSortOption,
 } from '@/components/data-table'
 import {
   sideDrawerContentClassName,
@@ -32,13 +34,6 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -47,13 +42,10 @@ import {
 } from '@/components/ui/sheet'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { useMediaQuery } from '@/hooks'
-import { cn } from '@/lib/utils'
 
 import {
   getSortLabels,
-  SORT_DIRECTIONS,
   type SortDirection,
-  type SortOption,
   type ViewMode,
 } from '../constants'
 import type { PricingModel, PricingVendor, TokenUnit } from '../types'
@@ -98,6 +90,9 @@ export function PricingToolbar(props: PricingToolbarProps) {
   const isMobile = useMediaQuery('(max-width: 640px)')
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const sortLabels = getSortLabels(t)
+  const sortOptions: DataTableSortOption<string>[] = Object.entries(
+    sortLabels
+  ).map(([value, label]) => ({ value, label }))
 
   return (
     <div className='bg-card rounded-xl border p-3'>
@@ -163,71 +158,13 @@ export function PricingToolbar(props: PricingToolbarProps) {
             <ToggleGroupItem value='K'>/1K</ToggleGroupItem>
           </ToggleGroup>
 
-          <DropdownMenu modal={false}>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  type='button'
-                  variant='outline'
-                  size='sm'
-                  className='h-8 px-3 text-xs'
-                />
-              }
-            >
-              <span>
-                {sortLabels[props.sortBy as SortOption] || t('Model')}
-              </span>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align='end' className='w-44'>
-              <DropdownMenuGroup>
-                {Object.entries(sortLabels).map(([value, label]) => (
-                  <DropdownMenuItem
-                    key={value}
-                    onClick={() => props.onSortChange(value)}
-                    className='gap-2'
-                  >
-                    <Check
-                      className={cn(
-                        'size-4 shrink-0',
-                        props.sortBy === value ? 'opacity-100' : 'opacity-0'
-                      )}
-                    />
-                    {label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <Button
-            type='button'
-            variant='outline'
-            size='icon'
-            className='size-8'
-            aria-label={
-              props.sortDir === SORT_DIRECTIONS.DESC
-                ? t('Sort descending')
-                : t('Sort ascending')
-            }
-            title={
-              props.sortDir === SORT_DIRECTIONS.DESC
-                ? t('Sort descending')
-                : t('Sort ascending')
-            }
-            onClick={() =>
-              props.onSortDirChange(
-                props.sortDir === SORT_DIRECTIONS.DESC
-                  ? SORT_DIRECTIONS.ASC
-                  : SORT_DIRECTIONS.DESC
-              )
-            }
-          >
-            {props.sortDir === SORT_DIRECTIONS.DESC ? (
-              <ArrowDown className='size-3.5' />
-            ) : (
-              <ArrowUp className='size-3.5' />
-            )}
-          </Button>
+          <DataTableSortMenu
+            options={sortOptions}
+            value={props.sortBy}
+            onValueChange={props.onSortChange}
+            direction={props.sortDir}
+            onDirectionChange={props.onSortDirChange}
+          />
 
           {props.viewMode === 'table' && props.onFitColumns && (
             <DataTableFitColumnsButton
