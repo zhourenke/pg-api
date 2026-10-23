@@ -139,6 +139,7 @@ export function ModelBreakdownTable(props: ModelBreakdownTableProps) {
         accessorKey: 'model',
         header: t('Model'),
         enableHiding: false,
+        meta: { mobileTitle: true },
         cell: ({ row }) => (
           <div className='flex max-w-full min-w-0 items-center gap-2'>
             <span className='bg-muted flex size-6 shrink-0 items-center justify-center rounded-md'>
