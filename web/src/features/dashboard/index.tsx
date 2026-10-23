@@ -31,6 +31,7 @@ import { useTranslation } from 'react-i18next'
 import { SectionPageLayout } from '@/components/layout'
 import { FadeIn } from '@/components/page-transition'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ViewScopeToggle, type ViewScope } from '@/components/view-scope-toggle'
 import { ROLE } from '@/lib/roles'
 import {
   readSiteDefaultTimeGranularity,
@@ -150,6 +151,15 @@ export function Dashboard() {
   const activeSection = (params.section ??
     DASHBOARD_DEFAULT_SECTION) as DashboardSectionId
 
+  // The title-bar switch. `all` is the platform-wide admin view, `self` makes
+  // every panel behave exactly like it does for a regular user: the queries hit
+  // the /self endpoints, the username filter disappears, and the admin-only
+  // sections are dropped. A non-admin can never be in `all`, so the effective
+  // scope is derived rather than trusted.
+  const [viewScope, setViewScope] = useState<ViewScope>('all')
+  const isAdmin = Boolean(userRole && userRole >= ROLE.ADMIN)
+  const isAdminView = isAdmin && viewScope === 'all'
+
   const [chartPreferences, setChartPreferences] =
     useState<DashboardChartPreferences>(() => getSavedChartPreferences())
   const [modelFilters, setModelFilters] = useState<DashboardFilters>(() =>
@@ -167,7 +177,6 @@ export function Dashboard() {
   )
   const [flowSensitiveVisible, setFlowSensitiveVisible] = useState(true)
 
-  const isAdmin = Boolean(userRole && userRole >= ROLE.ADMIN)
   const queryClient = useQueryClient()
   const [isManualRefreshing, setIsManualRefreshing] = useState(false)
 
@@ -177,7 +186,7 @@ export function Dashboard() {
     isFetching: dataFetching,
     refetch: refetchModelData,
     stats: modelStats,
-  } = useDashboardData(modelFilters, isAdmin)
+  } = useDashboardData(modelFilters, isAdminView)
 
   const handleRefresh = useCallback(async () => {
     setIsManualRefreshing(true)
@@ -252,10 +261,36 @@ export function Dashboard() {
   const visibleSections = useMemo(
     () =>
       DASHBOARD_SECTION_IDS.filter(
-        (section) => section !== 'overview' && (section !== 'users' || isAdmin)
+        (section) =>
+          section !== 'overview' && (section !== 'users' || isAdminView)
       ),
-    [isAdmin]
+    [isAdminView]
   )
+
+  // Switching to "only mine" hides the user section, so a viewer standing on it
+  // would be left on a section the tabs no longer offer. The username filter is
+  // admin-only as well: it narrows *other* people's rows, so it is dropped with
+  // the admin scope instead of silently surviving into the personal view.
+  const handleViewScopeChange = useCallback(
+    (scope: ViewScope) => {
+      setViewScope(scope)
+      if (scope === 'self') {
+        setModelFilters((previous) =>
+          previous.username === undefined
+            ? previous
+            : { ...previous, username: undefined }
+        )
+      }
+      if (scope === 'self' && activeSection === 'users') {
+        void navigate({
+          to: '/dashboard/$section',
+          params: { section: 'models' },
+        })
+      }
+    },
+    [activeSection, navigate]
+  )
+
   const handleSectionChange = useCallback(
     (section: string) => {
       void navigate({
@@ -287,6 +322,14 @@ export function Dashboard() {
   return (
     <SectionPageLayout>
       <SectionPageLayout.Title>{t('Dashboard')}</SectionPageLayout.Title>
+      <SectionPageLayout.Actions>
+        {isAdmin && (
+          <ViewScopeToggle
+            value={viewScope}
+            onValueChange={handleViewScopeChange}
+          />
+        )}
+      </SectionPageLayout.Actions>
       <SectionPageLayout.Content>
         <div className='space-y-3 sm:space-y-4'>
           <p className='text-muted-foreground -mt-1 text-xs sm:text-sm'>
@@ -305,7 +348,7 @@ export function Dashboard() {
             visibleSections={visibleSections}
             sectionMeta={SECTION_META}
             onSectionChange={handleSectionChange}
-            isAdmin={isAdmin}
+            isAdmin={isAdminView}
             chartPreferences={chartPreferences}
             onChartPreferencesChange={handleChartPreferencesChange}
             flowSensitiveVisible={flowSensitiveVisible}
@@ -317,7 +360,11 @@ export function Dashboard() {
             <>
               <FadeIn>
                 <Suspense fallback={<LogStatCardsFallback />}>
-                  <LazyLogStatCards stats={modelStats} loading={dataLoading} />
+                  <LazyLogStatCards
+                    stats={modelStats}
+                    loading={dataLoading}
+                    isAdminView={isAdminView}
+                  />
                 </Suspense>
               </FadeIn>
               <FadeIn delay={0.1}>
@@ -342,7 +389,7 @@ export function Dashboard() {
               </FadeIn>
             </>
           )}
-          {activeSection === 'users' && (
+          {activeSection === 'users' && isAdminView && (
             <FadeIn>
               <Suspense fallback={<ModelChartsFallback />}>
                 <LazyUserCharts
@@ -359,6 +406,7 @@ export function Dashboard() {
                 <LazyFlowCharts
                   filters={modelFilters}
                   sensitiveVisible={flowSensitiveVisible}
+                  isAdminView={isAdminView}
                 />
               </Suspense>
             </FadeIn>

@@ -96,6 +96,9 @@ interface FlowChartsProps {
   filters?: DashboardFilters
   // When false, sensitive node labels are masked in the rendered Sankey.
   sensitiveVisible?: boolean
+  // The effective scope picked in the page title bar: `self` renders the
+  // personal flow and queries /api/data/flow/self even for an admin account.
+  isAdminView?: boolean
 }
 
 const FLOW_METRIC_OPTIONS = [
@@ -255,13 +258,13 @@ export function FlowCharts(props: FlowChartsProps) {
   const { resolvedTheme, themeReady } = useChartTheme()
   const chartInstanceRef = useRef<IVChart | null>(null)
   const user = useAuthStore((state) => state.auth.user)
-  const isRoot = Boolean(user?.role && user.role >= ROLE.SUPER_ADMIN)
-  const isAdmin = Boolean(user?.role && user.role >= ROLE.ADMIN)
+  // The flow role follows the scope chosen in the title bar, not just the
+  // account: an admin who switched to "only mine" gets the personal Sankey and
+  // the /self endpoint, so the graph cannot leak other users' names.
+  const isAdmin = Boolean(props.isAdminView)
   let flowRole: FlowRole = 'user'
-  if (isRoot) {
-    flowRole = 'root'
-  } else if (isAdmin) {
-    flowRole = 'admin'
+  if (isAdmin) {
+    flowRole = user?.role && user.role >= ROLE.SUPER_ADMIN ? 'root' : 'admin'
   }
   const [metric, setMetric] = useState<FlowMetric>('quota')
   const [topNodeLimit, setTopNodeLimit] = useState(DEFAULT_FLOW_TOP_NODE_LIMIT)

@@ -48,7 +48,7 @@ import {
 } from '@/components/page-transition'
 import { Button } from '@/components/ui/button'
 import { IconBadge, type IconBadgeTone } from '@/components/ui/icon-badge'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ViewScopeToggle } from '@/components/view-scope-toggle'
 import { fetchTokenKey, getApiKeys } from '@/features/keys/api'
 import type { ApiKey } from '@/features/keys/types'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
@@ -633,15 +633,7 @@ export function OverviewDashboard() {
       <SectionPageLayout.Title>{t('Overview')}</SectionPageLayout.Title>
       <SectionPageLayout.Actions>
         {isAdmin && (
-          <Tabs
-            value={viewScope}
-            onValueChange={(val) => setViewScope(val as 'all' | 'self')}
-          >
-            <TabsList>
-              <TabsTrigger value='all'>{t('All')}</TabsTrigger>
-              <TabsTrigger value='self'>{t('Only Mine')}</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <ViewScopeToggle value={viewScope} onValueChange={setViewScope} />
         )}
         {setupStatusReady && setupComplete && (
           <Button

@@ -29,7 +29,6 @@ import type {
 } from '@/features/dashboard/types'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatNumber, formatQuota, formatTokens } from '@/lib/format'
-import { useAuthStore } from '@/stores/auth-store'
 
 interface LogStatCardsProps {
   stats?: ExtendedDashboardStats
@@ -37,17 +36,17 @@ interface LogStatCardsProps {
   error?: boolean
   filters?: DashboardFilters
   onDataUpdate?: (data: QuotaDataItem[], loading: boolean) => void
+  /** Admin (platform-wide) view, as chosen in the page title bar. */
+  isAdminView: boolean
 }
 
 export function LogStatCards(props: LogStatCardsProps) {
   const { t, i18n } = useTranslation()
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
-  const user = useAuthStore((state) => state.auth.user)
-  const isAdmin = Boolean(user?.role && user.role >= 10)
 
   const queried = useDashboardData(
     props.stats ? undefined : props.filters,
-    isAdmin
+    props.isAdminView
   )
 
   const stats = props.stats ?? queried.stats
