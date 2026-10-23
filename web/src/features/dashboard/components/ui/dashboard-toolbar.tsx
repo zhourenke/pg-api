@@ -68,7 +68,6 @@ interface DashboardToolbarProps {
   onSectionChange: (section: string) => void
   isAdmin?: boolean
   chartPreferences?: DashboardChartPreferences
-  onChartPreferencesChange?: (preferences: DashboardChartPreferences) => void
   flowSensitiveVisible?: boolean
   onToggleFlowSensitive?: () => void
 }

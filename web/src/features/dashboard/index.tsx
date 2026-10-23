@@ -48,7 +48,6 @@ import {
   getSavedChartPreferences,
   getSavedGranularity,
   hasLocalGranularityChoice,
-  saveChartPreferences,
 } from './lib'
 import {
   type DashboardSectionId,
@@ -249,15 +248,6 @@ export function Dashboard() {
     setModelFilters(buildDefaultDashboardFilters(chartPreferences))
   }, [chartPreferences])
 
-  const handleChartPreferencesChange = useCallback(
-    (preferences: DashboardChartPreferences) => {
-      setChartPreferences(preferences)
-      setModelFilters(buildDefaultDashboardFilters(preferences))
-      saveChartPreferences(preferences)
-    },
-    []
-  )
-
   const visibleSections = useMemo(
     () =>
       DASHBOARD_SECTION_IDS.filter(
@@ -350,7 +340,6 @@ export function Dashboard() {
             onSectionChange={handleSectionChange}
             isAdmin={isAdminView}
             chartPreferences={chartPreferences}
-            onChartPreferencesChange={handleChartPreferencesChange}
             flowSensitiveVisible={flowSensitiveVisible}
             onToggleFlowSensitive={() =>
               setFlowSensitiveVisible((prev) => !prev)
@@ -372,7 +361,6 @@ export function Dashboard() {
                   <LazyModelCharts
                     data={modelData}
                     loading={dataLoading}
-                    defaultChartTab={chartPreferences.modelAnalyticsChart}
                     timeGranularity={
                       modelFilters.time_granularity || DEFAULT_TIME_GRANULARITY
                     }

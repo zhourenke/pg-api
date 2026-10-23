@@ -38,7 +38,6 @@ describe('DashboardToolbar', () => {
     const onFilterChange = vi.fn()
     const onResetFilters = vi.fn()
     const onSectionChange = vi.fn()
-    const onChartPreferencesChange = vi.fn()
 
     const filters: DashboardFilters = {
       preset: '24h',
@@ -55,7 +54,6 @@ describe('DashboardToolbar', () => {
         sectionMeta={SECTION_META}
         onSectionChange={onSectionChange}
         chartPreferences={DEFAULT_DASHBOARD_CHART_PREFERENCES}
-        onChartPreferencesChange={onChartPreferencesChange}
       />
     )
 
@@ -84,7 +82,6 @@ describe('DashboardToolbar', () => {
     const onFilterChange = vi.fn()
     const onResetFilters = vi.fn()
     const onSectionChange = vi.fn()
-    const onChartPreferencesChange = vi.fn()
 
     const filters: DashboardFilters = {
       preset: '7d',
@@ -102,7 +99,6 @@ describe('DashboardToolbar', () => {
         sectionMeta={SECTION_META}
         onSectionChange={onSectionChange}
         chartPreferences={DEFAULT_DASHBOARD_CHART_PREFERENCES}
-        onChartPreferencesChange={onChartPreferencesChange}
       />
     )
 
@@ -151,7 +147,6 @@ describe('DashboardToolbar', () => {
         sectionMeta={SECTION_META}
         onSectionChange={vi.fn()}
         chartPreferences={DEFAULT_DASHBOARD_CHART_PREFERENCES}
-        onChartPreferencesChange={vi.fn()}
       />
     )
 
