@@ -234,7 +234,7 @@ describe('model cards', () => {
         perf={{
           recent_ttft_ms: 250,
           recent_tps: 42,
-          recent_requests: 100,
+          recent_hours: 2,
           success_rate: 100,
         }}
       />
@@ -257,7 +257,7 @@ describe('model cards', () => {
         perf={{
           recent_ttft_ms: 11371,
           recent_tps: 159.51,
-          recent_requests: 100,
+          recent_hours: 2,
           success_rate: 98.16,
         }}
       />
@@ -423,7 +423,7 @@ describe('model cards', () => {
           perf={{
             recent_ttft_ms: 1200,
             recent_tps: 42,
-            recent_requests: 100,
+            recent_hours: 2,
             success_rate,
           }}
         />
@@ -593,7 +593,7 @@ describe('model cards', () => {
     expect(onModelClick).toHaveBeenCalledWith('example-model')
   })
 
-  it('shows the newest requests instead of the 24h average', () => {
+  it('shows the newest hours with traffic instead of the 24h average', () => {
     act(() => {
       i18n.addResourceBundle(
         'zhCN',
@@ -617,7 +617,7 @@ describe('model cards', () => {
             success_rate: 100,
             recent_ttft_ms: 1200,
             recent_tps: 42,
-            recent_requests: 100,
+            recent_hours: 2,
           },
         ],
       },
@@ -632,7 +632,7 @@ describe('model cards', () => {
     expect(within(metrics).getByText('1.20 s')).toBeVisible()
     expect(within(metrics).getByText('42.0 t/s')).toBeVisible()
     expect(within(metrics).queryByText('9.00 s')).not.toBeInTheDocument()
-    expect(screen.getByTitle('模型速度 · 最近 100 条请求')).toBeVisible()
+    expect(screen.getByTitle('模型速度 · 最近有数据的 2 小时')).toBeVisible()
   })
 
   it('paginates the model cards and disables navigation at both boundaries', async () => {
@@ -689,7 +689,7 @@ describe('model cards', () => {
         perf={{
           recent_ttft_ms: 1200,
           recent_tps: 42,
-          recent_requests: 100,
+          recent_hours: 2,
           success_rate: 100,
           window_start: currentHourStart - 23 * 3600,
           recent_success_series: [
@@ -728,7 +728,7 @@ describe('model cards', () => {
         perf={{
           recent_ttft_ms: 1200,
           recent_tps: 42,
-          recent_requests: 100,
+          recent_hours: 2,
           success_rate: 100,
           window_start: currentHourStart - 23 * 3600,
           recent_success_series: [
@@ -758,7 +758,7 @@ describe('model cards', () => {
         perf={{
           recent_ttft_ms: 1200,
           recent_tps: 42,
-          recent_requests: 100,
+          recent_hours: 2,
           success_rate: 100,
         }}
       />
@@ -787,7 +787,7 @@ describe('model cards', () => {
         perf={{
           recent_ttft_ms: 1200,
           recent_tps: 42,
-          recent_requests: 100,
+          recent_hours: 2,
           success_rate: 80,
           window_start: currentHourStart - 47 * 3600,
           recent_success_series: [

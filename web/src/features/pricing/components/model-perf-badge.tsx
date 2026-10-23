@@ -31,10 +31,10 @@ import { ModelPerfStatusStrip } from './model-perf-status-strip'
 export type ModelPerfBadgeData = {
   window_start?: number
   window_end?: number
-  /** Latency/speed cover the newest requests; status covers 24h. */
+  /** Latency/speed cover the newest hours with traffic; status covers 24h. */
   recent_ttft_ms: number
   recent_tps: number
-  recent_requests: number
+  recent_hours: number
   success_rate: number
   recent_success_series?: SuccessRatePoint[]
 }
@@ -55,13 +55,12 @@ export const ModelPerfBadge = memo(function ModelPerfBadge(
     Number.isFinite(successRate) &&
     successRate >= 0 &&
     successRate <= 100
-  const recentRequests = props.perf?.recent_requests ?? 0
-  // A single request makes a meaningless average and a whole day hides the
-  // current state, so the hover text names the request window these two numbers
-  // actually cover.
+  const recentHours = props.perf?.recent_hours ?? 0
+  // One hour can be a handful of logs and a whole day hides the current state,
+  // so the hover text names the window these two numbers actually cover.
   const recentWindow =
-    recentRequests > 0
-      ? t('Last {{count}} requests', { count: recentRequests })
+    recentHours > 0
+      ? t('Last {{count}} hours with traffic', { count: recentHours })
       : null
 
   return (

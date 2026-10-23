@@ -238,7 +238,7 @@ func QuerySummaryAll(hours int, groups []string) (SummaryAllResult, error) {
 		if total.generationMs > 0 {
 			avgTps = float64(total.outputTokens) / (float64(total.generationMs) / 1000.0)
 		}
-		recentTtftMs, recentTps, recentRequests := recentRequestWindow(modelBuckets[name])
+		recentTtftMs, recentTps, recentHours := recentHourWindow(modelBuckets[name])
 		models = append(models, ModelSummary{
 			ModelName:           name,
 			AvgTtftMs:           avg(total.ttftSumMs, total.ttftCount),
@@ -247,7 +247,7 @@ func QuerySummaryAll(hours int, groups []string) (SummaryAllResult, error) {
 			AvgTps:              math.Round(avgTps*100) / 100,
 			RecentTtftMs:        recentTtftMs,
 			RecentTps:           recentTps,
-			RecentRequests:      recentRequests,
+			RecentHours:         recentHours,
 			RecentSuccessSeries: recentSuccessSeries(modelBuckets[name]),
 			RequestCount:        total.requestCount,
 		})
@@ -292,15 +292,12 @@ func mergeModelBucket(modelBuckets map[string]map[int64]counters, modelName stri
 	modelBuckets[modelName][bucketTs] = current
 }
 
-// recentRequestLimit is how many of the most recent requests the model square
-// card aggregates. The bucket rows only keep per-bucket sums, so the newest
-// buckets are taken in order until this many requests are covered, and the last
-// bucket is counted in full. A busy hour therefore shows a window a little
-// wider than the limit; a quiet one stays narrow, which is the point — the
-// window follows the model's current traffic instead of a fixed span.
-const recentRequestLimit = 100
+// recentHourLimit is how many of the most recent hours with traffic the model
+// square card aggregates. One hour can be a handful of logs, a whole day hides
+// the current behaviour, so the card reads these hours only.
+const recentHourLimit = 2
 
-func recentRequestWindow(buckets map[int64]counters) (ttftMs int64, tps float64, requests int64) {
+func recentHourWindow(buckets map[int64]counters) (ttftMs int64, tps float64, hours int) {
 	hourly := hourlyBuckets(buckets)
 	timestamps := make([]int64, 0, len(hourly))
 	for hourTs, value := range hourly {
@@ -312,20 +309,16 @@ func recentRequestWindow(buckets map[int64]counters) (ttftMs int64, tps float64,
 		return 0, 0, 0
 	}
 	slices.Sort(timestamps)
+	window := timestamps[max(0, len(timestamps)-recentHourLimit):]
 	total := counters{}
-	for _, hourTs := range timestamps {
+	for _, hourTs := range window {
 		value := hourly[hourTs]
 		total.ttftSumMs += value.ttftSumMs
 		total.ttftCount += value.ttftCount
 		total.outputTokens += value.outputTokens
 		total.generationMs += value.generationMs
-		total.requestCount += value.requestCount
-		requests = total.requestCount
-		if requests >= recentRequestLimit {
-			break
-		}
 	}
-	return avg(total.ttftSumMs, total.ttftCount), math.Round(avgTps(total)*100) / 100, requests
+	return avg(total.ttftSumMs, total.ttftCount), math.Round(avgTps(total)*100) / 100, len(window)
 }
 
 func hourlyBuckets(buckets map[int64]counters) map[int64]counters {
