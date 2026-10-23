@@ -65,7 +65,9 @@ beforeEach(() => {
 function Fixture() {
   const table = useReactTable({
     data: [],
-    columns: [],
+    // One hideable column, so the toolbar's 查看 control has something to toggle
+    // the way the real logs table does; a table with none drops the control.
+    columns: [{ accessorKey: 'created_at', header: 'Time' }],
     getCoreRowModel: getCoreRowModel(),
   })
   return (

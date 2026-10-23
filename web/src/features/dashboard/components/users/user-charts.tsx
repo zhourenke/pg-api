@@ -17,29 +17,30 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
-import type {
-  ColumnDef,
-  PaginationState,
-  SortingState,
-} from '@tanstack/react-table'
+import type { ColumnDef, PaginationState } from '@tanstack/react-table'
 import { VChart } from '@visactor/react-vchart'
 import {
   AreaChart,
   BarChart3,
   ExternalLink,
   TableProperties,
-  User as UserIcon,
   Users,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
+  DataTableFitColumnsButton,
   DataTablePage,
   DataTablePagination,
   DataTableRow,
+  DataTableSortMenu,
+  DataTableViewOptions,
   useDataTable,
+  type DataTableSortDirection,
+  type DataTableSortOption,
 } from '@/components/data-table'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -52,9 +53,11 @@ import {
   formatSharePercent,
   processUserChartData,
   sharePercent,
+  sortRowsBy,
 } from '@/features/dashboard/lib'
 import type { UserChartsFilters } from '@/features/dashboard/types'
 import { toIntlLocale } from '@/i18n/languages'
+import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
 import { formatNumber, formatQuota, formatTokens } from '@/lib/format'
 import { requireServerSuccess } from '@/lib/server-error-message'
 import { cn } from '@/lib/utils'
@@ -75,6 +78,8 @@ interface UserBreakdownItem {
   countShare: number
   tokensShare: number
 }
+
+type UserSortKey = 'username' | 'quota' | 'count' | 'tokens'
 
 interface UserChartsProps {
   filters: UserChartsFilters
@@ -207,23 +212,50 @@ export function UserCharts(props: UserChartsProps) {
   const spec =
     trendStyle === 'bar' ? chartData.spec_user_bar : chartData.spec_user_trend
 
+  // The limit above still decides which users the card shows (the top spenders);
+  // this control only orders those rows, the way the model square orders its
+  // table — the caller sorts, the table does not.
+  const [sortKey, setSortKey] = useState<UserSortKey>('quota')
+  const [sortDirection, setSortDirection] =
+    useState<DataTableSortDirection>('desc')
+
+  const sortedRows = useMemo(
+    () => sortRowsBy(topUsersTableData, sortKey, sortDirection),
+    [sortDirection, sortKey, topUsersTableData]
+  )
+
+  const sortOptions: DataTableSortOption<UserSortKey>[] = useMemo(
+    () => [
+      { value: 'username', label: t('User') },
+      { value: 'quota', label: t('Quota') },
+      { value: 'count', label: t('Requests') },
+      { value: 'tokens', label: t('Token Count') },
+    ],
+    [t]
+  )
+
   const onSelectUser = props.onSelectUser
-  // Same column shape as the model usage table: the shared string header makes
-  // the table's own header render a `DataTableColumnHeader`, and every column
-  // stays visible because this card has no column-visibility control.
+  // Plain string headers and no sorting of its own: the columns only label the
+  // rows, while the toolbar's sort control decides their order. Every column can
+  // be hidden, because the card carries the 查看 control that brings it back.
   const userColumns = useMemo<ColumnDef<UserBreakdownItem>[]>(
     () => [
       {
         accessorKey: 'username',
         header: t('User'),
-        enableHiding: false,
+        enableSorting: false,
         meta: { mobileTitle: true },
         cell: ({ row }) => (
           <div className='flex max-w-full min-w-0 items-center gap-2'>
-            <span className='bg-muted flex size-6 shrink-0 items-center justify-center rounded-md'>
-              <UserIcon className='text-muted-foreground size-3.5' />
-            </span>
-            <span className='min-w-0 truncate font-semibold'>
+            <Avatar className='ring-border/60 size-6 shrink-0 ring-1 max-sm:hidden'>
+              <AvatarFallback
+                className='text-[11px] font-semibold'
+                style={getUserAvatarStyle(row.original.username)}
+              >
+                {getUserAvatarFallback(row.original.username)}
+              </AvatarFallback>
+            </Avatar>
+            <span className='text-foreground max-w-full min-w-0 truncate text-sm'>
               {row.original.username}
             </span>
           </div>
@@ -232,7 +264,7 @@ export function UserCharts(props: UserChartsProps) {
       {
         accessorKey: 'quota',
         header: t('Quota'),
-        enableHiding: false,
+        enableSorting: false,
         cell: ({ row }) => (
           <div className='flex w-max max-w-full min-w-0 flex-col gap-0.5'>
             <span className='text-foreground min-w-0 truncate font-mono font-semibold tabular-nums'>
@@ -250,7 +282,7 @@ export function UserCharts(props: UserChartsProps) {
       {
         accessorKey: 'count',
         header: t('Requests'),
-        enableHiding: false,
+        enableSorting: false,
         cell: ({ row }) => (
           <div className='flex w-max max-w-full min-w-0 flex-col gap-0.5'>
             <span className='text-foreground min-w-0 truncate font-mono tabular-nums'>
@@ -268,7 +300,7 @@ export function UserCharts(props: UserChartsProps) {
       {
         accessorKey: 'tokens',
         header: t('Token Count'),
-        enableHiding: false,
+        enableSorting: false,
         cell: ({ row }) => (
           <div className='flex w-max max-w-full min-w-0 flex-col gap-0.5'>
             <span className='text-foreground min-w-0 truncate font-mono tabular-nums'>
@@ -308,22 +340,18 @@ export function UserCharts(props: UserChartsProps) {
     [locale, onSelectUser, t]
   )
 
-  const [userSorting, setUserSorting] = useState<SortingState>([
-    { id: 'quota', desc: true },
-  ])
   const [userPagination, setUserPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
   })
 
   const { table: userTable } = useDataTable({
-    data: topUsersTableData,
+    data: sortedRows,
     columns: userColumns,
-    sorting: userSorting,
-    onSortingChange: setUserSorting,
     pagination: userPagination,
     onPaginationChange: setUserPagination,
     enableRowSelection: false,
+    withSortedRowModel: false,
   })
 
   return (
@@ -426,6 +454,23 @@ export function UserCharts(props: UserChartsProps) {
                 ))}
               </TabsList>
             </Tabs>
+
+            <DataTableSortMenu
+              options={sortOptions}
+              value={sortKey}
+              onValueChange={(value) => {
+                setSortKey(value)
+                setUserPagination((prev) => ({ ...prev, pageIndex: 0 }))
+              }}
+              direction={sortDirection}
+              onDirectionChange={(direction) => {
+                setSortDirection(direction)
+                setUserPagination((prev) => ({ ...prev, pageIndex: 0 }))
+              }}
+            />
+
+            <DataTableFitColumnsButton table={userTable} />
+            <DataTableViewOptions table={userTable} />
           </div>
         </div>
 
@@ -438,8 +483,10 @@ export function UserCharts(props: UserChartsProps) {
           showPagination={false}
           fixedHeight={false}
           toolbarProps={null}
-          // The card already draws the frame, so the shared table container
-          // drops its own border instead of nesting two of them.
+          // Same chrome as the usage logs table: the shared header tint, and the
+          // card already draws the frame, so the table container drops its own
+          // border instead of nesting two of them.
+          tableHeaderClassName='[background-color:var(--table-header)]'
           tableClassName={cn(
             'rounded-none border-0',
             '[&_[data-slot=table]]:text-[13px] [&_[data-slot=table]_td]:text-[13px] [&_[data-slot=table]_td_*]:text-[13px] [&_[data-slot=table]_th]:text-[13px] [&_[data-slot=table]_th_*]:text-[13px]'
@@ -449,7 +496,7 @@ export function UserCharts(props: UserChartsProps) {
               key={row.id}
               row={row}
               cellRenderColumns={userTable.options.columns}
-              className='hover:bg-muted/40 transition-colors'
+              className='transition-colors'
             />
           )}
         />

@@ -206,7 +206,7 @@ describe('UserCharts preset and granularity updates', () => {
     })
   })
 
-  it('sorts the user breakdown table by the clicked column', async () => {
+  it('orders the breakdown table by the field and direction picked in the toolbar control', async () => {
     const user = userEvent.setup()
     const Wrapper = createWrapper()
     render(
@@ -229,15 +229,50 @@ describe('UserCharts preset and granularity updates', () => {
       expect(firstBodyRowName()).toContain('alice')
     })
 
-    const requestsHeader = screen.getByRole('columnheader', {
-      name: 'Requests',
-    })
-    await user.click(requestsHeader.querySelector('button') as HTMLElement)
-    await user.click(await screen.findByRole('menuitem', { name: 'Asc' }))
+    await user.click(screen.getByRole('button', { name: 'Quota' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Requests' }))
+    // The control starts descending, so flipping the arrow sorts ascending.
+    await user.click(screen.getByRole('button', { name: 'Sort descending' }))
 
     await waitFor(() => {
       // bob has 5 requests against alice's 10, so ascending puts bob first.
       expect(firstBodyRowName()).toContain('bob')
     })
+  })
+
+  it('keeps the column headers plain and offers the fit and view controls', async () => {
+    const user = userEvent.setup()
+    const Wrapper = createWrapper()
+    render(
+      <Wrapper>
+        <UserCharts
+          filters={{
+            preset: 'today',
+            timeGranularity: 'hour',
+            topUserLimit: 10,
+          }}
+          onFiltersChange={vi.fn()}
+        />
+      </Wrapper>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('alice')).toBeInTheDocument()
+    })
+
+    for (const name of ['User', 'Quota', 'Requests', 'Token Count']) {
+      expect(
+        screen.getByRole('columnheader', { name }).querySelector('button')
+      ).toBeNull()
+    }
+
+    expect(
+      screen.getByRole('button', { name: 'Fit column widths' })
+    ).toBeVisible()
+
+    await user.click(screen.getByRole('button', { name: 'View' }))
+    expect(
+      await screen.findByRole('menuitemcheckbox', { name: 'Quota' })
+    ).toBeVisible()
   })
 })
