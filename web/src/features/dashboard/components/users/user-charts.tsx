@@ -72,6 +72,8 @@ interface UserBreakdownItem {
   quota: number
   tokens: number
   quotaShare: number
+  countShare: number
+  tokensShare: number
 }
 
 interface UserChartsProps {
@@ -164,6 +166,8 @@ export function UserCharts(props: UserChartsProps) {
       { count: number; quota: number; tokens: number }
     >()
     let totalQuota = 0
+    let totalCount = 0
+    let totalTokens = 0
 
     for (const item of filteredUserData) {
       const name = item.username || 'Unknown'
@@ -172,6 +176,8 @@ export function UserCharts(props: UserChartsProps) {
       const tokens = Number(item.token_used) || 0
 
       totalQuota += quota
+      totalCount += count
+      totalTokens += tokens
 
       const cur = userMap.get(name) || { count: 0, quota: 0, tokens: 0 }
       userMap.set(name, {
@@ -189,6 +195,8 @@ export function UserCharts(props: UserChartsProps) {
         quota: stats.quota,
         tokens: stats.tokens,
         quotaShare: sharePercent(stats.quota, totalQuota),
+        countShare: sharePercent(stats.count, totalCount),
+        tokensShare: sharePercent(stats.tokens, totalTokens),
       })
     }
 
@@ -244,9 +252,17 @@ export function UserCharts(props: UserChartsProps) {
         header: t('Requests'),
         enableHiding: false,
         cell: ({ row }) => (
-          <span className='text-foreground min-w-0 truncate font-mono tabular-nums'>
-            {formatNumber(row.original.count, locale)}
-          </span>
+          <div className='flex w-max max-w-full min-w-0 flex-col gap-0.5'>
+            <span className='text-foreground min-w-0 truncate font-mono tabular-nums'>
+              {formatNumber(row.original.count, locale)}
+            </span>
+            <span
+              className='text-muted-foreground/60 min-w-0 truncate tabular-nums'
+              data-table-text='secondary'
+            >
+              {formatSharePercent(row.original.countShare)}
+            </span>
+          </div>
         ),
       },
       {
@@ -254,9 +270,17 @@ export function UserCharts(props: UserChartsProps) {
         header: t('Token Count'),
         enableHiding: false,
         cell: ({ row }) => (
-          <span className='text-foreground min-w-0 truncate font-mono tabular-nums'>
-            {formatTokens(row.original.tokens, '0')}
-          </span>
+          <div className='flex w-max max-w-full min-w-0 flex-col gap-0.5'>
+            <span className='text-foreground min-w-0 truncate font-mono tabular-nums'>
+              {formatTokens(row.original.tokens, '0')}
+            </span>
+            <span
+              className='text-muted-foreground/60 min-w-0 truncate tabular-nums'
+              data-table-text='secondary'
+            >
+              {formatSharePercent(row.original.tokensShare)}
+            </span>
+          </div>
         ),
       },
       ...(onSelectUser
