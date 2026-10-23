@@ -34,6 +34,7 @@ import {
 import { useSearch } from '@/context/search-context'
 import { useTheme } from '@/context/theme-provider'
 import { useSidebarData } from '@/hooks/use-sidebar-data'
+import { useSiteNav } from '@/hooks/use-top-nav-links'
 
 import { getNavGroupsForPath } from './layout/lib/sidebar-view-registry'
 import { ScrollArea } from './ui/scroll-area'
@@ -45,6 +46,9 @@ export function CommandMenu() {
   const { open, setOpen } = useSearch()
   const { pathname } = useLocation()
   const sidebarData = useSidebarData()
+  // Cross-section pages (model square, rankings, docs, about) live outside the
+  // sidebar, so without this the palette could not reach them at all.
+  const siteNav = useSiteNav()
 
   // Use the active nested sidebar view's nav groups when one matches
   // the current URL; otherwise fall back to the root navigation.
@@ -102,8 +106,38 @@ export function CommandMenu() {
                 })}
               </CommandGroup>
             ))}
+            {siteNav.links.length > 0 && (
+              <>
+                <CommandSeparator />
+                <CommandGroup heading={t('Site navigation')}>
+                  {siteNav.links.map((link) => (
+                    <CommandItem
+                      key={`${link.title}:${link.href}`}
+                      value={`site ${link.title}`}
+                      onSelect={() => {
+                        if (link.external) {
+                          window.open(
+                            link.href,
+                            '_blank',
+                            'noopener,noreferrer'
+                          )
+                          setOpen(false)
+                          return
+                        }
+                        runCommand(() => navigate({ to: link.href }))
+                      }}
+                    >
+                      <div className='flex size-4 items-center justify-center'>
+                        <ArrowRight className='text-muted-foreground/80 size-2' />
+                      </div>
+                      {t(link.title)}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </>
+            )}
             <CommandSeparator />
-            <CommandGroup heading='Theme'>
+            <CommandGroup heading={t('Theme')}>
               <CommandItem onSelect={() => runCommand(() => setTheme('light'))}>
                 <Sun /> <span>{t('Light')}</span>
               </CommandItem>

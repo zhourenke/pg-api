@@ -17,8 +17,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { Link } from '@tanstack/react-router'
-import { Menu } from 'lucide-react'
+import { Compass } from 'lucide-react'
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -38,8 +39,14 @@ type TopNavProps = React.HTMLAttributes<HTMLElement> & {
 /**
  * 顶部导航栏组件
  * 在大屏幕显示水平导航，在小屏幕显示下拉菜单
+ *
+ * The narrow-viewport trigger deliberately uses a compass rather than a
+ * hamburger: the app header already carries a sidebar toggle on the left, and
+ * two identical menu glyphs left users guessing which one opened what.
  */
 export function TopNav({ className, links, ...props }: TopNavProps) {
+  const { t } = useTranslation()
+
   // 规范化链接，确保所有可选属性都有默认值
   const normalizedLinks = useMemo(
     () =>
@@ -52,15 +59,26 @@ export function TopNav({ className, links, ...props }: TopNavProps) {
     [links]
   )
 
+  if (normalizedLinks.length === 0) {
+    return null
+  }
+
   return (
     <>
       {/* 移动端下拉菜单 */}
       <div className='lg:hidden'>
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger
-            render={<Button size='icon' variant='outline' className='size-7' />}
+            render={
+              <Button
+                size='icon'
+                variant='outline'
+                className='size-7'
+                aria-label={t('Site navigation')}
+              />
+            }
           >
-            <Menu />
+            <Compass />
           </DropdownMenuTrigger>
           <DropdownMenuContent side='bottom' align='start'>
             {normalizedLinks.map(
