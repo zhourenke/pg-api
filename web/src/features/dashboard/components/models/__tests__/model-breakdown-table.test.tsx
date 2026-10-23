@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 
@@ -72,5 +72,42 @@ describe('ModelBreakdownTable', () => {
   it('handles empty data gracefully', () => {
     render(<ModelBreakdownTable data={[]} />)
     expect(screen.getByText('No data available')).toBeDefined()
+  })
+
+  it('orders rows by the column whose ascending sort is chosen', async () => {
+    const user = userEvent.setup()
+    render(<ModelBreakdownTable data={SAMPLE_DATA} />)
+
+    const rowNames = () =>
+      [...document.querySelectorAll('tbody tr')].map(
+        (row) => row.querySelector('td')?.textContent ?? ''
+      )
+
+    // Quota descending is the initial order.
+    expect(rowNames()[0]).toContain('gpt-4o')
+
+    const requestsHeader = screen.getByRole('columnheader', {
+      name: 'Requests',
+    })
+    await user.click(requestsHeader.querySelector('button') as HTMLElement)
+    await user.click(await screen.findByRole('menuitem', { name: 'Asc' }))
+
+    await waitFor(() => {
+      expect(rowNames()).toEqual(['claude-3-5-sonnet', 'gpt-4o', 'deepseek-v3'])
+    })
+  })
+
+  it('offers only the two sort directions in a column header menu', async () => {
+    const user = userEvent.setup()
+    render(<ModelBreakdownTable data={SAMPLE_DATA} />)
+
+    const quotaHeader = screen.getByRole('columnheader', { name: 'Quota' })
+    await user.click(quotaHeader.querySelector('button') as HTMLElement)
+
+    expect(await screen.findByRole('menuitem', { name: 'Asc' })).toBeDefined()
+    expect(screen.getByRole('menuitem', { name: 'Desc' })).toBeDefined()
+    // This card has no column-visibility control, so hiding a column must not
+    // be offered: there would be no way to bring it back.
+    expect(screen.queryByRole('menuitem', { name: 'Hide' })).toBeNull()
   })
 })

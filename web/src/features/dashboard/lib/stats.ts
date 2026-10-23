@@ -33,6 +33,17 @@ export function safeDivide(
 }
 
 /**
+ * Formats a share that is already expressed in percent, keeping one decimal.
+ * A share that is small but not zero is written as `<0.1%`: rounding it to
+ * `0%` would claim the model or user consumed nothing.
+ */
+export function formatSharePercent(share: number): string {
+  if (!Number.isFinite(share) || share <= 0) return '0%'
+  if (share < 0.1) return '<0.1%'
+  return `${Number(share.toFixed(1))}%`
+}
+
+/**
  * Calculate aggregated statistics from quota data
  */
 export function calculateDashboardStats(data: QuotaDataItem[]) {

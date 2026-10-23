@@ -26,15 +26,14 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
+  DataTablePage,
   DataTablePagination,
   DataTableRow,
-  DataTableView,
   useDataTable,
 } from '@/components/data-table'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Input } from '@/components/ui/input'
-import { Skeleton } from '@/components/ui/skeleton'
-import { safeDivide } from '@/features/dashboard/lib'
+import { formatSharePercent, safeDivide } from '@/features/dashboard/lib'
 import type { QuotaDataItem } from '@/features/dashboard/types'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatNumber, formatQuota, formatTokens } from '@/lib/format'
@@ -72,7 +71,7 @@ export function ModelBreakdownTable(props: ModelBreakdownTableProps) {
     pageSize: PAGE_SIZE,
   })
 
-  const { items } = useMemo(() => {
+  const items = useMemo(() => {
     const modelMap = new Map<
       string,
       { count: number; quota: number; tokens: number }
@@ -114,18 +113,13 @@ export function ModelBreakdownTable(props: ModelBreakdownTableProps) {
         tokens: stats.tokens,
         avgCostPerCall: safeDivide(stats.quota, stats.count),
         avgTokensPerCall: safeDivide(stats.tokens, stats.count),
-        quotaShare: safeDivide(stats.quota * 100, sumQuota, 1),
-        countShare: safeDivide(stats.count * 100, sumCount, 1),
-        tokensShare: safeDivide(stats.tokens * 100, sumTokens, 1),
+        quotaShare: safeDivide(stats.quota * 100, sumQuota),
+        countShare: safeDivide(stats.count * 100, sumCount),
+        tokensShare: safeDivide(stats.tokens * 100, sumTokens),
       })
     }
 
-    return {
-      items: aggregated,
-      totalQuota: sumQuota,
-      totalCount: sumCount,
-      totalTokens: sumTokens,
-    }
+    return aggregated
   }, [props.data])
 
   const filteredItems = useMemo(() => {
@@ -134,18 +128,24 @@ export function ModelBreakdownTable(props: ModelBreakdownTableProps) {
     return items.filter((item) => item.model.toLowerCase().includes(trimmed))
   }, [items, searchTerm])
 
+  // Every column keeps the shared string header, so the table's own header
+  // component renders it as the same sortable `DataTableColumnHeader` the model
+  // square and the other console tables use. `enableHiding` is off because this
+  // table has no column-visibility control: a hidden column would have no way
+  // back.
   const columns = useMemo<ColumnDef<ModelBreakdownItem>[]>(
     () => [
       {
         accessorKey: 'model',
         header: t('Model'),
+        enableHiding: false,
         cell: ({ row }) => (
-          <div className='flex max-w-[16rem] min-w-0 items-center gap-2 sm:max-w-xs'>
+          <div className='flex max-w-full min-w-0 items-center gap-2'>
             <span className='bg-muted flex size-6 shrink-0 items-center justify-center rounded-md'>
               <Bot className='text-muted-foreground size-3.5' />
             </span>
             <span
-              className='truncate font-mono text-xs font-semibold tracking-tight'
+              className='min-w-0 truncate font-mono font-semibold'
               title={row.original.model}
             >
               {row.original.model}
@@ -156,13 +156,17 @@ export function ModelBreakdownTable(props: ModelBreakdownTableProps) {
       {
         accessorKey: 'quota',
         header: t('Quota'),
+        enableHiding: false,
         cell: ({ row }) => (
-          <div className='flex flex-col items-end gap-0.5 text-right font-mono text-xs'>
-            <span className='text-foreground font-semibold tabular-nums'>
+          <div className='flex w-max max-w-full min-w-0 flex-col gap-0.5'>
+            <span className='text-foreground min-w-0 truncate font-mono font-semibold tabular-nums'>
               {formatQuota(row.original.quota)}
             </span>
-            <span className='text-muted-foreground text-[11px] tabular-nums'>
-              {row.original.quotaShare}%
+            <span
+              className='text-muted-foreground/60 min-w-0 truncate tabular-nums'
+              data-table-text='secondary'
+            >
+              {formatSharePercent(row.original.quotaShare)}
             </span>
           </div>
         ),
@@ -170,13 +174,17 @@ export function ModelBreakdownTable(props: ModelBreakdownTableProps) {
       {
         accessorKey: 'count',
         header: t('Requests'),
+        enableHiding: false,
         cell: ({ row }) => (
-          <div className='flex flex-col items-end gap-0.5 text-right font-mono text-xs'>
-            <span className='text-foreground tabular-nums'>
+          <div className='flex w-max max-w-full min-w-0 flex-col gap-0.5'>
+            <span className='text-foreground min-w-0 truncate font-mono tabular-nums'>
               {formatNumber(row.original.count, locale)}
             </span>
-            <span className='text-muted-foreground text-[11px] tabular-nums'>
-              {row.original.countShare}%
+            <span
+              className='text-muted-foreground/60 min-w-0 truncate tabular-nums'
+              data-table-text='secondary'
+            >
+              {formatSharePercent(row.original.countShare)}
             </span>
           </div>
         ),
@@ -184,16 +192,20 @@ export function ModelBreakdownTable(props: ModelBreakdownTableProps) {
       {
         accessorKey: 'tokens',
         header: t('Token Count'),
+        enableHiding: false,
         cell: ({ row }) => (
-          <div className='flex flex-col items-end gap-0.5 text-right font-mono text-xs'>
-            <span
-              className='text-foreground tabular-nums'
-              title={formatNumber(row.original.tokens, locale)}
-            >
+          <div
+            className='flex w-max max-w-full min-w-0 flex-col gap-0.5'
+            title={formatNumber(row.original.tokens, locale)}
+          >
+            <span className='text-foreground min-w-0 truncate font-mono tabular-nums'>
               {formatTokens(row.original.tokens, '0')}
             </span>
-            <span className='text-muted-foreground text-[11px] tabular-nums'>
-              {row.original.tokensShare}%
+            <span
+              className='text-muted-foreground/60 min-w-0 truncate tabular-nums'
+              data-table-text='secondary'
+            >
+              {formatSharePercent(row.original.tokensShare)}
             </span>
           </div>
         ),
@@ -201,23 +213,25 @@ export function ModelBreakdownTable(props: ModelBreakdownTableProps) {
       {
         accessorKey: 'avgCostPerCall',
         header: t('Avg Quota'),
+        enableHiding: false,
         cell: ({ row }) => (
-          <div className='text-muted-foreground text-right font-mono text-xs tabular-nums'>
+          <span className='text-muted-foreground min-w-0 truncate font-mono tabular-nums'>
             {row.original.avgCostPerCall > 0
               ? formatQuota(row.original.avgCostPerCall)
               : '--'}
-          </div>
+          </span>
         ),
       },
       {
         accessorKey: 'avgTokensPerCall',
         header: t('Avg Tokens Count'),
+        enableHiding: false,
         cell: ({ row }) => (
-          <div className='text-muted-foreground text-right font-mono text-xs tabular-nums'>
+          <span className='text-muted-foreground min-w-0 truncate font-mono tabular-nums'>
             {row.original.avgTokensPerCall > 0
               ? formatTokens(Math.round(row.original.avgTokensPerCall), '0')
               : '--'}
-          </div>
+          </span>
         ),
       },
     ],
@@ -234,22 +248,6 @@ export function ModelBreakdownTable(props: ModelBreakdownTableProps) {
     enableRowSelection: false,
   })
 
-  if (props.loading) {
-    return (
-      <div className='bg-card overflow-hidden rounded-xl border shadow-xs'>
-        <div className='flex items-center justify-between border-b px-4 py-3'>
-          <Skeleton className='h-5 w-40' />
-          <Skeleton className='h-8 w-56' />
-        </div>
-        <div className='space-y-3 p-4'>
-          {['sk-1', 'sk-2', 'sk-3', 'sk-4', 'sk-5'].map((key) => (
-            <Skeleton key={key} className='h-10 w-full' />
-          ))}
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className='bg-card overflow-hidden rounded-xl border shadow-xs'>
       {/* Header with Title and Search Input */}
@@ -258,9 +256,7 @@ export function ModelBreakdownTable(props: ModelBreakdownTableProps) {
           <IconBadge tone='chart-2' size='sm'>
             <TableProperties />
           </IconBadge>
-          <h3 className='text-sm font-semibold'>
-            {t('Model Usage Details')}
-          </h3>
+          <h3 className='text-sm font-semibold'>{t('Model Usage Details')}</h3>
         </div>
 
         <div className='flex items-center gap-2'>
@@ -293,14 +289,22 @@ export function ModelBreakdownTable(props: ModelBreakdownTableProps) {
         </div>
       </div>
 
-      <DataTableView
+      <DataTablePage
         table={table}
-        containerClassName='border-0 rounded-none'
+        columns={columns}
+        isLoading={props.loading}
         emptyTitle={t('No matching models')}
         emptyDescription={
           items.length === 0 ? t('No data available') : undefined
         }
+        skeletonKeyPrefix='dashboard-model-breakdown-skeleton'
+        showPagination={false}
+        fixedHeight={false}
+        toolbarProps={null}
+        // The card already draws the frame, so the shared table container drops
+        // its own border instead of nesting two of them.
         tableClassName={cn(
+          'rounded-none border-0',
           '[&_[data-slot=table]]:text-[13px] [&_[data-slot=table]_td]:text-[13px] [&_[data-slot=table]_td_*]:text-[13px] [&_[data-slot=table]_th]:text-[13px] [&_[data-slot=table]_th_*]:text-[13px]'
         )}
         renderRow={(row) => (
@@ -313,11 +317,9 @@ export function ModelBreakdownTable(props: ModelBreakdownTableProps) {
         )}
       />
 
-      {table.getPageCount() > 1 && (
-        <div className='border-t px-4 py-2.5 sm:px-5'>
-          <DataTablePagination table={table} />
-        </div>
-      )}
+      <div className='border-t px-4 py-2.5 sm:px-5'>
+        <DataTablePagination table={table} />
+      </div>
     </div>
   )
 }

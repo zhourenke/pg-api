@@ -21,6 +21,7 @@ import { describe, expect, it } from 'vitest'
 import {
   calculateDashboardStats,
   calculateExtendedDashboardStats,
+  formatSharePercent,
   safeDivide,
 } from '../stats'
 
@@ -31,6 +32,15 @@ describe('dashboard stats utilities', () => {
     expect(safeDivide(0, 0)).toBe(0)
     expect(safeDivide(Number.NaN, 2)).toBe(0)
     expect(safeDivide(1, 3, 2)).toBe(0.33)
+  })
+
+  it('writes a tiny but non-zero share as less than 0.1 percent', () => {
+    expect(formatSharePercent(0)).toBe('0%')
+    expect(formatSharePercent(0.04)).toBe('<0.1%')
+    expect(formatSharePercent(0.1)).toBe('0.1%')
+    expect(formatSharePercent(88.94)).toBe('88.9%')
+    expect(formatSharePercent(100)).toBe('100%')
+    expect(formatSharePercent(Number.NaN)).toBe('0%')
   })
 
   it('calculates basic dashboard stats', () => {
