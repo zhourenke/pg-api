@@ -51,7 +51,7 @@ import { useDashboardWindow } from '@/features/dashboard/hooks/use-dashboard-win
 import {
   formatSharePercent,
   processUserChartData,
-  safeDivide,
+  sharePercent,
 } from '@/features/dashboard/lib'
 import type { UserChartsFilters } from '@/features/dashboard/types'
 import { toIntlLocale } from '@/i18n/languages'
@@ -188,7 +188,7 @@ export function UserCharts(props: UserChartsProps) {
         count: stats.count,
         quota: stats.quota,
         tokens: stats.tokens,
-        quotaShare: safeDivide(stats.quota * 100, totalQuota),
+        quotaShare: sharePercent(stats.quota, totalQuota),
       })
     }
 

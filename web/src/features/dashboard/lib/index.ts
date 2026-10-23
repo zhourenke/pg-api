@@ -37,6 +37,7 @@ export {
 } from './flow'
 export {
   safeDivide,
+  sharePercent,
   formatSharePercent,
   calculateDashboardStats,
   calculateExtendedDashboardStats,

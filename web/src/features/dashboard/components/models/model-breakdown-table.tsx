@@ -33,7 +33,11 @@ import {
 } from '@/components/data-table'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Input } from '@/components/ui/input'
-import { formatSharePercent, safeDivide } from '@/features/dashboard/lib'
+import {
+  formatSharePercent,
+  safeDivide,
+  sharePercent,
+} from '@/features/dashboard/lib'
 import type { QuotaDataItem } from '@/features/dashboard/types'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatNumber, formatQuota, formatTokens } from '@/lib/format'
@@ -113,9 +117,9 @@ export function ModelBreakdownTable(props: ModelBreakdownTableProps) {
         tokens: stats.tokens,
         avgCostPerCall: safeDivide(stats.quota, stats.count),
         avgTokensPerCall: safeDivide(stats.tokens, stats.count),
-        quotaShare: safeDivide(stats.quota * 100, sumQuota),
-        countShare: safeDivide(stats.count * 100, sumCount),
-        tokensShare: safeDivide(stats.tokens * 100, sumTokens),
+        quotaShare: sharePercent(stats.quota, sumQuota),
+        countShare: sharePercent(stats.count, sumCount),
+        tokensShare: sharePercent(stats.tokens, sumTokens),
       })
     }
 

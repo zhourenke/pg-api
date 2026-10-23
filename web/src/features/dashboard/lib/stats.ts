@@ -33,6 +33,17 @@ export function safeDivide(
 }
 
 /**
+ * A share of a total, expressed in percent and deliberately left unrounded:
+ * rounding here would turn a model or user that did consume quota into `0%`.
+ * {@link formatSharePercent} owns the displayed precision.
+ */
+export function sharePercent(value: number, total: number): number {
+  if (!total) return 0
+  const percent = (value / total) * 100
+  return Number.isFinite(percent) ? percent : 0
+}
+
+/**
  * Formats a share that is already expressed in percent, keeping one decimal.
  * A share that is small but not zero is written as `<0.1%`: rounding it to
  * `0%` would claim the model or user consumed nothing.

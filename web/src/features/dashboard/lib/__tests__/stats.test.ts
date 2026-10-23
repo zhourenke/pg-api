@@ -23,6 +23,7 @@ import {
   calculateExtendedDashboardStats,
   formatSharePercent,
   safeDivide,
+  sharePercent,
 } from '../stats'
 
 describe('dashboard stats utilities', () => {
@@ -41,6 +42,14 @@ describe('dashboard stats utilities', () => {
     expect(formatSharePercent(88.94)).toBe('88.9%')
     expect(formatSharePercent(100)).toBe('100%')
     expect(formatSharePercent(Number.NaN)).toBe('0%')
+  })
+
+  it('keeps a tiny share distinguishable from nothing before formatting', () => {
+    expect(sharePercent(1, 10000)).toBeCloseTo(0.01, 6)
+    expect(sharePercent(1, 0)).toBe(0)
+    expect(sharePercent(Number.NaN, 10)).toBe(0)
+    // The pair that made a real table row read 0% while it had consumed quota.
+    expect(formatSharePercent(sharePercent(1, 1200000))).toBe('<0.1%')
   })
 
   it('calculates basic dashboard stats', () => {
