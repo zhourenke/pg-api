@@ -22,7 +22,7 @@ import { useTranslation } from 'react-i18next'
 
 import { StatCard } from '@/features/dashboard/components/ui/stat-card'
 import { useDashboardData } from '@/features/dashboard/hooks/use-dashboard-data'
-import type { ExtendedDashboardStats } from '@/features/dashboard/lib'
+import type { DashboardStats } from '@/features/dashboard/lib'
 import type {
   DashboardFilters,
   QuotaDataItem,
@@ -31,7 +31,7 @@ import { toIntlLocale } from '@/i18n/languages'
 import { formatNumber, formatQuota, formatTokens } from '@/lib/format'
 
 interface LogStatCardsProps {
-  stats?: ExtendedDashboardStats
+  stats?: DashboardStats
   loading?: boolean
   error?: boolean
   filters?: DashboardFilters

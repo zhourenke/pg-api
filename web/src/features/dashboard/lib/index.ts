@@ -41,7 +41,6 @@ export {
   formatSharePercent,
   sortRowsBy,
   calculateDashboardStats,
-  calculateExtendedDashboardStats,
-  type ExtendedDashboardStats,
+  type DashboardStats,
 } from './stats'
 export { getPreviewText } from './text'

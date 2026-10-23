@@ -22,8 +22,8 @@ import { useMemo } from 'react'
 import { getUserQuotaDates } from '@/features/dashboard/api'
 import {
   buildQueryParams,
-  calculateExtendedDashboardStats,
-  type ExtendedDashboardStats,
+  calculateDashboardStats,
+  type DashboardStats,
 } from '@/features/dashboard/lib'
 import type {
   DashboardFilters,
@@ -41,7 +41,7 @@ export interface UseDashboardDataResult {
   isError: boolean
   refetch: () => void
   window: TimeWindow
-  stats: ExtendedDashboardStats
+  stats: DashboardStats
 }
 
 const EMPTY_DATA: QuotaDataItem[] = []
@@ -68,10 +68,7 @@ export function useDashboardData(
 
   const rawData = data ?? EMPTY_DATA
 
-  const stats = useMemo(
-    () => calculateExtendedDashboardStats(rawData, window.start, window.end),
-    [rawData, window.end, window.start]
-  )
+  const stats = useMemo(() => calculateDashboardStats(rawData), [rawData])
 
   return {
     data: rawData,
