@@ -28,9 +28,11 @@ import { UserCharts } from '../user-charts'
 
 let mountCount = 0
 let unmountCount = 0
+let lastSpec: Record<string, unknown> = {}
 
 vi.mock('@visactor/react-vchart', () => ({
-  VChart: () => {
+  VChart: (props: { spec: Record<string, unknown> }) => {
+    lastSpec = props.spec
     useEffect(() => {
       mountCount++
       return () => {
@@ -159,5 +161,83 @@ describe('UserCharts preset and granularity updates', () => {
       expect(screen.getByText('alice')).toBeInTheDocument()
     })
     expect(screen.queryByText('bob')).not.toBeInTheDocument()
+  })
+
+  it('puts the area/bar switch left of the limit tabs and draws bars once chosen', async () => {
+    const user = userEvent.setup()
+    const Wrapper = createWrapper()
+    render(
+      <Wrapper>
+        <UserCharts
+          filters={{
+            preset: 'today',
+            timeGranularity: 'hour',
+            topUserLimit: 10,
+          }}
+          onFiltersChange={vi.fn()}
+        />
+      </Wrapper>
+    )
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId('vchart-user-mock').length).toBeGreaterThan(
+        0
+      )
+    })
+
+    expect(
+      screen
+        .getAllByRole('tab')
+        .map((tab) => tab.textContent)
+        .slice(0, 6)
+    ).toEqual([
+      'Area Chart',
+      'Bar Chart',
+      'Top 5',
+      'Top 10',
+      'Top 20',
+      'Top 50',
+    ])
+    expect(lastSpec.type).toBe('area')
+
+    await user.click(screen.getByRole('tab', { name: 'Bar Chart' }))
+    await waitFor(() => {
+      expect(lastSpec.type).toBe('bar')
+    })
+  })
+
+  it('sorts the user breakdown table by the clicked column', async () => {
+    const user = userEvent.setup()
+    const Wrapper = createWrapper()
+    render(
+      <Wrapper>
+        <UserCharts
+          filters={{
+            preset: 'today',
+            timeGranularity: 'hour',
+            topUserLimit: 10,
+          }}
+          onFiltersChange={vi.fn()}
+        />
+      </Wrapper>
+    )
+
+    const firstBodyRowName = () =>
+      document.querySelector('tbody tr td')?.textContent ?? ''
+
+    await waitFor(() => {
+      expect(firstBodyRowName()).toContain('alice')
+    })
+
+    const requestsHeader = screen.getByRole('columnheader', {
+      name: 'Requests',
+    })
+    await user.click(requestsHeader.querySelector('button') as HTMLElement)
+    await user.click(await screen.findByRole('menuitem', { name: 'Asc' }))
+
+    await waitFor(() => {
+      // bob has 5 requests against alice's 10, so ascending puts bob first.
+      expect(firstBodyRowName()).toContain('bob')
+    })
   })
 })

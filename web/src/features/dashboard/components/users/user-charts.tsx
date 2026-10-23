@@ -17,7 +17,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
-import type { ColumnDef, SortingState } from '@tanstack/react-table'
+import type {
+  ColumnDef,
+  PaginationState,
+  SortingState,
+} from '@tanstack/react-table'
 import { VChart } from '@visactor/react-vchart'
 import {
   AreaChart,
@@ -31,8 +35,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
+  DataTablePage,
+  DataTablePagination,
   DataTableRow,
-  DataTableView,
   useDataTable,
 } from '@/components/data-table'
 import { Button } from '@/components/ui/button'
@@ -43,7 +48,11 @@ import { useTheme } from '@/context/theme-provider'
 import { getUserQuotaDataByUsers } from '@/features/dashboard/api'
 import { DEFAULT_TIME_GRANULARITY } from '@/features/dashboard/constants'
 import { useDashboardWindow } from '@/features/dashboard/hooks/use-dashboard-window'
-import { processUserChartData, safeDivide } from '@/features/dashboard/lib'
+import {
+  formatSharePercent,
+  processUserChartData,
+  safeDivide,
+} from '@/features/dashboard/lib'
 import type { UserChartsFilters } from '@/features/dashboard/types'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatNumber, formatQuota, formatTokens } from '@/lib/format'
@@ -179,7 +188,7 @@ export function UserCharts(props: UserChartsProps) {
         count: stats.count,
         quota: stats.quota,
         tokens: stats.tokens,
-        quotaShare: safeDivide(stats.quota * 100, totalQuota, 1),
+        quotaShare: safeDivide(stats.quota * 100, totalQuota),
       })
     }
 
@@ -191,30 +200,40 @@ export function UserCharts(props: UserChartsProps) {
     trendStyle === 'bar' ? chartData.spec_user_bar : chartData.spec_user_trend
 
   const onSelectUser = props.onSelectUser
+  // Same column shape as the model usage table: the shared string header makes
+  // the table's own header render a `DataTableColumnHeader`, and every column
+  // stays visible because this card has no column-visibility control.
   const userColumns = useMemo<ColumnDef<UserBreakdownItem>[]>(
     () => [
       {
         accessorKey: 'username',
         header: t('User'),
+        enableHiding: false,
         cell: ({ row }) => (
-          <div className='flex items-center gap-2'>
+          <div className='flex max-w-full min-w-0 items-center gap-2'>
             <span className='bg-muted flex size-6 shrink-0 items-center justify-center rounded-md'>
               <UserIcon className='text-muted-foreground size-3.5' />
             </span>
-            <span className='font-semibold'>{row.original.username}</span>
+            <span className='min-w-0 truncate font-semibold'>
+              {row.original.username}
+            </span>
           </div>
         ),
       },
       {
         accessorKey: 'quota',
         header: t('Quota'),
+        enableHiding: false,
         cell: ({ row }) => (
-          <div className='flex flex-col items-end gap-0.5 text-right font-mono text-xs'>
-            <span className='text-foreground font-semibold tabular-nums'>
+          <div className='flex w-max max-w-full min-w-0 flex-col gap-0.5'>
+            <span className='text-foreground min-w-0 truncate font-mono font-semibold tabular-nums'>
               {formatQuota(row.original.quota)}
             </span>
-            <span className='text-muted-foreground text-[11px] tabular-nums'>
-              {row.original.quotaShare}%
+            <span
+              className='text-muted-foreground/60 min-w-0 truncate tabular-nums'
+              data-table-text='secondary'
+            >
+              {formatSharePercent(row.original.quotaShare)}
             </span>
           </div>
         ),
@@ -222,41 +241,40 @@ export function UserCharts(props: UserChartsProps) {
       {
         accessorKey: 'count',
         header: t('Requests'),
+        enableHiding: false,
         cell: ({ row }) => (
-          <div className='text-foreground text-right font-mono text-xs tabular-nums'>
+          <span className='text-foreground min-w-0 truncate font-mono tabular-nums'>
             {formatNumber(row.original.count, locale)}
-          </div>
+          </span>
         ),
       },
       {
         accessorKey: 'tokens',
         header: t('Token Count'),
+        enableHiding: false,
         cell: ({ row }) => (
-          <div className='text-foreground text-right font-mono text-xs tabular-nums'>
+          <span className='text-foreground min-w-0 truncate font-mono tabular-nums'>
             {formatTokens(row.original.tokens, '0')}
-          </div>
+          </span>
         ),
       },
       ...(onSelectUser
         ? [
             {
               id: 'action',
-              header: () => (
-                <div className='text-right'>{t('Action')}</div>
-              ),
+              header: t('Action'),
               enableSorting: false,
+              enableHiding: false,
               cell: ({ row }: { row: { original: UserBreakdownItem } }) => (
-                <div className='text-right'>
-                  <Button
-                    size='sm'
-                    variant='outline'
-                    className='h-6 gap-1 px-2 text-[11px]'
-                    onClick={() => onSelectUser(row.original.username)}
-                  >
-                    <ExternalLink className='size-2.5' />
-                    <span>{t('Usage Analytics')}</span>
-                  </Button>
-                </div>
+                <Button
+                  size='sm'
+                  variant='outline'
+                  className='h-6 gap-1 px-2 text-[11px]'
+                  onClick={() => onSelectUser(row.original.username)}
+                >
+                  <ExternalLink className='size-2.5' />
+                  <span>{t('Usage Analytics')}</span>
+                </Button>
               ),
             } as ColumnDef<UserBreakdownItem>,
           ]
@@ -268,14 +286,19 @@ export function UserCharts(props: UserChartsProps) {
   const [userSorting, setUserSorting] = useState<SortingState>([
     { id: 'quota', desc: true },
   ])
+  const [userPagination, setUserPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 10,
+  })
 
   const { table: userTable } = useDataTable({
     data: topUsersTableData,
     columns: userColumns,
     sorting: userSorting,
     onSortingChange: setUserSorting,
+    pagination: userPagination,
+    onPaginationChange: setUserPagination,
     enableRowSelection: false,
-    manualPagination: true,
   })
 
   return (
@@ -361,9 +384,7 @@ export function UserCharts(props: UserChartsProps) {
             <IconBadge tone='chart-2' size='sm'>
               <TableProperties />
             </IconBadge>
-            <h3 className='text-sm font-semibold'>
-              {t('User Usage Details')}
-            </h3>
+            <h3 className='text-sm font-semibold'>{t('User Usage Details')}</h3>
           </div>
 
           <div className='flex flex-wrap items-center gap-2'>
@@ -383,11 +404,19 @@ export function UserCharts(props: UserChartsProps) {
           </div>
         </div>
 
-        <DataTableView
+        <DataTablePage
           table={userTable}
-          containerClassName='border-0 rounded-none'
+          columns={userColumns}
+          isLoading={isLoading}
           emptyTitle={t('No data available')}
+          skeletonKeyPrefix='dashboard-user-breakdown-skeleton'
+          showPagination={false}
+          fixedHeight={false}
+          toolbarProps={null}
+          // The card already draws the frame, so the shared table container
+          // drops its own border instead of nesting two of them.
           tableClassName={cn(
+            'rounded-none border-0',
             '[&_[data-slot=table]]:text-[13px] [&_[data-slot=table]_td]:text-[13px] [&_[data-slot=table]_td_*]:text-[13px] [&_[data-slot=table]_th]:text-[13px] [&_[data-slot=table]_th_*]:text-[13px]'
           )}
           renderRow={(row) => (
@@ -399,6 +428,10 @@ export function UserCharts(props: UserChartsProps) {
             />
           )}
         />
+
+        <div className='border-t px-4 py-2.5 sm:px-5'>
+          <DataTablePagination table={userTable} />
+        </div>
       </div>
     </div>
   )
