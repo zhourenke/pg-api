@@ -61,8 +61,7 @@ describe('DataTableSortMenu', () => {
     const user = userEvent.setup()
 
     function Fixture() {
-      const [direction, setDirection] =
-        useState<DataTableSortDirection>('asc')
+      const [direction, setDirection] = useState<DataTableSortDirection>('asc')
       return (
         <DataTableSortMenu
           options={OPTIONS}

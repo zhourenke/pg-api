@@ -43,11 +43,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { useMediaQuery } from '@/hooks'
 
-import {
-  getSortLabels,
-  type SortDirection,
-  type ViewMode,
-} from '../constants'
+import { getSortLabels, type SortDirection, type ViewMode } from '../constants'
 import type { PricingModel, PricingVendor, TokenUnit } from '../types'
 import { PricingSidebar } from './pricing-sidebar'
 

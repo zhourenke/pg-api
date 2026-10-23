@@ -107,9 +107,7 @@ export function DataTableSortMenu<TValue extends string>(
         className='size-8'
         aria-label={directionLabel}
         title={directionLabel}
-        onClick={() =>
-          props.onDirectionChange(isDescending ? 'asc' : 'desc')
-        }
+        onClick={() => props.onDirectionChange(isDescending ? 'asc' : 'desc')}
       >
         {isDescending ? (
           <ArrowDown className='size-3.5' />

@@ -143,7 +143,9 @@ describe('view options', () => {
     expect(
       await screen.findByRole('menuitemcheckbox', { name: 'Channel Name' })
     ).toBeInTheDocument()
-    expect(screen.queryByRole('menuitem', { name: 'Fit column widths' })).toBeNull()
+    expect(
+      screen.queryByRole('menuitem', { name: 'Fit column widths' })
+    ).toBeNull()
     expect(screen.queryByRole('menuitem', { name: '自适应列宽' })).toBeNull()
   })
 
