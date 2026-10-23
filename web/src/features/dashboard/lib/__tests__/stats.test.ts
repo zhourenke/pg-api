@@ -24,6 +24,7 @@ import {
   formatSharePercent,
   safeDivide,
   sharePercent,
+  sortRowsBy,
 } from '../stats'
 
 describe('dashboard stats utilities', () => {
@@ -50,6 +51,27 @@ describe('dashboard stats utilities', () => {
     expect(sharePercent(Number.NaN, 10)).toBe(0)
     // The pair that made a real table row read 0% while it had consumed quota.
     expect(formatSharePercent(sharePercent(1, 1200000))).toBe('<0.1%')
+  })
+
+  it('sorts rows numerically or as text, in either direction, without mutating the input', () => {
+    const rows = [
+      { name: 'gemini-3.8-flash', count: 2359, quota: 11 },
+      { name: 'deepseek-v4.1-flash', count: 13, quota: 0.0121 },
+      { name: 'claude-opus-5-5', count: 400, quota: 4 },
+    ]
+
+    expect(sortRowsBy(rows, 'count', 'desc').map((row) => row.name)).toEqual([
+      'gemini-3.8-flash',
+      'claude-opus-5-5',
+      'deepseek-v4.1-flash',
+    ])
+    expect(sortRowsBy(rows, 'name', 'asc').map((row) => row.name)).toEqual([
+      'claude-opus-5-5',
+      'deepseek-v4.1-flash',
+      'gemini-3.8-flash',
+    ])
+    expect(sortRowsBy(rows, 'quota', 'asc')[0].quota).toBe(0.0121)
+    expect(rows[0].name).toBe('gemini-3.8-flash')
   })
 
   it('calculates basic dashboard stats', () => {

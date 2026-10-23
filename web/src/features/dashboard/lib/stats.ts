@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import type { DataTableSortDirection } from '@/components/data-table'
 import type { QuotaDataItem } from '@/features/dashboard/types'
 
 /**
@@ -30,6 +31,35 @@ export function safeDivide(
   if (Number.isNaN(result) || !Number.isFinite(result)) return 0
   const factor = Math.pow(10, precision)
   return Math.round(result * factor) / factor
+}
+
+/**
+ * Orders rows by one of their own fields, the way the model square orders its
+ * table: the caller sorts the data and hands the table the result, instead of
+ * letting the table sort itself. Numbers compare numerically, everything else
+ * compares as text, and rows with equal values keep their incoming order.
+ */
+export function sortRowsBy<T>(
+  rows: readonly T[],
+  key: keyof T,
+  direction: DataTableSortDirection
+): T[] {
+  const factor = direction === 'asc' ? 1 : -1
+
+  return [...rows].sort((left, right) => {
+    const leftValue = left[key]
+    const rightValue = right[key]
+
+    if (typeof leftValue === 'number' && typeof rightValue === 'number') {
+      return (leftValue - rightValue) * factor
+    }
+
+    return (
+      String(leftValue).localeCompare(String(rightValue), undefined, {
+        sensitivity: 'base',
+      }) * factor
+    )
+  })
 }
 
 /**

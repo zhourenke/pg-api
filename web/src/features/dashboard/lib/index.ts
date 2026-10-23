@@ -39,6 +39,7 @@ export {
   safeDivide,
   sharePercent,
   formatSharePercent,
+  sortRowsBy,
   calculateDashboardStats,
   calculateExtendedDashboardStats,
   type ExtendedDashboardStats,

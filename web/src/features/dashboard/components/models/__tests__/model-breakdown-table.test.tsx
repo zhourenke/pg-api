@@ -48,6 +48,15 @@ const SAMPLE_DATA: QuotaDataItem[] = [
   },
 ]
 
+const MODEL_NAMES = ['gpt-4o', 'claude-3-5-sonnet', 'deepseek-v3']
+
+// The first cell carries the provider icon, whose SVG title is part of the
+// cell's text, so the row order is read as the model name it contains.
+const rowModels = () =>
+  [...document.querySelectorAll('tbody tr')].map((row) =>
+    MODEL_NAMES.find((model) => row.textContent?.includes(model))
+  )
+
 describe('ModelBreakdownTable', () => {
   it('renders model names and aggregated stats', () => {
     render(<ModelBreakdownTable data={SAMPLE_DATA} />)
@@ -74,40 +83,68 @@ describe('ModelBreakdownTable', () => {
     expect(screen.getByText('No data available')).toBeDefined()
   })
 
-  it('orders rows by the column whose ascending sort is chosen', async () => {
+  it('orders rows by the field and direction picked in the toolbar control', async () => {
     const user = userEvent.setup()
     render(<ModelBreakdownTable data={SAMPLE_DATA} />)
 
-    const rowNames = () =>
-      [...document.querySelectorAll('tbody tr')].map(
-        (row) => row.querySelector('td')?.textContent ?? ''
-      )
-
     // Quota descending is the initial order.
-    expect(rowNames()[0]).toContain('gpt-4o')
+    expect(rowModels()[0]).toBe('gpt-4o')
 
-    const requestsHeader = screen.getByRole('columnheader', {
-      name: 'Requests',
-    })
-    await user.click(requestsHeader.querySelector('button') as HTMLElement)
-    await user.click(await screen.findByRole('menuitem', { name: 'Asc' }))
+    await user.click(screen.getByRole('button', { name: 'Quota' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Requests' }))
+    // The control starts descending, so flipping the arrow sorts ascending.
+    await user.click(screen.getByRole('button', { name: 'Sort descending' }))
 
     await waitFor(() => {
-      expect(rowNames()).toEqual(['claude-3-5-sonnet', 'gpt-4o', 'deepseek-v3'])
+      expect(rowModels()).toEqual([
+        'claude-3-5-sonnet',
+        'gpt-4o',
+        'deepseek-v3',
+      ])
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Requests' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Model' }))
+
+    await waitFor(() => {
+      expect(rowModels()).toEqual([
+        'claude-3-5-sonnet',
+        'deepseek-v3',
+        'gpt-4o',
+      ])
     })
   })
 
-  it('offers only the two sort directions in a column header menu', async () => {
+  it('keeps the column headers plain, as the model square does', () => {
+    render(<ModelBreakdownTable data={SAMPLE_DATA} />)
+
+    for (const name of ['Model', 'Quota', 'Requests', 'Token Count']) {
+      const header = screen.getByRole('columnheader', { name })
+      expect(header.querySelector('button')).toBeNull()
+    }
+  })
+
+  it('shows each model’s provider icon instead of one generic icon', () => {
+    render(<ModelBreakdownTable data={SAMPLE_DATA} />)
+
+    expect(screen.getByLabelText('OpenAI')).toBeInTheDocument()
+    expect(screen.getByLabelText('Claude')).toBeInTheDocument()
+  })
+
+  it('offers the fit-columns and column-visibility controls of the usage logs table', async () => {
     const user = userEvent.setup()
     render(<ModelBreakdownTable data={SAMPLE_DATA} />)
 
-    const quotaHeader = screen.getByRole('columnheader', { name: 'Quota' })
-    await user.click(quotaHeader.querySelector('button') as HTMLElement)
+    expect(
+      screen.getByRole('button', { name: 'Fit column widths' })
+    ).toBeVisible()
 
-    expect(await screen.findByRole('menuitem', { name: 'Asc' })).toBeDefined()
-    expect(screen.getByRole('menuitem', { name: 'Desc' })).toBeDefined()
-    // This card has no column-visibility control, so hiding a column must not
-    // be offered: there would be no way to bring it back.
-    expect(screen.queryByRole('menuitem', { name: 'Hide' })).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'View' }))
+    expect(
+      await screen.findByRole('menuitemcheckbox', { name: 'Quota' })
+    ).toBeVisible()
+    // The fit action lives on its own toolbar button, so the view menu must not
+    // repeat it.
+    expect(screen.queryByRole('menuitem', { name: '自适应列宽' })).toBeNull()
   })
 })
