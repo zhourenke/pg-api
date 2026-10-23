@@ -81,7 +81,8 @@ export const CommonLogsStats = memo(function CommonLogsStats() {
     return (
       <div className='flex items-center gap-2'>
         <Skeleton className='h-7 w-[150px] rounded-md' />
-        <Skeleton className='h-7 w-[130px] rounded-md' />
+        <Skeleton className='h-7 w-[100px] rounded-md' />
+        <Skeleton className='h-7 w-[120px] rounded-md' />
       </div>
     )
   }
@@ -94,9 +95,14 @@ export const CommonLogsStats = memo(function CommonLogsStats() {
         accent='bg-sky-500/70'
       />
       <StatBadge
-        label={t('RPM/TPM')}
-        value={`${stats?.rpm || 0} / ${stats?.tpm || 0}`}
+        label={t('Real-time RPM')}
+        value={stats?.rpm || 0}
         accent='bg-rose-500/65'
+      />
+      <StatBadge
+        label={t('Real-time TPM')}
+        value={stats?.tpm || 0}
+        accent='bg-slate-400/70'
       />
     </div>
   )
