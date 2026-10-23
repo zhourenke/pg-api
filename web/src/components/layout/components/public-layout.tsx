@@ -22,21 +22,19 @@ import { PublicHeader, type PublicHeaderProps } from './public-header'
 type PublicLayoutProps = {
   children: React.ReactNode
   showMainContainer?: boolean
-  navContent?: React.ReactNode
-  headerProps?: Omit<PublicHeaderProps, 'navContent'>
   navLinks?: TopNavLink[]
   showThemeSwitch?: boolean
   showAuthButtons?: boolean
   showNotifications?: boolean
   logo?: React.ReactNode
   siteName?: string
+  headerProps?: PublicHeaderProps
 }
 
 export function PublicLayout(props: PublicLayoutProps) {
   return (
     <div className='bg-background text-foreground relative min-h-svh overflow-x-clip'>
       <PublicHeader
-        navContent={props.navContent}
         navLinks={props.navLinks}
         showThemeSwitch={props.showThemeSwitch}
         showAuthButtons={props.showAuthButtons}
