@@ -20,6 +20,8 @@ import { useQuery } from '@tanstack/react-query'
 import type { ColumnDef, SortingState } from '@tanstack/react-table'
 import { VChart } from '@visactor/react-vchart'
 import {
+  AreaChart,
+  BarChart3,
   ExternalLink,
   TableProperties,
   User as UserIcon,
@@ -184,7 +186,9 @@ export function UserCharts(props: UserChartsProps) {
     return rows.sort((a, b) => b.quota - a.quota).slice(0, topUserLimit)
   }, [filteredUserData, topUserLimit])
 
-  const spec = chartData.spec_user_trend
+  const [trendStyle, setTrendStyle] = useState<'area' | 'bar'>('area')
+  const spec =
+    trendStyle === 'bar' ? chartData.spec_user_bar : chartData.spec_user_trend
 
   const onSelectUser = props.onSelectUser
   const userColumns = useMemo<ColumnDef<UserBreakdownItem>[]>(
@@ -289,6 +293,31 @@ export function UserCharts(props: UserChartsProps) {
           </div>
 
           <div className='flex flex-wrap items-center gap-2'>
+            {/* Trend style: area / bar */}
+            <Tabs
+              value={trendStyle}
+              onValueChange={(val) => setTrendStyle(val as 'area' | 'bar')}
+            >
+              <TabsList aria-label={t('Trend style')}>
+                <TabsTrigger
+                  value='area'
+                  title={t('Area Chart')}
+                  className='gap-1 px-2'
+                >
+                  <AreaChart data-icon='inline-start' aria-hidden='true' />
+                  <span className='hidden sm:inline'>{t('Area Chart')}</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value='bar'
+                  title={t('Bar Chart')}
+                  className='gap-1 px-2'
+                >
+                  <BarChart3 data-icon='inline-start' aria-hidden='true' />
+                  <span className='hidden sm:inline'>{t('Bar Chart')}</span>
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+
             {/* Limit selector: Top 5 / 10 / 20 / 50 */}
             <Tabs
               value={String(topUserLimit)}

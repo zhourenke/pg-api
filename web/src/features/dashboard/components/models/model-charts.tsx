@@ -69,15 +69,17 @@ interface ModelChartsProps {
 function resolveSpec(
   chartData: ProcessedChartData,
   metric: ChartMetric,
-  trendStyle: 'area' | 'bar' = 'area'
+  trendStyle: 'area' | 'bar'
 ) {
+  const useBar = trendStyle === 'bar'
   if (metric === 'quota') {
-    return trendStyle === 'bar' ? chartData.spec_line : chartData.spec_area
+    return useBar ? chartData.spec_line : chartData.spec_area
   }
   if (metric === 'tokens') {
+    if (useBar) return chartData.spec_token_bar ?? chartData.spec_model_bar
     return chartData.spec_token_line ?? chartData.spec_model_line
   }
-  return chartData.spec_model_line
+  return useBar ? chartData.spec_model_bar : chartData.spec_model_line
 }
 
 export function ModelCharts(props: ModelChartsProps) {
@@ -162,6 +164,31 @@ export function ModelCharts(props: ModelChartsProps) {
         </div>
 
         <div className='flex flex-wrap items-center gap-2'>
+          {/* Trend Style (Area vs Bar): applies to every metric */}
+          <Tabs
+            value={trendStyle}
+            onValueChange={(val) => setTrendStyle(val as 'area' | 'bar')}
+          >
+            <TabsList aria-label={t('Trend style')}>
+              <TabsTrigger
+                value='area'
+                title={t('Area Chart')}
+                className='gap-1 px-2'
+              >
+                <AreaChart data-icon='inline-start' aria-hidden='true' />
+                <span className='hidden sm:inline'>{t('Area Chart')}</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value='bar'
+                title={t('Bar Chart')}
+                className='gap-1 px-2'
+              >
+                <BarChart3 data-icon='inline-start' aria-hidden='true' />
+                <span className='hidden sm:inline'>{t('Bar Chart')}</span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+
           {/* Metric Selector */}
           <Tabs
             value={metric}
@@ -183,33 +210,6 @@ export function ModelCharts(props: ModelChartsProps) {
               })}
             </TabsList>
           </Tabs>
-
-          {/* Quota Trend Style (Area vs Bar) */}
-          {metric === 'quota' && (
-            <Tabs
-              value={trendStyle}
-              onValueChange={(val) => setTrendStyle(val as 'area' | 'bar')}
-            >
-              <TabsList aria-label={t('Trend style')}>
-                <TabsTrigger
-                  value='area'
-                  title={t('Area Chart')}
-                  className='gap-1 px-2'
-                >
-                  <AreaChart data-icon='inline-start' aria-hidden='true' />
-                  <span className='hidden sm:inline'>{t('Area Chart')}</span>
-                </TabsTrigger>
-                <TabsTrigger
-                  value='bar'
-                  title={t('Bar Chart')}
-                  className='gap-1 px-2'
-                >
-                  <BarChart3 data-icon='inline-start' aria-hidden='true' />
-                  <span className='hidden sm:inline'>{t('Bar Chart')}</span>
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          )}
         </div>
       </div>
 

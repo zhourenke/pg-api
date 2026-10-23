@@ -195,6 +195,39 @@ export function processChartData(
           visible: false,
         },
       },
+      spec_model_bar: {
+        type: 'bar',
+        data: [{ id: 'lineBarData', values: [] }],
+        xField: 'Time',
+        yField: 'Count',
+        seriesField: 'Model',
+        legends: { visible: true, selectMode: 'single' },
+        title: {
+          visible: false,
+        },
+      },
+      spec_token_line: {
+        type: 'area',
+        data: [{ id: 'tokenLineData', values: [] }],
+        xField: 'Time',
+        yField: 'Tokens',
+        seriesField: 'Model',
+        legends: { visible: true, selectMode: 'single' },
+        title: {
+          visible: false,
+        },
+      },
+      spec_token_bar: {
+        type: 'bar',
+        data: [{ id: 'tokenBarData', values: [] }],
+        xField: 'Time',
+        yField: 'Tokens',
+        seriesField: 'Model',
+        legends: { visible: true, selectMode: 'single' },
+        title: {
+          visible: false,
+        },
+      },
       spec_rank_bar: {
         type: 'bar',
         data: [{ id: 'rankData', values: [] }],
@@ -269,6 +302,68 @@ export function processChartData(
     domain: modelColorDomain,
     range: modelColorRange,
   }
+
+  // Both the request-count and the token trend can be drawn as an area or as a
+  // bar, so their axis formatting and their tooltip totals are built once here
+  // and reused by the two forms. The two metrics differ only in the value field
+  // and in how a value is written, which is what the arguments carry.
+  const buildModelTrendAxes = (formatValue: (value: number) => string) => [
+    { orient: 'bottom', type: 'band' },
+    {
+      orient: 'left',
+      type: 'linear',
+      label: { formatMethod: formatValue },
+    },
+  ]
+
+  const buildModelTrendTooltip = (
+    field: 'Count' | 'Tokens',
+    formatValue: (value: number) => string
+  ) => ({
+    mark: {
+      content: [
+        {
+          key: (datum: Record<string, unknown>) => datum?.Model,
+          value: (datum: Record<string, unknown>) =>
+            formatValue(Number(datum?.[field]) || 0),
+        },
+      ],
+    },
+    dimension: {
+      content: [
+        {
+          key: (datum: Record<string, unknown>) => datum?.Model,
+          value: (datum: Record<string, unknown>) => Number(datum?.[field]) || 0,
+        },
+      ],
+      updateContent: (
+        array: Array<{
+          key: string
+          value: string | number
+        }>
+      ) => {
+        const modelItems = array.filter((item) => !isOtherTooltipKey(item.key))
+        const otherItems = array.filter((item) => isOtherTooltipKey(item.key))
+        modelItems.sort((a, b) => (Number(b.value) || 0) - (Number(a.value) || 0))
+        array = [...modelItems, ...otherItems]
+
+        let sum = 0
+        for (let i = 0; i < array.length; i++) {
+          const value = Number(array[i].value) || 0
+          sum += value
+          array[i].value = formatValue(value)
+        }
+        array.unshift({ key: tt('Total:'), value: formatValue(sum) })
+        return array
+      },
+    },
+  })
+
+  // Token counts are written with the K/M/B units every other token surface
+  // uses, so the axis reads the same as the tables.
+  const tokenTrendAxes = buildModelTrendAxes((value) =>
+    value === 0 ? '0' : formatTokens(value, '0')
+  )
 
   // Pad time points if too few (default 7 points)
   const MAX_TREND_POINTS = MAX_CHART_TREND_POINTS
@@ -730,65 +825,8 @@ export function processChartData(
       title: {
         visible: false,
       },
-      axes: [
-        { orient: 'bottom', type: 'band' },
-        {
-          orient: 'left',
-          type: 'linear',
-          label: {
-            formatMethod: (value: number) => formatInt(value),
-          },
-        },
-      ],
-      tooltip: {
-        mark: {
-          content: [
-            {
-              key: (datum: Record<string, unknown>) => datum?.Model,
-              value: (datum: Record<string, unknown>) =>
-                formatInt(Number(datum?.Count) || 0),
-            },
-          ],
-        },
-        dimension: {
-          content: [
-            {
-              key: (datum: Record<string, unknown>) => datum?.Model,
-              value: (datum: Record<string, unknown>) =>
-                Number(datum?.Count) || 0,
-            },
-          ],
-          updateContent: (
-            array: Array<{
-              key: string
-              value: string | number
-            }>
-          ) => {
-            const modelItems = array.filter(
-              (item) => !isOtherTooltipKey(item.key)
-            )
-            const otherItems = array.filter((item) =>
-              isOtherTooltipKey(item.key)
-            )
-            modelItems.sort(
-              (a, b) => (Number(b.value) || 0) - (Number(a.value) || 0)
-            )
-            array = [...modelItems, ...otherItems]
-
-            let sum = 0
-            for (let i = 0; i < array.length; i++) {
-              const v = Number(array[i].value) || 0
-              sum += v
-              array[i].value = formatInt(v)
-            }
-            array.unshift({
-              key: tt('Total:'),
-              value: formatInt(sum),
-            })
-            return array
-          },
-        },
-      },
+      axes: buildModelTrendAxes((value) => formatInt(value)),
+      tooltip: buildModelTrendTooltip('Count', (value) => formatInt(value)),
       area: {
         style: {
           fillOpacity: 0.08,
@@ -802,6 +840,28 @@ export function processChartData(
         },
       },
       point: { visible: false },
+      background: { fill: 'transparent' },
+      animation: true,
+    },
+    spec_model_bar: {
+      type: 'bar',
+      data: [{ id: 'lineBarData', values: modelLineValues }],
+      xField: 'Time',
+      yField: 'Count',
+      seriesField: 'Model',
+      stack: false,
+      legends: { visible: true, selectMode: 'single' },
+      color: modelColor,
+      title: {
+        visible: false,
+      },
+      axes: buildModelTrendAxes((value) => formatInt(value)),
+      tooltip: buildModelTrendTooltip('Count', (value) => formatInt(value)),
+      bar: {
+        state: {
+          hover: { stroke: '#000', lineWidth: 1 },
+        },
+      },
       background: { fill: 'transparent' },
       animation: true,
     },
@@ -984,68 +1044,8 @@ export function processChartData(
       title: {
         visible: false,
       },
-      axes: [
-        { orient: 'bottom', type: 'band' },
-        {
-          orient: 'left',
-          type: 'linear',
-          label: {
-            formatMethod: (value: number) => {
-              if (value === 0) return '0'
-              return formatTokens(value, '0')
-            },
-          },
-        },
-      ],
-      tooltip: {
-        mark: {
-          content: [
-            {
-              key: (datum: Record<string, unknown>) => datum?.Model,
-              value: (datum: Record<string, unknown>) =>
-                formatInt(Number(datum?.Tokens) || 0),
-            },
-          ],
-        },
-        dimension: {
-          content: [
-            {
-              key: (datum: Record<string, unknown>) => datum?.Model,
-              value: (datum: Record<string, unknown>) =>
-                Number(datum?.Tokens) || 0,
-            },
-          ],
-          updateContent: (
-            array: Array<{
-              key: string
-              value: string | number
-            }>
-          ) => {
-            const modelItems = array.filter(
-              (item) => !isOtherTooltipKey(item.key)
-            )
-            const otherItems = array.filter((item) =>
-              isOtherTooltipKey(item.key)
-            )
-            modelItems.sort(
-              (a, b) => (Number(b.value) || 0) - (Number(a.value) || 0)
-            )
-            array = [...modelItems, ...otherItems]
-
-            let sum = 0
-            for (let i = 0; i < array.length; i++) {
-              const v = Number(array[i].value) || 0
-              sum += v
-              array[i].value = formatInt(v)
-            }
-            array.unshift({
-              key: tt('Total:'),
-              value: formatInt(sum),
-            })
-            return array
-          },
-        },
-      },
+      axes: tokenTrendAxes,
+      tooltip: buildModelTrendTooltip('Tokens', (value) => formatInt(value)),
       area: {
         style: {
           fillOpacity: 0.08,
@@ -1059,6 +1059,28 @@ export function processChartData(
         },
       },
       point: { visible: false },
+      background: { fill: 'transparent' },
+      animation: true,
+    },
+    spec_token_bar: {
+      type: 'bar',
+      data: [{ id: 'tokenBarData', values: tokenLineValues }],
+      xField: 'Time',
+      yField: 'Tokens',
+      seriesField: 'Model',
+      stack: false,
+      legends: { visible: true, selectMode: 'single' },
+      color: modelColor,
+      title: {
+        visible: false,
+      },
+      axes: tokenTrendAxes,
+      tooltip: buildModelTrendTooltip('Tokens', (value) => formatInt(value)),
+      bar: {
+        state: {
+          hover: { stroke: '#000', lineWidth: 1 },
+        },
+      },
       background: { fill: 'transparent' },
       animation: true,
     },
@@ -1093,6 +1115,106 @@ export function processUserChartData(
 
   const formatVal = (raw: number) => renderQuotaCompat(raw, 2)
 
+  // The user trend is offered in both an area and a bar form, so the axis
+  // formatting, the tooltip totals and the per-user colours are written once
+  // and only the mark changes with the requested form.
+  const buildUserTrendSpec = (
+    form: 'area' | 'bar',
+    values: Array<{ Time: string; User: string; rawQuota: number }>,
+    color: Record<string, unknown>
+  ) => ({
+    type: form,
+    data: [
+      {
+        id: form === 'bar' ? 'userTrendBarData' : 'userTrendData',
+        values,
+      },
+    ],
+    xField: 'Time',
+    yField: 'rawQuota',
+    seriesField: 'User',
+    stack: false,
+    title: {
+      visible: false,
+    },
+    legends: { visible: true, selectMode: 'single' },
+    axes: [
+      { orient: 'bottom', type: 'band' },
+      {
+        orient: 'left',
+        type: 'linear',
+        label: {
+          formatMethod: (value: number) => formatVal(value),
+        },
+      },
+    ],
+    tooltip: {
+      mark: {
+        content: [
+          {
+            key: (datum: Record<string, unknown>) => datum?.User,
+            value: (datum: Record<string, unknown>) =>
+              formatVal(Number(datum?.rawQuota) || 0),
+          },
+        ],
+      },
+      dimension: {
+        content: [
+          {
+            key: (datum: Record<string, unknown>) => datum?.User,
+            value: (datum: Record<string, unknown>) =>
+              Number(datum?.rawQuota) || 0,
+          },
+        ],
+        updateContent: (
+          array: Array<{
+            key: string
+            value: string | number
+          }>
+        ) => {
+          array.sort((a, b) => (Number(b.value) || 0) - (Number(a.value) || 0))
+          let sum = 0
+          for (let i = 0; i < array.length; i++) {
+            const value = Number(array[i].value) || 0
+            sum += value
+            array[i].value = formatVal(value)
+          }
+          array.unshift({
+            key: tt('Total:'),
+            value: formatVal(sum),
+          })
+          return array
+        },
+      },
+    },
+    ...(form === 'bar'
+      ? {
+          bar: {
+            state: {
+              hover: { stroke: '#000', lineWidth: 1 },
+            },
+          },
+        }
+      : {
+          area: {
+            style: {
+              fillOpacity: 0.15,
+              curveType: 'monotone',
+            },
+          },
+          line: {
+            style: {
+              lineWidth: 2,
+              curveType: 'monotone',
+            },
+          },
+          point: { visible: false },
+        }),
+    color,
+    background: { fill: 'transparent' },
+    animation: true,
+  })
+
   const emptyResult: ProcessedUserChartData = {
     spec_user_rank: {
       type: 'bar',
@@ -1108,20 +1230,14 @@ export function processUserChartData(
       color: { type: 'ordinal', range: USER_COLORS },
       background: { fill: 'transparent' },
     },
-    spec_user_trend: {
-      type: 'area',
-      data: [{ id: 'userTrendData', values: [] }],
-      xField: 'Time',
-      yField: 'rawQuota',
-      seriesField: 'User',
-      title: {
-        visible: false,
-      },
-      legends: { visible: true, selectMode: 'single' },
-      color: { type: 'ordinal', range: USER_COLORS },
-      point: { visible: false },
-      background: { fill: 'transparent' },
-    },
+    spec_user_trend: buildUserTrendSpec('area', [], {
+      type: 'ordinal',
+      range: USER_COLORS,
+    }),
+    spec_user_bar: buildUserTrendSpec('bar', [], {
+      type: 'ordinal',
+      range: USER_COLORS,
+    }),
   }
 
   if (!data || data.length === 0) return emptyResult
@@ -1240,84 +1356,11 @@ export function processUserChartData(
       background: { fill: 'transparent' },
       animation: true,
     },
-    spec_user_trend: {
-      type: 'area',
-      data: [{ id: 'userTrendData', values: trendValues }],
-      xField: 'Time',
-      yField: 'rawQuota',
-      seriesField: 'User',
-      stack: false,
-      title: {
-        visible: false,
-      },
-      legends: { visible: true, selectMode: 'single' },
-      axes: [
-        { orient: 'bottom', type: 'band' },
-        {
-          orient: 'left',
-          type: 'linear',
-          label: {
-            formatMethod: (value: number) => formatVal(value),
-          },
-        },
-      ],
-      tooltip: {
-        mark: {
-          content: [
-            {
-              key: (datum: Record<string, unknown>) => datum?.User,
-              value: (datum: Record<string, unknown>) =>
-                formatVal(Number(datum?.rawQuota) || 0),
-            },
-          ],
-        },
-        dimension: {
-          content: [
-            {
-              key: (datum: Record<string, unknown>) => datum?.User,
-              value: (datum: Record<string, unknown>) =>
-                Number(datum?.rawQuota) || 0,
-            },
-          ],
-          updateContent: (
-            array: Array<{
-              key: string
-              value: string | number
-            }>
-          ) => {
-            array.sort(
-              (a, b) => (Number(b.value) || 0) - (Number(a.value) || 0)
-            )
-            let sum = 0
-            for (let i = 0; i < array.length; i++) {
-              const v = Number(array[i].value) || 0
-              sum += v
-              array[i].value = formatVal(v)
-            }
-            array.unshift({
-              key: tt('Total:'),
-              value: formatVal(sum),
-            })
-            return array
-          },
-        },
-      },
-      area: {
-        style: {
-          fillOpacity: 0.15,
-          curveType: 'monotone',
-        },
-      },
-      line: {
-        style: {
-          lineWidth: 2,
-          curveType: 'monotone',
-        },
-      },
-      point: { visible: false },
-      color: { specified: userColorMap },
-      background: { fill: 'transparent' },
-      animation: true,
-    },
+    spec_user_trend: buildUserTrendSpec('area', trendValues, {
+      specified: userColorMap,
+    }),
+    spec_user_bar: buildUserTrendSpec('bar', trendValues, {
+      specified: userColorMap,
+    }),
   }
 }
