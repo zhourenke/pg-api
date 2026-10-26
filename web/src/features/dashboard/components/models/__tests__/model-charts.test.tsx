@@ -108,7 +108,8 @@ describe('ModelCharts trend style switch', () => {
   it('lets a tap open the tooltip instead of only a hover', async () => {
     renderCharts()
 
-    const tooltip = (await latestSpec()).tooltip as {
+    const spec = await latestSpec()
+    const tooltip = spec.tooltip as {
       trigger?: string[]
       enterable?: boolean
     }
@@ -116,5 +117,14 @@ describe('ModelCharts trend style switch', () => {
     // stationary tap never emits, so a tap has to be an explicit trigger.
     expect(tooltip.trigger).toEqual(['hover', 'click'])
     expect(tooltip.enterable).toBe(false)
+  })
+
+  it('binds the grey column to the tooltip so a tap moves it', async () => {
+    renderCharts()
+
+    // The default crosshair listens to hover alone (pointermove in this mode),
+    // so a tap moved the tooltip but never the column. Following the tooltip
+    // makes the two agree on a tap, a drag and a hover alike.
+    expect((await latestSpec()).crosshair).toEqual({ followTooltip: true })
   })
 })

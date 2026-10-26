@@ -24,7 +24,7 @@ import type {
   ProcessedChartData,
   ProcessedUserChartData,
 } from '@/features/dashboard/types'
-import { TOUCH_TOOLTIP_SPEC } from '@/lib/chart-touch'
+import { CROSSHAIR_FOLLOW_TOOLTIP, TOUCH_TOOLTIP_SPEC } from '@/lib/chart-touch'
 import { getCurrencyDisplay } from '@/lib/currency'
 import { formatTokens } from '@/lib/format'
 import { formatChartTime, type TimeGranularity } from '@/lib/time'
@@ -560,6 +560,7 @@ export function processChartData(
           },
         },
       ],
+      crosshair: CROSSHAIR_FOLLOW_TOOLTIP,
       background: { fill: 'transparent' },
       animation: true,
     },
@@ -628,6 +629,7 @@ export function processChartData(
           },
         },
       ],
+      crosshair: CROSSHAIR_FOLLOW_TOOLTIP,
       background: { fill: 'transparent' },
       animation: true,
     },
@@ -658,6 +660,7 @@ export function processChartData(
         },
       },
       point: { visible: false },
+      crosshair: CROSSHAIR_FOLLOW_TOOLTIP,
       background: { fill: 'transparent' },
       animation: true,
     },
@@ -680,6 +683,7 @@ export function processChartData(
           hover: { stroke: '#000', lineWidth: 1 },
         },
       },
+      crosshair: CROSSHAIR_FOLLOW_TOOLTIP,
       background: { fill: 'transparent' },
       animation: true,
     },
@@ -710,6 +714,7 @@ export function processChartData(
         },
       },
       point: { visible: false },
+      crosshair: CROSSHAIR_FOLLOW_TOOLTIP,
       background: { fill: 'transparent' },
       animation: true,
     },
@@ -732,6 +737,7 @@ export function processChartData(
           hover: { stroke: '#000', lineWidth: 1 },
         },
       },
+      crosshair: CROSSHAIR_FOLLOW_TOOLTIP,
       background: { fill: 'transparent' },
       animation: true,
     },
@@ -860,6 +866,7 @@ export function processUserChartData(
           point: { visible: false },
         }),
     color,
+    crosshair: CROSSHAIR_FOLLOW_TOOLTIP,
     background: { fill: 'transparent' },
     animation: true,
   })

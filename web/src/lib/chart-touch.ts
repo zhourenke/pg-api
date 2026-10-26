@@ -36,6 +36,24 @@ export const TOUCH_TOOLTIP_SPEC = {
 } as const
 
 /**
+ * Binds a cartesian chart's crosshair to its tooltip instead of to its own
+ * hover listener.
+ *
+ * VChart gives every cartesian chart a default crosshair - the translucent
+ * grey column marking the hovered band - and that crosshair listens to hover on
+ * its own. In `desktop-browser` mode (see `VCHART_OPTION`) hover means
+ * `pointermove` alone, so a stationary tap moved the tooltip but never the grey
+ * column: on a touchscreen the column only followed a sliding finger, never a
+ * tap. `followTooltip: true` makes the crosshair show and move with the tooltip,
+ * so the column and the value can never disagree - on a tap, a drag or a mouse
+ * hover alike. The chart's default `xField` rect column is preserved because
+ * VChart merges this into the default crosshair spec.
+ */
+export const CROSSHAIR_FOLLOW_TOOLTIP = {
+  followTooltip: true,
+} as const
+
+/**
  * Keeps a touch selection on screen after the finger lifts.
  *
  * For a pointer that never hovers, the spec fires `pointerout`/`pointerleave`

@@ -21,7 +21,11 @@ import { BarChart3, Trophy } from 'lucide-react'
 import { useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { TOUCH_TOOLTIP_SPEC, useTouchTooltipHold } from '@/lib/chart-touch'
+import {
+  CROSSHAIR_FOLLOW_TOOLTIP,
+  TOUCH_TOOLTIP_SPEC,
+  useTouchTooltipHold,
+} from '@/lib/chart-touch'
 import { useChartTheme } from '@/lib/use-chart-theme'
 import { VCHART_OPTION } from '@/lib/vchart'
 
@@ -97,6 +101,7 @@ export function ModelsSection(props: ModelsSectionProps) {
       yField: 'tokens',
       seriesField: 'model',
       stack: true,
+      crosshair: CROSSHAIR_FOLLOW_TOOLTIP,
       legends: { visible: false },
       axes: [
         {

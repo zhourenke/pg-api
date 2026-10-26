@@ -20,7 +20,11 @@ import { fireEvent, render } from '@testing-library/react'
 import { useRef } from 'react'
 import { describe, expect, it } from 'vitest'
 
-import { TOUCH_TOOLTIP_SPEC, useTouchTooltipHold } from '@/lib/chart-touch'
+import {
+  CROSSHAIR_FOLLOW_TOOLTIP,
+  TOUCH_TOOLTIP_SPEC,
+  useTouchTooltipHold,
+} from '@/lib/chart-touch'
 
 function Host() {
   const hostRef = useRef<HTMLDivElement>(null)
@@ -55,6 +59,15 @@ describe('TOUCH_TOOLTIP_SPEC', () => {
 
   it('keeps the panel out of the pointer path so a tap reads through it', () => {
     expect(TOUCH_TOOLTIP_SPEC.enterable).toBe(false)
+  })
+})
+
+describe('CROSSHAIR_FOLLOW_TOOLTIP', () => {
+  it('binds the crosshair to the tooltip so a tap moves the grey column', () => {
+    // The default cartesian crosshair listens to hover on its own, which in
+    // `desktop-browser` mode is pointermove alone - so a tap moved the tooltip
+    // but never the grey column. Following the tooltip fixes that.
+    expect(CROSSHAIR_FOLLOW_TOOLTIP).toEqual({ followTooltip: true })
   })
 })
 

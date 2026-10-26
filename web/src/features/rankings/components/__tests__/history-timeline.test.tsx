@@ -45,6 +45,7 @@ type CapturedSpec = {
   data: Array<{ id: string; values: CapturedValue[] }>
   axes: Array<{ orient: string; type?: string; domain?: string[] }>
   tooltip?: { trigger?: string[]; enterable?: boolean }
+  crosshair?: { followTooltip?: boolean }
 }
 
 const chart = vi.hoisted(() => vi.fn((_props: { spec: CapturedSpec }) => null))
@@ -181,6 +182,19 @@ it('opens the model chart tooltip on a tap, not just a hover', async () => {
   expect((await capturedSpec()).tooltip?.trigger).toEqual(['hover', 'click'])
 })
 
+it('binds the model chart grey column to the tooltip so a tap moves it', async () => {
+  chart.mockClear()
+  renderSection(
+    <ModelsSection
+      history={modelHistory()}
+      rows={[modelRow()]}
+      period='today'
+    />
+  )
+
+  expect((await capturedSpec()).crosshair?.followTooltip).toBe(true)
+})
+
 it('opens the market share tooltip on a tap, not just a hover', async () => {
   chart.mockClear()
   renderSection(
@@ -192,6 +206,19 @@ it('opens the market share tooltip on a tap, not just a hover', async () => {
   )
 
   expect((await capturedSpec()).tooltip?.trigger).toEqual(['hover', 'click'])
+})
+
+it('binds the market share grey column to the tooltip so a tap moves it', async () => {
+  chart.mockClear()
+  renderSection(
+    <MarketShareSection
+      history={vendorHistory()}
+      rows={[vendorRow()]}
+      period='today'
+    />
+  )
+
+  expect((await capturedSpec()).crosshair?.followTooltip).toBe(true)
 })
 
 it('keeps every idle bucket of the period on the market share axis', async () => {

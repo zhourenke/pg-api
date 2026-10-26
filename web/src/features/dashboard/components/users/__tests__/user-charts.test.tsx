@@ -231,6 +231,8 @@ describe('UserCharts preset and granularity updates', () => {
       'hover',
       'click',
     ])
+    // The grey column follows the tooltip, so a tap moves it too.
+    expect(lastSpec.crosshair).toEqual({ followTooltip: true })
   })
 
   it('orders the breakdown table by the field and direction picked in the toolbar control', async () => {
