@@ -32,6 +32,7 @@ import type {
   FlowSummary,
   ProcessedFlowData,
 } from '@/features/dashboard/types'
+import { TOUCH_TOOLTIP_SPEC } from '@/lib/chart-touch'
 
 import { getDashboardChartColors } from './charts'
 
@@ -1304,7 +1305,10 @@ export function buildFlowSankeySpec(
     // highlight.
     emphasis: { enable: false },
     tooltip: {
-      trigger: 'hover',
+      // A tap must open the tooltip too: this chart renders in `desktop-browser`
+      // mode, where the tooltip's own `hover` trigger is `pointermove` alone and
+      // a stationary tap emits none.
+      ...TOUCH_TOOLTIP_SPEC,
       activeType: 'mark',
       dimension: { visible: false },
       group: { visible: false },

@@ -710,6 +710,10 @@ describe('dashboard flow data', () => {
     expect(flowSpec.emphasis).toEqual({ enable: false })
     expect(flowSpec.tooltip.mark.visible({ datum: aliceNode })).toBe(true)
     expect(flowSpec.tooltip.mark.visible({ datum: userNodeLink })).toBe(true)
+    // A tap has to open this tooltip too: `desktop-browser` mode defines the
+    // tooltip's own hover as pointermove, which a stationary tap never emits.
+    expect(flowSpec.tooltip.trigger).toEqual(['hover', 'click'])
+    expect(flowSpec.tooltip.enterable).toBe(false)
     expect(flowSpec.animation).toBe(false)
     expect(values.nodes.length).toBe(6)
     expect(values.links.length).toBe(5)

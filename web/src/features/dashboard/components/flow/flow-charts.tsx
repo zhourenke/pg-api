@@ -81,6 +81,7 @@ import type {
   FlowOverflowMode,
   FlowRole,
 } from '@/features/dashboard/types'
+import { useTouchTooltipHold } from '@/lib/chart-touch'
 import { formatQuota } from '@/lib/format'
 import { ROLE } from '@/lib/roles'
 import { requireServerSuccess } from '@/lib/server-error-message'
@@ -257,6 +258,9 @@ export function FlowCharts(props: FlowChartsProps) {
   const { t } = useTranslation()
   const { resolvedTheme, themeReady } = useChartTheme()
   const chartInstanceRef = useRef<IVChart | null>(null)
+  // Keep the tooltip a finger tapped open after it lifts; see the hook.
+  const chartHostRef = useRef<HTMLDivElement>(null)
+  useTouchTooltipHold(chartHostRef)
   const user = useAuthStore((state) => state.auth.user)
   // The flow role follows the scope chosen in the title bar, not just the
   // account: an admin who switched to "only mine" gets the personal Sankey and
@@ -710,7 +714,10 @@ export function FlowCharts(props: FlowChartsProps) {
             </div>
           </TooltipProvider>
         </div>
-        <div className='h-[560px] p-1.5 sm:h-[680px] sm:p-2 2xl:h-[760px]'>
+        <div
+          ref={chartHostRef}
+          className='h-[560px] p-1.5 sm:h-[680px] sm:p-2 2xl:h-[760px]'
+        >
           {chartContent}
         </div>
       </div>
