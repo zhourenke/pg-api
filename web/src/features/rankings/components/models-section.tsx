@@ -18,9 +18,10 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { VChart } from '@visactor/react-vchart'
 import { BarChart3, Trophy } from 'lucide-react'
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { TOUCH_TOOLTIP_SPEC, useTouchTooltipHold } from '@/lib/chart-touch'
 import { useChartTheme } from '@/lib/use-chart-theme'
 import { VCHART_OPTION } from '@/lib/vchart'
 
@@ -51,6 +52,9 @@ type ModelsSectionProps = {
 export function ModelsSection(props: ModelsSectionProps) {
   const { t } = useTranslation()
   const { resolvedTheme, themeReady } = useChartTheme()
+  // Keep the value a finger tapped open after it lifts; see the hook.
+  const chartHostRef = useRef<HTMLDivElement>(null)
+  useTouchTooltipHold(chartHostRef)
   const chartTextColor =
     resolvedTheme === 'dark'
       ? 'rgba(255, 255, 255, 0.68)'
@@ -119,6 +123,7 @@ export function ModelsSection(props: ModelsSectionProps) {
         },
       ],
       tooltip: {
+        ...TOUCH_TOOLTIP_SPEC,
         mark: {
           content: [
             {
@@ -196,7 +201,7 @@ export function ModelsSection(props: ModelsSectionProps) {
       </header>
 
       <div className='px-5 pb-5'>
-        <div className='h-60 sm:h-72'>
+        <div ref={chartHostRef} className='h-60 sm:h-72'>
           {themeReady && spec ? (
             <VChart
               key={`models-history-${resolvedTheme}-${props.period}`}

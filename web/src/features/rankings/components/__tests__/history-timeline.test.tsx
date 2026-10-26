@@ -44,6 +44,7 @@ type CapturedValue = {
 type CapturedSpec = {
   data: Array<{ id: string; values: CapturedValue[] }>
   axes: Array<{ orient: string; type?: string; domain?: string[] }>
+  tooltip?: { trigger?: string[]; enterable?: boolean }
 }
 
 const chart = vi.hoisted(() => vi.fn((_props: { spec: CapturedSpec }) => null))
@@ -163,6 +164,34 @@ it('keeps every idle bucket of the period on the model chart axis', async () => 
     '03:00',
     '20:00',
   ])
+})
+
+it('opens the model chart tooltip on a tap, not just a hover', async () => {
+  chart.mockClear()
+  renderSection(
+    <ModelsSection
+      history={modelHistory()}
+      rows={[modelRow()]}
+      period='today'
+    />
+  )
+
+  // The tooltip's own hover trigger is pointermove in `desktop-browser` mode, so
+  // a stationary tap on a phone would otherwise never show a bucket's value.
+  expect((await capturedSpec()).tooltip?.trigger).toEqual(['hover', 'click'])
+})
+
+it('opens the market share tooltip on a tap, not just a hover', async () => {
+  chart.mockClear()
+  renderSection(
+    <MarketShareSection
+      history={vendorHistory()}
+      rows={[vendorRow()]}
+      period='today'
+    />
+  )
+
+  expect((await capturedSpec()).tooltip?.trigger).toEqual(['hover', 'click'])
 })
 
 it('keeps every idle bucket of the period on the market share axis', async () => {
