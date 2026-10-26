@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { VChart } from '@visactor/react-vchart'
-import { useEffect, useMemo, useRef } from 'react'
+import { useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -25,6 +25,7 @@ import {
   formatThroughput,
   formatUptimePct,
 } from '@/features/performance-metrics/lib/format'
+import { TOUCH_TOOLTIP_SPEC, useTouchTooltipHold } from '@/lib/chart-touch'
 import { useChartTheme } from '@/lib/use-chart-theme'
 import { cn } from '@/lib/utils'
 import { VCHART_OPTION } from '@/lib/vchart'
@@ -470,14 +471,10 @@ export function ModelOverviewTrendChart(props: ModelOverviewTrendChartProps) {
         },
       },
       tooltip: {
-        // `dimension` shows all three metrics for the hovered hour, and the
-        // click trigger keeps touch taps from dismissing it immediately.
+        // `dimension` shows all three metrics for the hovered hour, and the tap
+        // trigger keeps touch taps from dismissing it immediately.
         activeType: ['dimension'],
-        trigger: ['hover', 'click'],
-        // The panel must stay transparent to pointers: with an enterable
-        // tooltip a fast cursor (or a tap) that lands on the panel freezes the
-        // highlight instead of reporting the hour under the pointer.
-        enterable: false,
+        ...TOUCH_TOOLTIP_SPEC,
         dimension: {
           title: { value: (datum: TrendDatum) => datum?.fullTime },
           content: [
@@ -493,27 +490,12 @@ export function ModelOverviewTrendChart(props: ModelOverviewTrendChartProps) {
     }
   }, [backdrop, domains, isDark, labels, metricColors, props.slots])
 
-  // A finger lifting off a touchscreen still emits `pointerleave`: for a pointer
-  // that never hovers, the spec fires pointerout/pointerleave right after
-  // pointerup. VChart reads that as the pointer leaving the chart and hides both
-  // the tooltip and the crosshair, so the hour the user had just tapped vanished
-  // the moment they let go - and, on a phone that reports no such leave, tap to
-  // tap was the only way to read the chart. Only a mouse really leaving should end
-  // the highlight; the listener runs in the capture phase so it sits in front of
-  // the one VChart puts on the canvas. A tap outside the plot still dismisses it,
-  // because that arrives as a pointerup whose position VChart checks itself.
+  // A finger lifting off a touchscreen still emits `pointerleave`, and VChart
+  // would read it as the pointer leaving the chart, hiding the hour the user had
+  // just tapped. The shared hook swallows that one leave for touch pointers while
+  // letting a mouse's leave end the selection as usual.
   const chartHostRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const host = chartHostRef.current
-    if (!host) return
-    const holdTouchSelection = (event: PointerEvent) => {
-      if (event.pointerType === 'touch') event.stopPropagation()
-    }
-    host.addEventListener('pointerleave', holdTouchSelection, true)
-    return () => {
-      host.removeEventListener('pointerleave', holdTouchSelection, true)
-    }
-  }, [])
+  useTouchTooltipHold(chartHostRef)
 
   return (
     <div className={cn('space-y-2', props.className)}>
