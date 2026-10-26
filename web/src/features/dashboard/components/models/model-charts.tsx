@@ -37,6 +37,7 @@ import type {
   ProcessedChartData,
   QuotaDataItem,
 } from '@/features/dashboard/types'
+import { useTouchTooltipHold } from '@/lib/chart-touch'
 import type { TimeGranularity } from '@/lib/time'
 import { VCHART_OPTION } from '@/lib/vchart'
 
@@ -88,6 +89,9 @@ export function ModelCharts(props: ModelChartsProps) {
     (typeof import('@visactor/vchart'))['ThemeManager'] | null
   >(null)
   const timeGranularity = props.timeGranularity ?? DEFAULT_TIME_GRANULARITY
+  // Keep the value a finger tapped open after it lifts; see the hook.
+  const chartHostRef = useRef<HTMLDivElement>(null)
+  useTouchTooltipHold(chartHostRef)
 
   useEffect(() => {
     const updateTheme = async () => {
@@ -195,7 +199,7 @@ export function ModelCharts(props: ModelChartsProps) {
         </div>
       </div>
 
-      <div className='h-[300px] p-1.5 sm:h-96 sm:p-2'>
+      <div ref={chartHostRef} className='h-[300px] p-1.5 sm:h-96 sm:p-2'>
         {themeReady && spec && (
           <VChart
             key={chartKey}

@@ -58,6 +58,7 @@ import {
 import type { UserChartsFilters } from '@/features/dashboard/types'
 import { toIntlLocale } from '@/i18n/languages'
 import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
+import { useTouchTooltipHold } from '@/lib/chart-touch'
 import { formatNumber, formatQuota, formatTokens } from '@/lib/format'
 import { requireServerSuccess } from '@/lib/server-error-message'
 import { cn } from '@/lib/utils'
@@ -95,6 +96,9 @@ export function UserCharts(props: UserChartsProps) {
   const themeManagerRef = useRef<
     (typeof import('@visactor/vchart'))['ThemeManager'] | null
   >(null)
+  // Keep the value a finger tapped open after it lifts; see the hook.
+  const chartHostRef = useRef<HTMLDivElement>(null)
+  useTouchTooltipHold(chartHostRef)
 
   const timeGranularity =
     props.filters.timeGranularity ??
@@ -410,7 +414,7 @@ export function UserCharts(props: UserChartsProps) {
           </div>
         </div>
 
-        <div className='h-[300px] p-1.5 sm:h-96 sm:p-2'>
+        <div ref={chartHostRef} className='h-[300px] p-1.5 sm:h-96 sm:p-2'>
           {isLoading ? (
             <Skeleton className='h-full w-full' />
           ) : (

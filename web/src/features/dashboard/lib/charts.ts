@@ -24,6 +24,7 @@ import type {
   ProcessedChartData,
   ProcessedUserChartData,
 } from '@/features/dashboard/types'
+import { TOUCH_TOOLTIP_SPEC } from '@/lib/chart-touch'
 import { getCurrencyDisplay } from '@/lib/currency'
 import { formatTokens } from '@/lib/format'
 import { formatChartTime, type TimeGranularity } from '@/lib/time'
@@ -283,6 +284,7 @@ export function processChartData(
     field: 'Count' | 'Tokens',
     formatValue: (value: number) => string
   ) => ({
+    ...TOUCH_TOOLTIP_SPEC,
     mark: {
       content: [
         {
@@ -518,6 +520,7 @@ export function processChartData(
         },
       },
       tooltip: {
+        ...TOUCH_TOOLTIP_SPEC,
         mark: {
           content: [
             {
@@ -570,6 +573,7 @@ export function processChartData(
       legends: { visible: true, selectMode: 'single' },
       color: modelColor,
       tooltip: {
+        ...TOUCH_TOOLTIP_SPEC,
         mark: {
           content: [
             {
@@ -793,6 +797,7 @@ export function processUserChartData(
       },
     ],
     tooltip: {
+      ...TOUCH_TOOLTIP_SPEC,
       mark: {
         content: [
           {

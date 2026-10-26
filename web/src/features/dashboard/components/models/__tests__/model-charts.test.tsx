@@ -104,4 +104,17 @@ describe('ModelCharts trend style switch', () => {
     expect(spec.type).toBe('bar')
     expect(spec.yField).toBe('Tokens')
   })
+
+  it('lets a tap open the tooltip instead of only a hover', async () => {
+    renderCharts()
+
+    const tooltip = (await latestSpec()).tooltip as {
+      trigger?: string[]
+      enterable?: boolean
+    }
+    // `desktop-browser` mode defines the tooltip's hover as pointermove, which a
+    // stationary tap never emits, so a tap has to be an explicit trigger.
+    expect(tooltip.trigger).toEqual(['hover', 'click'])
+    expect(tooltip.enterable).toBe(false)
+  })
 })

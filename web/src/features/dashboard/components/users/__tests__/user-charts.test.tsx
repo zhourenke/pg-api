@@ -206,6 +206,33 @@ describe('UserCharts preset and granularity updates', () => {
     })
   })
 
+  it('lets a tap open the tooltip instead of only a hover', async () => {
+    const Wrapper = createWrapper()
+    render(
+      <Wrapper>
+        <UserCharts
+          filters={{
+            preset: 'today',
+            timeGranularity: 'hour',
+            topUserLimit: 10,
+          }}
+          onFiltersChange={vi.fn()}
+        />
+      </Wrapper>
+    )
+
+    await waitFor(() => {
+      expect(lastSpec.type).toBe('area')
+    })
+    // A tap never emits pointermove, which is the only hover entry point in
+    // `desktop-browser` mode, so the tap trigger is what makes this readable on
+    // a phone.
+    expect((lastSpec.tooltip as { trigger?: string[] }).trigger).toEqual([
+      'hover',
+      'click',
+    ])
+  })
+
   it('orders the breakdown table by the field and direction picked in the toolbar control', async () => {
     const user = userEvent.setup()
     const Wrapper = createWrapper()
