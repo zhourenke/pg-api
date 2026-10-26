@@ -279,10 +279,26 @@ export function FlowCharts(props: FlowChartsProps) {
       if (target instanceof Node && host?.contains(target)) return
       hideTooltip()
     }
+    // VChart's own hover highlight follows a touch drag, but vrender only resets
+    // it on `pointerout`, an event it never dispatches for touch: a finger has
+    // no hover phase, so the gesture ends at `touchend` without one and the mark
+    // it stopped on stays lit. That stale highlight cannot be cleared by a tap -
+    // a tap only adds our data-driven highlight on top, leaving two blocks lit -
+    // and only another drag moves it. Drop the built-in hover state when the
+    // finger lifts or the touch is cancelled; the selection styling we render
+    // from `highlighted`/`dimmed` data is unaffected.
+    const releaseTouchHover = (event: PointerEvent) => {
+      if (event.pointerType !== 'touch') return
+      chartInstanceRef.current?.clearHovered()
+    }
     host?.addEventListener('pointerleave', handlePointerLeave, true)
+    host?.addEventListener('pointerup', releaseTouchHover, true)
+    host?.addEventListener('pointercancel', releaseTouchHover, true)
     document.addEventListener('pointerdown', handlePointerDownOutside, true)
     return () => {
       host?.removeEventListener('pointerleave', handlePointerLeave, true)
+      host?.removeEventListener('pointerup', releaseTouchHover, true)
+      host?.removeEventListener('pointercancel', releaseTouchHover, true)
       document.removeEventListener(
         'pointerdown',
         handlePointerDownOutside,

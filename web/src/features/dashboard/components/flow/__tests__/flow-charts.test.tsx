@@ -39,6 +39,7 @@ let unmountCount = 0
 const fakeChart = vi.hoisted(() => ({
   hideTooltip: vi.fn(),
   clearState: vi.fn(),
+  clearHovered: vi.fn(),
 }))
 
 vi.mock('@visactor/react-vchart', () => ({
@@ -191,5 +192,35 @@ describe('FlowCharts time filter preset updates', () => {
     // A press anywhere outside the chart closes it too.
     fireEvent.pointerDown(document.body, { pointerType: 'mouse' })
     expect(fakeChart.hideTooltip).toHaveBeenCalledTimes(2)
+  })
+
+  it('clears the built-in hover highlight when a touch lifts, not on a mouse', async () => {
+    // vrender never dispatches `pointerout` for touch, so the mark a finger
+    // stops on keeps VChart's hover highlight; the component has to drop it on
+    // `pointerup`/`pointercancel` so a later tap does not stack a second block.
+    fakeChart.clearHovered.mockClear()
+    const Wrapper = createWrapper()
+    render(
+      <Wrapper>
+        <FlowCharts filters={{ preset: '24h' }} />
+      </Wrapper>
+    )
+    await waitFor(() => {
+      expect(screen.getByTestId('vchart-sankey-mock')).toBeInTheDocument()
+    })
+    const host = screen.getByTestId('vchart-sankey-mock').parentElement
+    if (!host) throw new Error('expected the chart host element')
+
+    // A mouse release leaves the hover highlight alone.
+    fireEvent.pointerUp(host, { pointerType: 'mouse' })
+    expect(fakeChart.clearHovered).not.toHaveBeenCalled()
+
+    // A raised finger clears it.
+    fireEvent.pointerUp(host, { pointerType: 'touch' })
+    expect(fakeChart.clearHovered).toHaveBeenCalledTimes(1)
+
+    // A cancelled touch clears it too.
+    fireEvent.pointerCancel(host, { pointerType: 'touch' })
+    expect(fakeChart.clearHovered).toHaveBeenCalledTimes(2)
   })
 })
