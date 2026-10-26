@@ -63,6 +63,7 @@ import { useDashboardWindow } from '@/features/dashboard/hooks/use-dashboard-win
 import {
   buildDashboardFlowData,
   buildFlowSankeySpec,
+  buildFlowSankeyValues,
   buildQueryParams,
   flowNodeFilterFromSankeyDatum,
   flowSankeyDatumValue,
@@ -449,24 +450,34 @@ export function FlowCharts(props: FlowChartsProps) {
   const chartTitle = t('Flow')
   const flowSpec = useMemo(
     () =>
-      buildFlowSankeySpec(flowData.flow, chartTitle, formatQuota, {
+      buildFlowSankeySpec(chartTitle, formatQuota, {
         quota: t('Quota'),
         tokens: t('Tokens'),
         requests: t('Requests'),
         share: t('Share'),
       }),
-    [chartTitle, flowData.flow, t]
+    [chartTitle, t]
+  )
+  // Highlight flags live in the data, not the spec, so a tap that changes the
+  // selection only pushes data through react-vchart's `updateFullDataSync`. That
+  // path leaves the tooltip the same tap opened on screen; rebuilding the spec
+  // instead runs `updateSpecSync`, which closes it and left touch users staring
+  // at a highlight with no numbers.
+  const flowValues = useMemo(
+    () => buildFlowSankeyValues(flowData.flow),
+    [flowData.flow]
   )
   const chartTheme = resolvedTheme === 'dark' ? 'dark' : 'light'
+  // The chart is keyed on what changes its *shape* - metric, limits, columns,
+  // window, theme - and never on the highlight selection. A selection only
+  // repaints opacity and stroke, which the spec update handles; remounting for it
+  // threw the chart away the instant a tap set it, and with it the tooltip the
+  // tap had just opened, so a touch user saw a highlight and no numbers.
   const chartKey = [
     metric,
     topNodeLimit,
     overflowMode,
     flowRole,
-    activeFlowNode ? flowNodeFilterKey(activeFlowNode) : '',
-    activeFlowLink
-      ? `${activeFlowLink.source}\u0000${activeFlowLink.target}`
-      : '',
     selectedNodes.map(flowNodeFilterKey).join(','),
     selectedUsers.join(','),
     visibleStages.join(','),
@@ -498,6 +509,7 @@ export function FlowCharts(props: FlowChartsProps) {
         theme: chartTheme,
         background: 'transparent',
       }}
+      data={[{ id: 'flow', values: [flowValues] }]}
       option={VCHART_OPTION}
       onReady={(instance: IVChart) => {
         chartInstanceRef.current = instance

@@ -31,6 +31,7 @@ export { processChartData, processUserChartData } from './charts'
 export {
   buildDashboardFlowData,
   buildFlowSankeySpec,
+  buildFlowSankeyValues,
   flowNodeFilterFromSankeyDatum,
   flowSankeyDatumValue,
   getFlowStages,

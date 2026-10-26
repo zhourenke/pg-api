@@ -23,6 +23,7 @@ import {
   buildDashboardFlowData,
   buildFlowFilterOptions,
   buildFlowSankeySpec,
+  buildFlowSankeyValues,
 } from './flow'
 
 const rows: FlowQuotaDataItem[] = [
@@ -695,8 +696,8 @@ describe('dashboard flow data', () => {
     const result = buildDashboardFlowData(rows.slice(0, 1), 'quota', {
       role: 'root',
     })
-    const flowSpec = buildFlowSankeySpec(result.flow, 'Flow')
-    const values = flowSpec.data[0].values[0]
+    const flowSpec = buildFlowSankeySpec('Flow')
+    const values = buildFlowSankeyValues(result.flow)
     const aliceNode = values.nodes.find(
       (node: Record<string, unknown>) => node.key === 'user:1'
     )
@@ -704,6 +705,9 @@ describe('dashboard flow data', () => {
       (link: Record<string, unknown>) =>
         link.source === 'user:1' && link.target === 'node:node-a'
     )
+    if (!aliceNode || !userNodeLink) {
+      throw new Error('expected the Sankey values to contain the alice path')
+    }
 
     expect(flowSpec.type).toBe('sankey')
     expect(flowSpec.title.text).toBe('Flow')
@@ -742,13 +746,13 @@ describe('dashboard flow data', () => {
     ])
   })
 
-  test('maps active flow highlight states into the Sankey spec', () => {
+  test('keeps the flow highlight in the Sankey values, not the spec', () => {
     const result = buildDashboardFlowData(rows, 'quota', {
       role: 'root',
       activeNode: { kind: 'user', id: 'user:1' },
     })
-    const flowSpec = buildFlowSankeySpec(result.flow, 'Flow')
-    const values = flowSpec.data[0].values[0]
+    const flowSpec = buildFlowSankeySpec('Flow')
+    const values = buildFlowSankeyValues(result.flow)
     const aliceNode = values.nodes.find(
       (node: Record<string, unknown>) => node.key === 'user:1'
     )
@@ -765,8 +769,15 @@ describe('dashboard flow data', () => {
     )
     const nodeOpacity = flowSpec.node.style.fillOpacity
     const linkOpacity = flowSpec.link.style.fillOpacity
+    if (!aliceNode || !bobNode || !highlightedLink || !dimmedLink) {
+      throw new Error('expected the Sankey values to contain both user paths')
+    }
 
     expect(flowSpec.emphasis).toEqual({ enable: false })
+    // The selection changes the values only. Keeping it out of the spec lets
+    // react-vchart update the data in place instead of re-syncing the spec,
+    // which would close the tooltip the same tap just opened.
+    expect(flowSpec.data).toBeUndefined()
     expect(aliceNode.highlighted).toBe(true)
     expect(bobNode.dimmed).toBe(true)
     expect(highlightedLink.highlighted).toBe(true)

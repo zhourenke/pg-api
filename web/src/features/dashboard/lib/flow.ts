@@ -1116,69 +1116,112 @@ function tooltipMetricLines(
   ]
 }
 
+// The Sankey's values carry the highlight flags, so they change on every
+// selection. They are handed to the chart as its `data` prop rather than baked
+// into the spec: react-vchart pushes data-only changes through
+// `updateFullDataSync`, which leaves an open tooltip alone, while a spec change
+// goes through `updateSpecSync` and closes it. See `FlowCharts`.
+export type FlowSankeyNodeDatum = {
+  key: string
+  name: string
+  rawLabel: string
+  kind: FlowNodeKind
+  value: number
+  requests: number
+  quota: number
+  tokens: number
+  color: string
+  colorKey: string
+  highlighted?: boolean
+  dimmed?: boolean
+}
+
+export type FlowSankeyLinkDatum = {
+  source: string
+  target: string
+  linkKey: string
+  sourceLabel: string
+  targetLabel: string
+  value: number
+  requests: number
+  quota: number
+  tokens: number
+  color: string
+  linkColor: string
+  linkAlpha: number
+  hoverColor: string
+  colorKey: string
+  share: number
+  highlighted?: boolean
+  dimmed?: boolean
+  zIndex: number
+}
+
+export function buildFlowSankeyValues(flow: DashboardFlowGraph): {
+  nodes: FlowSankeyNodeDatum[]
+  links: FlowSankeyLinkDatum[]
+} {
+  return {
+    nodes: flow.nodes.map((node) => ({
+      key: node.id,
+      name: node.label,
+      rawLabel: node.label,
+      kind: node.kind,
+      value: node.value,
+      requests: node.requests,
+      quota: node.quota,
+      tokens: node.tokens,
+      color: node.color,
+      colorKey: node.colorKey,
+      highlighted: node.highlighted,
+      dimmed: node.dimmed,
+    })),
+    links: flow.links
+      .filter((link) => link.value > 0)
+      .sort(byLinkDrawPriority)
+      .map((link, index) => {
+        let zIndex = 100_000 + index
+        if (link.highlighted) {
+          zIndex = 1_000_000 + index
+        } else if (link.dimmed) {
+          zIndex = index
+        }
+
+        return {
+          source: link.source,
+          target: link.target,
+          linkKey: linkStableKey(link),
+          sourceLabel: link.sourceLabel,
+          targetLabel: link.targetLabel,
+          value: link.value,
+          requests: link.requests,
+          quota: link.quota,
+          tokens: link.tokens,
+          color: link.color,
+          linkColor: link.linkColor,
+          linkAlpha: link.linkAlpha,
+          hoverColor: link.hoverColor,
+          colorKey: link.colorKey,
+          share: link.share,
+          highlighted: link.highlighted,
+          dimmed: link.dimmed,
+          zIndex,
+        }
+      }),
+  }
+}
+
+// The spec deliberately carries no data. Its values depend on the highlight
+// selection, and any spec change goes through `updateSpecSync`, which closes an
+// open tooltip. The values travel through the chart's `data` prop instead (see
+// `buildFlowSankeyValues`), so the spec stays identical across selections.
 export function buildFlowSankeySpec(
-  flow: DashboardFlowGraph,
   title: string,
   valueFormatter: (value: number) => string = formatNumber,
   labels: FlowSankeyLabels = DEFAULT_FLOW_SANKEY_LABELS
 ): VChartSpec {
   return {
     type: 'sankey',
-    data: [
-      {
-        id: 'flow',
-        values: [
-          {
-            nodes: flow.nodes.map((node) => ({
-              key: node.id,
-              name: node.label,
-              rawLabel: node.label,
-              kind: node.kind,
-              value: node.value,
-              requests: node.requests,
-              quota: node.quota,
-              tokens: node.tokens,
-              color: node.color,
-              colorKey: node.colorKey,
-              highlighted: node.highlighted,
-              dimmed: node.dimmed,
-            })),
-            links: flow.links
-              .filter((link) => link.value > 0)
-              .sort(byLinkDrawPriority)
-              .map((link, index) => {
-                let zIndex = 100_000 + index
-                if (link.highlighted) {
-                  zIndex = 1_000_000 + index
-                } else if (link.dimmed) {
-                  zIndex = index
-                }
-
-                return {
-                  source: link.source,
-                  target: link.target,
-                  linkKey: linkStableKey(link),
-                  sourceLabel: link.sourceLabel,
-                  targetLabel: link.targetLabel,
-                  value: link.value,
-                  requests: link.requests,
-                  quota: link.quota,
-                  tokens: link.tokens,
-                  color: link.color,
-                  linkColor: link.linkColor,
-                  linkAlpha: link.linkAlpha,
-                  hoverColor: link.hoverColor,
-                  colorKey: link.colorKey,
-                  share: link.share,
-                  highlighted: link.highlighted,
-                  dimmed: link.dimmed,
-                  zIndex,
-                }
-              }),
-          },
-        ],
-      },
-    ],
     categoryField: 'name',
     sourceField: 'source',
     targetField: 'target',
