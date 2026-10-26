@@ -1352,6 +1352,7 @@ export function buildFlowSankeySpec(
       // mode, where the tooltip's own `hover` trigger is `pointermove` alone and
       // a stationary tap emits none.
       ...TOUCH_TOOLTIP_SPEC,
+      triggerOff: 'none',
       activeType: 'mark',
       dimension: { visible: false },
       group: { visible: false },

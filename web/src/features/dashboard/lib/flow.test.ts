@@ -718,6 +718,10 @@ describe('dashboard flow data', () => {
     // tooltip's own hover as pointermove, which a stationary tap never emits.
     expect(flowSpec.tooltip.trigger).toEqual(['hover', 'click'])
     expect(flowSpec.tooltip.enterable).toBe(false)
+    // A mark tooltip closes the moment a scrubbing pointer crosses a gap between
+    // links, so a touch swipe would leave the finger to lift on a hidden tooltip.
+    // `triggerOff: 'none'` stops that; the component re-creates the dismissal.
+    expect(flowSpec.tooltip.triggerOff).toBe('none')
     expect(flowSpec.animation).toBe(false)
     expect(values.nodes.length).toBe(6)
     expect(values.links.length).toBe(5)

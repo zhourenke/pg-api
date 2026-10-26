@@ -262,6 +262,34 @@ export function FlowCharts(props: FlowChartsProps) {
   // Keep the tooltip a finger tapped open after it lifts; see the hook.
   const chartHostRef = useRef<HTMLDivElement>(null)
   useTouchTooltipHold(chartHostRef)
+  // The Sankey tooltip is a mark tooltip, so VChart closes it the instant a
+  // scrubbing pointer passes a spot with no link/node under it - which a touch
+  // swipe across the flow does constantly, leaving the finger to lift on a
+  // hidden tooltip. `triggerOff: 'none'` (see `buildFlowSankeySpec`) stops that
+  // automatic close, so the dismissal it would normally do is re-created here:
+  // a mouse leaving the chart, or a press anywhere outside it, closes it.
+  useEffect(() => {
+    const host = chartHostRef.current
+    const hideTooltip = () => chartInstanceRef.current?.hideTooltip()
+    const handlePointerLeave = (event: PointerEvent) => {
+      if (event.pointerType !== 'touch') hideTooltip()
+    }
+    const handlePointerDownOutside = (event: PointerEvent) => {
+      const target = event.target
+      if (target instanceof Node && host?.contains(target)) return
+      hideTooltip()
+    }
+    host?.addEventListener('pointerleave', handlePointerLeave, true)
+    document.addEventListener('pointerdown', handlePointerDownOutside, true)
+    return () => {
+      host?.removeEventListener('pointerleave', handlePointerLeave, true)
+      document.removeEventListener(
+        'pointerdown',
+        handlePointerDownOutside,
+        true
+      )
+    }
+  }, [])
   const user = useAuthStore((state) => state.auth.user)
   // The flow role follows the scope chosen in the title bar, not just the
   // account: an admin who switched to "only mine" gets the personal Sankey and
@@ -446,6 +474,9 @@ export function FlowCharts(props: FlowChartsProps) {
     setActiveFlowLink(undefined)
     chartInstanceRef.current?.clearState('selected')
     chartInstanceRef.current?.clearState('blur')
+    // With `triggerOff: 'none'` the tooltip no longer closes itself, so a press
+    // on empty flow space dismisses it explicitly.
+    chartInstanceRef.current?.hideTooltip()
   }, [])
   const chartTitle = t('Flow')
   const flowSpec = useMemo(

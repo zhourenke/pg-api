@@ -17,7 +17,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import { useEffect } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -30,14 +36,22 @@ import { FlowCharts } from '../flow-charts'
 let mountCount = 0
 let unmountCount = 0
 
+const fakeChart = vi.hoisted(() => ({
+  hideTooltip: vi.fn(),
+  clearState: vi.fn(),
+}))
+
 vi.mock('@visactor/react-vchart', () => ({
-  VChart: () => {
+  VChart: (props: { onReady?: (instance: unknown) => void }) => {
     useEffect(() => {
       mountCount++
       return () => {
         unmountCount++
       }
     }, [])
+    useEffect(() => {
+      props.onReady?.(fakeChart)
+    }, [props])
     return <div data-testid='vchart-sankey-mock' />
   },
 }))
@@ -146,5 +160,36 @@ describe('FlowCharts time filter preset updates', () => {
       expect(mountCount).toBe(2)
       expect(unmountCount).toBe(1)
     })
+  })
+
+  it('closes the Sankey tooltip on a mouse leave or a press outside it', async () => {
+    // `triggerOff: 'none'` (see buildFlowSankeySpec) keeps the mark tooltip open
+    // while a finger scrubs across gaps in the flow, so the component has to
+    // re-create the dismissal VChart no longer performs.
+    fakeChart.hideTooltip.mockClear()
+    const Wrapper = createWrapper()
+    render(
+      <Wrapper>
+        <FlowCharts filters={{ preset: '24h' }} />
+      </Wrapper>
+    )
+    await waitFor(() => {
+      expect(screen.getByTestId('vchart-sankey-mock')).toBeInTheDocument()
+    })
+    const host = screen.getByTestId('vchart-sankey-mock').parentElement
+    if (!host) throw new Error('expected the chart host element')
+
+    // A mouse leaving the chart closes it.
+    fireEvent.pointerLeave(host, { pointerType: 'mouse' })
+    expect(fakeChart.hideTooltip).toHaveBeenCalledTimes(1)
+
+    // A touch's pointerleave (the raised finger) must not, or it would undo the
+    // hold that keeps the tapped value on screen.
+    fireEvent.pointerLeave(host, { pointerType: 'touch' })
+    expect(fakeChart.hideTooltip).toHaveBeenCalledTimes(1)
+
+    // A press anywhere outside the chart closes it too.
+    fireEvent.pointerDown(document.body, { pointerType: 'mouse' })
+    expect(fakeChart.hideTooltip).toHaveBeenCalledTimes(2)
   })
 })
