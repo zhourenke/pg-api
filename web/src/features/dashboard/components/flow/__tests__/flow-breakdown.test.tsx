@@ -59,10 +59,24 @@ const STAGE_LABELS: Record<FlowNodeKind, string> = {
   channel: 'Channel',
 }
 
-function renderBreakdown() {
+// A free/zero-priced model: it is a real, clickable segment, but contributes
+// zero to the quota metric, which is exactly the case that used to collapse the
+// whole card into the empty state.
+const ROWS_WITH_ZERO_MODEL: FlowQuotaDataItem[] = [
+  ...ROWS,
+  {
+    token_id: 1,
+    token_name: 'tok-a',
+    use_group: 'default',
+    model_name: 'muse-spark',
+    quota: 0,
+  },
+]
+
+function renderBreakdown(rows: FlowQuotaDataItem[] = ROWS) {
   return render(
     <FlowBreakdown
-      rows={ROWS}
+      rows={rows}
       metric='quota'
       role='user'
       stages={['token', 'group', 'model']}
@@ -115,5 +129,35 @@ describe('FlowBreakdown', () => {
     expect(
       screen.getAllByRole('button', { name: /tok-b/ }).length
     ).toBeGreaterThan(0)
+  })
+
+  it('keeps the card and marks the pick when a zero-usage model is selected', () => {
+    renderBreakdown(ROWS_WITH_ZERO_MODEL)
+
+    fireEvent.click(screen.getAllByRole('button', { name: /muse-spark/ })[0])
+
+    // The whole card must not degrade into the empty state.
+    expect(screen.queryByText('No flow data available')).not.toBeInTheDocument()
+    expect(screen.getByText('Filtered by')).toBeInTheDocument()
+    // The picked model stays selected so its (zero) usage is still surfaced.
+    expect(
+      screen
+        .getAllByRole('button', { name: /muse-spark/ })
+        .some((el) => el.getAttribute('aria-pressed') === 'true')
+    ).toBe(true)
+  })
+
+  it('rounds the bar ends instead of clipping small edge slices', () => {
+    renderBreakdown()
+
+    const bars = screen.getAllByTestId('flow-breakdown-bar')
+    expect(bars.length).toBeGreaterThan(0)
+    for (const bar of bars) {
+      // The bar must not clip its slices with overflow-hidden; the end slices
+      // carry their own outer radius instead.
+      expect(bar.className).not.toContain('overflow-hidden')
+      const firstSlice = bar.firstElementChild as HTMLElement | null
+      expect(firstSlice?.className).toContain('first:rounded-l-[5px]')
+    }
   })
 })
