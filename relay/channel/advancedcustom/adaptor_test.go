@@ -300,6 +300,43 @@ func TestAdaptorSwitchesGeminiGenerateContentURLForStream(t *testing.T) {
 	assert.Equal(t, "sk-test", parsedURL.Query().Get("key"))
 }
 
+// A native Gemini client streams through the URL action, so a generateContent
+// route has to switch to streamGenerateContent without any converter in play.
+func TestAdaptorFollowsNativeGeminiStreamAction(t *testing.T) {
+	adaptor := &Adaptor{}
+	info := advancedCustomRelayInfo(&dto.AdvancedCustomConfig{
+		Routes: []dto.AdvancedCustomRoute{
+			{
+				IncomingPath: "/v1beta/models/{model}:generateContent",
+				UpstreamPath: "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+				Converter:    relayconvert.ConverterNone,
+			},
+		},
+	})
+	info.RelayFormat = types.RelayFormatGemini
+	info.UpstreamModelName = "gemini-2.5-flash"
+
+	for _, stream := range []bool{false, true} {
+		info.IsStream = stream
+		info.RequestURLPath = "/v1beta/models/gemini-2.5-flash:generateContent"
+		if stream {
+			info.RequestURLPath = "/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse"
+		}
+
+		requestURL, err := adaptor.GetRequestURL(info)
+		require.NoError(t, err)
+
+		parsedURL, err := url.Parse(requestURL)
+		require.NoError(t, err)
+		wantPath := "/v1beta/models/gemini-2.5-flash:generateContent"
+		if stream {
+			wantPath = "/v1beta/models/gemini-2.5-flash:streamGenerateContent"
+		}
+		assert.Equal(t, wantPath, parsedURL.Path)
+		assert.Equal(t, stream, parsedURL.Query().Get("alt") == "sse")
+	}
+}
+
 func TestAdaptorMatchesGeminiIncomingPathTemplate(t *testing.T) {
 	tests := []struct {
 		name            string

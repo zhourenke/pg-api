@@ -467,10 +467,20 @@ func applyUpstreamPathTemplate(upstreamPath string, info *relaycommon.RelayInfo)
 }
 
 func shouldUseGeminiStreamURL(converter string, info *relaycommon.RelayInfo) bool {
-	return info != nil &&
-		info.IsStream &&
-		(converter == relayconvert.ConverterOpenAIChatToGeminiContent ||
-			converter == relayconvert.ConverterOpenAIResponsesToGemini)
+	if info == nil || !info.IsStream {
+		return false
+	}
+	switch converter {
+	case relayconvert.ConverterOpenAIChatToGeminiContent,
+		relayconvert.ConverterOpenAIResponsesToGemini:
+		return true
+	case relayconvert.ConverterNone:
+		// A native Gemini client streams through the URL action, so a
+		// generateContent route has to follow it even though nothing is converted.
+		return info.RelayFormat == types.RelayFormatGemini
+	default:
+		return false
+	}
 }
 
 func useGeminiStreamGenerateContentURL(parsedURL *url.URL) {
