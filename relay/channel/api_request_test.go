@@ -11,11 +11,142 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	pgcommon "github.com/zhourenke/pg-api/common"
 	relaycommon "github.com/zhourenke/pg-api/relay/common"
 	"github.com/zhourenke/pg-api/relaykit/types"
 	"github.com/zhourenke/pg-api/service"
 	"github.com/zhourenke/pg-api/setting/operation_setting"
 )
+
+// conversationContext builds a relay attempt whose body is cached the way the
+// relay middleware caches it before any upstream request is constructed.
+func conversationContext(t *testing.T, body string) *gin.Context {
+	t.Helper()
+	gin.SetMode(gin.TestMode)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
+	storage, err := pgcommon.CreateBodyStorage([]byte(body))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = storage.Close() })
+	ctx.Set(pgcommon.KeyBodyStorage, storage)
+	return ctx
+}
+
+func conversationHeaders(t *testing.T, info *relaycommon.RelayInfo, ctx *gin.Context) map[string]string {
+	t.Helper()
+	if info.ChannelMeta == nil {
+		info.ChannelMeta = &relaycommon.ChannelMeta{}
+	}
+	info.ChannelMeta.HeadersOverride = map[string]any{
+		"x-opencode-session": "{conversation_id}",
+	}
+	headers, err := processHeaderOverride(info, ctx)
+	require.NoError(t, err)
+	return headers
+}
+
+func TestProcessHeaderOverride_ConversationIDFollowsTheConversation(t *testing.T) {
+	t.Parallel()
+
+	// Turn 1 and turn 5 of one conversation: the opening bytes repeat, the tail
+	// grows. Another conversation diverges early. Every attempt starts from a
+	// fresh RelayInfo, exactly like a separate downstream request.
+	first := `{"model":"glm-5.3","messages":[{"role":"user","content":"explain reflog"}]}`
+	fifth := `{"model":"glm-5.3","messages":[{"role":"user","content":"explain reflog"},` +
+		`{"role":"assistant","content":"reflog tracks where HEAD has been"},` +
+		`{"role":"user","content":"and now?"}]}`
+	other := `{"model":"glm-5.3","messages":[{"role":"user","content":"write a haiku"}]}`
+
+	firstHeaders := conversationHeaders(t, &relaycommon.RelayInfo{TokenId: 7}, conversationContext(t, first))
+	require.Contains(t, firstHeaders, "x-opencode-session")
+	id := firstHeaders["x-opencode-session"]
+	require.NotEmpty(t, id)
+
+	fifthHeaders := conversationHeaders(t, &relaycommon.RelayInfo{TokenId: 7}, conversationContext(t, fifth))
+	assert.Equal(t, id, fifthHeaders["x-opencode-session"], "later turns of one conversation keep the identity")
+
+	otherHeaders := conversationHeaders(t, &relaycommon.RelayInfo{TokenId: 7}, conversationContext(t, other))
+	assert.NotEqual(t, id, otherHeaders["x-opencode-session"], "a different conversation gets its own identity")
+
+	// The identity is a pure function of token and body, so it survives a
+	// gateway restart and a replayed attempt.
+	repeated := conversationHeaders(t, &relaycommon.RelayInfo{TokenId: 7}, conversationContext(t, first))
+	assert.Equal(t, id, repeated["x-opencode-session"])
+
+	// Two tokens must not share an affinity bucket even for identical requests.
+	otherToken := conversationHeaders(t, &relaycommon.RelayInfo{TokenId: 8}, conversationContext(t, first))
+	assert.NotEqual(t, id, otherToken["x-opencode-session"])
+}
+
+func TestProcessHeaderOverride_ConversationIDPrefersTheClientValue(t *testing.T) {
+	t.Parallel()
+
+	ctx := conversationContext(t, `{"model":"glm-5.3","messages":[]}`)
+	ctx.Request.Header.Set("X-Conversation-Id", "client-conv-9")
+	info := &relaycommon.RelayInfo{TokenId: 7}
+
+	headers := conversationHeaders(t, info, ctx)
+	require.Equal(t, "client-conv-9", headers["x-opencode-session"])
+	assert.Equal(t, "client-conv-9", info.ConversationID, "the resolved identity is cached on the attempt")
+}
+
+func TestProcessHeaderOverride_ConversationIDIgnoresWhatLaterTurnsAppend(t *testing.T) {
+	t.Parallel()
+
+	// A system prompt far longer than any byte prefix would cover, followed by the
+	// first user turn. Later turns append to the array and change the body length,
+	// which must not move the identity.
+	system := strings.Repeat("You are a careful reviewer of database migrations. ", 400)
+	turn1 := `{"model":"glm-5.3","messages":[{"role":"system","content":"` + system + `"},` +
+		`{"role":"user","content":"why did the lock wait grow"}]}`
+	turn4 := `{"model":"glm-5.3","messages":[{"role":"system","content":"` + system + `"},` +
+		`{"role":"user","content":"why did the lock wait grow"},` +
+		`{"role":"assistant","content":"because the index changed"},` +
+		`{"role":"user","content":"show the plan"}]}`
+
+	require.Greater(t, len(turn4), 8192, "the fixture must exceed any fixed byte window")
+	first := conversationHeaders(t, &relaycommon.RelayInfo{TokenId: 7}, conversationContext(t, turn1))
+	later := conversationHeaders(t, &relaycommon.RelayInfo{TokenId: 7}, conversationContext(t, turn4))
+	require.Contains(t, first, "x-opencode-session")
+	assert.Equal(t, first["x-opencode-session"], later["x-opencode-session"])
+}
+
+func TestProcessHeaderOverride_ConversationIDFallsBackToTheChannel(t *testing.T) {
+	t.Parallel()
+
+	// No conversation identity is derivable without a body and without a client
+	// header. Omitting the header would make the upstream reject the request, so
+	// the fallback stays inside this channel instead.
+	gin.SetMode(gin.TestMode)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+
+	info := &relaycommon.RelayInfo{TokenId: 7, ChannelMeta: &relaycommon.ChannelMeta{ChannelId: 12}}
+	headers := conversationHeaders(t, info, ctx)
+	assert.Equal(t, "pgapi-channel-12", headers["x-opencode-session"])
+}
+
+func TestProcessHeaderOverride_ApiKeyAndConversationIDCompose(t *testing.T) {
+	t.Parallel()
+
+	ctx := conversationContext(t, `{"model":"glm-5.3","messages":[]}`)
+	info := &relaycommon.RelayInfo{
+		TokenId: 7,
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ApiKey: "sk-upstream",
+			HeadersOverride: map[string]any{
+				"Authorization":      "Bearer {api_key}",
+				"x-opencode-session": "{conversation_id}",
+			},
+		},
+	}
+
+	headers, err := processHeaderOverride(info, ctx)
+	require.NoError(t, err)
+	require.Equal(t, "Bearer sk-upstream", headers["authorization"])
+	require.NotEmpty(t, headers["x-opencode-session"])
+	assert.NotContains(t, headers["x-opencode-session"], "{", "the placeholder must not survive into the header")
+}
 
 func TestProcessHeaderOverride_ChannelTestSkipsPassthroughRules(t *testing.T) {
 	t.Parallel()

@@ -65,6 +65,14 @@ func SetupApiRequestHeader(info *common.RelayInfo, c *gin.Context, req *http.Hea
 
 const clientHeaderPlaceholderPrefix = "{client_header:"
 
+const apiKeyPlaceholder = "{api_key}"
+
+// conversationIDPlaceholder is replaced by the conversation identity derived for
+// the current request. It exists for upstreams that pin routing or prompt cache
+// affinity to a per-conversation value, and lets one channel serve any client
+// without that client having to send anything unusual.
+const conversationIDPlaceholder = "{conversation_id}"
+
 const (
 	headerPassthroughAllKey        = "*"
 	headerPassthroughRegexPrefix   = "re:"
@@ -151,7 +159,7 @@ func shouldSkipPassthroughHeader(name string) bool {
 	return false
 }
 
-func applyHeaderOverridePlaceholders(template string, c *gin.Context, apiKey string) (string, bool, error) {
+func applyHeaderOverridePlaceholders(template string, info *common.RelayInfo, c *gin.Context) (string, bool, error) {
 	trimmed := strings.TrimSpace(template)
 	if strings.HasPrefix(trimmed, clientHeaderPlaceholderPrefix) {
 		afterPrefix := trimmed[len(clientHeaderPlaceholderPrefix):]
@@ -175,8 +183,19 @@ func applyHeaderOverridePlaceholders(template string, c *gin.Context, apiKey str
 		return clientHeaderValue, true, nil
 	}
 
-	if strings.Contains(template, "{api_key}") {
-		template = strings.ReplaceAll(template, "{api_key}", apiKey)
+	if strings.Contains(template, conversationIDPlaceholder) {
+		conversationID, ok := deriveConversationID(info, c)
+		if !ok {
+			return "", false, nil
+		}
+		template = strings.ReplaceAll(template, conversationIDPlaceholder, conversationID)
+	}
+	if strings.Contains(template, apiKeyPlaceholder) {
+		apiKey := ""
+		if info != nil {
+			apiKey = info.ApiKey
+		}
+		template = strings.ReplaceAll(template, apiKeyPlaceholder, apiKey)
 	}
 	if strings.TrimSpace(template) == "" {
 		return "", false, nil
@@ -188,6 +207,9 @@ func applyHeaderOverridePlaceholders(template string, c *gin.Context, apiKey str
 // Supported placeholders:
 //   - {api_key}: resolved to the channel API key
 //   - {client_header:<name>}: resolved to the incoming request header value
+//   - {conversation_id}: resolved to the conversation identity of this request
+//     (see deriveConversationID); falls back to a channel-scoped identity when
+//     the conversation cannot be identified
 //
 // Header passthrough rules (keys only; values are ignored):
 //   - "*": passthrough all incoming headers by name (excluding unsafe headers)
@@ -281,7 +303,7 @@ func processHeaderOverride(info *common.RelayInfo, c *gin.Context) (map[string]s
 			continue
 		}
 
-		value, include, err := applyHeaderOverridePlaceholders(str, c, info.ApiKey)
+		value, include, err := applyHeaderOverridePlaceholders(str, info, c)
 		if err != nil {
 			return nil, types.NewError(err, types.ErrorCodeChannelHeaderOverrideInvalid)
 		}

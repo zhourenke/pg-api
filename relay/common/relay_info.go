@@ -125,8 +125,12 @@ type RelayInfo struct {
 	// aliases never participate in channel selection or upstream routing.
 	BillingModelName string
 
-	RequestURLPath     string
-	RequestHeaders     map[string]string
+	RequestURLPath string
+	RequestHeaders map[string]string
+	// ConversationID identifies the downstream conversation this request belongs
+	// to. It is derived on first use (header_override {conversation_id}) and
+	// cached here so every upstream header of one attempt agrees on it.
+	ConversationID     string
 	ShouldIncludeUsage bool
 	DisablePing        bool // 是否禁止向下游发送自定义 Ping
 	ClientWs           *websocket.Conn
