@@ -62,11 +62,6 @@ interface FlowBreakdownProps {
 // they are no longer tucked into a hover tooltip.
 const CHIP_TEXT = 'text-[13px]'
 
-// A fixed legend height keeps every bar at a stable vertical position: tapping a
-// slice changes how many legend chips the *other* stages show, and without a
-// reserved height that reflow shoves the tapped bar up or down mid-gesture.
-const LEGEND_HEIGHT = 'h-[56px]'
-
 function findSegment(
   breakdown: FlowBreakdown,
   filter: FlowNodeFilter
@@ -211,7 +206,6 @@ export function FlowBreakdown(props: FlowBreakdownProps) {
                             width: `${segment.share * 100}%`,
                             backgroundColor: segment.color,
                           }}
-                          title={`${segment.label} · ${props.formatMetricValue(segment.value)} · ${segmentPercent(segment)}%`}
                         />
                       )
                     }
@@ -225,7 +219,6 @@ export function FlowBreakdown(props: FlowBreakdownProps) {
                         type='button'
                         aria-pressed={selected}
                         aria-label={`${segment.label} ${props.formatMetricValue(segment.value)} ${segmentPercent(segment)}%`}
-                        title={`${segment.label} · ${props.formatMetricValue(segment.value)} · ${segmentPercent(segment)}%`}
                         onClick={() => toggleSegment(segment)}
                         className={cn(
                           'relative h-full min-w-[3px] cursor-pointer transition-opacity focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset',
@@ -242,61 +235,56 @@ export function FlowBreakdown(props: FlowBreakdownProps) {
                 </div>
               )}
 
-              <div className={cn('overflow-y-auto', LEGEND_HEIGHT)}>
-                {stage.segments.length > 0 && (
-                  <div className='flex flex-wrap content-start items-center gap-x-3 gap-y-1.5'>
-                    {stage.segments.map((segment) => {
-                      const selected = Boolean(
-                        stageFilter && stageFilter.id === segment.id
-                      )
-                      if (segment.isOther) {
-                        return (
-                          <span
-                            key={segment.id}
-                            className={cn(
-                              'text-muted-foreground inline-flex items-center gap-1',
-                              CHIP_TEXT
-                            )}
-                          >
-                            <span
-                              className='size-2 rounded-full'
-                              style={{ backgroundColor: segment.color }}
-                            />
-                            {segment.label}
-                            <span className='tabular-nums opacity-80'>
-                              {props.formatMetricValue(segment.value)}
-                            </span>
-                          </span>
-                        )
-                      }
-                      return (
-                        <button
-                          key={segment.id}
-                          type='button'
-                          aria-pressed={selected}
-                          title={`${segment.label} · ${props.formatMetricValue(segment.value)} · ${segmentPercent(segment)}%`}
-                          onClick={() => toggleSegment(segment)}
-                          className={cn(
-                            'inline-flex max-w-[18rem] items-center gap-1.5 rounded-full border px-2 py-0.5 transition-colors',
-                            CHIP_TEXT,
-                            selected
-                              ? 'border-foreground bg-foreground text-background'
-                              : 'hover:bg-muted'
-                          )}
-                        >
-                          <span
-                            className='size-2 shrink-0 rounded-full'
-                            style={{ backgroundColor: segment.color }}
-                          />
-                          <span className='truncate'>{segment.label}</span>
-                          <span className='tabular-nums opacity-80'>
-                            {props.formatMetricValue(segment.value)}
-                          </span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
+              <div className='flex h-8 items-center gap-3 overflow-x-auto whitespace-nowrap'>
+                {stage.segments.map((segment) => {
+                  const selected = Boolean(
+                    stageFilter && stageFilter.id === segment.id
+                  )
+                  if (segment.isOther) {
+                    return (
+                      <span
+                        key={segment.id}
+                        className={cn(
+                          'text-muted-foreground inline-flex shrink-0 items-center gap-1',
+                          CHIP_TEXT
+                        )}
+                      >
+                        <span
+                          className='size-2 rounded-full'
+                          style={{ backgroundColor: segment.color }}
+                        />
+                        {segment.label}
+                        <span className='tabular-nums opacity-80'>
+                          {props.formatMetricValue(segment.value)}
+                        </span>
+                      </span>
+                    )
+                  }
+                  return (
+                    <button
+                      key={segment.id}
+                      type='button'
+                      aria-pressed={selected}
+                      onClick={() => toggleSegment(segment)}
+                      className={cn(
+                        'inline-flex max-w-[18rem] shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 transition-colors',
+                        CHIP_TEXT,
+                        selected
+                          ? 'border-foreground bg-foreground text-background'
+                          : 'hover:bg-muted'
+                      )}
+                    >
+                      <span
+                        className='size-2 shrink-0 rounded-full'
+                        style={{ backgroundColor: segment.color }}
+                      />
+                      <span className='truncate'>{segment.label}</span>
+                      <span className='tabular-nums opacity-80'>
+                        {props.formatMetricValue(segment.value)}
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
             </div>
           )
@@ -342,15 +330,6 @@ export function FlowBreakdown(props: FlowBreakdownProps) {
                   <span className='max-w-[12rem] truncate'>
                     {segment?.label ?? filter.id}
                   </span>
-                  {segment && (
-                    <span className='tabular-nums'>
-                      {props.formatMetricValue(segment.value)}
-                      <span className='opacity-70'>
-                        {' '}
-                        {segmentPercent(segment)}%
-                      </span>
-                    </span>
-                  )}
                   <X className='size-3 shrink-0' aria-hidden='true' />
                 </button>
               )
