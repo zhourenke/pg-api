@@ -46,6 +46,7 @@ const fakeChart = vi.hoisted(() => ({
 type ChartMockProps = {
   onReady?: (instance: unknown) => void
   onPointerDown?: (event: unknown) => void
+  onPointerMove?: (event: unknown) => void
   onPointerUp?: (event: unknown) => void
   data?: unknown
 }
@@ -290,6 +291,106 @@ describe('FlowCharts time filter preset updates', () => {
       )
     })
     expect(fakeChart.clearHovered).not.toHaveBeenCalled()
+  })
+
+  it('keeps the highlight on the node a swipe started from when the finger lifts in a gap', async () => {
+    // A fingertip is far wider than a Sankey node and routinely lifts over a
+    // link or empty space; committing only the lift point's mark would drop the
+    // highlight on release. The datum pressed at the start must survive.
+    const Wrapper = createWrapper()
+    render(
+      <Wrapper>
+        <FlowCharts filters={{ preset: '24h' }} />
+      </Wrapper>
+    )
+    await waitFor(() => {
+      expect(screen.getByTestId('vchart-sankey-mock')).toBeInTheDocument()
+    })
+    const props = chartProps.current
+    if (!props) throw new Error('expected the chart props')
+
+    act(() => {
+      props.onPointerDown?.(
+        chartEvent('touch', { key: 'token:10', kind: 'token' })
+      )
+    })
+    // The finger slides into a gap; the move reports no mark.
+    act(() => {
+      props.onPointerMove?.(chartEvent('touch'))
+    })
+    act(() => {
+      props.onPointerUp?.(chartEvent('touch'))
+    })
+
+    expect(highlightedNodeKeys()).toContain('token:10')
+  })
+
+  it('commits the last node the finger passed over when it lifts in a gap', async () => {
+    const Wrapper = createWrapper()
+    render(
+      <Wrapper>
+        <FlowCharts filters={{ preset: '24h' }} />
+      </Wrapper>
+    )
+    await waitFor(() => {
+      expect(screen.getByTestId('vchart-sankey-mock')).toBeInTheDocument()
+    })
+    const props = chartProps.current
+    if (!props) throw new Error('expected the chart props')
+
+    act(() => {
+      props.onPointerDown?.(chartEvent('touch'))
+    })
+    act(() => {
+      props.onPointerMove?.(
+        chartEvent('touch', { key: 'token:20', kind: 'token' })
+      )
+    })
+    act(() => {
+      props.onPointerMove?.(chartEvent('touch'))
+    })
+    act(() => {
+      props.onPointerUp?.(chartEvent('touch'))
+    })
+
+    expect(highlightedNodeKeys()).toContain('token:20')
+  })
+
+  it('does not reuse a previous gesture datum for a later tap on empty space', async () => {
+    const Wrapper = createWrapper()
+    render(
+      <Wrapper>
+        <FlowCharts filters={{ preset: '24h' }} />
+      </Wrapper>
+    )
+    await waitFor(() => {
+      expect(screen.getByTestId('vchart-sankey-mock')).toBeInTheDocument()
+    })
+    const props = chartProps.current
+    if (!props) throw new Error('expected the chart props')
+
+    // First gesture selects a node.
+    act(() => {
+      props.onPointerDown?.(
+        chartEvent('touch', { key: 'token:10', kind: 'token' })
+      )
+    })
+    act(() => {
+      props.onPointerUp?.(
+        chartEvent('touch', { key: 'token:10', kind: 'token' })
+      )
+    })
+    expect(highlightedNodeKeys()).toContain('token:10')
+
+    // A fresh press on empty space starts a new gesture with no datum, so the
+    // lift clears rather than re-selecting the earlier node.
+    act(() => {
+      props.onPointerDown?.(chartEvent('touch'))
+    })
+    act(() => {
+      props.onPointerUp?.(chartEvent('touch'))
+    })
+    expect(highlightedNodeKeys()).not.toContain('token:10')
   })
 
   it('clears the selection when a touch lifts on empty space', async () => {
