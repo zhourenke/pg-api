@@ -28,14 +28,7 @@ export {
   hasLocalGranularityChoice,
 } from './filters'
 export { processChartData, processUserChartData } from './charts'
-export {
-  buildDashboardFlowData,
-  buildFlowSankeySpec,
-  buildFlowSankeyValues,
-  flowNodeFilterFromSankeyDatum,
-  flowSankeyDatumValue,
-  getFlowStages,
-} from './flow'
+export { getFlowStages } from './flow'
 export {
   safeDivide,
   sharePercent,
