@@ -17,39 +17,19 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
-import { VChart } from '@visactor/react-vchart'
-import type { EventParamsDefinition, IVChart } from '@visactor/vchart'
 import {
   Activity,
   ChevronRight,
-  CircleAlert,
   EyeOff,
   GitBranch,
   Hash,
   Info,
-  Route,
   WalletCards,
 } from 'lucide-react'
-import {
-  Fragment,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { Fragment, useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '@/components/ui/empty'
 import { IconBadge } from '@/components/ui/icon-badge'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Toggle } from '@/components/ui/toggle'
 import {
@@ -60,44 +40,25 @@ import {
 } from '@/components/ui/tooltip'
 import { getFlowQuotaDates } from '@/features/dashboard/api'
 import { useDashboardWindow } from '@/features/dashboard/hooks/use-dashboard-window'
-import {
-  buildDashboardFlowData,
-  buildFlowSankeySpec,
-  buildFlowSankeyValues,
-  buildQueryParams,
-  flowNodeFilterFromSankeyDatum,
-  flowSankeyDatumValue,
-  getFlowStages,
-} from '@/features/dashboard/lib'
-import {
-  flowDisplayState,
-  requireSuccessfulFlowRows,
-} from '@/features/dashboard/lib/flow-selection'
+import { buildQueryParams, getFlowStages } from '@/features/dashboard/lib'
+import { requireSuccessfulFlowRows } from '@/features/dashboard/lib/flow-selection'
 import type {
   DashboardFilters,
-  FlowLinkSelection,
   FlowMetric,
-  FlowNodeFilter,
   FlowNodeKind,
-  FlowOverflowMode,
   FlowRole,
 } from '@/features/dashboard/types'
-import { useTouchTooltipHold } from '@/lib/chart-touch'
 import { formatQuota } from '@/lib/format'
 import { ROLE } from '@/lib/roles'
 import { requireServerSuccess } from '@/lib/server-error-message'
-import { useChartTheme } from '@/lib/use-chart-theme'
 import { cn } from '@/lib/utils'
-import { VCHART_OPTION } from '@/lib/vchart'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { FlowBreakdown } from './flow-breakdown'
-import { FlowNodeFilterControl } from './flow-node-filter'
-import { FlowUserFilterControl } from './flow-user-filter'
 
 interface FlowChartsProps {
   filters?: DashboardFilters
-  // When false, sensitive node labels are masked in the rendered Sankey.
+  // When false, sensitive node labels are masked in the rendered breakdown.
   sensitiveVisible?: boolean
   // The effective scope picked in the page title bar: `self` renders the
   // personal flow and queries /api/data/flow/self even for an admin account.
@@ -120,12 +81,7 @@ const FLOW_TOP_LIMIT_OPTIONS = [10, 20, 50, 100] as const
 
 const DEFAULT_FLOW_TOP_NODE_LIMIT = 50
 
-const FLOW_OVERFLOW_MODE_OPTIONS = [
-  { value: 'aggregate', labelKey: 'Merge into Other' },
-  { value: 'hide', labelKey: 'Hide' },
-] as const
-
-// A Sankey needs at least two columns to render any link.
+// At least two dimensions are needed for the breakdown to say anything.
 const MIN_VISIBLE_STAGES = 2
 
 const FLOW_STAGE_META: Record<
@@ -167,95 +123,6 @@ const FLOW_STAGE_LABEL_KEYS: Record<FlowNodeKind, string> = {
   channel: FLOW_STAGE_META.channel.labelKey,
 }
 
-const FLOW_OTHER_NODE_LABEL_KEYS: Record<FlowNodeKind, string> = {
-  user: 'Other users',
-  node: 'Other nodes',
-  token: 'Other tokens',
-  group: 'Other groups',
-  model: 'Other models',
-  channel: 'Other channels',
-}
-
-type FlowChartPointerEvent = EventParamsDefinition['pointerdown']
-
-function chartRecordValue(value: unknown): Record<string, unknown> | undefined {
-  return value && typeof value === 'object'
-    ? (value as Record<string, unknown>)
-    : undefined
-}
-
-function looksLikeFlowDatum(value: unknown): boolean {
-  const record = chartRecordValue(value)
-  if (!record) return false
-  return (
-    (record.key !== undefined && record.kind !== undefined) ||
-    (record.source !== undefined && record.target !== undefined)
-  )
-}
-
-function chartGraphicDatum(value: unknown): unknown {
-  const record = chartRecordValue(value)
-  const context = chartRecordValue(record?.context)
-  const data = context?.data
-  if (Array.isArray(data)) return data[0]
-  return data
-}
-
-function flowChartEventDatum(event: FlowChartPointerEvent): unknown {
-  const record = chartRecordValue(event)
-  if (!record) return undefined
-
-  if (record.datum !== undefined && record.datum !== null) return record.datum
-
-  const itemRecord = chartRecordValue(record.item)
-  if (itemRecord?.datum !== undefined && itemRecord.datum !== null) {
-    return itemRecord.datum
-  }
-
-  const graphicDatum = chartGraphicDatum(record.item)
-  if (graphicDatum !== undefined && graphicDatum !== null) return graphicDatum
-
-  const itemData = itemRecord?.data
-  if (Array.isArray(itemData)) return itemData[0]
-  if (itemData !== undefined && itemData !== null) return itemData
-
-  return looksLikeFlowDatum(record) ? record : undefined
-}
-
-function flowPointerType(event: FlowChartPointerEvent): string | undefined {
-  const pointerEvent = chartRecordValue(event.event)
-  const pointerType = pointerEvent?.pointerType
-  return typeof pointerType === 'string' ? pointerType : undefined
-}
-
-function flowNodeFilterKey(filter: FlowNodeFilter): string {
-  return `${filter.kind}\u0000${filter.id}`
-}
-
-function isSameFlowNodeFilter(
-  a: FlowNodeFilter | undefined,
-  b: FlowNodeFilter
-): boolean {
-  return Boolean(a && a.kind === b.kind && a.id === b.id)
-}
-
-function toggleSelectedValue(values: string[], value: string): string[] {
-  return values.includes(value)
-    ? values.filter((item) => item !== value)
-    : [...values, value]
-}
-
-function toggleSelectedNodeFilter(
-  filters: FlowNodeFilter[],
-  filter: FlowNodeFilter
-): FlowNodeFilter[] {
-  const key = flowNodeFilterKey(filter)
-  const hasFilter = filters.some((item) => flowNodeFilterKey(item) === key)
-  return hasFilter
-    ? filters.filter((item) => flowNodeFilterKey(item) !== key)
-    : [...filters, filter]
-}
-
 function formatFlowMetricNumber(value: number): string {
   return Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(
     value
@@ -264,68 +131,10 @@ function formatFlowMetricNumber(value: number): string {
 
 export function FlowCharts(props: FlowChartsProps) {
   const { t } = useTranslation()
-  const { resolvedTheme, themeReady } = useChartTheme()
-  const chartInstanceRef = useRef<IVChart | null>(null)
-  // The datum the finger last touched during the current touch gesture. A finger
-  // rarely lifts exactly on a 17px-wide Sankey node, so committing only the mark
-  // under the lift point made a swipe's highlight vanish the moment the finger
-  // drifted into a gap. Recording the pressed / passed-over datum and falling
-  // back to it on lift keeps the highlight on the last thing the finger touched,
-  // the way a click on that node would.
-  const touchDatumRef = useRef<unknown>(undefined)
-  // Keep the tooltip a finger tapped open after it lifts; see the hook.
-  const chartHostRef = useRef<HTMLDivElement>(null)
-  useTouchTooltipHold(chartHostRef)
-  // The Sankey tooltip is a mark tooltip, so VChart closes it the instant a
-  // scrubbing pointer passes a spot with no link/node under it - which a touch
-  // swipe across the flow does constantly, leaving the finger to lift on a
-  // hidden tooltip. `triggerOff: 'none'` (see `buildFlowSankeySpec`) stops that
-  // automatic close, so the dismissal it would normally do is re-created here:
-  // a mouse leaving the chart, or a press anywhere outside it, closes it.
-  useEffect(() => {
-    const host = chartHostRef.current
-    const hideTooltip = () => chartInstanceRef.current?.hideTooltip()
-    const handlePointerLeave = (event: PointerEvent) => {
-      if (event.pointerType !== 'touch') hideTooltip()
-    }
-    const handlePointerDownOutside = (event: PointerEvent) => {
-      const target = event.target
-      if (target instanceof Node && host?.contains(target)) return
-      hideTooltip()
-    }
-    // VChart's built-in hover highlight follows a touch drag, and vrender only
-    // resets it on `pointerout` - an event it never dispatches for touch, so a
-    // finger that lifts without one leaves the mark it stopped on lit. A normal
-    // lift is handled in `handleChartPointerUp`, which commits the selection and
-    // drops the transient hover there. A cancelled touch (a scroll or a system
-    // gesture taking the pointer) never reaches VChart as a `pointerup` at all,
-    // so clear the leftover hover here instead of leaving it stuck forever.
-    const releaseCancelledTouchHover = (event: PointerEvent) => {
-      if (event.pointerType !== 'touch') return
-      touchDatumRef.current = undefined
-      chartInstanceRef.current?.clearHovered()
-    }
-    host?.addEventListener('pointerleave', handlePointerLeave, true)
-    host?.addEventListener('pointercancel', releaseCancelledTouchHover, true)
-    document.addEventListener('pointerdown', handlePointerDownOutside, true)
-    return () => {
-      host?.removeEventListener('pointerleave', handlePointerLeave, true)
-      host?.removeEventListener(
-        'pointercancel',
-        releaseCancelledTouchHover,
-        true
-      )
-      document.removeEventListener(
-        'pointerdown',
-        handlePointerDownOutside,
-        true
-      )
-    }
-  }, [])
   const user = useAuthStore((state) => state.auth.user)
   // The flow role follows the scope chosen in the title bar, not just the
-  // account: an admin who switched to "only mine" gets the personal Sankey and
-  // the /self endpoint, so the graph cannot leak other users' names.
+  // account: an admin who switched to "only mine" gets the personal breakdown
+  // and the /self endpoint, so the graph cannot leak other users' names.
   const isAdmin = Boolean(props.isAdminView)
   let flowRole: FlowRole = 'user'
   if (isAdmin) {
@@ -333,37 +142,13 @@ export function FlowCharts(props: FlowChartsProps) {
   }
   const [metric, setMetric] = useState<FlowMetric>('quota')
   const [topNodeLimit, setTopNodeLimit] = useState(DEFAULT_FLOW_TOP_NODE_LIMIT)
-  const [overflowMode, setOverflowMode] =
-    useState<FlowOverflowMode>('aggregate')
-  const [selectedUsers, setSelectedUsers] = useState<string[]>([])
-  const [selectedNodes, setSelectedNodes] = useState<FlowNodeFilter[]>([])
-  const [activeFlowNode, setActiveFlowNode] = useState<
-    FlowNodeFilter | undefined
-  >()
-  const [activeFlowLink, setActiveFlowLink] = useState<
-    FlowLinkSelection | undefined
-  >()
   const [hiddenStages, setHiddenStages] = useState<FlowNodeKind[]>([])
-  const [viewMode, setViewMode] = useState<'breakdown' | 'sankey'>('sankey')
 
   const stages = useMemo(() => getFlowStages(flowRole), [flowRole])
   const visibleStages = useMemo(
     () => stages.filter((stage) => !hiddenStages.includes(stage)),
     [stages, hiddenStages]
   )
-  useEffect(() => {
-    const visible = new Set(visibleStages)
-    setSelectedNodes((prev) => {
-      const next = prev.filter((filter) => visible.has(filter.kind))
-      return next.length === prev.length ? prev : next
-    })
-    setActiveFlowNode((prev) =>
-      prev && visible.has(prev.kind) ? prev : undefined
-    )
-    // The graph reshapes when columns are toggled, so any highlighted edge may
-    // no longer exist. Drop the link selection rather than leave it dangling.
-    setActiveFlowLink(undefined)
-  }, [visibleStages])
   const toggleStage = (stage: FlowNodeKind) => {
     setHiddenStages((prev) => {
       const hidden = new Set(prev)
@@ -378,10 +163,10 @@ export function FlowCharts(props: FlowChartsProps) {
     })
   }
 
-  const window = useDashboardWindow(props.filters)
+  const dashboardWindow = useDashboardWindow(props.filters)
   const flowQueryParams = useMemo(
-    () => buildQueryParams(window, props.filters),
-    [props.filters, window]
+    () => buildQueryParams(dashboardWindow, props.filters),
+    [props.filters, dashboardWindow]
   )
 
   const {
@@ -399,384 +184,89 @@ export function FlowCharts(props: FlowChartsProps) {
   })
 
   const maskSensitive = props.sensitiveVisible === false
-  const flowData = useMemo(
-    () =>
-      buildDashboardFlowData(isLoading ? [] : (flowRows ?? []), metric, {
-        role: flowRole,
-        selectedUsers,
-        selectedNodes,
-        activeNode: activeFlowNode,
-        activeLink: activeFlowLink,
-        visibleStages,
-        topNodeLimit,
-        overflowMode,
-        maskSensitive,
-        deletedTokenLabel: (tokenId) => t('Deleted ({{id}})', { id: tokenId }),
-        otherNodeLabel: (kind) => t(FLOW_OTHER_NODE_LABEL_KEYS[kind]),
-      }),
-    [
-      flowRole,
-      flowRows,
-      isLoading,
-      metric,
-      overflowMode,
-      activeFlowNode,
-      activeFlowLink,
-      selectedNodes,
-      selectedUsers,
-      topNodeLimit,
-      visibleStages,
-      maskSensitive,
-      t,
-    ]
-  )
-  const nodeFilterStages = useMemo(
-    () => visibleStages.filter((stage) => stage !== 'user'),
-    [visibleStages]
-  )
-  const nodeFilterOptions = useMemo(
-    () =>
-      flowData.filterOptions.nodes.filter((option) => option.kind !== 'user'),
-    [flowData.filterOptions.nodes]
-  )
   const metricLabel = t(FLOW_METRIC_LABEL_KEYS[metric])
   const formatNodeMetricValue = useCallback(
     (value: number) =>
       metric === 'quota' ? formatQuota(value) : formatFlowMetricNumber(value),
     [metric]
   )
-  // Explicit filters (the chips/dropdown control) narrow the rows that feed the
-  // chart. They are intentionally independent from the click-to-highlight state
-  // below so selecting a filter never dims a node, it removes unrelated rows.
-  const toggleFlowNodeFilter = useCallback((filter: FlowNodeFilter) => {
-    if (filter.kind === 'user') {
-      setSelectedUsers((prev) => toggleSelectedValue(prev, filter.id))
-      return
-    }
-    setSelectedNodes((prev) => toggleSelectedNodeFilter(prev, filter))
-  }, [])
-  const removeFlowNodeFilter = useCallback((filter: FlowNodeFilter) => {
-    if (filter.kind === 'user') {
-      setSelectedUsers((prev) => prev.filter((item) => item !== filter.id))
-      return
-    }
-    const key = flowNodeFilterKey(filter)
-    setSelectedNodes((prev) =>
-      prev.filter((item) => flowNodeFilterKey(item) !== key)
-    )
-  }, [])
-  const clearFlowNodeFilters = useCallback(() => {
-    setSelectedNodes([])
-  }, [])
-  const handleToggleUser = useCallback((userId: string) => {
-    setSelectedUsers((prev) => toggleSelectedValue(prev, userId))
-  }, [])
-  const handleRemoveUser = useCallback((userId: string) => {
-    setSelectedUsers((prev) => prev.filter((item) => item !== userId))
-  }, [])
-  const handleClearUsers = useCallback(() => {
-    setSelectedUsers([])
-  }, [])
-  // Clicking a node only drives the highlight: keep every node/link on screen
-  // but emphasize the full paths through the clicked node and dim the rest.
-  // Clicking the active node again, or clicking empty space, clears it.
-  const applyFlowSelection = useCallback((datum: unknown) => {
-    const filter = flowNodeFilterFromSankeyDatum(datum)
-    if (filter) {
-      setActiveFlowLink(undefined)
-      setActiveFlowNode((prev) =>
-        isSameFlowNodeFilter(prev, filter) ? undefined : filter
-      )
-      return
-    }
-
-    const source = flowSankeyDatumValue(datum, 'source')
-    const target = flowSankeyDatumValue(datum, 'target')
-    if (typeof source === 'string' && typeof target === 'string') {
-      setActiveFlowNode(undefined)
-      setActiveFlowLink((prev) =>
-        prev && prev.source === source && prev.target === target
-          ? undefined
-          : { source, target }
-      )
-      return
-    }
-
-    setActiveFlowNode(undefined)
-    setActiveFlowLink(undefined)
-    chartInstanceRef.current?.clearState('selected')
-    chartInstanceRef.current?.clearState('blur')
-    // With `triggerOff: 'none'` the tooltip no longer closes itself, so a press
-    // on empty flow space dismisses it explicitly.
-    chartInstanceRef.current?.hideTooltip()
-  }, [])
-  // A mouse selects on press, as it always has. A finger cannot hover, so a
-  // touch gesture is committed on lift instead - but the mark that counts is the
-  // one the finger touched, not necessarily the one under the lift point (a
-  // fingertip is far wider than a Sankey node and routinely lifts in a gap). We
-  // remember the datum seen on press and while moving, and commit that on lift;
-  // the lift point's own datum still wins when it has one. This is what makes a
-  // swipe keep its highlight instead of dropping it on release, matching a click.
-  const rememberTouchDatum = useCallback((event: FlowChartPointerEvent) => {
-    if (flowPointerType(event) !== 'touch') return
-    const datum = flowChartEventDatum(event)
-    if (datum === undefined || datum === null) return
-    touchDatumRef.current = datum
-  }, [])
-  const handleChartPointerDown = useCallback(
-    (event: FlowChartPointerEvent) => {
-      if (flowPointerType(event) === 'touch') {
-        // Start a fresh gesture: only this gesture's touches may be committed.
-        touchDatumRef.current = flowChartEventDatum(event) ?? undefined
-        return
-      }
-      applyFlowSelection(flowChartEventDatum(event))
-    },
-    [applyFlowSelection]
-  )
-  const handleChartPointerMove = useCallback(
-    (event: FlowChartPointerEvent) => {
-      rememberTouchDatum(event)
-    },
-    [rememberTouchDatum]
-  )
-  const handleChartPointerUp = useCallback(
-    (event: FlowChartPointerEvent) => {
-      if (flowPointerType(event) !== 'touch') return
-      // Drop the transient built-in hover the drag left on the mark, so the
-      // committed selection is the only highlight left on screen.
-      chartInstanceRef.current?.clearHovered()
-      const liftDatum = flowChartEventDatum(event)
-      const datum = liftDatum ?? touchDatumRef.current
-      touchDatumRef.current = undefined
-      applyFlowSelection(datum)
-    },
-    [applyFlowSelection]
-  )
-  const chartTitle = t('Flow')
-  const flowSpec = useMemo(
-    () =>
-      buildFlowSankeySpec(chartTitle, formatQuota, {
-        quota: t('Quota'),
-        tokens: t('Tokens'),
-        requests: t('Requests'),
-        share: t('Share'),
-      }),
-    [chartTitle, t]
-  )
-  // Highlight flags live in the data, not the spec, so a tap that changes the
-  // selection only pushes data through react-vchart's `updateFullDataSync`. That
-  // path leaves the tooltip the same tap opened on screen; rebuilding the spec
-  // instead runs `updateSpecSync`, which closes it and left touch users staring
-  // at a highlight with no numbers.
-  const flowValues = useMemo(
-    () => buildFlowSankeyValues(flowData.flow),
-    [flowData.flow]
-  )
-  const chartTheme = resolvedTheme === 'dark' ? 'dark' : 'light'
-  // The chart is keyed on what changes its *shape* - metric, limits, columns,
-  // window, theme - and never on the highlight selection. A selection only
-  // repaints opacity and stroke, which the spec update handles; remounting for it
-  // threw the chart away the instant a tap set it, and with it the tooltip the
-  // tap had just opened, so a touch user saw a highlight and no numbers.
-  const chartKey = [
-    metric,
-    topNodeLimit,
-    overflowMode,
-    flowRole,
-    selectedNodes.map(flowNodeFilterKey).join(','),
-    selectedUsers.join(','),
-    visibleStages.join(','),
-    maskSensitive ? 'masked' : 'plain',
-    flowQueryParams.start_timestamp,
-    flowQueryParams.end_timestamp,
-    flowQueryParams.username ?? '',
-    flowRows?.length ?? 0,
-    flowData.summary.quota,
-    flowData.summary.requests,
-    flowData.summary.tokens,
-    resolvedTheme,
-  ].join('-')
-  const displayState = flowDisplayState({
-    isLoading,
-    isError,
-    linkCount: flowData.flow.links.length,
-    themeReady,
-  })
   const flowErrorMessage =
     flowError instanceof Error
       ? flowError.message
       : t('Please try again later.')
-  let chartContent = (
-    <VChart
-      key={`flow-${chartKey}`}
-      spec={{
-        ...flowSpec,
-        theme: chartTheme,
-        background: 'transparent',
-      }}
-      data={[{ id: 'flow', values: [flowValues] }]}
-      option={VCHART_OPTION}
-      onReady={(instance: IVChart) => {
-        chartInstanceRef.current = instance
-      }}
-      onPointerDown={handleChartPointerDown}
-      onPointerMove={handleChartPointerMove}
-      onPointerUp={handleChartPointerUp}
-    />
-  )
-  if (displayState === 'loading') {
-    chartContent = <Skeleton className='h-full w-full' />
-  } else if (displayState === 'error') {
-    chartContent = (
-      <div className='flex h-full items-center justify-center p-4'>
-        <Alert variant='destructive' className='max-w-md'>
-          <CircleAlert />
-          <AlertTitle>{t('Failed to load')}</AlertTitle>
-          <AlertDescription>{flowErrorMessage}</AlertDescription>
-        </Alert>
-      </div>
-    )
-  } else if (displayState === 'empty') {
-    chartContent = (
-      <Empty className='h-full border-0 py-12'>
-        <EmptyHeader>
-          <EmptyMedia variant='icon'>
-            <Route />
-          </EmptyMedia>
-          <EmptyTitle>{t('No flow data available')}</EmptyTitle>
-          <EmptyDescription>{t('No data available')}</EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    )
-  }
+  const chartTitle = t('Flow')
 
   return (
     <div className='flex flex-col gap-3'>
-      <div className='flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-between'>
-        <div className='flex min-w-0 flex-wrap items-end gap-2'>
-          <div className='flex min-w-0 flex-col gap-1.5'>
-            <div className='flex items-center gap-1.5'>
-              <span className='text-muted-foreground text-xs font-medium'>
-                {t('Flow width metric')}
-              </span>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <button
-                        type='button'
-                        className='text-muted-foreground/60 hover:text-foreground flex size-5 shrink-0 items-center justify-center rounded-md'
-                        aria-label={t('Flow width metric')}
-                      />
-                    }
-                  >
-                    <Info className='size-3.5' />
-                  </TooltipTrigger>
-                  <TooltipContent className='max-w-[14rem]'>
-                    {t('Choose how flow widths are calculated.')}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-            <Tabs
-              value={metric}
-              onValueChange={(value) => setMetric(value as FlowMetric)}
-              className='shrink-0'
-            >
-              <TabsList aria-label={t('Flow width metric')}>
-                {FLOW_METRIC_OPTIONS.map((option) => {
-                  const Icon = option.icon
-                  return (
-                    <TabsTrigger
-                      key={option.value}
-                      value={option.value}
-                      className='gap-1.5 px-2.5 text-xs'
-                    >
-                      <Icon data-icon='inline-start' aria-hidden='true' />
-                      {t(option.labelKey)}
-                    </TabsTrigger>
-                  )
-                })}
-              </TabsList>
-            </Tabs>
-          </div>
-
-          <div className='flex min-w-0 flex-col gap-1.5'>
+      <div className='flex min-w-0 flex-wrap items-end gap-2'>
+        <div className='flex min-w-0 flex-col gap-1.5'>
+          <div className='flex items-center gap-1.5'>
             <span className='text-muted-foreground text-xs font-medium'>
-              {t('Display limit')}
+              {t('Flow width metric')}
             </span>
-            <Tabs
-              value={String(topNodeLimit)}
-              onValueChange={(value) => setTopNodeLimit(Number(value))}
-              className='shrink-0'
-            >
-              <TabsList aria-label={t('Display limit')}>
-                {FLOW_TOP_LIMIT_OPTIONS.map((limit) => (
-                  <TabsTrigger
-                    key={limit}
-                    value={String(limit)}
-                    className='px-2.5 text-xs'
-                  >
-                    {t('Top {{count}}', { count: limit })}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <button
+                      type='button'
+                      className='text-muted-foreground/60 hover:text-foreground flex size-5 shrink-0 items-center justify-center rounded-md'
+                      aria-label={t('Flow width metric')}
+                    />
+                  }
+                >
+                  <Info className='size-3.5' />
+                </TooltipTrigger>
+                <TooltipContent className='max-w-[14rem]'>
+                  {t('Choose how flow widths are calculated.')}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
-
-          <div className='flex min-w-0 flex-col gap-1.5'>
-            <span className='text-muted-foreground text-xs font-medium'>
-              {t('Overflow items')}
-            </span>
-            <Tabs
-              value={overflowMode}
-              onValueChange={(value) =>
-                setOverflowMode(value as FlowOverflowMode)
-              }
-              className='shrink-0'
-            >
-              <TabsList aria-label={t('Overflow items')}>
-                {FLOW_OVERFLOW_MODE_OPTIONS.map((option) => (
+          <Tabs
+            value={metric}
+            onValueChange={(value) => setMetric(value as FlowMetric)}
+            className='shrink-0'
+          >
+            <TabsList aria-label={t('Flow width metric')}>
+              {FLOW_METRIC_OPTIONS.map((option) => {
+                const Icon = option.icon
+                return (
                   <TabsTrigger
                     key={option.value}
                     value={option.value}
-                    className='px-2.5 text-xs'
+                    className='gap-1.5 px-2.5 text-xs'
                   >
+                    <Icon data-icon='inline-start' aria-hidden='true' />
                     {t(option.labelKey)}
                   </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
-          </div>
+                )
+              })}
+            </TabsList>
+          </Tabs>
+        </div>
 
-          {viewMode === 'sankey' && (
-            <>
-              <FlowNodeFilterControl
-                stages={nodeFilterStages}
-                stageLabels={FLOW_STAGE_LABEL_KEYS}
-                metricLabel={metricLabel}
-                formatMetricValue={formatNodeMetricValue}
-                options={nodeFilterOptions}
-                selectedNodes={selectedNodes}
-                onToggleNode={toggleFlowNodeFilter}
-                onRemoveNode={removeFlowNodeFilter}
-                onClearNodes={clearFlowNodeFilters}
-              />
-
-              {isAdmin && (
-                <FlowUserFilterControl
-                  metricLabel={metricLabel}
-                  formatMetricValue={formatNodeMetricValue}
-                  options={flowData.filterOptions.users}
-                  selectedUsers={selectedUsers}
-                  onToggleUser={handleToggleUser}
-                  onRemoveUser={handleRemoveUser}
-                  onClearUsers={handleClearUsers}
-                />
-              )}
-            </>
-          )}
+        <div className='flex min-w-0 flex-col gap-1.5'>
+          <span className='text-muted-foreground text-xs font-medium'>
+            {t('Display limit')}
+          </span>
+          <Tabs
+            value={String(topNodeLimit)}
+            onValueChange={(value) => setTopNodeLimit(Number(value))}
+            className='shrink-0'
+          >
+            <TabsList aria-label={t('Display limit')}>
+              {FLOW_TOP_LIMIT_OPTIONS.map((limit) => (
+                <TabsTrigger
+                  key={limit}
+                  value={String(limit)}
+                  className='px-2.5 text-xs'
+                >
+                  {t('Top {{count}}', { count: limit })}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
         </div>
       </div>
 
@@ -787,22 +277,6 @@ export function FlowCharts(props: FlowChartsProps) {
               <GitBranch />
             </IconBadge>
             <div className='text-sm font-semibold'>{chartTitle}</div>
-            <Tabs
-              value={viewMode}
-              onValueChange={(value) =>
-                setViewMode(value as 'breakdown' | 'sankey')
-              }
-              className='shrink-0'
-            >
-              <TabsList aria-label={t('Flow chart view')}>
-                <TabsTrigger value='breakdown' className='px-2.5 text-xs'>
-                  {t('Breakdown')}
-                </TabsTrigger>
-                <TabsTrigger value='sankey' className='px-2.5 text-xs'>
-                  {t('Sankey')}
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
           </div>
           <TooltipProvider>
             <div className='flex min-w-0 items-center gap-1 overflow-x-auto pb-1 lg:justify-end lg:pb-0'>
@@ -854,30 +328,21 @@ export function FlowCharts(props: FlowChartsProps) {
             </div>
           </TooltipProvider>
         </div>
-        {viewMode === 'sankey' ? (
-          <div
-            ref={chartHostRef}
-            className='h-[560px] p-1.5 sm:h-[680px] sm:p-2 2xl:h-[760px]'
-          >
-            {chartContent}
-          </div>
-        ) : (
-          <div className='p-3 sm:p-4'>
-            <FlowBreakdown
-              rows={flowRows ?? []}
-              metric={metric}
-              role={flowRole}
-              stages={visibleStages}
-              topLimit={topNodeLimit}
-              loading={isLoading}
-              errorMessage={isError ? flowErrorMessage : null}
-              maskSensitive={maskSensitive}
-              stageLabels={FLOW_STAGE_LABEL_KEYS}
-              metricLabel={metricLabel}
-              formatMetricValue={formatNodeMetricValue}
-            />
-          </div>
-        )}
+        <div className='p-3 sm:p-4'>
+          <FlowBreakdown
+            rows={flowRows ?? []}
+            metric={metric}
+            role={flowRole}
+            stages={visibleStages}
+            topLimit={topNodeLimit}
+            loading={isLoading}
+            errorMessage={isError ? flowErrorMessage : null}
+            maskSensitive={maskSensitive}
+            stageLabels={FLOW_STAGE_LABEL_KEYS}
+            metricLabel={metricLabel}
+            formatMetricValue={formatNodeMetricValue}
+          />
+        </div>
       </div>
     </div>
   )
