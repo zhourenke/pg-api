@@ -58,10 +58,11 @@ func ResponseOpenAI2Gemini(openAIResponse *dto.OpenAITextResponse, info convmeta
 		Candidates:       make([]dto.GeminiChatCandidate, 0, len(openAIResponse.Choices)),
 		HasUsageMetadata: true,
 		UsageMetadata: dto.GeminiUsageMetadata{
-			PromptTokenCount:     openAIResponse.PromptTokens,
-			CandidatesTokenCount: openAIResponse.CompletionTokens,
-			TotalTokenCount:      totalTokens,
-			BillingUsage:         openAIBillingUsageFromUsage(&openAIResponse.Usage),
+			PromptTokenCount:        openAIResponse.PromptTokens,
+			CandidatesTokenCount:    openAIResponse.CompletionTokens,
+			TotalTokenCount:         totalTokens,
+			CachedContentTokenCount: openAIResponse.Usage.PromptTokensDetails.CachedTokens,
+			BillingUsage:            openAIBillingUsageFromUsage(&openAIResponse.Usage),
 		},
 	}
 	if metadata, ok := geminiBillingMetadataFromOpenAIUsage(&openAIResponse.Usage); ok {
@@ -157,13 +158,7 @@ func StreamResponseOpenAI2Gemini(openAIResponse *dto.ChatCompletionsStreamRespon
 	}
 
 	if openAIResponse.Usage != nil {
-		geminiResponse.UsageMetadata.PromptTokenCount = openAIResponse.Usage.PromptTokens
-		geminiResponse.UsageMetadata.CandidatesTokenCount = openAIResponse.Usage.CompletionTokens
-		geminiResponse.UsageMetadata.TotalTokenCount = openAIResponse.Usage.TotalTokens
-		geminiResponse.UsageMetadata.BillingUsage = openAIBillingUsageFromUsage(openAIResponse.Usage)
-		if metadata, ok := geminiBillingMetadataFromOpenAIUsage(openAIResponse.Usage); ok {
-			geminiResponse.UsageMetadata = metadata
-		}
+		applyChatUsageToGeminiMetadata(&geminiResponse.UsageMetadata, openAIResponse.Usage)
 	}
 
 	for _, choice := range openAIResponse.Choices {
@@ -492,14 +487,29 @@ func newGeminiStreamResponse(candidates []dto.GeminiChatCandidate, usage *dto.Us
 	if usage == nil {
 		return response
 	}
-	response.UsageMetadata.PromptTokenCount = usage.PromptTokens
-	response.UsageMetadata.CandidatesTokenCount = usage.CompletionTokens
-	response.UsageMetadata.TotalTokenCount = usage.TotalTokens
-	response.UsageMetadata.BillingUsage = openAIBillingUsageFromUsage(usage)
-	if metadata, ok := geminiBillingMetadataFromOpenAIUsage(usage); ok {
-		response.UsageMetadata = metadata
-	}
+	applyChatUsageToGeminiMetadata(&response.UsageMetadata, usage)
 	return response
+}
+
+// applyChatUsageToGeminiMetadata maps chat usage onto the downstream Gemini
+// metadata. Cached prompt tokens have no Gemini-native chat field of their own,
+// so they land in cachedContentTokenCount, where Gemini clients read them.
+func applyChatUsageToGeminiMetadata(metadata *dto.GeminiUsageMetadata, usage *dto.Usage) {
+	metadata.PromptTokenCount = usage.PromptTokens
+	metadata.CandidatesTokenCount = usage.CompletionTokens
+	metadata.TotalTokenCount = usage.TotalTokens
+	// Canonicalized chat usage carries token details in InputTokensDetails.
+	cachedTokens := usage.PromptTokensDetails.CachedTokens
+	if cachedTokens == 0 && usage.InputTokensDetails != nil {
+		cachedTokens = usage.InputTokensDetails.CachedTokens
+	}
+	metadata.CachedContentTokenCount = cachedTokens
+	metadata.BillingUsage = openAIBillingUsageFromUsage(usage)
+	// An upstream that already answered in Gemini format keeps its own metadata,
+	// cache counts included.
+	if geminiMetadata, ok := geminiBillingMetadataFromOpenAIUsage(usage); ok {
+		*metadata = geminiMetadata
+	}
 }
 
 func geminiFunctionArguments(raw string) map[string]any {

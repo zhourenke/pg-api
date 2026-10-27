@@ -35,15 +35,17 @@ func TestResponseOpenAI2GeminiMapsTextToolFinishReasonAndUsage(t *testing.T) {
 			},
 		},
 		Usage: dto.Usage{
-			PromptTokens:     11,
-			CompletionTokens: 5,
-			TotalTokens:      16,
+			PromptTokens:        11,
+			CompletionTokens:    5,
+			TotalTokens:         16,
+			PromptTokensDetails: dto.InputTokenDetails{CachedTokens: 4},
 		},
 	}, nil)
 
 	assert.Equal(t, 11, resp.UsageMetadata.PromptTokenCount)
 	assert.Equal(t, 5, resp.UsageMetadata.CandidatesTokenCount)
 	assert.Equal(t, 16, resp.UsageMetadata.TotalTokenCount)
+	assert.Equal(t, 4, resp.UsageMetadata.CachedContentTokenCount)
 	require.NotNil(t, resp.UsageMetadata.BillingUsage)
 	require.NotNil(t, resp.UsageMetadata.BillingUsage.OpenAIUsage)
 	assert.Equal(t, dto.BillingUsageSourceOAIChat, resp.UsageMetadata.BillingUsage.Source)
@@ -83,9 +85,10 @@ func TestStreamResponseOpenAI2GeminiMapsToolCallFinishReasonAndUsage(t *testing.
 			},
 		},
 		Usage: &dto.Usage{
-			PromptTokens:     13,
-			CompletionTokens: 8,
-			TotalTokens:      21,
+			PromptTokens:        13,
+			CompletionTokens:    8,
+			TotalTokens:         21,
+			PromptTokensDetails: dto.InputTokenDetails{CachedTokens: 3},
 		},
 	}, &convmeta.Values{})
 
@@ -93,6 +96,7 @@ func TestStreamResponseOpenAI2GeminiMapsToolCallFinishReasonAndUsage(t *testing.
 	assert.Equal(t, 13, resp.UsageMetadata.PromptTokenCount)
 	assert.Equal(t, 8, resp.UsageMetadata.CandidatesTokenCount)
 	assert.Equal(t, 21, resp.UsageMetadata.TotalTokenCount)
+	assert.Equal(t, 3, resp.UsageMetadata.CachedContentTokenCount)
 	require.NotNil(t, resp.UsageMetadata.BillingUsage)
 	require.NotNil(t, resp.UsageMetadata.BillingUsage.OpenAIUsage)
 	assert.Equal(t, 13, resp.UsageMetadata.BillingUsage.OpenAIUsage.PromptTokens)
