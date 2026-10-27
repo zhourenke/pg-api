@@ -145,6 +145,11 @@ describe('FlowBreakdown', () => {
         .getAllByRole('button', { name: /muse-spark/ })
         .some((el) => el.getAttribute('aria-pressed') === 'true')
     ).toBe(true)
+    // A zero-total stage keeps its legend row, so the card does not collapse:
+    // the token that served muse-spark is still listed (at ¥0).
+    expect(
+      screen.getAllByRole('button', { name: /tok-a/ }).length
+    ).toBeGreaterThan(0)
   })
 
   it('rounds the bar ends instead of clipping small edge slices', () => {
@@ -154,10 +159,14 @@ describe('FlowBreakdown', () => {
     expect(bars.length).toBeGreaterThan(0)
     for (const bar of bars) {
       // The bar must not clip its slices with overflow-hidden; the end slices
-      // carry their own outer radius instead.
+      // carry their own outer radius, plus a minimum width so a near-zero end
+      // slice still has room for the radius instead of going square.
       expect(bar.className).not.toContain('overflow-hidden')
       const firstSlice = bar.firstElementChild as HTMLElement | null
+      const lastSlice = bar.lastElementChild as HTMLElement | null
       expect(firstSlice?.className).toContain('first:rounded-l-[5px]')
+      expect(lastSlice?.className).toContain('last:rounded-r-[5px]')
+      expect(lastSlice?.className).toContain('last:min-w-[10px]')
     }
   })
 })
