@@ -2517,7 +2517,9 @@ export function ChannelMutateDrawer({
                 <div className='space-y-1'>
                   <FormLabel>{t('Request Header Override')}</FormLabel>
                   <FormDescription>
-                    {t('Override request headers')}
+                    {t(
+                      'Override request headers. Supported variables: channel key {api_key}; client header {client_header:NAME}; conversation identity {conversation_id}.'
+                    )}
                   </FormDescription>
                 </div>
                 <div className='flex flex-wrap gap-2'>
@@ -2579,21 +2581,6 @@ export function ChannelMutateDrawer({
                   heightClassName='h-40 min-h-40 max-h-40'
                 />
               </FormControl>
-              <FormDescription className='text-xs'>
-                {t('Supported variables')}:{' '}
-                <code className='bg-muted rounded px-1 py-0.5'>
-                  {'{api_key}'}
-                </code>{' '}
-                — {t('Channel key')},{' '}
-                <code className='bg-muted rounded px-1 py-0.5'>
-                  {'{client_header:NAME}'}
-                </code>{' '}
-                — {t('Client header value')},{' '}
-                <code className='bg-muted rounded px-1 py-0.5'>
-                  {'{conversation_id}'}
-                </code>{' '}
-                — {t('Conversation identity')}
-              </FormDescription>
               <FormMessage />
             </FormItem>
           )}

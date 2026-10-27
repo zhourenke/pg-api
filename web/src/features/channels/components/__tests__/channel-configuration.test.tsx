@@ -2107,3 +2107,28 @@ test('the header override passthrough template button confirms before filling th
     )
   ).toBeChecked()
 })
+
+test('the header override placeholder legend sits in the section header, above the editor', async () => {
+  const user = userEvent.setup()
+  render(<ConfigurationHarness currentRow={editingChannel} />)
+  await screen.findByDisplayValue('Existing channel')
+  await user.click(screen.getByRole('tab', { name: /Request & Response/ }))
+
+  // 模板语法说明是标题行的描述文案，和其它提示语共用 FormDescription 的样式，
+  // 不再是编辑器下方的独立一行（那里排成 <code> 芯片，字体与提示语不一致）。
+  const legend = screen.getByText(
+    /^Override request headers\. Supported variables:/
+  )
+  expect(legend.tagName).toBe('P')
+  expect(legend).toHaveTextContent('{api_key}')
+  expect(legend).toHaveTextContent('{client_header:NAME}')
+  expect(legend).toHaveTextContent('{conversation_id}')
+
+  const header = screen.getByText('Request Header Override').parentElement
+  expect(header).toContainElement(legend)
+
+  const editor = screen.getByLabelText('Request Header Override')
+  expect(
+    legend.compareDocumentPosition(editor) & Node.DOCUMENT_POSITION_FOLLOWING
+  ).toBeTruthy()
+})
