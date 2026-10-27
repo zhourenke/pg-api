@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/zhourenke/pg-api/common"
 	"github.com/zhourenke/pg-api/logger"
@@ -138,13 +139,26 @@ func Done(c *gin.Context) {
 	_ = StringData(c, "[DONE]")
 }
 
+// streamFrameDeadline bounds one frame that has no per-stream budget, such as a
+// relayed WebSocket message: a client that stops reading is cut off after the
+// time the frame needs at streamMinClientRate, plus the same slack a stream
+// write gets.
+func streamFrameDeadline(n int) time.Time {
+	var budget StreamWriteBudget
+	return budget.Deadline(time.Now(), n)
+}
+
 func WssString(c *gin.Context, ws *websocket.Conn, str string) error {
 	if ws == nil {
 		logger.LogError(c, "websocket connection is nil")
 		return errors.New("websocket connection is nil")
 	}
 	//common.LogInfo(c, fmt.Sprintf("sending message: %s", str))
-	return ws.WriteMessage(1, []byte(str))
+	payload := []byte(str)
+	if err := ws.SetWriteDeadline(streamFrameDeadline(len(payload))); err != nil {
+		return fmt.Errorf("set websocket write deadline failed: %w", err)
+	}
+	return ws.WriteMessage(websocket.TextMessage, payload)
 }
 
 func WssObject(c *gin.Context, ws *websocket.Conn, object any) error {
@@ -157,7 +171,10 @@ func WssObject(c *gin.Context, ws *websocket.Conn, object any) error {
 		return errors.New("websocket connection is nil")
 	}
 	//common.LogInfo(c, fmt.Sprintf("sending message: %s", jsonData))
-	return ws.WriteMessage(1, jsonData)
+	if err := ws.SetWriteDeadline(streamFrameDeadline(len(jsonData))); err != nil {
+		return fmt.Errorf("set websocket write deadline failed: %w", err)
+	}
+	return ws.WriteMessage(websocket.TextMessage, jsonData)
 }
 
 func WssError(c *gin.Context, ws *websocket.Conn, openaiError types.OpenAIError) {
