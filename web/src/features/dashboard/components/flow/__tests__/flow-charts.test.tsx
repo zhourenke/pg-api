@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -42,8 +43,20 @@ const fakeChart = vi.hoisted(() => ({
   clearHovered: vi.fn(),
 }))
 
+type ChartMockProps = {
+  onReady?: (instance: unknown) => void
+  onPointerDown?: (event: unknown) => void
+  onPointerUp?: (event: unknown) => void
+  data?: unknown
+}
+
+const chartProps = vi.hoisted(() => ({
+  current: null as ChartMockProps | null,
+}))
+
 vi.mock('@visactor/react-vchart', () => ({
-  VChart: (props: { onReady?: (instance: unknown) => void }) => {
+  VChart: (props: ChartMockProps) => {
+    chartProps.current = props
     useEffect(() => {
       mountCount++
       return () => {
@@ -56,6 +69,25 @@ vi.mock('@visactor/react-vchart', () => ({
     return <div data-testid='vchart-sankey-mock' />
   },
 }))
+
+// Reads the highlight flags the component hands to the chart as its `data`
+// prop, so a test can assert the user-visible selection rather than an
+// internal state update.
+function highlightedNodeKeys(): string[] {
+  const data = chartProps.current?.data as
+    | Array<{
+        values?: Array<{
+          nodes?: Array<{ key: string; highlighted?: boolean }>
+        }>
+      }>
+    | undefined
+  const nodes = data?.[0]?.values?.[0]?.nodes ?? []
+  return nodes.filter((node) => node.highlighted).map((node) => node.key)
+}
+
+function chartEvent(pointerType: string, datum?: unknown) {
+  return { event: { pointerType }, datum }
+}
 
 vi.mock('@visactor/vchart', () => ({
   ThemeManager: { setCurrentTheme: vi.fn() },
@@ -194,10 +226,11 @@ describe('FlowCharts time filter preset updates', () => {
     expect(fakeChart.hideTooltip).toHaveBeenCalledTimes(2)
   })
 
-  it('clears the built-in hover highlight when a touch lifts, not on a mouse', async () => {
-    // vrender never dispatches `pointerout` for touch, so the mark a finger
-    // stops on keeps VChart's hover highlight; the component has to drop it on
-    // `pointerup`/`pointercancel` so a later tap does not stack a second block.
+  it('selects on touch lift, not on touch press, and drops the drag hover', async () => {
+    // A finger cannot hover, so the selection is committed when it lifts - at
+    // the point it left - rather than on press. That is what stops a swipe from
+    // leaving the highlight stuck on the node it merely passed over, and it
+    // makes a tap and a swipe-ending-on-a-node resolve to that node.
     fakeChart.clearHovered.mockClear()
     const Wrapper = createWrapper()
     render(
@@ -208,19 +241,82 @@ describe('FlowCharts time filter preset updates', () => {
     await waitFor(() => {
       expect(screen.getByTestId('vchart-sankey-mock')).toBeInTheDocument()
     })
-    const host = screen.getByTestId('vchart-sankey-mock').parentElement
-    if (!host) throw new Error('expected the chart host element')
+    const props = chartProps.current
+    if (!props) throw new Error('expected the chart props')
 
-    // A mouse release leaves the hover highlight alone.
-    fireEvent.pointerUp(host, { pointerType: 'mouse' })
+    // Pressing a node with a finger must not select it yet.
+    act(() => {
+      props.onPointerDown?.(
+        chartEvent('touch', { key: 'token:10', kind: 'token' })
+      )
+    })
+    expect(highlightedNodeKeys()).not.toContain('token:10')
     expect(fakeChart.clearHovered).not.toHaveBeenCalled()
 
-    // A raised finger clears it.
-    fireEvent.pointerUp(host, { pointerType: 'touch' })
+    // Lifting on it commits the selection and drops the transient hover.
+    act(() => {
+      props.onPointerUp?.(
+        chartEvent('touch', { key: 'token:10', kind: 'token' })
+      )
+    })
     expect(fakeChart.clearHovered).toHaveBeenCalledTimes(1)
+    expect(highlightedNodeKeys()).toContain('token:10')
+  })
 
-    // A cancelled touch clears it too.
-    fireEvent.pointerCancel(host, { pointerType: 'touch' })
-    expect(fakeChart.clearHovered).toHaveBeenCalledTimes(2)
+  it('keeps selecting on mouse press and leaves the hover alone on a mouse lift', async () => {
+    fakeChart.clearHovered.mockClear()
+    const Wrapper = createWrapper()
+    render(
+      <Wrapper>
+        <FlowCharts filters={{ preset: '24h' }} />
+      </Wrapper>
+    )
+    await waitFor(() => {
+      expect(screen.getByTestId('vchart-sankey-mock')).toBeInTheDocument()
+    })
+    const props = chartProps.current
+    if (!props) throw new Error('expected the chart props')
+
+    act(() => {
+      props.onPointerDown?.(
+        chartEvent('mouse', { key: 'token:10', kind: 'token' })
+      )
+    })
+    expect(highlightedNodeKeys()).toContain('token:10')
+
+    act(() => {
+      props.onPointerUp?.(
+        chartEvent('mouse', { key: 'token:10', kind: 'token' })
+      )
+    })
+    expect(fakeChart.clearHovered).not.toHaveBeenCalled()
+  })
+
+  it('clears the selection when a touch lifts on empty space', async () => {
+    fakeChart.hideTooltip.mockClear()
+    const Wrapper = createWrapper()
+    render(
+      <Wrapper>
+        <FlowCharts filters={{ preset: '24h' }} />
+      </Wrapper>
+    )
+    await waitFor(() => {
+      expect(screen.getByTestId('vchart-sankey-mock')).toBeInTheDocument()
+    })
+    const props = chartProps.current
+    if (!props) throw new Error('expected the chart props')
+
+    act(() => {
+      props.onPointerUp?.(
+        chartEvent('touch', { key: 'token:10', kind: 'token' })
+      )
+    })
+    expect(highlightedNodeKeys()).toContain('token:10')
+
+    act(() => {
+      props.onPointerUp?.(chartEvent('touch'))
+    })
+    expect(highlightedNodeKeys()).not.toContain('token:10')
+    expect(fakeChart.hideTooltip).toHaveBeenCalled()
   })
 })

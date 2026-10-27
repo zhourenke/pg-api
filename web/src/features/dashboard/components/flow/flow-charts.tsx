@@ -221,6 +221,12 @@ function flowChartEventDatum(event: FlowChartPointerEvent): unknown {
   return looksLikeFlowDatum(record) ? record : undefined
 }
 
+function flowPointerType(event: FlowChartPointerEvent): string | undefined {
+  const pointerEvent = chartRecordValue(event.event)
+  const pointerType = pointerEvent?.pointerType
+  return typeof pointerType === 'string' ? pointerType : undefined
+}
+
 function flowNodeFilterKey(filter: FlowNodeFilter): string {
   return `${filter.kind}\u0000${filter.id}`
 }
@@ -279,26 +285,27 @@ export function FlowCharts(props: FlowChartsProps) {
       if (target instanceof Node && host?.contains(target)) return
       hideTooltip()
     }
-    // VChart's own hover highlight follows a touch drag, but vrender only resets
-    // it on `pointerout`, an event it never dispatches for touch: a finger has
-    // no hover phase, so the gesture ends at `touchend` without one and the mark
-    // it stopped on stays lit. That stale highlight cannot be cleared by a tap -
-    // a tap only adds our data-driven highlight on top, leaving two blocks lit -
-    // and only another drag moves it. Drop the built-in hover state when the
-    // finger lifts or the touch is cancelled; the selection styling we render
-    // from `highlighted`/`dimmed` data is unaffected.
-    const releaseTouchHover = (event: PointerEvent) => {
+    // VChart's built-in hover highlight follows a touch drag, and vrender only
+    // resets it on `pointerout` - an event it never dispatches for touch, so a
+    // finger that lifts without one leaves the mark it stopped on lit. A normal
+    // lift is handled in `handleChartPointerUp`, which commits the selection and
+    // drops the transient hover there. A cancelled touch (a scroll or a system
+    // gesture taking the pointer) never reaches VChart as a `pointerup` at all,
+    // so clear the leftover hover here instead of leaving it stuck forever.
+    const releaseCancelledTouchHover = (event: PointerEvent) => {
       if (event.pointerType !== 'touch') return
       chartInstanceRef.current?.clearHovered()
     }
     host?.addEventListener('pointerleave', handlePointerLeave, true)
-    host?.addEventListener('pointerup', releaseTouchHover, true)
-    host?.addEventListener('pointercancel', releaseTouchHover, true)
+    host?.addEventListener('pointercancel', releaseCancelledTouchHover, true)
     document.addEventListener('pointerdown', handlePointerDownOutside, true)
     return () => {
       host?.removeEventListener('pointerleave', handlePointerLeave, true)
-      host?.removeEventListener('pointerup', releaseTouchHover, true)
-      host?.removeEventListener('pointercancel', releaseTouchHover, true)
+      host?.removeEventListener(
+        'pointercancel',
+        releaseCancelledTouchHover,
+        true
+      )
       document.removeEventListener(
         'pointerdown',
         handlePointerDownOutside,
@@ -463,8 +470,7 @@ export function FlowCharts(props: FlowChartsProps) {
   // Clicking a node only drives the highlight: keep every node/link on screen
   // but emphasize the full paths through the clicked node and dim the rest.
   // Clicking the active node again, or clicking empty space, clears it.
-  const handleChartPointerDown = useCallback((event: FlowChartPointerEvent) => {
-    const datum = flowChartEventDatum(event)
+  const applyFlowSelection = useCallback((datum: unknown) => {
     const filter = flowNodeFilterFromSankeyDatum(datum)
     if (filter) {
       setActiveFlowLink(undefined)
@@ -494,6 +500,31 @@ export function FlowCharts(props: FlowChartsProps) {
     // on empty flow space dismisses it explicitly.
     chartInstanceRef.current?.hideTooltip()
   }, [])
+  // A mouse selects on press, as it always has. A finger cannot hover, so a
+  // touch gesture is committed on lift instead - at the point the finger leaves
+  // the glass, which is the spot the user is looking at, not where the drag
+  // began. VChart's `pointerup` re-picks the mark from the touch's final
+  // coordinates, so a tap and a swipe that ends on a node both resolve to that
+  // node, exactly like a click. Committing on lift (rather than on press) is
+  // also what keeps a swipe from leaving the highlight behind on the node it
+  // started over.
+  const handleChartPointerDown = useCallback(
+    (event: FlowChartPointerEvent) => {
+      if (flowPointerType(event) === 'touch') return
+      applyFlowSelection(flowChartEventDatum(event))
+    },
+    [applyFlowSelection]
+  )
+  const handleChartPointerUp = useCallback(
+    (event: FlowChartPointerEvent) => {
+      if (flowPointerType(event) !== 'touch') return
+      // Drop the transient built-in hover the drag left on the mark, so the
+      // committed selection is the only highlight left on screen.
+      chartInstanceRef.current?.clearHovered()
+      applyFlowSelection(flowChartEventDatum(event))
+    },
+    [applyFlowSelection]
+  )
   const chartTitle = t('Flow')
   const flowSpec = useMemo(
     () =>
@@ -562,6 +593,7 @@ export function FlowCharts(props: FlowChartsProps) {
         chartInstanceRef.current = instance
       }}
       onPointerDown={handleChartPointerDown}
+      onPointerUp={handleChartPointerUp}
     />
   )
   if (displayState === 'loading') {
