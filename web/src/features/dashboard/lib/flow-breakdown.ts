@@ -144,7 +144,7 @@ export function buildFlowBreakdown(
 /**
  * Applies a click on a segment: at most one filter per dimension, and clicking
  * the already-selected segment clears it. Mirrors the cross-filter behaviour of
- * a pivot chart rather than the multi-select of the Sankey node chips.
+ * a pivot chart.
  */
 export function toggleFlowBreakdownFilter(
   filters: readonly FlowNodeFilter[],

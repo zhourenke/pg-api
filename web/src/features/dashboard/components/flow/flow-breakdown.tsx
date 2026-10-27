@@ -54,7 +54,6 @@ interface FlowBreakdownProps {
   errorMessage?: string | null
   maskSensitive?: boolean
   stageLabels: Record<FlowNodeKind, string>
-  metricLabel: string
   formatMetricValue: (value: number) => string
 }
 

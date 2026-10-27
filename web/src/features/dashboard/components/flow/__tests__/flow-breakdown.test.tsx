@@ -68,7 +68,6 @@ function renderBreakdown() {
       stages={['token', 'group', 'model']}
       topLimit={50}
       stageLabels={STAGE_LABELS}
-      metricLabel='Quota'
       formatMetricValue={(value) => String(value)}
     />
   )

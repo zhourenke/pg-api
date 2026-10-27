@@ -71,12 +71,6 @@ const FLOW_METRIC_OPTIONS = [
   { value: 'requests', labelKey: 'By requests', icon: Activity },
 ] as const
 
-const FLOW_METRIC_LABEL_KEYS: Record<FlowMetric, string> = {
-  quota: 'Quota',
-  tokens: 'Tokens',
-  requests: 'Requests',
-}
-
 const FLOW_TOP_LIMIT_OPTIONS = [10, 20, 50, 100] as const
 
 const DEFAULT_FLOW_TOP_NODE_LIMIT = 50
@@ -184,7 +178,6 @@ export function FlowCharts(props: FlowChartsProps) {
   })
 
   const maskSensitive = props.sensitiveVisible === false
-  const metricLabel = t(FLOW_METRIC_LABEL_KEYS[metric])
   const formatNodeMetricValue = useCallback(
     (value: number) =>
       metric === 'quota' ? formatQuota(value) : formatFlowMetricNumber(value),
@@ -339,7 +332,6 @@ export function FlowCharts(props: FlowChartsProps) {
             errorMessage={isError ? flowErrorMessage : null}
             maskSensitive={maskSensitive}
             stageLabels={FLOW_STAGE_LABEL_KEYS}
-            metricLabel={metricLabel}
             formatMetricValue={formatNodeMetricValue}
           />
         </div>
