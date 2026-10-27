@@ -91,6 +91,7 @@ import { cn } from '@/lib/utils'
 import { VCHART_OPTION } from '@/lib/vchart'
 import { useAuthStore } from '@/stores/auth-store'
 
+import { FlowBreakdown } from './flow-breakdown'
 import { FlowNodeFilterControl } from './flow-node-filter'
 import { FlowUserFilterControl } from './flow-user-filter'
 
@@ -343,6 +344,7 @@ export function FlowCharts(props: FlowChartsProps) {
     FlowLinkSelection | undefined
   >()
   const [hiddenStages, setHiddenStages] = useState<FlowNodeKind[]>([])
+  const [viewMode, setViewMode] = useState<'breakdown' | 'sankey'>('sankey')
 
   const stages = useMemo(() => getFlowStages(flowRole), [flowRole])
   const visibleStages = useMemo(
@@ -748,28 +750,32 @@ export function FlowCharts(props: FlowChartsProps) {
             </Tabs>
           </div>
 
-          <FlowNodeFilterControl
-            stages={nodeFilterStages}
-            stageLabels={FLOW_STAGE_LABEL_KEYS}
-            metricLabel={metricLabel}
-            formatMetricValue={formatNodeMetricValue}
-            options={nodeFilterOptions}
-            selectedNodes={selectedNodes}
-            onToggleNode={toggleFlowNodeFilter}
-            onRemoveNode={removeFlowNodeFilter}
-            onClearNodes={clearFlowNodeFilters}
-          />
+          {viewMode === 'sankey' && (
+            <>
+              <FlowNodeFilterControl
+                stages={nodeFilterStages}
+                stageLabels={FLOW_STAGE_LABEL_KEYS}
+                metricLabel={metricLabel}
+                formatMetricValue={formatNodeMetricValue}
+                options={nodeFilterOptions}
+                selectedNodes={selectedNodes}
+                onToggleNode={toggleFlowNodeFilter}
+                onRemoveNode={removeFlowNodeFilter}
+                onClearNodes={clearFlowNodeFilters}
+              />
 
-          {isAdmin && (
-            <FlowUserFilterControl
-              metricLabel={metricLabel}
-              formatMetricValue={formatNodeMetricValue}
-              options={flowData.filterOptions.users}
-              selectedUsers={selectedUsers}
-              onToggleUser={handleToggleUser}
-              onRemoveUser={handleRemoveUser}
-              onClearUsers={handleClearUsers}
-            />
+              {isAdmin && (
+                <FlowUserFilterControl
+                  metricLabel={metricLabel}
+                  formatMetricValue={formatNodeMetricValue}
+                  options={flowData.filterOptions.users}
+                  selectedUsers={selectedUsers}
+                  onToggleUser={handleToggleUser}
+                  onRemoveUser={handleRemoveUser}
+                  onClearUsers={handleClearUsers}
+                />
+              )}
+            </>
           )}
         </div>
       </div>
@@ -781,6 +787,22 @@ export function FlowCharts(props: FlowChartsProps) {
               <GitBranch />
             </IconBadge>
             <div className='text-sm font-semibold'>{chartTitle}</div>
+            <Tabs
+              value={viewMode}
+              onValueChange={(value) =>
+                setViewMode(value as 'breakdown' | 'sankey')
+              }
+              className='shrink-0'
+            >
+              <TabsList aria-label={t('Flow chart view')}>
+                <TabsTrigger value='breakdown' className='px-2.5 text-xs'>
+                  {t('Breakdown')}
+                </TabsTrigger>
+                <TabsTrigger value='sankey' className='px-2.5 text-xs'>
+                  {t('Sankey')}
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
           <TooltipProvider>
             <div className='flex min-w-0 items-center gap-1 overflow-x-auto pb-1 lg:justify-end lg:pb-0'>
@@ -832,12 +854,30 @@ export function FlowCharts(props: FlowChartsProps) {
             </div>
           </TooltipProvider>
         </div>
-        <div
-          ref={chartHostRef}
-          className='h-[560px] p-1.5 sm:h-[680px] sm:p-2 2xl:h-[760px]'
-        >
-          {chartContent}
-        </div>
+        {viewMode === 'sankey' ? (
+          <div
+            ref={chartHostRef}
+            className='h-[560px] p-1.5 sm:h-[680px] sm:p-2 2xl:h-[760px]'
+          >
+            {chartContent}
+          </div>
+        ) : (
+          <div className='p-3 sm:p-4'>
+            <FlowBreakdown
+              rows={flowRows ?? []}
+              metric={metric}
+              role={flowRole}
+              stages={visibleStages}
+              topLimit={topNodeLimit}
+              loading={isLoading}
+              errorMessage={isError ? flowErrorMessage : null}
+              maskSensitive={maskSensitive}
+              stageLabels={FLOW_STAGE_LABEL_KEYS}
+              metricLabel={metricLabel}
+              formatMetricValue={formatNodeMetricValue}
+            />
+          </div>
+        )}
       </div>
     </div>
   )

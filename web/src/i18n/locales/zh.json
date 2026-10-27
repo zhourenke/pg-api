@@ -5281,6 +5281,12 @@
     "Your Turnstile site key": "您的 Turnstile 站点密钥",
     "Zhipu": "智谱",
     "Zhipu GLM": "智谱GLM",
-    "Zhipu V4": "智谱 V4"
+    "Zhipu V4": "智谱 V4",
+    "Breakdown": "分流条",
+    "Filtered by": "已筛选",
+    "Flow chart view": "流向图视图",
+    "Other {{stage}}": "其他{{stage}}",
+    "Sankey": "流向图",
+    "Select a slice to drill into the next stage": "点选一段可下钻到下一层"
   }
 }
