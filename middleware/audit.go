@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"bytes"
+	"net/http"
 	"strconv"
 
 	"github.com/zhourenke/pg-api/common"
@@ -36,6 +37,12 @@ func (w *auditResponseWriter) Write(b []byte) (int, error) {
 
 func (w *auditResponseWriter) WriteString(s string) (int, error) {
 	return w.Write([]byte(s))
+}
+
+// Unwrap 让 http.ResponseController 能穿过这层包装摸到连接：否则写截止时间和
+// Hijack 在这条链上会静默失效（编解码本身不关心，但流式响应会）。
+func (w *auditResponseWriter) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
 }
 
 // auditRouteActions 将「METHOD + 路由模板」映射为语言无关的操作标识 action。
