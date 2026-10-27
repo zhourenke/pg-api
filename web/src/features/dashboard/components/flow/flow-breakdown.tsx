@@ -111,6 +111,12 @@ export function FlowBreakdown(props: FlowBreakdownProps) {
     )
   }
 
+  // A stage whose cross-filtered total is zero has nothing to draw, but a stage
+  // of the dimension the user just picked ignores its own filter, so at least
+  // that stage keeps its values. Only treat the whole card as empty when no
+  // stage has anything to show and no filter is pinning the view.
+  const hasValues = breakdown.stages.some((stage) => stage.total > 0)
+
   let body = null
   if (props.loading) {
     body = (
@@ -127,7 +133,7 @@ export function FlowBreakdown(props: FlowBreakdownProps) {
         <AlertDescription>{props.errorMessage}</AlertDescription>
       </Alert>
     )
-  } else if (breakdown.total <= 0) {
+  } else if (!hasValues && activeFilters.length === 0) {
     body = (
       <Empty className='border-0 py-12'>
         <EmptyHeader>
@@ -184,7 +190,7 @@ export function FlowBreakdown(props: FlowBreakdownProps) {
                 </span>
               </div>
 
-              {stage.segments.length === 0 ? (
+              {stage.segments.length === 0 || stage.total <= 0 ? (
                 <div
                   className={cn(
                     'bg-muted text-muted-foreground flex h-9 items-center justify-center rounded-md border',
@@ -194,13 +200,20 @@ export function FlowBreakdown(props: FlowBreakdownProps) {
                   {t('No data available')}
                 </div>
               ) : (
-                <div className='flex h-9 w-full overflow-hidden rounded-md border'>
+                // Round the outer edges on the end segments instead of clipping
+                // the row with overflow-hidden: a clip shaves a slice narrower
+                // than the corner radius into a lopsided wedge, while an explicit
+                // radius keeps every small end slice a clean little cap.
+                <div
+                  data-testid='flow-breakdown-bar'
+                  className='flex h-9 w-full rounded-md border'
+                >
                   {stage.segments.map((segment) => {
                     if (segment.isOther) {
                       return (
                         <div
                           key={segment.id}
-                          className='h-full'
+                          className='h-full first:rounded-l-[5px] last:rounded-r-[5px]'
                           style={{
                             width: `${segment.share * 100}%`,
                             backgroundColor: segment.color,
@@ -220,9 +233,13 @@ export function FlowBreakdown(props: FlowBreakdownProps) {
                         aria-label={`${segment.label} ${props.formatMetricValue(segment.value)} ${segmentPercent(segment)}%`}
                         onClick={() => toggleSegment(segment)}
                         className={cn(
-                          'relative h-full min-w-[3px] cursor-pointer transition-opacity focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset',
+                          'relative h-full cursor-pointer transition-opacity first:rounded-l-[5px] last:rounded-r-[5px] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset',
                           dimmed && 'opacity-35',
-                          selected && 'ring-2 ring-foreground ring-inset'
+                          // A selected slice with (almost) no usage would be a
+                          // zero-width sliver; keep a hair of width so its ring
+                          // still marks the pick.
+                          selected &&
+                            'min-w-[3px] ring-2 ring-foreground ring-inset'
                         )}
                         style={{
                           width: `${segment.share * 100}%`,
@@ -234,57 +251,59 @@ export function FlowBreakdown(props: FlowBreakdownProps) {
                 </div>
               )}
 
-              <div className='flex h-8 items-center gap-3 overflow-x-auto whitespace-nowrap'>
-                {stage.segments.map((segment) => {
-                  const selected = Boolean(
-                    stageFilter && stageFilter.id === segment.id
-                  )
-                  if (segment.isOther) {
+              {stage.total > 0 && (
+                <div className='flex h-8 items-center gap-3 overflow-x-auto whitespace-nowrap'>
+                  {stage.segments.map((segment) => {
+                    const selected = Boolean(
+                      stageFilter && stageFilter.id === segment.id
+                    )
+                    if (segment.isOther) {
+                      return (
+                        <span
+                          key={segment.id}
+                          className={cn(
+                            'text-muted-foreground inline-flex shrink-0 items-center gap-1',
+                            CHIP_TEXT
+                          )}
+                        >
+                          <span
+                            className='size-2 rounded-full'
+                            style={{ backgroundColor: segment.color }}
+                          />
+                          {segment.label}
+                          <span className='tabular-nums opacity-80'>
+                            {props.formatMetricValue(segment.value)}
+                          </span>
+                        </span>
+                      )
+                    }
                     return (
-                      <span
+                      <button
                         key={segment.id}
+                        type='button'
+                        aria-pressed={selected}
+                        onClick={() => toggleSegment(segment)}
                         className={cn(
-                          'text-muted-foreground inline-flex shrink-0 items-center gap-1',
-                          CHIP_TEXT
+                          'inline-flex max-w-[18rem] shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 transition-colors',
+                          CHIP_TEXT,
+                          selected
+                            ? 'border-foreground bg-foreground text-background'
+                            : 'hover:bg-muted'
                         )}
                       >
                         <span
-                          className='size-2 rounded-full'
+                          className='size-2 shrink-0 rounded-full'
                           style={{ backgroundColor: segment.color }}
                         />
-                        {segment.label}
+                        <span className='truncate'>{segment.label}</span>
                         <span className='tabular-nums opacity-80'>
                           {props.formatMetricValue(segment.value)}
                         </span>
-                      </span>
+                      </button>
                     )
-                  }
-                  return (
-                    <button
-                      key={segment.id}
-                      type='button'
-                      aria-pressed={selected}
-                      onClick={() => toggleSegment(segment)}
-                      className={cn(
-                        'inline-flex max-w-[18rem] shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 transition-colors',
-                        CHIP_TEXT,
-                        selected
-                          ? 'border-foreground bg-foreground text-background'
-                          : 'hover:bg-muted'
-                      )}
-                    >
-                      <span
-                        className='size-2 shrink-0 rounded-full'
-                        style={{ backgroundColor: segment.color }}
-                      />
-                      <span className='truncate'>{segment.label}</span>
-                      <span className='tabular-nums opacity-80'>
-                        {props.formatMetricValue(segment.value)}
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
+                  })}
+                </div>
+              )}
             </div>
           )
         })}
