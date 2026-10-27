@@ -18,10 +18,12 @@ import (
 //
 // Exceeding either one aborts the attempt while nothing has been written to the
 // client yet, which keeps failover to another channel legal. Zero disables the
-// corresponding budget.
+// corresponding budget, and both are disabled by default so that a model that
+// legitimately thinks for a while is never abandoned unless an operator asks
+// for the bound.
 const (
-	DefaultFirstTokenTimeoutSeconds   = 30
-	DefaultFirstContentTimeoutSeconds = 30
+	DefaultFirstTokenTimeoutSeconds   = 0
+	DefaultFirstContentTimeoutSeconds = 0
 	// maxStreamTimeoutSeconds keeps a rounded or mistyped value from turning the
 	// budgets into a de facto unlimited wait; STREAMING_TIMEOUT still bounds a
 	// stream that keeps emitting data.
