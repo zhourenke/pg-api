@@ -265,6 +265,13 @@ export function FlowCharts(props: FlowChartsProps) {
   const { t } = useTranslation()
   const { resolvedTheme, themeReady } = useChartTheme()
   const chartInstanceRef = useRef<IVChart | null>(null)
+  // The datum the finger last touched during the current touch gesture. A finger
+  // rarely lifts exactly on a 17px-wide Sankey node, so committing only the mark
+  // under the lift point made a swipe's highlight vanish the moment the finger
+  // drifted into a gap. Recording the pressed / passed-over datum and falling
+  // back to it on lift keeps the highlight on the last thing the finger touched,
+  // the way a click on that node would.
+  const touchDatumRef = useRef<unknown>(undefined)
   // Keep the tooltip a finger tapped open after it lifts; see the hook.
   const chartHostRef = useRef<HTMLDivElement>(null)
   useTouchTooltipHold(chartHostRef)
@@ -294,6 +301,7 @@ export function FlowCharts(props: FlowChartsProps) {
     // so clear the leftover hover here instead of leaving it stuck forever.
     const releaseCancelledTouchHover = (event: PointerEvent) => {
       if (event.pointerType !== 'touch') return
+      touchDatumRef.current = undefined
       chartInstanceRef.current?.clearHovered()
     }
     host?.addEventListener('pointerleave', handlePointerLeave, true)
@@ -501,19 +509,34 @@ export function FlowCharts(props: FlowChartsProps) {
     chartInstanceRef.current?.hideTooltip()
   }, [])
   // A mouse selects on press, as it always has. A finger cannot hover, so a
-  // touch gesture is committed on lift instead - at the point the finger leaves
-  // the glass, which is the spot the user is looking at, not where the drag
-  // began. VChart's `pointerup` re-picks the mark from the touch's final
-  // coordinates, so a tap and a swipe that ends on a node both resolve to that
-  // node, exactly like a click. Committing on lift (rather than on press) is
-  // also what keeps a swipe from leaving the highlight behind on the node it
-  // started over.
+  // touch gesture is committed on lift instead - but the mark that counts is the
+  // one the finger touched, not necessarily the one under the lift point (a
+  // fingertip is far wider than a Sankey node and routinely lifts in a gap). We
+  // remember the datum seen on press and while moving, and commit that on lift;
+  // the lift point's own datum still wins when it has one. This is what makes a
+  // swipe keep its highlight instead of dropping it on release, matching a click.
+  const rememberTouchDatum = useCallback((event: FlowChartPointerEvent) => {
+    if (flowPointerType(event) !== 'touch') return
+    const datum = flowChartEventDatum(event)
+    if (datum === undefined || datum === null) return
+    touchDatumRef.current = datum
+  }, [])
   const handleChartPointerDown = useCallback(
     (event: FlowChartPointerEvent) => {
-      if (flowPointerType(event) === 'touch') return
+      if (flowPointerType(event) === 'touch') {
+        // Start a fresh gesture: only this gesture's touches may be committed.
+        touchDatumRef.current = flowChartEventDatum(event) ?? undefined
+        return
+      }
       applyFlowSelection(flowChartEventDatum(event))
     },
     [applyFlowSelection]
+  )
+  const handleChartPointerMove = useCallback(
+    (event: FlowChartPointerEvent) => {
+      rememberTouchDatum(event)
+    },
+    [rememberTouchDatum]
   )
   const handleChartPointerUp = useCallback(
     (event: FlowChartPointerEvent) => {
@@ -521,7 +544,10 @@ export function FlowCharts(props: FlowChartsProps) {
       // Drop the transient built-in hover the drag left on the mark, so the
       // committed selection is the only highlight left on screen.
       chartInstanceRef.current?.clearHovered()
-      applyFlowSelection(flowChartEventDatum(event))
+      const liftDatum = flowChartEventDatum(event)
+      const datum = liftDatum ?? touchDatumRef.current
+      touchDatumRef.current = undefined
+      applyFlowSelection(datum)
     },
     [applyFlowSelection]
   )
@@ -593,6 +619,7 @@ export function FlowCharts(props: FlowChartsProps) {
         chartInstanceRef.current = instance
       }}
       onPointerDown={handleChartPointerDown}
+      onPointerMove={handleChartPointerMove}
       onPointerUp={handleChartPointerUp}
     />
   )
