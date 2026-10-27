@@ -21,7 +21,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { resolveTimeWindow } from '@/lib/time-window'
 
-import { useDashboardWindow } from '../use-dashboard-window'
+import {
+  refreshDashboardWindow,
+  useDashboardWindow,
+} from '../use-dashboard-window'
 
 const BEFORE_MIDNIGHT = new Date(2026, 7, 12, 23, 59)
 const AFTER_MIDNIGHT = new Date(2026, 7, 13, 0, 5)
@@ -56,19 +59,27 @@ describe('dashboard window', () => {
     expect(result.current).toBe(first)
   })
 
-  it('re-resolves a calendar window once the tab becomes visible again', () => {
-    const { result } = renderHook(() => useDashboardWindow({ preset: 'today' }))
+  it('keeps the resolved window when the tab is brought back to the foreground', () => {
+    const { result } = renderHook(() => useDashboardWindow({ preset: '7d' }))
     const before = result.current
-    expect(before).toEqual(resolveTimeWindow('today', BEFORE_MIDNIGHT))
+    expect(before).toEqual(resolveTimeWindow('7d', BEFORE_MIDNIGHT))
 
-    // Local midnight passes while the dashboard sits in a background tab. The
-    // window is still the stale one, because nothing has asked for it again.
+    // Coming back to the tab must not advance the window, otherwise every
+    // foreground switch would refetch the dashboard.
     vi.setSystemTime(AFTER_MIDNIGHT)
-    expect(result.current).toEqual(before)
-
     act(() => bringTabBackToForeground())
 
-    expect(result.current).toEqual(resolveTimeWindow('today', AFTER_MIDNIGHT))
-    expect(result.current.start).toBeGreaterThan(before.start)
+    expect(result.current).toEqual(before)
+  })
+
+  it('re-resolves the window when the dashboard is manually refreshed', () => {
+    const { result } = renderHook(() => useDashboardWindow({ preset: '7d' }))
+    const before = result.current
+
+    vi.setSystemTime(AFTER_MIDNIGHT)
+    act(() => refreshDashboardWindow())
+
+    expect(result.current).toEqual(resolveTimeWindow('7d', AFTER_MIDNIGHT))
+    expect(result.current.end).toBeGreaterThan(before.end)
   })
 })

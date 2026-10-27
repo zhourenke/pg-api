@@ -23,26 +23,36 @@ import type { TimeWindow } from '@/lib/time-window'
 import { resolveDashboardWindow } from '../lib'
 import type { DashboardFilters } from '../types'
 
+const DASHBOARD_WINDOW_REFRESH_EVENT = 'dashboard:window-refresh'
+
+/**
+ * Re-resolve every mounted dashboard window against the current clock. The
+ * dashboard's Refresh button calls this so a manual refresh advances rolling
+ * windows ("last 24h", "7d"); merely bringing the tab back to the foreground
+ * must not, otherwise the page would refetch every time the user returns to it.
+ */
+export function refreshDashboardWindow(): void {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new Event(DASHBOARD_WINDOW_REFRESH_EVENT))
+}
+
 /**
  * The window a dashboard panel queries with, stable enough to sit in a query
- * key: it changes when the selected window changes and when the tab is brought
- * back to the foreground, never on every render.
+ * key: it changes when the selected window changes and when a manual refresh
+ * asks for a fresh "now", never on every render or on tab focus.
  *
  * A preset is resolved here rather than read back from stored timestamps, which
  * is what keeps a calendar window ("today", "this week") correct without a
- * reload: a dashboard left open across local midnight picks up the new bounds
- * as soon as the user comes back to it.
+ * reload: a manual refresh after local midnight picks up the new bounds.
  */
 export function useDashboardWindow(filters?: DashboardFilters): TimeWindow {
   const [now, setNow] = useState(() => new Date())
 
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') setNow(new Date())
-    }
-    document.addEventListener('visibilitychange', handleVisibilityChange)
+    const handleRefresh = () => setNow(new Date())
+    window.addEventListener(DASHBOARD_WINDOW_REFRESH_EVENT, handleRefresh)
     return () =>
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener(DASHBOARD_WINDOW_REFRESH_EVENT, handleRefresh)
   }, [])
 
   // The three fields are read out individually so that a caller passing a fresh

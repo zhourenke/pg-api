@@ -43,6 +43,7 @@ import { OverviewDashboard } from './components/overview/overview-dashboard'
 import { DashboardToolbar } from './components/ui/dashboard-toolbar'
 import { DEFAULT_TIME_GRANULARITY } from './constants'
 import { useDashboardData } from './hooks/use-dashboard-data'
+import { refreshDashboardWindow } from './hooks/use-dashboard-window'
 import {
   buildDefaultDashboardFilters,
   getSavedChartPreferences,
@@ -190,6 +191,9 @@ export function Dashboard() {
   const handleRefresh = useCallback(async () => {
     setIsManualRefreshing(true)
     try {
+      // Advance every panel's window to the current instant first: the window
+      // is otherwise frozen at mount so returning to the tab never refetches.
+      refreshDashboardWindow()
       await Promise.all([
         refetchModelData(),
         queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
